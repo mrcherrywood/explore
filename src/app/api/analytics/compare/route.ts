@@ -54,6 +54,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch measure names for better context
+    const normalizeMeasureName = (value: string) => value.replace(/\s+/g, ' ').trim().toLowerCase();
+
     const { data: measuresData } = await supabase
       .from('ma_measures')
       .select('code, name')
@@ -63,13 +65,29 @@ export async function POST(req: NextRequest) {
       (measuresData || []).map((m: { code: string; name: string }) => [m.code, m.name])
     );
 
+    const metricsWithCanonicalNames = (metricsData || []).map((row: {
+      year: number;
+      contract_id: string;
+      metric_code: string;
+      metric_label: string | null;
+      rate_percent: number | null;
+      star_rating: string | null;
+    }) => {
+      const canonicalName = measureNames.get(row.metric_code) ?? row.metric_label ?? row.metric_code;
+      return {
+        ...row,
+        metric_label: canonicalName,
+        metric_key: normalizeMeasureName(canonicalName),
+      };
+    });
+
     const aiPrompt = `You are analyzing Medicare Advantage performance data. The user wants to compare:
 - Contracts: ${contracts.join(', ')}
 - Measures: ${measures.map((code: string) => measureNames.get(code) || code).join(', ')}
 - Years: ${years.join(', ')}
 
-Here is the data (${metricsData?.length || 0} rows):
-${JSON.stringify(metricsData, null, 2)}
+Here is the data (${metricsWithCanonicalNames.length} rows):
+${JSON.stringify(metricsWithCanonicalNames, null, 2)}
 
 IMPORTANT DATA NOTES:
 - Each row has both "rate_percent" (numeric performance value) and "star_rating" (1-5 stars)

@@ -261,7 +261,7 @@ export async function POST(req: NextRequest) {
 
     const { data: metricRows, error: metricError } = await supabase
       .from("ma_metrics")
-      .select("contract_id, metric_code, metric_label, rate_percent, star_rating, year")
+      .select("contract_id, metric_code, metric_label, metric_category, rate_percent, star_rating, year")
       .in("contract_id", uniquePeerContracts)
       .eq("year", metricsYear);
 
@@ -272,35 +272,57 @@ export async function POST(req: NextRequest) {
     // Fetch measure metadata to get domain and weight information
     const { data: measures } = await supabase
       .from('ma_measures')
-      .select('code, domain, weight')
+      .select('code, domain, weight, name')
       .eq('year', metricsYear);
 
+    const deriveCategory = (code: string) => code.startsWith('C') ? 'Part C' : code.startsWith('D') ? 'Part D' : 'Other';
+
     const measureMap = new Map(
-      (measures || []).map((m: { code: string; domain: string | null; weight: number | null }) => 
-        [m.code, { domain: m.domain, weight: m.weight }]
+      (measures || []).map((m: { code: string; domain: string | null; weight: number | null; name: string | null }) => 
+        [m.code, { domain: m.domain, weight: m.weight, name: m.name, category: deriveCategory(m.code) }]
       )
     );
+
+    const normalizeMeasureName = (value: string) => value.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    const normalizedNameToCategories = new Map<string, Set<string>>();
+    (measures || []).forEach((m: { name: string | null; code: string }) => {
+      if (!m.name) return;
+      const normalized = normalizeMeasureName(m.name);
+      if (!normalizedNameToCategories.has(normalized)) {
+        normalizedNameToCategories.set(normalized, new Set());
+      }
+      normalizedNameToCategories.get(normalized)!.add(measureMap.get(m.code)?.category ?? deriveCategory(m.code));
+    });
 
     type MetricEntry = {
       contract_id: string;
       metric_code: string;
       metric_label: string | null;
+      metric_category: string | null;
       rate_percent: number | null;
       star_rating: string | null;
     };
 
-    const metricByCode = new Map<string, { label: string; values: Map<string, { rate: number | null; star: number | null }> }>();
+    const metricByName = new Map<string, { label: string; values: Map<string, { rate: number | null; star: number | null }> }>();
 
     (metricRows as MetricEntry[] | null)?.forEach((entry) => {
-      const label = entry.metric_label || entry.metric_code;
-      const metricKey = entry.metric_code;
-      if (!metricByCode.has(metricKey)) {
-        metricByCode.set(metricKey, {
-          label,
+      const measureInfo = measureMap.get(entry.metric_code);
+      const resolvedName = measureInfo?.name?.trim() || entry.metric_label?.trim() || entry.metric_code;
+      const category = measureInfo?.category ?? entry.metric_category ?? deriveCategory(entry.metric_code);
+      const normalizedName = normalizeMeasureName(resolvedName);
+      const metricKey = `${normalizedName}|${category}`;
+      if (!metricByName.has(metricKey)) {
+        const categoriesForName = normalizedNameToCategories.get(normalizedName);
+        const displayName = categoriesForName && categoriesForName.size > 1
+          ? `${resolvedName} (${category})`
+          : resolvedName;
+        metricByName.set(metricKey, {
+          label: displayName,
           values: new Map(),
         });
       }
-      const metric = metricByCode.get(metricKey)!;
+      const metric = metricByName.get(metricKey)!;
       const starNumeric = entry.star_rating ? Number.parseFloat(entry.star_rating) : null;
       metric.values.set(entry.contract_id, {
         rate: entry.rate_percent,
@@ -373,7 +395,7 @@ export async function POST(req: NextRequest) {
       yAxisTicks: [0, 1, 2, 3, 4, 5],
     } : null;
 
-    const measureCharts = Array.from(metricByCode.entries())
+    const measureCharts = Array.from(metricByName.entries())
       .sort((a, b) => a[1].label.localeCompare(b[1].label))
       .map(([, metric]) => {
         // Create data only for peers with values for this metric

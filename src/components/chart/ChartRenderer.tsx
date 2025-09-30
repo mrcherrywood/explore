@@ -17,6 +17,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  LabelList,
 } from "recharts";
 
 export type ChartSeries = { key: string; name?: string };
@@ -33,6 +34,8 @@ export type ChartSpec = {
   highlightValue?: string | number;
   yAxisDomain?: [number, number];
   yAxisTicks?: number[];
+  showLabels?: boolean;
+  labelKey?: string;
 };
 
 function isChartSpec(value: unknown): value is ChartSpec {
@@ -113,6 +116,8 @@ function normalizeChartSpec(spec: unknown): ChartSpec | null {
     highlightValue,
     yAxisDomain,
     yAxisTicks,
+    showLabels: spec.showLabels,
+    labelKey: typeof spec.labelKey === "string" ? spec.labelKey : undefined,
   } satisfies ChartSpec;
 }
 
@@ -185,7 +190,7 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
     }
   };
 
-  const containerHeight = normalized.type === "pie" ? 320 : 320;
+  const containerHeight = normalized.type === "pie" ? 320 : 360;
 
   let chart: React.ReactElement | null = null;
   if (normalized.type === "line") {
@@ -214,7 +219,7 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
     );
   } else if (normalized.type === "bar") {
     chart = (
-      <BarChart data={normalized.data}>
+      <BarChart data={normalized.data} margin={{ top: 30, right: 5, left: 5, bottom: 5 }}>
         <XAxis dataKey={normalized.xKey} stroke="#64748b" tick={{ fill: "#475569", fontSize: 13, fontWeight: 500 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={80} />
         <YAxis stroke="#64748b" tick={{ fill: "#475569", fontSize: 13, fontWeight: 500 }} axisLine={false} tickLine={false} domain={normalized.yAxisDomain} ticks={normalized.yAxisTicks} />
         <Tooltip 
@@ -237,6 +242,23 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
                   (highlightMatches ? "#ef4444" : baseColor);
                 return <Cell key={`${s.key}-${index}`} fill={entryColor} style={{ pointerEvents: 'none' }} />;
               })}
+              {normalized.showLabels && (
+                <LabelList 
+                  dataKey={normalized.labelKey || s.key} 
+                  position="top"
+                  style={{ fill: "#facc15", fontSize: 14, fontWeight: 700 }}
+                  formatter={(value: unknown) => {
+                    const numValue = typeof value === "number" ? value : null;
+                    if (numValue == null) return "";
+                    if (normalized.labelKey && normalized.labelKey !== s.key) {
+                      // If we have a separate label key (e.g., stars), format it with star symbol
+                      return `★ ${numValue.toFixed(1)}`;
+                    }
+                    // Otherwise show the bar value
+                    return numValue.toFixed(1);
+                  }}
+                />
+              )}
             </Bar>
           );
         })}
@@ -310,7 +332,7 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
   ) : null;
 
   return (
-    <div ref={chartContainerRef} className="relative w-full overflow-hidden rounded-3xl border border-border/30 bg-slate-50/50 dark:bg-slate-900/40 p-5 shadow-sm">
+    <div ref={chartContainerRef} className="relative w-full overflow-visible rounded-3xl border border-border/30 bg-slate-50/50 dark:bg-slate-900/40 p-5 shadow-sm">
       <button
         onClick={handleExportPNG}
         className="export-button absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"

@@ -114,14 +114,7 @@ export default function Chat() {
                 <h1 className="text-2xl font-semibold text-foreground">AI Assistant</h1>
               </div>
             </div>
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span className="hidden rounded-full border border-border px-3 py-1 lg:block">
-                Synced 2m ago
-              </span>
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground">
-                <Sparkle className="h-4 w-4 text-foreground" />
-              </div>
-            </div>
+            <div className="text-xs text-muted-foreground">{new Date().toLocaleString()}</div>
           </header>
           <div className="flex flex-1 overflow-hidden">
           <section className="flex flex-1 flex-col bg-muted overflow-hidden">
@@ -130,15 +123,15 @@ export default function Chat() {
                 {showPlaceholder ? (
                   <div className="max-w-2xl space-y-5 text-sm text-slate-300">
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-100">Analyzing CMS Program Data</h3>
+                      <h3 className="text-lg font-semibold text-foreground">Medicare Advantage Data Intelligence</h3>
                       <p className="mt-4 max-w-2xl leading-relaxed text-slate-400">
-                        This workspace reviews Medicare Advantage enrollment trends, plan availability, and star ratings to surface concise insights with natural-language explanations and presentation-ready charts.
+                        Ask questions about Medicare Advantage enrollment, plan performance, and market trends. Get instant insights with natural language explanations and interactive visualizations.
                       </p>
                     </div>
                     <div className="space-y-3 text-slate-500">
-                      <p>1. Reviewing historical enrollment, premium benchmarks, and demographic shifts.</p>
-                      <p>2. Highlighting market gaps, supplemental benefits, and network adequacy indicators.</p>
-                      <p>3. Summarizing plan performance with actionable notes for Medicare Advantage stakeholders.</p>
+                      <p>• Analyze enrollment trends and demographic patterns</p>
+                      <p>• Compare plan ratings and identify market opportunities</p>
+                      <p>• Generate custom reports with charts and key metrics</p>
                     </div>
                   </div>
                 ) : null}

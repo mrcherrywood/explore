@@ -45,6 +45,16 @@ type SummaryInsert = {
   overall_rating_numeric: number | null;
 };
 
+type ContractInsert = {
+  contract_id: string;
+  year: number;
+  organization_type: string | null;
+  contract_name: string | null;
+  organization_marketing_name: string | null;
+  parent_organization: string | null;
+  snp_indicator: string | null;
+};
+
 function parseNumeric(value: unknown): number | null {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : null;
@@ -79,6 +89,8 @@ async function importSummaryYear(year: number) {
   const rows = readSummaryFile(year);
   console.log(`  Found ${rows.length} contract rows`);
 
+  const contractMap = new Map<string, ContractInsert>();
+
   const inserts: SummaryInsert[] = rows
     .map((row) => {
       const contractId = row.CONTRACT_ID?.trim();
@@ -90,9 +102,13 @@ async function importSummaryYear(year: number) {
       const partDKey = `${year} Part D Summary`;
       const overallKey = `${year} Overall`;
 
-      const disaster2021Key = '2021 Disaster %';
-      const disaster2022Key = '2022 Disaster %';
-      const disaster2023Key = '2023 Disaster %';
+      const disasterValueFor = (disasterYear: number) => {
+        const key = `${disasterYear} Disaster %`;
+        if (Object.hasOwn(row, key)) {
+          return parseNumeric(row[key]);
+        }
+        return null;
+      };
 
       const partCSummary = normalizeText(row[partCKey]);
       const partDSummary = normalizeText(row[partDKey]);
@@ -106,9 +122,9 @@ async function importSummaryYear(year: number) {
         organization_marketing_name: normalizeText(row['Organization Marketing Name'] ?? null),
         parent_organization: normalizeText(row['Parent Organization'] ?? null),
         snp_indicator: normalizeText(row.SNP ?? null),
-        disaster_percent_2021: parseNumeric(row[disaster2021Key] ?? null),
-        disaster_percent_2022: parseNumeric(row[disaster2022Key] ?? null),
-        disaster_percent_2023: parseNumeric(row[disaster2023Key] ?? null),
+        disaster_percent_2021: disasterValueFor(2021),
+        disaster_percent_2022: disasterValueFor(2022),
+        disaster_percent_2023: disasterValueFor(2023),
         part_c_summary: partCSummary,
         part_c_summary_numeric: parseNumeric(partCSummary),
         part_d_summary: partDSummary,
@@ -117,11 +133,38 @@ async function importSummaryYear(year: number) {
         overall_rating_numeric: parseNumeric(overallSummary),
       };
 
+      const contractKey = `${contractId}-${year}`;
+      if (!contractMap.has(contractKey)) {
+        contractMap.set(contractKey, {
+          contract_id: contractId,
+          year,
+          organization_type: insert.organization_type,
+          contract_name: insert.contract_name,
+          organization_marketing_name: insert.organization_marketing_name,
+          parent_organization: insert.parent_organization,
+          snp_indicator: insert.snp_indicator,
+        });
+      }
+
       return insert;
     })
     .filter((insert): insert is SummaryInsert => insert !== null);
 
   console.log(`  Preparing to upsert ${inserts.length} rows`);
+
+  const contractsToUpsert = Array.from(contractMap.values());
+  if (contractsToUpsert.length > 0) {
+    const { error: contractError } = await supabase
+      .from('ma_contracts')
+      .upsert(contractsToUpsert, { onConflict: 'contract_id,year' });
+
+    if (contractError) {
+      console.error('  ❌ Error upserting contracts:', contractError);
+      process.exit(1);
+    }
+
+    console.log(`  ✅ Upserted ${contractsToUpsert.length} contracts for ${year}`);
+  }
 
   const batchSize = 500;
   for (let i = 0; i < inserts.length; i += batchSize) {
@@ -144,8 +187,10 @@ async function importSummaryYear(year: number) {
 async function main() {
   console.log('🚀 Starting summary ratings import...');
 
-  await importSummaryYear(2024);
-  await importSummaryYear(2025);
+  const yearsToImport = [2023, 2024, 2025];
+  for (const year of yearsToImport) {
+    await importSummaryYear(year);
+  }
 
   console.log('\n🎉 Summary ratings import completed successfully!');
 }
