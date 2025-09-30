@@ -6,8 +6,8 @@ import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import { ChartRenderer, parseChartSpecFromMarkdown } from "@/components/chart/ChartRenderer";
 import type { ChartSpec } from "@/components/chart/ChartRenderer";
-import { NavIcon } from "@/components/navigation/NavIcon";
-import { BarChart3, CalendarRange, Compass, Layers, Settings, Sparkle } from "lucide-react";
+import { DataPageNav } from "@/components/navigation/DataPageNav";
+import { BarChart3, Sparkle } from "lucide-react";
 
 type ChatMessage = {
   id: string;
@@ -100,52 +100,31 @@ export default function Chat() {
   const hasChart = Boolean(latestInsight?.chartSpec);
 
   return (
-    <div className="min-h-screen w-full overflow-hidden bg-[#050505] text-slate-100">
-      <div className="flex h-full flex-col">
-        <header className="flex items-center justify-between border-b border-white/5 bg-[#050505] px-12 py-6">
-          <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#080808] text-sm font-semibold">
-              AI
-            </div>
-            <div>
-              <p className="text-[0.6rem] uppercase tracking-[0.55em] text-slate-500">Workspace</p>
-              <h1 className="text-2xl font-semibold text-slate-100">Program Insight Studio</h1>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 text-xs text-slate-500">
-            <span className="hidden rounded-full border border-white/5 px-3 py-1 lg:block">
-              Synced 2m ago
-            </span>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/5 bg-[#0a0a0a] text-slate-400">
-              <Sparkle className="h-4 w-4 text-slate-300" />
-            </div>
-          </div>
-        </header>
-
-        <div className="flex flex-1 overflow-hidden">
-          <aside className="hidden w-20 flex-col items-center gap-6 border-r border-white/5 bg-[#050505] pt-10 xl:flex">
-            <NavIcon icon={Compass} label="Home" href="/" active />
-            <NavIcon icon={BarChart3} label="Analytics" href="/data" />
-            <NavIcon icon={Layers} label="Segments" />
-            <NavIcon icon={CalendarRange} label="Timeline" />
-            <NavIcon icon={Settings} label="Settings" />
-          </aside>
-          <section className={`flex flex-1 flex-col bg-[#080808] ${hasChart ? "border-r border-white/5" : ""}`}>
-            <div className="flex items-center justify-between border-b border-white/5 px-12 py-8">
-              <div>
-                <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Scenario</p>
-                <h2 className="mt-1 text-xl font-semibold text-slate-100">Medicare Advantage</h2>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="flex min-h-screen">
+        <DataPageNav />
+        <div className="flex min-h-screen flex-1 flex-col">
+          <header className="flex items-center justify-between border-b border-border px-12 py-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-lg font-semibold">
+                <Sparkle className="h-5 w-5 text-foreground" />
               </div>
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-full border border-white/5 bg-[#0d0d0d] px-5 py-2 text-xs font-medium text-slate-200 transition hover:border-sky-500/60 hover:text-white"
-                onClick={() => setInput("Analyze Medicare Advantage programs")}
-              >
-                Analyze Medicare Advantage programs
-                <Sparkle className="h-3.5 w-3.5" />
-              </button>
+              <div>
+                <p className="text-[0.6rem] uppercase tracking-[0.55em] text-muted-foreground">Data Explorer</p>
+                <h1 className="text-2xl font-semibold text-foreground">AI Assistant</h1>
+              </div>
             </div>
-
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="hidden rounded-full border border-border px-3 py-1 lg:block">
+                Synced 2m ago
+              </span>
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground">
+                <Sparkle className="h-4 w-4 text-foreground" />
+              </div>
+            </div>
+          </header>
+          <div className="flex flex-1 overflow-hidden">
+          <section className="flex flex-1 flex-col bg-muted overflow-hidden">
             <div className="flex-1 overflow-y-auto px-12 py-6">
               <div className="flex flex-col gap-6">
                 {showPlaceholder ? (
@@ -181,14 +160,14 @@ export default function Chat() {
               </div>
             </div>
 
-            <div className="border-t border-white/5 bg-[#050505] px-12 py-4">
+            <div className="border-t border-border bg-background px-12 py-4">
               <div className="flex flex-wrap gap-3 pb-4">
                 {quickPrompts.map(({ title, prompt }) => (
                   <button
                     key={title}
                     type="button"
                     onClick={() => setInput(prompt)}
-                    className="rounded-full border border-white/10 bg-transparent px-4 py-2 text-xs text-slate-400 transition hover:border-white/40 hover:text-slate-100"
+                    className="rounded-full border border-border bg-transparent px-4 py-2 text-xs text-muted-foreground transition hover:border-border/60 hover:text-foreground"
                   >
                     {title}
                   </button>
@@ -206,7 +185,7 @@ export default function Chat() {
                   setIsLoading(true);
                   setError(null);
                   try {
-                    const resp = await fetch("/api/chat", {
+                    const resp = await fetch("/api/chat-sql", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ messages: nextMessages.map(({ role, content }) => ({ role, content })) }),
@@ -230,16 +209,16 @@ export default function Chat() {
                 }}
                 className="flex flex-col gap-3 md:flex-row md:items-center"
               >
-                <div className="flex flex-1 items-center gap-3 rounded-2xl border border-white/5 bg-[#0e0e0e] px-5 py-3 text-sm text-slate-100 transition focus-within:border-sky-400/50">
+                <div className="flex flex-1 items-center gap-3 rounded-2xl border border-border bg-card px-5 py-3 text-sm text-foreground transition focus-within:border-primary">
                   <input
-                    className="flex-1 bg-transparent text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
+                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
                     placeholder="Ask anything about Medicare Advantage data…"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     aria-label="Chat prompt"
                   />
                   {isLoading ? (
-                    <span className="h-3 w-3 animate-spin rounded-full border border-white/40 border-t-transparent" aria-hidden />
+                    <span className="h-3 w-3 animate-spin rounded-full border border-border border-t-transparent" aria-hidden />
                   ) : null}
                 </div>
                 <button
@@ -254,24 +233,24 @@ export default function Chat() {
             </div>
           </section>
 
-          {hasChart ? (
-            <section className="hidden w-full max-w-[420px] flex-col justify-between border-l border-white/5 bg-[#050505] px-9 py-10 lg:flex">
+            {hasChart ? (
+              <section className="hidden w-full max-w-[420px] flex-col justify-between border-l border-border bg-background px-9 py-10 lg:flex overflow-y-auto">
             <div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.45em] text-slate-500">Analysis</p>
-                  <h3 className="mt-2 text-lg font-semibold text-slate-100">Program Overview</h3>
+                  <p className="text-xs uppercase tracking-[0.45em] text-muted-foreground">Analysis</p>
+                  <h3 className="mt-2 text-lg font-semibold text-foreground">Program Overview</h3>
                 </div>
                 <button
                   type="button"
-                  className="rounded-full border border-white/5 bg-[#0d0d0d] p-2 text-slate-300 transition hover:border-sky-500/60 hover:text-white"
+                  className="rounded-full border border-border bg-card p-2 text-muted-foreground transition hover:border-primary hover:text-foreground"
                 >
                   <BarChart3 className="h-4 w-4" />
                 </button>
               </div>
 
               <div className="mt-6 space-y-6">
-                <div className="rounded-3xl border border-white/5 bg-[#0a0a0a] p-5">
+                <div className="rounded-3xl border border-border bg-card p-5">
                   {latestInsight?.chartSpec ? (
                     <ChartRenderer spec={latestInsight.chartSpec as ChartSpec} />
                   ) : (
@@ -286,36 +265,36 @@ export default function Chat() {
                   {(latestInsight?.metrics || []).map(({ label, value }) => (
                     <div
                       key={`${label}-${value}`}
-                      className="rounded-2xl border border-white/5 bg-[#0a0a0a] px-5 py-4 text-sm text-slate-300"
+                      className="rounded-2xl border border-border bg-card px-5 py-4 text-sm text-muted-foreground"
                     >
-                      <div className="text-xs uppercase tracking-[0.35em] text-slate-500">{label}</div>
-                      <div className="mt-2 text-lg font-semibold text-slate-100">{value || "—"}</div>
+                      <div className="text-xs uppercase tracking-[0.35em] text-muted-foreground">{label}</div>
+                      <div className="mt-2 text-lg font-semibold text-foreground">{value || "—"}</div>
                     </div>
                   ))}
                   {(!latestInsight || latestInsight.metrics.length === 0) && (
-                    <div className="rounded-2xl border border-white/5 bg-[#0a0a0a] px-5 py-4 text-sm text-slate-300/80">
+                    <div className="rounded-2xl border border-border bg-card px-5 py-4 text-sm text-muted-foreground/80">
                       Metrics will appear here once the assistant references key numbers.
                     </div>
                   )}
                 </div>
 
-                <div className="rounded-3xl border border-white/5 bg-[#0a0a0a] p-6 text-sm text-slate-300/85">
-                  <h4 className="text-xs uppercase tracking-[0.35em] text-slate-500">Highlights</h4>
+                <div className="rounded-3xl border border-border bg-card p-6 text-sm text-muted-foreground/85">
+                  <h4 className="text-xs uppercase tracking-[0.35em] text-muted-foreground">Highlights</h4>
                   {latestInsight?.highlights && latestInsight.highlights.length > 0 ? (
-                    <ul className="mt-3 space-y-2 text-slate-200/90">
+                    <ul className="mt-3 space-y-2 text-foreground/90">
                       {latestInsight.highlights.map((line) => (
-                        <li key={line} className="rounded-xl bg-white/5 px-3 py-2 text-xs leading-relaxed text-slate-100/90">
+                        <li key={line} className="rounded-xl bg-accent px-3 py-2 text-xs leading-relaxed text-foreground/90">
                           {line}
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="mt-3 leading-relaxed text-slate-200/80">
+                    <p className="mt-3 leading-relaxed text-foreground/80">
                       When the assistant responds, contextual insights will be summarized here.
                     </p>
                   )}
                   {latestInsight?.summary ? (
-                    <p className="mt-4 max-h-48 overflow-y-auto whitespace-pre-line text-xs leading-relaxed text-slate-400/90">
+                    <p className="mt-4 max-h-48 overflow-y-auto whitespace-pre-line text-xs leading-relaxed text-muted-foreground/90">
                       {latestInsight.summary}
                     </p>
                   ) : null}
@@ -323,12 +302,13 @@ export default function Chat() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/5 bg-[#0a0a0a] px-5 py-4 text-xs text-slate-400">
+            <div className="rounded-2xl border border-border bg-card px-5 py-4 text-xs text-muted-foreground">
               <p>Latest response: {latestAssistant ? "In progress" : "Awaiting"}</p>
               <p className="mt-1">Charts and headline metrics automatically pin to this panel.</p>
             </div>
             </section>
           ) : null}
+          </div>
         </div>
       </div>
     </div>
@@ -341,7 +321,7 @@ function MessageItem({ role, content }: MessageItemProps) {
   const markdownComponents = useMemo<Components>(() => {
     return {
       p({ children }) {
-        return <p className="leading-relaxed text-slate-100/90">{children}</p>;
+        return <p className="leading-relaxed text-foreground/90">{children}</p>;
       },
       code(nodeProps) {
         const { className, children, ...rest } = nodeProps;
@@ -352,7 +332,7 @@ function MessageItem({ role, content }: MessageItemProps) {
         }
         return (
           <code
-            className={`rounded-md bg-white/5 px-1.5 py-0.5 text-xs text-slate-100 ${className ?? ""}`}
+            className={`rounded-md bg-accent px-1.5 py-0.5 text-xs text-foreground ${className ?? ""}`}
             {...rest}
           >
             {children}
@@ -361,28 +341,28 @@ function MessageItem({ role, content }: MessageItemProps) {
       },
       table({ children }) {
         return (
-          <div className="overflow-hidden rounded-2xl border border-white/5 bg-[#050b19]">
-            <table className="w-full border-collapse text-sm text-slate-100/90">{children}</table>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <table className="w-full border-collapse text-sm text-foreground/90">{children}</table>
           </div>
         );
       },
       thead({ children }) {
-        return <thead className="bg-white/5 text-xs uppercase tracking-[0.2em] text-slate-400">{children}</thead>;
+        return <thead className="bg-accent text-xs uppercase tracking-[0.2em] text-muted-foreground">{children}</thead>;
       },
       tbody({ children }) {
-        return <tbody className="divide-y divide-white/5">{children}</tbody>;
+        return <tbody className="divide-y divide-border">{children}</tbody>;
       },
       tr({ children }) {
-        return <tr className="hover:bg-white/3">{children}</tr>;
+        return <tr className="hover:bg-accent/50">{children}</tr>;
       },
       th({ children }) {
-        return <th className="px-4 py-3 text-left font-semibold text-slate-200">{children}</th>;
+        return <th className="px-4 py-3 text-left font-semibold text-foreground">{children}</th>;
       },
       td({ children }) {
-        return <td className="px-4 py-3 text-slate-300">{children}</td>;
+        return <td className="px-4 py-3 text-muted-foreground">{children}</td>;
       },
       li({ children }) {
-        return <li className="mb-1 text-slate-100/90">{children}</li>;
+        return <li className="mb-1 text-foreground/90">{children}</li>;
       },
     } satisfies Components;
   }, [chartSpec]);
@@ -391,8 +371,8 @@ function MessageItem({ role, content }: MessageItemProps) {
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div className={`flex w-full max-w-[640px] items-start gap-4 ${isUser ? "flex-row-reverse" : ""}`}>
         <div
-          className={`mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 text-xs font-medium uppercase ${
-            isUser ? "bg-[#111827] text-white" : "bg-[#0a0a0a] text-sky-100"
+          className={`mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border text-xs font-medium uppercase ${
+            isUser ? "bg-secondary text-secondary-foreground" : "bg-card text-card-foreground"
           }`}
         >
           {isUser ? "You" : "AI"}
@@ -400,20 +380,20 @@ function MessageItem({ role, content }: MessageItemProps) {
         <div
           className={`w-full rounded-3xl border px-6 py-5 text-sm leading-relaxed ${
             isUser
-              ? "border-white/5 bg-transparent text-slate-200"
-              : "border-white/5 bg-[#0a0a0a] text-slate-100"
+              ? "border-border bg-transparent text-foreground"
+              : "border-border bg-card text-foreground"
           }`}
         >
-          <div className="text-[0.65rem] uppercase tracking-[0.4em] text-slate-500">
+          <div className="text-[0.65rem] uppercase tracking-[0.4em] text-muted-foreground">
             {isUser ? "You" : "Assistant"}
           </div>
           <div className="mt-4 space-y-4">
             {chartSpec ? (
-              <div className="overflow-hidden rounded-2xl border border-white/5 bg-[#050505] p-2">
+              <div className="overflow-hidden rounded-2xl border border-border bg-background p-2">
                 <ChartRenderer spec={chartSpec as ChartSpec} />
               </div>
             ) : null}
-            <div className="prose prose-invert max-w-none text-sm text-slate-200">
+            <div className="prose dark:prose-invert max-w-none text-sm text-foreground">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                 {content}
               </ReactMarkdown>

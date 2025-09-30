@@ -50,8 +50,8 @@ export function TableTabs({ tables, currentTable, baseParams }: TableTabsProps) 
             className={cn(
               "rounded-full border px-4 py-1.5 text-xs transition flex items-center gap-2",
               isActive
-                ? "border-sky-500/70 bg-sky-500/10 text-sky-200"
-                : "border-white/10 text-slate-400 hover:border-white/30 hover:text-slate-200",
+                ? "border-primary/70 bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:border-border/60 hover:text-foreground",
               (isLoading || isActive) && "cursor-default"
             )}
           >

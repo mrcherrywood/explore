@@ -11,7 +11,7 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function Home({ searchParams }: PageProps) {
+export default async function SummaryPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const yearParam = typeof params.year === "string" ? params.year : undefined;
   const contractIdParam = typeof params.contractId === "string" ? params.contractId : undefined;

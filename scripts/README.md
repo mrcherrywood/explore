@@ -71,3 +71,37 @@ The MA Metrics table will display:
 - **Rate/Percent** - Numeric values (e.g., 85.5, 92.3)
 
 Each row shows one measure for one contract, with both the star rating and rate/percent value properly separated!
+
+---
+
+# Plan Enrollment Import
+
+## Overview
+
+The plan enrollment import ingests CMS monthly enrollment snapshots (e.g. `Monthly_Report_By_Plan_2025_08_condensed.json`) into the `ma_plan_enrollment` table.
+
+## Prerequisites
+
+1. Ensure migration `003_create_ma_plan_enrollment.sql` has been applied to your Supabase project.
+2. Place monthly enrollment files in `data/<year>/` with names that match the pattern `Monthly_Report_By_Plan_<YEAR>_<MM>_condensed.json`.
+3. Confirm Supabase environment variables are configured in `.env.local` (same as the metrics import).
+
+## Running the Import
+
+```bash
+npm run import:enrollment
+```
+
+## What It Does
+
+- Discovers all monthly enrollment files and parses contract-level plan rows
+- Upserts plan enrollment counts (with suppression flags and plan type metadata) into `ma_plan_enrollment`
+- Keeps one record per `(contract_id, plan_id, report_year, report_month)`
+
+## After Import
+
+The `ma_plan_enrollment` table provides:
+- **Report period** (year & month)
+- **Plan identifiers and types**
+- **Reported enrollment counts** (suppressed values are flagged)
+- **Source file metadata**

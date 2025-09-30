@@ -74,18 +74,18 @@ export function DataAiAssistant({ table, tableLabel, columns }: DataAiAssistantP
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="rounded-3xl border border-white/5 bg-[#080808] p-6">
+      <section className="rounded-3xl border border-border bg-card p-6">
         <header className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-500">AI Copilot</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-100">Ask about {tableLabel}</h2>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">AI Copilot</p>
+            <h2 className="mt-1 text-lg font-semibold text-foreground">Ask about {tableLabel}</h2>
+            <p className="mt-2 text-xs text-muted-foreground">
               Provide filters like contract IDs, counties, or years for better results. Responses always reference live
               Supabase data.
             </p>
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#0a0a0a]">
-            <Sparkle className="h-4 w-4 text-slate-300" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-muted">
+            <Sparkle className="h-4 w-4 text-muted-foreground" />
           </div>
         </header>
 
@@ -167,9 +167,9 @@ export function DataAiAssistant({ table, tableLabel, columns }: DataAiAssistantP
             }
           }}
         >
-          <div className="flex flex-1 items-center gap-3 rounded-2xl border border-white/10 bg-[#0a0a0a] px-4 py-2 text-sm text-slate-200">
+          <div className="flex flex-1 items-center gap-3 rounded-2xl border border-border bg-card px-4 py-2 text-sm text-foreground">
             <textarea
-              className="h-20 flex-1 resize-none bg-transparent text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none"
+              className="h-20 flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
               placeholder={`Ask the copilot about ${tableLabel.toLowerCase()}…`}
               value={input}
               onChange={(event) => setInput(event.target.value)}
@@ -197,7 +197,7 @@ export function DataAiAssistant({ table, tableLabel, columns }: DataAiAssistantP
           {latestChartSpec ? (
             <ChartRenderer spec={latestChartSpec} />
           ) : (
-            <div className="flex h-48 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-white/10 bg-[#0a0a0a] text-xs text-slate-500">
+            <div className="flex h-48 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted text-xs text-muted-foreground">
               <Sparkle className="h-4 w-4" />
               Ask the copilot for a visualization and it will appear here.
             </div>
@@ -206,7 +206,7 @@ export function DataAiAssistant({ table, tableLabel, columns }: DataAiAssistantP
       </section>
 
       {latestSummary ? (
-        <section className="rounded-3xl border border-white/5 bg-[#080808] p-6 text-sm text-slate-200">
+        <section className="rounded-3xl border border-border bg-card p-6 text-sm text-foreground">
           <h3 className="text-xs uppercase tracking-[0.35em] text-slate-500">Key Takeaways</h3>
           <p className="mt-3 whitespace-pre-line text-xs text-slate-300">{latestSummary}</p>
         </section>
@@ -261,13 +261,13 @@ function MessageBubble({ role, content }: { role: Message["role"]; content: stri
   return (
     <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser ? (
-        <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-[#0a0a0a]">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card">
           <Bot className="h-4 w-4 text-sky-200" />
         </div>
       ) : null}
       <div
         className={`max-w-[520px] rounded-3xl border px-4 py-3 text-xs leading-relaxed ${
-          isUser ? "border-white/10 bg-transparent text-slate-200" : "border-white/10 bg-[#050505] text-slate-100"
+          isUser ? "border-border bg-transparent text-foreground" : "border-border bg-muted text-foreground"
         }`}
       >
         <div className="mb-2 flex items-center gap-2 text-[0.6rem] uppercase tracking-[0.35em] text-slate-500">

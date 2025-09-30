@@ -102,11 +102,11 @@ export function ResizableTable({
   }, [resizing]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/5 bg-[#050a15]">
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className="overflow-x-auto">
         <table className="w-full caption-bottom text-sm" style={{ tableLayout: 'fixed' }}>
           <TableHeader>
-            <TableRow className="border-white/5">
+            <TableRow className="border-border">
               {config.columns.map((column) => {
                 const isSorted = column.key === activeSort;
                 const nextAscending = isSorted ? !ascending : true;
@@ -117,7 +117,7 @@ export function ResizableTable({
                 return (
                   <TableHead
                     key={column.key}
-                    className="relative whitespace-nowrap text-xs font-semibold uppercase tracking-[0.25em] text-slate-400"
+                    className="relative whitespace-nowrap text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground"
                     style={{ 
                       width: `${columnWidths[column.key]}px`, 
                       minWidth: `${columnWidths[column.key]}px`,
@@ -127,7 +127,7 @@ export function ResizableTable({
                     <div className="flex items-center justify-between pr-2">
                       <Link
                         href={sortHref}
-                        className="flex items-center gap-2 text-slate-300 transition hover:text-sky-200"
+                        className="flex items-center gap-2 text-foreground transition hover:text-primary"
                       >
                         {column.label}
                         {isSorted ? (
@@ -137,7 +137,7 @@ export function ResizableTable({
                             <ArrowDown className="h-3.5 w-3.5" />
                           )
                         ) : (
-                          <ArrowUpDown className="h-3.5 w-3.5 text-slate-500" />
+                          <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
                         )}
                       </Link>
                     </div>
@@ -157,18 +157,18 @@ export function ResizableTable({
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={config.columns.length} className="py-16 text-center text-sm text-slate-400">
+                <TableCell colSpan={config.columns.length} className="py-16 text-center text-sm text-muted-foreground">
                   No rows found for the current filters.
                 </TableCell>
               </TableRow>
             ) : (
               rows.map((row, index) => (
-                <TableRow key={`row-${index}`} className="border-white/5" data-index={index}>
+                <TableRow key={`row-${index}`} className="border-border" data-index={index}>
                   {config.columns.map((column) => (
                     <TableCell
                       key={`${column.key}-${index}`}
                       className={cn(
-                        "py-3 text-sm text-slate-200 overflow-hidden text-ellipsis text-left",
+                        "py-3 text-sm text-foreground overflow-hidden text-ellipsis text-left",
                         column.numeric && "tabular-nums"
                       )}
                       style={{ 

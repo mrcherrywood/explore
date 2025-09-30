@@ -4,39 +4,39 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --card: oklch(1 0 0);
+  --card: #fefefe;
   --card-border: rgba(148, 163, 184, 0.16);
-  --muted: oklch(0.97 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: #fafafa;
+  --accent: #fafafa;
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #fcfcfc;
+  --foreground: #1e293b;
+  --card-foreground: #1e293b;
+  --popover: #ffffff;
+  --popover-foreground: #1e293b;
+  --primary: #334155;
+  --primary-foreground: #fafafa;
+  --secondary: #fafafa;
+  --secondary-foreground: #334155;
+  --muted-foreground: #64748b;
+  --accent-foreground: #334155;
+  --destructive: #ef4444;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #94a3b8;
+  --chart-1: #f59e0b;
+  --chart-2: #3b82f6;
+  --chart-3: #1e40af;
+  --chart-4: #eab308;
+  --chart-5: #f97316;
+  --sidebar: #fcfcfc;
+  --sidebar-foreground: #1e293b;
+  --sidebar-primary: #334155;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #fafafa;
+  --sidebar-accent-foreground: #334155;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #94a3b8;
 }
 
 body {
@@ -51,6 +51,13 @@ a {
 
 ::selection {
   background: rgba(100, 116, 139, 0.35);
+}
+
+:root ::selection {
+  color: #1e293b;
+}
+
+.dark ::selection {
   color: #f8fafc;
 }
 
@@ -60,7 +67,7 @@ a {
 }
 
 ::-webkit-scrollbar-track {
-  background: #050505;
+  background: var(--background);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -73,7 +80,7 @@ a {
 }
 
 ::-webkit-scrollbar-corner {
-  background: #050505;
+  background: var(--background);
 }
 
 @theme inline {
@@ -115,37 +122,37 @@ a {
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --card: #141414;
+  --card-foreground: #fafafa;
+  --popover: #141414;
+  --popover-foreground: #fafafa;
+  --primary: #e5e5e5;
+  --primary-foreground: #141414;
+  --secondary: #1f1f1f;
+  --secondary-foreground: #fafafa;
+  --muted: #0f0f0f;
+  --muted-foreground: #94a3b8;
+  --accent: #1f1f1f;
+  --accent-foreground: #fafafa;
+  --destructive: #dc2626;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #71717a;
+  --chart-1: #6366f1;
+  --chart-2: #22d3ee;
+  --chart-3: #f97316;
+  --chart-4: #a855f7;
+  --chart-5: #f43f5e;
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #6366f1;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #1f1f1f;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #71717a;
 }
 
 @layer base {
@@ -153,9 +160,66 @@ a {
     @apply border-border outline-ring/50;
   }
   html {
-    @apply bg-[#050505];
+    @apply bg-background;
   }
   body {
-    @apply bg-[#050505] text-foreground;
+    @apply bg-background text-foreground;
   }
+}
+
+/* Disable Recharts bar hover effects */
+.recharts-bar-rectangle:hover,
+.recharts-rectangle:hover,
+.recharts-bar-rectangle:focus,
+.recharts-rectangle:focus {
+  filter: none !important;
+  opacity: 1 !important;
+  fill-opacity: 1 !important;
+}
+
+.recharts-bar-rectangle,
+.recharts-rectangle {
+  transition: none !important;
+}
+
+.recharts-layer.recharts-bar-rectangle {
+  cursor: default !important;
+}
+
+/* Prevent active bar state */
+.recharts-active-bar,
+.recharts-bar .recharts-rectangle.recharts-active-bar {
+  filter: none !important;
+  opacity: 1 !important;
+  fill-opacity: 1 !important;
+}
+
+/* Improve tooltip text contrast */
+.recharts-tooltip-wrapper {
+  z-index: 100 !important;
+}
+
+.recharts-default-tooltip {
+  background: rgba(15, 23, 42, 0.95) !important;
+  border: 1px solid rgba(148, 163, 184, 0.4) !important;
+  border-radius: 12px !important;
+  padding: 12px !important;
+}
+
+.recharts-tooltip-label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  margin-bottom: 6px !important;
+}
+
+.recharts-tooltip-item {
+  color: #f8fafc !important;
+  font-size: 13px !important;
+}
+
+.recharts-tooltip-item-name,
+.recharts-tooltip-item-separator,
+.recharts-tooltip-item-value {
+  color: #f8fafc !important;
 }

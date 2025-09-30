@@ -48,6 +48,8 @@ export interface Database {
           created_at: string | null
           name: string | null
           year: number
+          weight: number | null
+          domain: string | null
         }
         Insert: {
           alias?: string | null
@@ -55,6 +57,8 @@ export interface Database {
           created_at?: string | null
           name?: string | null
           year: number
+          weight?: number | null
+          domain?: string | null
         }
         Update: {
           alias?: string | null
@@ -62,6 +66,8 @@ export interface Database {
           created_at?: string | null
           name?: string | null
           year?: number
+          weight?: number | null
+          domain?: string | null
         }
       }
       ma_metrics: {
@@ -270,6 +276,106 @@ export interface Database {
           year?: number
           pdp_region_code?: string | null
           pdp_region?: string | null
+        }
+      }
+      ma_plan_enrollment: {
+        Row: {
+          contract_id: string
+          created_at: string
+          enrollment: number | null
+          id: string
+          is_suppressed: boolean
+          plan_id: string
+          plan_type: string | null
+          report_month: number
+          report_year: number
+          source_file: string | null
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          enrollment?: number | null
+          id?: string
+          is_suppressed?: boolean
+          plan_id: string
+          plan_type?: string | null
+          report_month: number
+          report_year: number
+          source_file?: string | null
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          enrollment?: number | null
+          id?: string
+          is_suppressed?: boolean
+          plan_id?: string
+          plan_type?: string | null
+          report_month?: number
+          report_year?: number
+          source_file?: string | null
+        }
+      }
+      summary_ratings: {
+        Row: {
+          contract_id: string
+          contract_name: string | null
+          created_at: string
+          disaster_percent_2021: number | null
+          disaster_percent_2022: number | null
+          disaster_percent_2023: number | null
+          id: string
+          organization_marketing_name: string | null
+          organization_type: string | null
+          overall_rating: string | null
+          overall_rating_numeric: number | null
+          parent_organization: string | null
+          part_c_summary: string | null
+          part_c_summary_numeric: number | null
+          part_d_summary: string | null
+          part_d_summary_numeric: number | null
+          snp_indicator: string | null
+          year: number
+        }
+        Insert: {
+          contract_id: string
+          contract_name?: string | null
+          created_at?: string
+          disaster_percent_2021?: number | null
+          disaster_percent_2022?: number | null
+          disaster_percent_2023?: number | null
+          id?: string
+          organization_marketing_name?: string | null
+          organization_type?: string | null
+          overall_rating?: string | null
+          overall_rating_numeric?: number | null
+          parent_organization?: string | null
+          part_c_summary?: string | null
+          part_c_summary_numeric?: number | null
+          part_d_summary?: string | null
+          part_d_summary_numeric?: number | null
+          snp_indicator?: string | null
+          year: number
+        }
+        Update: {
+          contract_id?: string
+          contract_name?: string | null
+          created_at?: string
+          disaster_percent_2021?: number | null
+          disaster_percent_2022?: number | null
+          disaster_percent_2023?: number | null
+          id?: string
+          organization_marketing_name?: string | null
+          organization_type?: string | null
+          overall_rating?: string | null
+          overall_rating_numeric?: number | null
+          parent_organization?: string | null
+          part_c_summary?: string | null
+          part_c_summary_numeric?: number | null
+          part_d_summary?: string | null
+          part_d_summary_numeric?: number | null
+          snp_indicator?: string | null
+          year?: number
         }
       }
     }

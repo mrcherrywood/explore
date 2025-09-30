@@ -14,12 +14,12 @@ type NavIconProps = {
 
 export function NavIcon({ icon: Icon, label, href, active = false }: NavIconProps) {
   const className = cn(
-    "relative mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-[#050505] text-slate-500 transition focus:outline-none focus:ring-2 focus:ring-sky-400/40",
-    active ? "text-slate-200" : "hover:text-slate-200"
+    "relative mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition focus:outline-none focus:ring-2 focus:ring-primary/40",
+    active ? "text-foreground" : "hover:text-foreground"
   );
 
   const indicator = active ? (
-    <span className="absolute inset-y-2 left-1 w-[3px] rounded-full bg-sky-500/70" aria-hidden />
+    <span className="absolute inset-y-2 left-1 w-[3px] rounded-full bg-primary/70" aria-hidden />
   ) : null;
 
   if (href) {

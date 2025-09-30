@@ -73,16 +73,16 @@ async function importYear(year: number) {
     
     // Process each measure column
     for (const [key, value] of Object.entries(dataRow)) {
-      // Skip metadata columns
       if (['CONTRACT_ID', 'Organization Type', 'Contract Name', 'Organization Marketing Name', 'Parent Organization'].includes(key)) {
         continue;
       }
       
       // Extract measure code and label
-      const match = key.match(/^(C\d+):\s*(.+)$/);
+      const match = key.match(/^([A-Z]\d+):\s*(.+)$/);
       if (!match) continue;
-      
+
       const [, code, label] = match;
+      const metricCategory = code.startsWith('C') ? 'Part C' : code.startsWith('D') ? 'Part D' : 'Other';
       const starValue = starsRow[key];
       
       // Parse numeric value
@@ -107,7 +107,7 @@ async function importYear(year: number) {
           year,
           metric_code: code,
           metric_label: label.trim(),
-          metric_category: 'Quality', // You might want to categorize these
+          metric_category: metricCategory,
           rate_percent: ratePercent,
           star_rating: starRating,
           source_file: `measure_data_${year}.json`,

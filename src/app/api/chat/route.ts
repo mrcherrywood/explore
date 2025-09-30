@@ -19,40 +19,6 @@ type ToolCall = {
   };
 };
 
-type ChartSpecCandidate = {
-  type: unknown;
-  xKey: unknown;
-  series: unknown;
-  data: unknown;
-};
-
-function hasValidChartSpec(markdown: string | null): boolean {
-  if (!markdown) return false;
-
-  const fence = /```(chart|json)[\r\n]+([\s\S]*?)```/m;
-  const match = markdown.match(fence);
-  if (!match) return false;
-
-  try {
-    const parsed = JSON.parse(match[2]) as ChartSpecCandidate;
-    const { type, xKey, series, data } = parsed ?? {};
-
-    const hasRequiredFields =
-      (type === 'line' || type === 'bar' || type === 'area' || type === 'pie') &&
-      typeof xKey === 'string' &&
-      Array.isArray(series) &&
-      Array.isArray(data);
-
-    if (!hasRequiredFields) {
-      return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function POST(req: NextRequest) {
   const payload = await req.json();
   const messages = Array.isArray(payload?.messages) ? payload.messages : [];
@@ -62,13 +28,24 @@ export async function POST(req: NextRequest) {
   }
 
   const system = `You are a helpful assistant for a Medicare Advantage analytics workspace.\n\n` +
-    `Call the \`get_contract_overview\` tool to retrieve contract metadata, metrics, and plan landscape rows from Supabase. ` +
-    `Never fabricate database content—only summarize what the tool returns.\n\n` +
-    `When you want to include a chart, return a fenced code block containing JSON with this shape:\n` +
+    `You have access to these PostgreSQL database tables:\n` +
+    `- ma_contracts: Contract metadata (contract_id TEXT, contract_name TEXT, organization_marketing_name TEXT, parent_organization TEXT, organization_type TEXT, snp_indicator TEXT, year INTEGER)\n` +
+    `- ma_metrics: Performance metrics (contract_id TEXT, year INTEGER, metric_category TEXT, metric_code TEXT, metric_label TEXT, star_rating TEXT, rate_percent NUMERIC, value_text TEXT, value_numeric NUMERIC, value_unit TEXT)\n` +
+    `- ma_plan_landscape: Plan details (contract_id TEXT, plan_id TEXT, plan_name TEXT, plan_type TEXT, overall_star_rating TEXT, county_name TEXT, state_abbreviation TEXT, state_name TEXT, part_c_premium NUMERIC, part_d_total_premium NUMERIC, special_needs_plan_indicator TEXT, year INTEGER)\n` +
+    `- summary_ratings: Contract-level star ratings (contract_id TEXT, year INTEGER, overall_rating TEXT, overall_rating_numeric NUMERIC, part_c_summary TEXT, part_c_summary_numeric NUMERIC, part_d_summary TEXT, part_d_summary_numeric NUMERIC, organization_marketing_name TEXT, parent_organization TEXT)\n` +
+    `- ma_plan_enrollment: Enrollment data (contract_id TEXT, plan_id TEXT, year INTEGER, month INTEGER, enrollment_count INTEGER, state_code TEXT, county_name TEXT)\n\n` +
+    `TOOLS AVAILABLE:\n` +
+    `1. \`execute_sql\` - Write custom SQL queries for complex analysis (JOINs, aggregations, year-over-year comparisons, etc.). Use this for most analytical questions.\n` +
+    `2. \`query_data\` - Simple table queries with filters. Use only for basic single-table lookups.\n` +
+    `3. \`get_contract_overview\` - Get comprehensive contract details. Use for specific contract deep-dives.\n\n` +
+    `For year-over-year comparisons, use execute_sql with self-joins. Example:\n` +
+    `SELECT a.contract_id, a.plan_id, a.metric_label, a.rate_percent as rate_2024, b.rate_percent as rate_2025, (b.rate_percent - a.rate_percent) as change FROM ma_metrics a JOIN ma_metrics b ON a.contract_id = b.contract_id AND a.plan_id = b.plan_id AND a.metric_code = b.metric_code WHERE a.year = 2024 AND b.year = 2025 AND a.metric_label ILIKE '%breast cancer%' ORDER BY ABS(b.rate_percent - a.rate_percent) DESC LIMIT 20;\n\n` +
+    `Never fabricate database content—only summarize what the tools return.\n\n` +
+    `CHARTS: Only create a chart if the user specifically requests one (e.g., "show me a chart", "visualize", "graph"). When creating a chart, return a fenced code block containing JSON with this shape:\n` +
     "```json\n" +
-    JSON.stringify({ title: "optional", type: "line", xKey: "date", series: [{ key: "value", name: "Series" }], data: [{ date: "2024-01-01", value: 10 }] }, null, 2) +
+    JSON.stringify({ title: "Chart Title", type: "line", xKey: "year", series: [{ key: "value", name: "Series Name" }], data: [{ year: "2024", value: 100 }] }, null, 2) +
     "\n```\n" +
-    `Always also provide a short explanation above or below the chart.`;
+    `Chart types: line, bar, area, pie. Otherwise, provide clear text summaries with tables when appropriate.`;
 
   const openRouterApiKey = process.env.OPENROUTER_API_KEY;
   if (!openRouterApiKey) {
@@ -94,8 +71,71 @@ export async function POST(req: NextRequest) {
     {
       type: 'function',
       function: {
+        name: 'execute_sql',
+        description: 'Execute a custom SQL query on the PostgreSQL database. Use this for complex analysis including JOINs, aggregations, year-over-year comparisons, rankings, and calculations. Returns up to 1000 rows.',
+        parameters: {
+          type: 'object',
+          properties: {
+            sql: {
+              type: 'string',
+              description: 'The SQL query to execute. Must be a SELECT statement only (no INSERT, UPDATE, DELETE, DROP, etc.).',
+            },
+            description: {
+              type: 'string',
+              description: 'Brief description of what this query does (for logging).',
+            },
+          },
+          required: ['sql'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'query_data',
+        description: 'Simple table query with equality filters. Use only for basic single-table lookups. For complex queries, use execute_sql instead.',
+
+        parameters: {
+          type: 'object',
+          properties: {
+            table: {
+              type: 'string',
+              enum: ['ma_contracts', 'ma_metrics', 'ma_plan_landscape', 'summary_ratings', 'ma_plan_enrollment'],
+              description: 'The table to query.',
+            },
+            columns: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Columns to select. Use ["*"] for all columns.',
+            },
+            filters: {
+              type: 'object',
+              description: 'Filters to apply (e.g., {"year": 2024, "contract_id": "H0028"})',
+            },
+            order_by: {
+              type: 'string',
+              description: 'Column to sort by (e.g., "year")',
+            },
+            ascending: {
+              type: 'boolean',
+              description: 'Sort order (default: true)',
+            },
+            limit: {
+              type: 'integer',
+              description: 'Maximum number of rows to return (default: 100, max: 1000)',
+              minimum: 1,
+              maximum: 1000,
+            },
+          },
+          required: ['table', 'columns'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'get_contract_overview',
-        description: 'Fetch Medicare Advantage contract details, metrics, and plan landscape rows for a given contract ID and year.',
+        description: 'Fetch comprehensive Medicare Advantage contract details, metrics, and plan landscape rows for a specific contract ID and year. Use this when you need detailed contract information.',
         parameters: {
           type: 'object',
           properties: {
@@ -129,9 +169,7 @@ export async function POST(req: NextRequest) {
     ...(messages as ChatMessage[]),
   ];
 
-  const maxToolIterations = 4;
-  const chartRequirementReminder =
-    'Reminder: every response must include a fenced code block ( ```json ... ``` ) containing a valid chart spec with keys { type, xKey, series, data } and a short explanation. Regenerate your last response with the required chart.';
+  const maxToolIterations = 6;
 
   for (let iteration = 0; iteration < maxToolIterations; iteration += 1) {
     const completionResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -175,11 +213,7 @@ export async function POST(req: NextRequest) {
 
     const toolCalls = aiMessage.tool_calls ?? [];
     if (!toolCalls.length) {
-      const content = aiMessage.content ?? '';
-      if (!hasValidChartSpec(content)) {
-        conversation.push({ role: 'system', content: chartRequirementReminder });
-        continue;
-      }
+      // No more tool calls, return the response
       return NextResponse.json({
         message: {
           role: 'assistant',
@@ -189,7 +223,16 @@ export async function POST(req: NextRequest) {
     }
 
     for (const call of toolCalls) {
-      const toolResult = await handleToolCall({ call, supabase });
+      let toolResult;
+      console.log(`Executing tool: ${call.function.name}`);
+      if (call.function.name === 'execute_sql') {
+        toolResult = await handleExecuteSQL({ call, supabase });
+      } else if (call.function.name === 'query_data') {
+        toolResult = await handleQueryData({ call, supabase });
+      } else {
+        toolResult = await handleGetContractOverview({ call, supabase });
+      }
+      console.log(`Tool result:`, toolResult);
       conversation.push({
         role: 'tool',
         tool_call_id: call.id,
@@ -206,7 +249,7 @@ export async function POST(req: NextRequest) {
   });
 }
 
-async function handleToolCall({
+async function handleExecuteSQL({
   call,
   supabase,
 }: {
@@ -215,9 +258,171 @@ async function handleToolCall({
 }) {
   const { function: fn } = call;
 
-  if (fn.name !== 'get_contract_overview') {
-    return { error: `Unknown tool ${fn.name}` };
+  let args: {
+    sql?: string;
+    description?: string;
+  } = {};
+
+  try {
+    args = fn.arguments ? JSON.parse(fn.arguments) : {};
+  } catch {
+    return { error: 'Invalid arguments for execute_sql' };
   }
+
+  const { sql, description } = args;
+
+  if (!sql || typeof sql !== 'string') {
+    return { error: 'sql parameter is required and must be a string' };
+  }
+
+  // Security: Only allow SELECT statements
+  const trimmedSQL = sql.trim().toLowerCase();
+  if (!trimmedSQL.startsWith('select')) {
+    return { error: 'Only SELECT queries are allowed' };
+  }
+
+  // Block dangerous keywords
+  const dangerousKeywords = ['drop', 'delete', 'insert', 'update', 'alter', 'create', 'truncate', 'grant', 'revoke'];
+  for (const keyword of dangerousKeywords) {
+    if (trimmedSQL.includes(keyword)) {
+      return { error: `Dangerous keyword detected: ${keyword}. Only SELECT queries are allowed.` };
+    }
+  }
+
+  try {
+    console.log('Executing SQL:', { description, sql });
+
+    // Use Supabase client to call the RPC function
+    // @ts-expect-error - Custom RPC function not in generated types
+    const { data, error } = await supabase.rpc('exec_raw_sql', { query: sql });
+
+    if (error) {
+      console.error('SQL execution failed', { 
+        sql, 
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint 
+      });
+      return {
+        error: 'SQL execution failed',
+        details: `${error.message}${error.hint ? ` (Hint: ${error.hint})` : ''}`,
+        code: error.code,
+        sql_query: sql,
+      };
+    }
+
+    // The function returns JSON, parse it if it's a string
+    const resultData = typeof data === 'string' ? JSON.parse(data) : data;
+
+    return {
+      success: true,
+      description,
+      row_count: Array.isArray(resultData) ? resultData.length : 0,
+      data: resultData ?? [],
+      sql_query: sql,
+    };
+  } catch (error) {
+    console.error('SQL execution error', error);
+    return {
+      error: 'SQL execution failed',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      sql_query: sql,
+    };
+  }
+}
+
+async function handleQueryData({
+  call,
+  supabase,
+}: {
+  call: ToolCall;
+  supabase: ReturnType<typeof createServiceRoleClient>;
+}) {
+  const { function: fn } = call;
+
+  let args: {
+    table?: string;
+    columns?: string[];
+    filters?: Record<string, unknown>;
+    order_by?: string;
+    ascending?: boolean;
+    limit?: number;
+  } = {};
+
+  try {
+    args = fn.arguments ? JSON.parse(fn.arguments) : {};
+  } catch {
+    return { error: 'Invalid arguments for query_data' };
+  }
+
+  const { table, columns, filters, order_by, ascending = true, limit = 100 } = args;
+
+  if (!table || !columns || !Array.isArray(columns)) {
+    return { error: 'table and columns are required' };
+  }
+
+  const validTables = ['ma_contracts', 'ma_metrics', 'ma_plan_landscape', 'summary_ratings', 'ma_plan_enrollment'];
+  if (!validTables.includes(table)) {
+    return { error: `Invalid table: ${table}` };
+  }
+
+  try {
+    let query = supabase.from(table).select(columns.join(', '));
+
+    if (filters && typeof filters === 'object') {
+      for (const [key, value] of Object.entries(filters)) {
+        if (value !== null && value !== undefined) {
+          query = query.eq(key, value);
+        }
+      }
+    }
+
+    if (order_by) {
+      query = query.order(order_by, { ascending });
+    }
+
+    const finalLimit = Math.min(Math.max(limit, 1), 1000);
+    query = query.limit(finalLimit);
+
+    const response = await query;
+
+    if (response.error) {
+      console.error('Supabase query failed', {
+        table,
+        columns,
+        filters,
+        error: response.error,
+      });
+      return {
+        error: 'Database query failed',
+        details: response.error.message,
+      };
+    }
+
+    return {
+      success: true,
+      table,
+      row_count: response.data?.length ?? 0,
+      data: response.data ?? [],
+    };
+  } catch (error) {
+    console.error('Query execution error', error);
+    return {
+      error: 'Query execution failed',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+async function handleGetContractOverview({
+  call,
+  supabase,
+}: {
+  call: ToolCall;
+  supabase: ReturnType<typeof createServiceRoleClient>;
+}) {
+  const { function: fn } = call;
 
   let args: {
     contract_id?: string;

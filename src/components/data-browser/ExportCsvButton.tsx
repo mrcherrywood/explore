@@ -65,7 +65,7 @@ export function ExportCsvButton({ config, rows, tableName }: ExportCsvButtonProp
       type="button"
       onClick={handleExport}
       disabled={rows.length === 0}
-      className="flex items-center gap-2 rounded-full border border-white/10 bg-[#0a0a0a] px-3 py-1 text-xs text-slate-300 transition hover:border-sky-400/60 hover:text-sky-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-white/10 disabled:hover:text-slate-300"
+      className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground transition hover:border-primary/60 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:text-muted-foreground"
       title={rows.length === 0 ? "No data to export" : "Export current view to CSV"}
     >
       <Download className="h-3.5 w-3.5" />
