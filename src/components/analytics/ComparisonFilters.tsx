@@ -49,7 +49,7 @@ export function ComparisonFilters({
       if (!error && data) {
         // Deduplicate by code
         const uniqueMeasures = Array.from(
-          new Map(data.map((m) => [m.code, m])).values()
+          new Map((data as Measure[]).map((m) => [m.code, m])).values()
         );
         setMeasures(uniqueMeasures);
       }

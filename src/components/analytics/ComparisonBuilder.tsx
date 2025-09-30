@@ -58,7 +58,7 @@ export function ComparisonBuilder({
       if (!error && data) {
         // Deduplicate by contract_id
         const uniqueContracts = Array.from(
-          new Map(data.map((c) => [c.contract_id, c])).values()
+          new Map((data as Contract[]).map((c) => [c.contract_id, c])).values()
         );
         setContracts(uniqueContracts);
       }
@@ -80,7 +80,7 @@ export function ComparisonBuilder({
       if (!error && data) {
         // Deduplicate by code
         const uniqueMeasures = Array.from(
-          new Map(data.map((m) => [m.code, m])).values()
+          new Map((data as Measure[]).map((m) => [m.code, m])).values()
         );
         setMeasures(uniqueMeasures);
       }
@@ -102,7 +102,7 @@ export function ComparisonBuilder({
         .order("year", { ascending: false });
 
       if (!error && data) {
-        const uniqueYears = Array.from(new Set(data.map((d) => d.year).filter(Boolean))).sort((a, b) => b - a);
+        const uniqueYears = Array.from(new Set((data as { year: number }[]).map((d) => d.year).filter(Boolean))).sort((a, b) => b - a);
         setYears(uniqueYears);
       }
       setIsLoadingYears(false);
