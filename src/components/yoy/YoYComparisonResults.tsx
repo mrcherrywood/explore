@@ -5,12 +5,16 @@ import { Loader2, TriangleAlert } from "lucide-react";
 import { ChartRenderer, ChartSpec } from "@/components/chart/ChartRenderer";
 
 type Selection = {
+  comparisonType: "contract" | "organization";
   contractId: string;
+  parentOrganization: string;
   years: number[];
 };
 
 type YoYComparisonResponse = {
-  contractId: string;
+  comparisonType?: "contract" | "organization";
+  contractId?: string;
+  parentOrganization?: string;
   contractName: string | null;
   organizationMarketingName: string | null;
   years: number[];
@@ -69,7 +73,7 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <div className="text-center text-sm text-muted-foreground">
-            Building year over year analysis for {selection.contractId} across {selection.years.length} years
+            Building year over year analysis for {selection.comparisonType === "contract" ? selection.contractId : selection.parentOrganization} across {selection.years.length} years
           </div>
         </div>
       </section>
@@ -91,7 +95,9 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
     return null;
   }
 
-  const headingLabel = data.contractName || data.organizationMarketingName || selection.contractId;
+  const headingLabel = selection.comparisonType === "organization"
+    ? data.organizationMarketingName || selection.parentOrganization
+    : data.contractName || data.organizationMarketingName || selection.contractId;
   const yearRange = `${Math.min(...data.years)} - ${Math.max(...data.years)}`;
 
   return (
@@ -99,10 +105,16 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
       <div className="rounded-3xl border border-border bg-card p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">Selected Contract</p>
+            <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
+              {selection.comparisonType === "contract" ? "Selected Contract" : "Selected Organization"}
+            </p>
             <h2 className="mt-2 text-2xl font-semibold text-foreground">{headingLabel}</h2>
             <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-              <span className="rounded-full border border-border px-3 py-1">Contract {selection.contractId}</span>
+              {selection.comparisonType === "contract" ? (
+                <span className="rounded-full border border-border px-3 py-1">Contract {selection.contractId}</span>
+              ) : (
+                <span className="rounded-full border border-border px-3 py-1">Organization</span>
+              )}
               <span className="rounded-full border border-border px-3 py-1">{data.years.length} years</span>
               <span className="rounded-full border border-border px-3 py-1">{yearRange}</span>
             </div>
@@ -112,7 +124,9 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
 
       {data.overallChart && (
         <div className="rounded-3xl border border-border bg-card p-8">
-          <h3 className="mb-6 text-lg font-semibold text-foreground">Overall Star Rating Trend</h3>
+          <h3 className="mb-6 text-lg font-semibold text-foreground">
+            {selection.comparisonType === "organization" ? "Average Overall Star Rating Trend" : "Overall Star Rating Trend"}
+          </h3>
           <ChartRenderer spec={data.overallChart} />
         </div>
       )}
@@ -125,7 +139,9 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
               <div>
                 <h3 className="text-xl font-bold text-foreground">Domain Star Rating Trends</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Weighted average star ratings by domain over time
+                  {selection.comparisonType === "organization"
+                    ? "Average weighted star ratings by domain across all contracts over time"
+                    : "Weighted average star ratings by domain over time"}
                 </p>
               </div>
             </div>
@@ -147,7 +163,9 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
               <div>
                 <h3 className="text-xl font-bold text-foreground">Individual Measure Performance Trends</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Rate percentages and star ratings for individual measures over time
+                  {selection.comparisonType === "organization"
+                    ? "Average rate percentages and star ratings for individual measures across all contracts over time"
+                    : "Rate percentages and star ratings for individual measures over time"}
                 </p>
               </div>
             </div>
