@@ -10,6 +10,7 @@ type MAPlanLandscape = Database['public']['Tables']['ma_plan_landscape']['Row'];
 type SummaryRating = Database['public']['Tables']['summary_ratings']['Row'];
 type MAPlanEnrollment = Database['public']['Tables']['ma_plan_enrollment']['Row'];
 type MAMeasure = Database['public']['Tables']['ma_measures']['Row'];
+type MADisenrollment = Database['public']['Tables']['ma_disenrollment']['Row'];
 
 export async function GET(request: Request) {
   try {
@@ -335,6 +336,59 @@ export async function GET(request: Request) {
 
     const summaryRating = (summaryRatingData as SummaryRating | null) ?? null;
 
+    // Fetch disenrollment reasons (if available)
+    const { data: disenrollmentRow, error: disenrollmentError } = await supabase
+      .from('ma_disenrollment')
+      .select('*')
+      .eq('contract_id', contractId)
+      .eq('year', year)
+      .maybeSingle();
+
+    if (disenrollmentError && disenrollmentError.code !== 'PGRST116') {
+      throw new Error(disenrollmentError.message);
+    }
+
+    const typedDisenrollment = (disenrollmentRow as MADisenrollment | null) ?? null;
+
+    const disenrollment = typedDisenrollment
+      ? {
+          year: typedDisenrollment.year,
+          sourceFile: typedDisenrollment.source_file,
+          categories: [
+            {
+              key: 'care',
+              label: 'Problems getting needed care',
+              percent: typedDisenrollment.problems_care_percent,
+              note: typedDisenrollment.problems_care_note,
+            },
+            {
+              key: 'doctors',
+              label: 'Problems with doctors & hospitals',
+              percent: typedDisenrollment.problems_doctors_percent,
+              note: typedDisenrollment.problems_doctors_note,
+            },
+            {
+              key: 'financial',
+              label: 'Financial reasons for disenrollment',
+              percent: typedDisenrollment.financial_reasons_percent,
+              note: typedDisenrollment.financial_reasons_note,
+            },
+            {
+              key: 'rx',
+              label: 'Prescription drug benefits issues',
+              percent: typedDisenrollment.problems_rx_percent,
+              note: typedDisenrollment.problems_rx_note,
+            },
+            {
+              key: 'help',
+              label: 'Problems getting information & help',
+              percent: typedDisenrollment.problems_help_percent,
+              note: typedDisenrollment.problems_help_note,
+            },
+          ].filter((entry) => entry.percent !== null || (entry.note && entry.note.trim().length > 0)),
+        }
+      : null;
+
     // Get available years and contracts for filtering
     const { data: availableYears } = await supabase
       .from('ma_metrics')
@@ -389,6 +443,7 @@ export async function GET(request: Request) {
       },
       enrollmentSnapshot,
       summaryRating,
+      disenrollment,
       filters: {
         availableYears: uniqueYears,
         availableContracts: contractsForFilters,

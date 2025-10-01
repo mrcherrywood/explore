@@ -306,14 +306,73 @@ export interface Database {
         Update: {
           contract_id?: string
           created_at?: string
-          enrollment?: number | null
-          id?: string
-          is_suppressed?: boolean
           plan_id?: string
           plan_type?: string | null
-          report_month?: number
           report_year?: number
+          report_month?: number
           source_file?: string | null
+        }
+      }
+      ma_disenrollment: {
+        Row: {
+          id: string
+          contract_id: string
+          year: number
+          organization_marketing_name: string | null
+          contract_name: string | null
+          parent_organization: string | null
+          problems_care_percent: number | null
+          problems_care_note: string | null
+          problems_doctors_percent: number | null
+          problems_doctors_note: string | null
+          financial_reasons_percent: number | null
+          financial_reasons_note: string | null
+          problems_rx_percent: number | null
+          problems_rx_note: string | null
+          problems_help_percent: number | null
+          problems_help_note: string | null
+          source_file: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          contract_id: string
+          year: number
+          organization_marketing_name?: string | null
+          contract_name?: string | null
+          parent_organization?: string | null
+          problems_care_percent?: number | null
+          problems_care_note?: string | null
+          problems_doctors_percent?: number | null
+          problems_doctors_note?: string | null
+          financial_reasons_percent?: number | null
+          financial_reasons_note?: string | null
+          problems_rx_percent?: number | null
+          problems_rx_note?: string | null
+          problems_help_percent?: number | null
+          problems_help_note?: string | null
+          source_file?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          contract_id?: string
+          year?: number
+          organization_marketing_name?: string | null
+          contract_name?: string | null
+          parent_organization?: string | null
+          problems_care_percent?: number | null
+          problems_care_note?: string | null
+          problems_doctors_percent?: number | null
+          problems_doctors_note?: string | null
+          financial_reasons_percent?: number | null
+          financial_reasons_note?: string | null
+          problems_rx_percent?: number | null
+          problems_rx_note?: string | null
+          problems_help_percent?: number | null
+          problems_help_note?: string | null
+          source_file?: string | null
+          created_at?: string
         }
       }
       summary_ratings: {

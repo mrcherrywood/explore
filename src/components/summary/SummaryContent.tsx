@@ -85,6 +85,16 @@ type SummaryData = {
     disaster_percent_2022: number | null;
     disaster_percent_2023: number | null;
   } | null;
+  disenrollment: {
+    year: number;
+    sourceFile: string | null;
+    categories: Array<{
+      key: string;
+      label: string;
+      percent: number | null;
+      note: string | null;
+    }>;
+  } | null;
   filters: {
     availableYears: number[];
     availableContracts: Array<{
@@ -152,7 +162,17 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
     );
   }
 
-  const { contract, overallStars, domainStars, performance, planLandscape, filters, summaryRating, enrollmentSnapshot } = data;
+  const {
+    contract,
+    overallStars,
+    domainStars,
+    performance,
+    planLandscape,
+    filters,
+    summaryRating,
+    enrollmentSnapshot,
+    disenrollment,
+  } = data;
 
   const formatMonthYear = (year: number, month: number) => {
     const date = new Date(Date.UTC(year, month - 1));
@@ -164,6 +184,14 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
       return 'N/A';
     }
     return value.toLocaleString();
+  };
+
+  const formatPercentValue = (value: number | null | undefined) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+    const isWholeNumber = Number.isInteger(value);
+    return `${isWholeNumber ? value.toFixed(0) : value.toFixed(1)}%`;
   };
 
   type RatingCardConfig = {
@@ -224,7 +252,7 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
       return 'Fallback: average across contract measures';
     }
     return null;
-  };
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -370,9 +398,9 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
             </p>
           </div>
           <div className="px-8 py-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
               {domainStars.map((domain) => (
-                <div key={domain.domain} className="rounded-2xl border border-border bg-muted p-5">
+                <div key={domain.domain} className="rounded-2xl border border-border bg-muted p-4">
                   <p className="text-xs text-muted-foreground mb-3">{domain.domain}</p>
                   <div className="flex items-center gap-3">
                     <Star className="h-6 w-6 text-yellow-400" />
@@ -482,6 +510,42 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Disenrollment Reasons */}
+      {disenrollment ? (
+        <div className="rounded-3xl border border-border bg-card">
+          <div className="border-b border-border px-8 py-5">
+            <h3 className="text-lg font-semibold text-foreground">Disenrollment Reasons</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              CMS reported disenrollment categories for {disenrollment.year}
+            </p>
+          </div>
+          <div className="px-8 py-6">
+            {disenrollment.categories.length > 0 ? (
+              <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                {disenrollment.categories.map((category) => {
+                  const percentDisplay = formatPercentValue(category.percent);
+                  return (
+                    <div key={category.key} className="rounded-2xl border border-border bg-muted p-4 flex flex-col">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">{category.label}</p>
+                      <span className="text-2xl font-bold text-foreground mt-auto">
+                        {percentDisplay ?? category.note ?? 'N/A'}
+                      </span>
+                      {!percentDisplay && category.note ? (
+                        <p className="mt-1 text-xs text-muted-foreground">{category.note}</p>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border bg-muted px-5 py-4 text-sm text-muted-foreground">
+                CMS did not report disenrollment details for this contract in {disenrollment.year}.
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {/* Enrollment & Plan Landscape */}
       <div className="rounded-3xl border border-border bg-card">
