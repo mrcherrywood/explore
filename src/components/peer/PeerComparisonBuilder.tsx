@@ -28,14 +28,15 @@ type ContractSummary = {
 
 type BuilderState = {
   contractId: string;
-  state: string;
-  planTypeGroup: "SNP" | "NOT";
+  states: string[];
+  planTypeGroup: "SNP" | "NOT" | "ALL";
   enrollmentLevel: EnrollmentLevelId;
 };
 
-const PLAN_TYPE_OPTIONS: Array<{ id: "SNP" | "NOT"; label: string; description: string }> = [
+const PLAN_TYPE_OPTIONS: Array<{ id: "SNP" | "NOT" | "ALL"; label: string; description: string }> = [
   { id: "SNP", label: "Special Needs (SNP)", description: "Plans focused on special needs populations" },
   { id: "NOT", label: "Non-SNP Plans", description: "General population plans" },
+  { id: "ALL", label: "All Plans", description: "Combine SNP and Non-SNP peers" },
 ];
 
 export function PeerComparisonBuilder() {
@@ -48,8 +49,8 @@ export function PeerComparisonBuilder() {
   const [statesError, setStatesError] = useState<string | null>(null);
   const [contractSummary, setContractSummary] = useState<ContractSummary | null>(null);
 
-  const [selectedState, setSelectedState] = useState<string>("");
-  const [selectedPlanType, setSelectedPlanType] = useState<"SNP" | "NOT" | null>(null);
+  const [selectedStates, setSelectedStates] = useState<string[]>([]);
+  const [selectedPlanType, setSelectedPlanType] = useState<"SNP" | "NOT" | "ALL" | null>(null);
   const [selectedEnrollmentLevel, setSelectedEnrollmentLevel] = useState<EnrollmentLevelId | null>(null);
 
   const [submittedSelection, setSubmittedSelection] = useState<BuilderState | null>(null);
@@ -92,7 +93,7 @@ export function PeerComparisonBuilder() {
       setStates([]);
       setContractSummary(null);
       setStatesError(null);
-      setSelectedState("");
+      setSelectedStates([]);
       setSelectedPlanType(null);
       setSelectedEnrollmentLevel(null);
       return;
@@ -120,7 +121,7 @@ export function PeerComparisonBuilder() {
 
         setStates(data.states || []);
         setContractSummary(data.contractEnrollment ?? null);
-        setSelectedState("");
+        setSelectedStates([]);
         setSelectedPlanType(null);
         setSelectedEnrollmentLevel(null);
       } catch (error) {
@@ -136,18 +137,19 @@ export function PeerComparisonBuilder() {
     fetchStates(selectedContractId);
   }, [selectedContractId]);
 
-  const availablePlanTypes = useMemo(() => {
-    // Always show both plan type options to allow cross-comparison
-    // (e.g., comparing an SNP contract against non-SNP peers)
-    return PLAN_TYPE_OPTIONS;
-  }, []);
+  const availablePlanTypes = useMemo(() => PLAN_TYPE_OPTIONS, []);
+
+  const selectedPlanTypeLabel = useMemo(() => {
+    if (!selectedPlanType) return null;
+    return availablePlanTypes.find((option) => option.id === selectedPlanType)?.label ?? selectedPlanType;
+  }, [availablePlanTypes, selectedPlanType]);
 
   const canProceed = (step: number) => {
     if (step === 1) {
       return Boolean(selectedContractId);
     }
     if (step === 2) {
-      return Boolean(selectedState);
+      return selectedStates.length > 0;
     }
     if (step === 3) {
       return Boolean(selectedPlanType);
@@ -159,14 +161,14 @@ export function PeerComparisonBuilder() {
   };
 
   const canGenerate = Boolean(
-    selectedContractId && selectedState && selectedPlanType && selectedEnrollmentLevel
+    selectedContractId && selectedStates.length > 0 && selectedPlanType && selectedEnrollmentLevel
   );
 
   const [step, setStep] = useState(1);
 
   const resetSelection = () => {
     setSelectedContractId("");
-    setSelectedState("");
+    setSelectedStates([]);
     setSelectedPlanType(null);
     setSelectedEnrollmentLevel(null);
     setSubmittedSelection(null);
@@ -180,7 +182,7 @@ export function PeerComparisonBuilder() {
     setIsSubmitting(true);
     setSubmittedSelection({
       contractId: selectedContractId,
-      state: selectedState,
+      states: selectedStates.map((value) => value.toUpperCase()),
       planTypeGroup: selectedPlanType,
       enrollmentLevel: selectedEnrollmentLevel,
     });
@@ -197,7 +199,7 @@ export function PeerComparisonBuilder() {
               Choose a contract, state, plan type grouping, and enrollment tier to compare against peers.
             </p>
           </div>
-          {(selectedContractId || selectedState || selectedPlanType || selectedEnrollmentLevel) && (
+          {(selectedContractId || selectedStates.length > 0 || selectedPlanType || selectedEnrollmentLevel) && (
             <button
               onClick={resetSelection}
               className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs text-muted-foreground transition hover:border-red-400/60 hover:text-red-200"
@@ -245,14 +247,14 @@ export function PeerComparisonBuilder() {
               <div className="flex-1">
                 <p className={`text-xs font-medium ${step === stepNum ? "text-foreground" : "text-muted-foreground"}`}>
                   {stepNum === 1 && "Select Contract"}
-                  {stepNum === 2 && "Choose State"}
+                  {stepNum === 2 && "Choose States"}
                   {stepNum === 3 && "Plan Type Group"}
                   {stepNum === 4 && "Enrollment Level"}
                 </p>
                 <p className="text-[0.65rem] text-muted-foreground">
                   {stepNum === 1 && (selectedContractId ? "1 selected" : "0 selected")}
-                  {stepNum === 2 && (selectedState || "None selected")}
-                  {stepNum === 3 && (selectedPlanType || "None selected")}
+                  {stepNum === 2 && (selectedStates.length > 0 ? `${selectedStates.length} selected` : "None selected")}
+                  {stepNum === 3 && (selectedPlanTypeLabel || "None selected")}
                   {stepNum === 4 && (selectedEnrollmentLevel || "None selected")}
                 </p>
               </div>
@@ -313,7 +315,8 @@ export function PeerComparisonBuilder() {
 
           {step === 2 && (
             <div>
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Choose State (ranked by enrollment)</h3>
+              <h3 className="mb-2 text-sm font-semibold text-foreground">Choose States (ranked by enrollment)</h3>
+              <p className="mb-2 text-xs text-muted-foreground">Select one or more states to include in the peer comparison.</p>
               {statesLoading && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" /> Loading states...
@@ -325,14 +328,36 @@ export function PeerComparisonBuilder() {
               )}
               <div className="mt-3 flex max-h-96 flex-col gap-2 overflow-y-auto">
                 {states.map((state) => {
-                  const isSelected = selectedState === state.state;
+                  const normalizedCode = state.state.toUpperCase();
+                  const isSelected = selectedStates.includes(normalizedCode);
                   return (
                     <button
                       key={state.state}
                       onClick={() => {
-                        setSelectedState(state.state);
-                        setSelectedPlanType(null);
-                        setSelectedEnrollmentLevel(state.enrollmentLevel);
+                        setSelectedStates((previous) => {
+                          const code = normalizedCode;
+                          const alreadySelected = previous.includes(code);
+                          if (alreadySelected) {
+                            const next = previous.filter((value) => value !== code);
+                            setSelectedPlanType(null);
+                            if (next.length === 1) {
+                              const remaining = states.find((row) => row.state.toUpperCase() === next[0]);
+                              setSelectedEnrollmentLevel(remaining?.enrollmentLevel ?? null);
+                            } else {
+                              setSelectedEnrollmentLevel(null);
+                            }
+                            return next;
+                          }
+
+                          const next = [...previous, code];
+                          setSelectedPlanType(null);
+                          if (next.length === 1) {
+                            setSelectedEnrollmentLevel(state.enrollmentLevel);
+                          } else {
+                            setSelectedEnrollmentLevel(null);
+                          }
+                          return next;
+                        });
                       }}
                       className={`flex items-center justify-between rounded-lg px-4 py-3 text-left transition ${
                         isSelected ? "bg-primary/10 border border-primary/40" : "hover:bg-accent border border-transparent"
@@ -357,10 +382,10 @@ export function PeerComparisonBuilder() {
               <h3 className="mb-4 text-sm font-semibold text-foreground">Plan Type Group</h3>
               {availablePlanTypes.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  No plan types available for the selected state. Please choose another state.
+                  No plan types available for the selected states. Please adjust your selection.
                 </p>
               ) : (
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-3">
                   {availablePlanTypes.map((option) => {
                     const isSelected = selectedPlanType === option.id;
                     return (

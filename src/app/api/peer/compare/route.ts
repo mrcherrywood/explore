@@ -4,7 +4,7 @@ import { ENROLLMENT_LEVELS, EnrollmentLevelId, formatEnrollment, getEnrollmentLe
 
 export const runtime = "nodejs";
 
-const PLAN_TYPE_GROUPS = new Set(["SNP", "NOT"]);
+const PLAN_TYPE_GROUPS = new Set(["SNP", "NOT", "ALL"]);
 
 function escapeLiteral(value: string) {
   return value.replace(/'/g, "''");
@@ -17,26 +17,39 @@ function assertEnrollmentLevel(value: unknown): value is EnrollmentLevelId {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const contractId = typeof body?.contractId === "string" ? body.contractId.trim() : "";
-    const state = typeof body?.state === "string" ? body.state.trim().toUpperCase() : "";
+    const contractIdRaw = typeof body?.contractId === "string" ? body.contractId.trim() : "";
+    const contractId = contractIdRaw.toUpperCase();
+    const states = Array.isArray(body?.states)
+      ? Array.from(
+          new Set(
+            (body.states as unknown[])
+              .map((value: unknown) => (typeof value === "string" ? value.trim().toUpperCase() : ""))
+              .filter((value): value is string => Boolean(value && value.length > 0))
+          )
+        )
+      : [];
     const planTypeGroup = typeof body?.planTypeGroup === "string" ? body.planTypeGroup.trim().toUpperCase() : "";
     const enrollmentLevel = body?.enrollmentLevel;
 
     if (!contractId) {
       return NextResponse.json({ error: "contractId is required" }, { status: 400 });
     }
-    if (!state) {
-      return NextResponse.json({ error: "state is required" }, { status: 400 });
+    if (states.length === 0) {
+      return NextResponse.json({ error: "states is required" }, { status: 400 });
     }
     if (!PLAN_TYPE_GROUPS.has(planTypeGroup)) {
-      return NextResponse.json({ error: "planTypeGroup must be SNP or NOT" }, { status: 400 });
+      return NextResponse.json({ error: "planTypeGroup must be SNP, NOT, or ALL" }, { status: 400 });
     }
     if (!assertEnrollmentLevel(enrollmentLevel)) {
       return NextResponse.json({ error: "Invalid enrollment level" }, { status: 400 });
     }
 
-    // Extract contract type prefix (e.g., "H" from "H1234", "S" from "S5678")
-    const contractTypePrefix = contractId.charAt(0).toUpperCase();
+    const statesInClause = states.map((value: string) => `'${escapeLiteral(value)}'`).join(", ");
+
+    if (!statesInClause) {
+      return NextResponse.json({ error: "states is required" }, { status: 400 });
+    }
+
     let supabase: ReturnType<typeof createServiceRoleClient>;
     try {
       supabase = createServiceRoleClient();
@@ -82,6 +95,10 @@ export async function POST(req: NextRequest) {
 
     const { report_year, report_month } = periodRow as { report_year: number; report_month: number };
 
+    const planTypeFilterClause = planTypeGroup === "ALL"
+      ? ""
+      : `WHERE l.plan_type_group = '${escapeLiteral(planTypeGroup)}'`;
+
     const peersQuery = `
       WITH latest_period AS (
         SELECT ${report_year}::int AS report_year, ${report_month}::int AS report_month
@@ -102,8 +119,7 @@ export async function POST(req: NextRequest) {
           ON lp.report_year = pl.year
         LEFT JOIN ma_contracts c
           ON c.contract_id = pl.contract_id
-        WHERE pl.state_abbreviation = '${escapeLiteral(state)}'
-          AND LEFT(pl.contract_id, 1) = '${escapeLiteral(contractTypePrefix)}'
+        WHERE pl.state_abbreviation IN (${statesInClause})
       ),
       enrollment AS (
         SELECT
@@ -121,7 +137,7 @@ export async function POST(req: NextRequest) {
         JOIN landscape l
           ON l.contract_id = e.contract_id
          AND l.plan_id = e.plan_id
-        WHERE l.plan_type_group = '${escapeLiteral(planTypeGroup)}'
+        ${planTypeFilterClause}
         GROUP BY l.contract_id
       )
       SELECT contract_id, total_enrollment, suppressed_plan_count, reported_plan_count
@@ -155,11 +171,12 @@ export async function POST(req: NextRequest) {
     };
 
     const peers: PeerRow[] = peerRows.map((row) => {
+      const normalizedContractId = (row.contract_id || "").trim().toUpperCase();
       const total = row.total_enrollment === null || typeof row.total_enrollment !== "number"
         ? null
         : Number(row.total_enrollment);
       return {
-        contractId: row.contract_id,
+        contractId: normalizedContractId,
         totalEnrollment: total,
         enrollmentLevel: getEnrollmentLevel(total),
         suppressedCount: Number(row.suppressed_plan_count ?? 0),
@@ -223,8 +240,12 @@ export async function POST(req: NextRequest) {
       parent_organization: string | null;
       snp_indicator: string | null;
     }) => {
-      if (!contractMeta.has(row.contract_id)) {
-        contractMeta.set(row.contract_id, {
+      const normalizedId = (row.contract_id || "").trim().toUpperCase();
+      if (!normalizedId) {
+        return;
+      }
+      if (!contractMeta.has(normalizedId)) {
+        contractMeta.set(normalizedId, {
           contract_name: row.contract_name,
           organization_marketing_name: row.organization_marketing_name,
           parent_organization: row.parent_organization,
@@ -250,8 +271,12 @@ export async function POST(req: NextRequest) {
       overall_rating: string | null;
       year: number;
     }) => {
-      if (!latestRatings.has(row.contract_id)) {
-        latestRatings.set(row.contract_id, {
+      const normalizedId = (row.contract_id || "").trim().toUpperCase();
+      if (!normalizedId) {
+        return;
+      }
+      if (!latestRatings.has(normalizedId)) {
+        latestRatings.set(normalizedId, {
           value: row.overall_rating_numeric,
           year: row.year,
           text: row.overall_rating,
@@ -259,11 +284,26 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    const { data: metricRows, error: metricError } = await supabase
-      .from("ma_metrics")
-      .select("contract_id, metric_code, metric_label, metric_category, rate_percent, star_rating, year")
-      .in("contract_id", uniquePeerContracts)
-      .eq("year", metricsYear);
+    const contractListClause = uniquePeerContracts.map((value) => `'${escapeLiteral(value)}'`).join(", ");
+    const metricsQuery = `
+      SELECT
+        TRIM(UPPER(contract_id)) AS normalized_contract_id,
+        metric_code,
+        metric_label,
+        metric_category,
+        rate_percent,
+        star_rating,
+        year
+      FROM ma_metrics
+      WHERE TRIM(UPPER(contract_id)) IN (${contractListClause})
+        AND year <= ${metricsYear}
+      ORDER BY year DESC, TRIM(UPPER(contract_id)) ASC
+    `;
+
+    const { data: metricRows, error: metricError } = await (supabase.rpc as unknown as <T>(fn: string, args: Record<string, unknown>) => Promise<{ data: T | null; error: Error | null }>) (
+      "exec_raw_sql",
+      { query: metricsQuery }
+    );
 
     if (metricError) {
       throw new Error(metricError.message);
@@ -272,21 +312,40 @@ export async function POST(req: NextRequest) {
     // Fetch measure metadata to get domain and weight information
     const { data: measures } = await supabase
       .from('ma_measures')
-      .select('code, domain, weight, name')
-      .eq('year', metricsYear);
+      .select('code, domain, weight, name, year')
+      .lte('year', metricsYear)
+      .order('year', { ascending: false })
+      .order('code', { ascending: true })
+      .range(0, 9999);
 
     const deriveCategory = (code: string) => code.startsWith('C') ? 'Part C' : code.startsWith('D') ? 'Part D' : 'Other';
 
-    const measureMap = new Map(
-      (measures || []).map((m: { code: string; domain: string | null; weight: number | null; name: string | null }) => 
-        [m.code, { domain: m.domain, weight: m.weight, name: m.name, category: deriveCategory(m.code) }]
-      )
-    );
+    type MeasureRow = {
+      code: string;
+      domain: string | null;
+      weight: number | null;
+      name: string | null;
+      year: number | null;
+    };
+
+    const measureMap = new Map<string, { domain: string | null; weight: number | null; name: string | null; year: number | null; category: string }>();
+    (measures || []).forEach((m: MeasureRow) => {
+      const existing = measureMap.get(m.code);
+      if (!existing || ((m.year ?? 0) > (existing.year ?? 0))) {
+        measureMap.set(m.code, {
+          domain: m.domain,
+          weight: m.weight,
+          name: m.name,
+          year: m.year ?? null,
+          category: deriveCategory(m.code),
+        });
+      }
+    });
 
     const normalizeMeasureName = (value: string) => value.replace(/\s+/g, ' ').trim().toLowerCase();
 
     const normalizedNameToCategories = new Map<string, Set<string>>();
-    (measures || []).forEach((m: { name: string | null; code: string }) => {
+    (measures || []).forEach((m: MeasureRow) => {
       if (!m.name) return;
       const normalized = normalizeMeasureName(m.name);
       if (!normalizedNameToCategories.has(normalized)) {
@@ -296,17 +355,26 @@ export async function POST(req: NextRequest) {
     });
 
     type MetricEntry = {
-      contract_id: string;
+      normalized_contract_id: string;
       metric_code: string;
       metric_label: string | null;
       metric_category: string | null;
       rate_percent: number | null;
       star_rating: string | null;
+      year: number | null;
     };
 
-    const metricByName = new Map<string, { label: string; values: Map<string, { rate: number | null; star: number | null }> }>();
+    const metricByName = new Map<string, {
+      label: string;
+      latestYear: number | null;
+      values: Map<string, { rate: number | null; star: number | null; year: number | null }>;
+    }>();
 
     (metricRows as MetricEntry[] | null)?.forEach((entry) => {
+      const normalizedContractId = (entry.normalized_contract_id || "").trim().toUpperCase();
+      if (!normalizedContractId) {
+        return;
+      }
       const measureInfo = measureMap.get(entry.metric_code);
       const resolvedName = measureInfo?.name?.trim() || entry.metric_label?.trim() || entry.metric_code;
       const category = measureInfo?.category ?? entry.metric_category ?? deriveCategory(entry.metric_code);
@@ -319,14 +387,58 @@ export async function POST(req: NextRequest) {
           : resolvedName;
         metricByName.set(metricKey, {
           label: displayName,
+          latestYear: null,
           values: new Map(),
         });
       }
       const metric = metricByName.get(metricKey)!;
-      const starNumeric = entry.star_rating ? Number.parseFloat(entry.star_rating) : null;
-      metric.values.set(entry.contract_id, {
-        rate: entry.rate_percent,
-        star: Number.isFinite(starNumeric) ? starNumeric : null,
+      const entryYear = entry.year ?? null;
+      const parsedStar = entry.star_rating !== null && entry.star_rating !== undefined
+        ? Number.parseFloat(String(entry.star_rating))
+        : null;
+      const starValue = Number.isFinite(parsedStar as number) ? (parsedStar as number) : null;
+      const rawRate = entry.rate_percent;
+      const parsedRate = rawRate === null || rawRate === undefined
+        ? null
+        : typeof rawRate === "number"
+          ? (Number.isFinite(rawRate) ? rawRate : null)
+          : Number.parseFloat(String(rawRate));
+      const rateValue = Number.isFinite(parsedRate as number) ? (parsedRate as number) : null;
+      const hasValue = rateValue !== null || starValue !== null;
+
+      const metricEntry = metric.values.get(normalizedContractId) || {
+        rate: null,
+        star: null,
+        year: null,
+      };
+
+      if (hasValue) {
+        if ((entryYear ?? -Infinity) > (metricEntry.year ?? -Infinity)) {
+          metric.values.set(normalizedContractId, {
+            rate: rateValue,
+            star: starValue,
+            year: entryYear,
+          });
+        }
+
+        if (entryYear !== null && ((metric.latestYear ?? -Infinity) < entryYear)) {
+          metric.latestYear = entryYear;
+        }
+      }
+    });
+
+    metricByName.forEach((metric) => {
+      if (metric.latestYear === null) {
+        return;
+      }
+      metric.values.forEach((value, contractId) => {
+        if (value.year !== metric.latestYear) {
+          metric.values.set(contractId, {
+            rate: null,
+            star: null,
+            year: value.year,
+          });
+        }
       });
     });
 
@@ -398,55 +510,76 @@ export async function POST(req: NextRequest) {
     const measureCharts = Array.from(metricByName.entries())
       .sort((a, b) => a[1].label.localeCompare(b[1].label))
       .map(([, metric]) => {
-        // Create data only for peers with values for this metric
+        let hasRateValues = false;
+        let hasStarValues = false;
+
         const dataWithValues = peerDetails
           .map((peer) => {
             const values = metric.values.get(peer.contractId);
+            const rateValue = values?.rate ?? null;
+            const starValue = values?.star ?? null;
+
+            if (rateValue !== null && rateValue !== undefined) {
+              hasRateValues = true;
+            }
+            if ((rateValue === null || rateValue === undefined) && starValue !== null && starValue !== undefined) {
+              hasStarValues = true;
+            }
+
+            const chosenValue = rateValue !== null && rateValue !== undefined ? rateValue : starValue;
+
             return {
               contract: peer.contractId,
-              value: values?.rate ?? null,
-              star: values?.star ?? null,
+              value: chosenValue,
+              star: starValue,
               label: peer.contractName || peer.organizationMarketingName || peer.contractId,
             };
           })
           .filter((item) => item.value !== null && item.value !== undefined);
-        
-        // Determine if this is an inverted measure (lower is better)
+
+        if (dataWithValues.length === 0) {
+          return null;
+        }
+
         const labelLower = metric.label.toLowerCase();
-        const isInvertedMeasure = 
+        const isInvertedMeasure =
           labelLower.includes("members choosing to leave") ||
           labelLower.includes("complaints about");
-        
-        // Sort by the metric's rate value
-        // For inverted measures: high to low (worst to best)
-        // For normal measures: low to high (worst to best)
+
         const sortedData = [...dataWithValues].sort((a, b) => {
           const aVal = a.value!;
           const bVal = b.value!;
           if (aVal === bVal) {
             return a.contract.localeCompare(b.contract);
           }
-          return isInvertedMeasure 
-            ? bVal - aVal  // High to low for inverted (worst on left, best on right)
-            : aVal - bVal; // Low to high for normal (worst on left, best on right)
+          return isInvertedMeasure ? bVal - aVal : aVal - bVal;
         });
-        
+
+        const chartYear = metric.latestYear ?? metricsYear;
+        const usesStarsOnly = !hasRateValues && hasStarValues;
+
         return {
-          title: `${metric.label} (${metricsYear})`,
+          title: `${metric.label} (${chartYear})`,
           type: "bar" as const,
           xKey: "contract",
-          series: [{ key: "value", name: "Rate %" }],
+          series: [{ key: "value", name: usesStarsOnly ? "Stars" : "Rate %" }],
           data: sortedData,
           highlightKey: "contract",
           highlightValue: contractId,
+          yAxisDomain: usesStarsOnly ? ([0, 5] as [number, number]) : undefined,
+          yAxisTicks: usesStarsOnly ? [0, 1, 2, 3, 4, 5] : undefined,
         };
       })
-      .filter((chart) => chart.data.length > 0);
+      .filter((chart): chart is NonNullable<typeof chart> => Boolean(chart));
 
     // Calculate domain stars for each contract
     const domainStarsByContract = new Map<string, Map<string, { totalWeightedStars: number; totalWeight: number; count: number }>>();
     
     (metricRows as MetricEntry[] | null)?.forEach((entry) => {
+      const normalizedContractId = (entry.normalized_contract_id || "").trim().toUpperCase();
+      if (!normalizedContractId) {
+        return;
+      }
       const measureInfo = measureMap.get(entry.metric_code);
       if (!measureInfo?.domain || !measureInfo?.weight) return;
       
@@ -456,11 +589,11 @@ export async function POST(req: NextRequest) {
       const domain = measureInfo.domain;
       const weight = measureInfo.weight;
 
-      if (!domainStarsByContract.has(entry.contract_id)) {
-        domainStarsByContract.set(entry.contract_id, new Map());
+      if (!domainStarsByContract.has(normalizedContractId)) {
+        domainStarsByContract.set(normalizedContractId, new Map());
       }
 
-      const contractDomains = domainStarsByContract.get(entry.contract_id)!;
+      const contractDomains = domainStarsByContract.get(normalizedContractId)!;
       if (!contractDomains.has(domain)) {
         contractDomains.set(domain, { totalWeightedStars: 0, totalWeight: 0, count: 0 });
       }
@@ -488,7 +621,7 @@ export async function POST(req: NextRequest) {
             const averageStars = domainData && domainData.totalWeight > 0
               ? domainData.totalWeightedStars / domainData.totalWeight
               : null;
-            
+
             return {
               contract: peer.contractId,
               stars: averageStars,
@@ -497,7 +630,6 @@ export async function POST(req: NextRequest) {
           })
           .filter((item) => item.stars !== null && item.stars !== undefined);
 
-        // Sort by stars (low to high - worst to best)
         const sortedData = [...dataWithValues].sort((a, b) => {
           const aVal = a.stars!;
           const bVal = b.stars!;
@@ -506,6 +638,10 @@ export async function POST(req: NextRequest) {
           }
           return aVal - bVal;
         });
+
+        if (sortedData.length === 0) {
+          return null;
+        }
 
         return {
           title: `${domain} Domain Stars (${metricsYear})`,
@@ -519,17 +655,51 @@ export async function POST(req: NextRequest) {
           yAxisTicks: [0, 1, 2, 3, 4, 5],
         };
       })
-      .filter((chart) => chart.data.length > 0);
+      .filter((chart): chart is NonNullable<typeof chart> => Boolean(chart));
+
+    const metricDiagnostics = Array.from(metricByName.entries()).map(([key, metric]) => {
+      const contractsWithValues = new Set(Array.from(metric.values.keys()));
+      const missingContracts = uniquePeerContracts.filter((peerId) => !contractsWithValues.has(peerId));
+      return {
+        key,
+        label: metric.label,
+        latestYear: metric.latestYear,
+        valueCount: contractsWithValues.size,
+        missingCount: missingContracts.length,
+        sampleMissing: missingContracts.slice(0, 10),
+      };
+    });
+
+    const domainDiagnostics = Array.from(allDomains).map((domain) => {
+      const contractsWithDomain = new Set<string>();
+      domainStarsByContract.forEach((domains, contract) => {
+        if (domains.has(domain)) {
+          contractsWithDomain.add(contract);
+        }
+      });
+      const missingContracts = uniquePeerContracts.filter((peerId) => !contractsWithDomain.has(peerId));
+      return {
+        domain,
+        valueCount: contractsWithDomain.size,
+        missingCount: missingContracts.length,
+        sampleMissing: missingContracts.slice(0, 10),
+      };
+    });
 
     return NextResponse.json({
       metricsYear,
-      state,
+      states,
       planTypeGroup,
       enrollmentLevel,
       peers: sortedPeers,
       overallChart,
       domainCharts,
       measureCharts,
+      diagnostics: {
+        totalPeers: uniquePeerContracts.length,
+        metrics: metricDiagnostics,
+        domains: domainDiagnostics,
+      },
     });
   } catch (error) {
     console.error("Peer compare API error:", error);

@@ -7,8 +7,8 @@ import { EnrollmentLevelId, formatEnrollment } from "@/lib/peer/enrollment-level
 
 type Selection = {
   contractId: string;
-  state: string;
-  planTypeGroup: "SNP" | "NOT";
+  states: string[];
+  planTypeGroup: "SNP" | "NOT" | "ALL";
   enrollmentLevel: EnrollmentLevelId;
 };
 
@@ -30,8 +30,8 @@ type PeerRow = {
 
 type PeerComparisonResponse = {
   metricsYear: number;
-  state: string;
-  planTypeGroup: "SNP" | "NOT";
+  states: string[];
+  planTypeGroup: "SNP" | "NOT" | "ALL";
   enrollmentLevel: EnrollmentLevelId;
   peers: PeerRow[];
   overallChart: ChartSpec | null;
@@ -160,13 +160,33 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
     return rank > 0 ? { rank, total: chart.data.length } : null;
   };
 
+  const statesLabel = useMemo(() => {
+    const dataStates = Array.isArray(data?.states)
+      ? (data?.states.filter((value): value is string => Boolean(value && value.trim().length > 0)))
+      : [];
+    const selectionStates = Array.isArray(selection.states)
+      ? selection.states.filter((value) => Boolean(value && value.trim().length > 0))
+      : [];
+    const sourceStates = dataStates.length > 0 ? dataStates : selectionStates;
+    if (sourceStates.length === 0) {
+      return "All States";
+    }
+    const uniqueStates = Array.from(new Set(sourceStates.map((value) => value.toUpperCase())));
+    if (uniqueStates.length <= 3) {
+      return uniqueStates.join(", ");
+    }
+    const listed = uniqueStates.slice(0, 3).join(", ");
+    return `${listed} +${uniqueStates.length - 3} more`;
+  }, [data?.states, selection.states]);
+
   if (isLoading) {
     return (
       <section className="rounded-3xl border border-border bg-card p-8">
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <div className="text-center text-sm text-muted-foreground">
-            Building peer comparison for {selection.contractId} in {selection.state} ({selection.planTypeGroup})
+            Building peer comparison for {selection.contractId} across {selection.states.length} state
+            {selection.states.length === 1 ? "" : "s"} ({selection.planTypeGroup})
           </div>
         </div>
       </section>
@@ -195,18 +215,26 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
   return (
     <section className="flex flex-col gap-6">
       <div className="rounded-3xl border border-border bg-card p-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-6">
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">Selected Contract</p>
             <h2 className="mt-2 text-2xl font-semibold text-foreground">{headingLabel}</h2>
             <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-              <span className="rounded-full border border-border px-3 py-1">State {data.state}</span>
-              <span className="rounded-full border border-border px-3 py-1">{data.planTypeGroup === "SNP" ? "SNP Plans" : "Non-SNP Plans"}</span>
+              <span className="rounded-full border border-border px-3 py-1">
+                States {statesLabel}
+              </span>
+              <span className="rounded-full border border-border px-3 py-1">
+                {data.planTypeGroup === "ALL"
+                  ? "All Plans"
+                  : data.planTypeGroup === "SNP"
+                  ? "SNP Plans"
+                  : "Non-SNP Plans"}
+              </span>
               <span className="rounded-full border border-border px-3 py-1">Enrollment {selection.enrollmentLevel}</span>
               <span className="rounded-full border border-border px-3 py-1">{peerCount} contracts</span>
             </div>
           </div>
-          <div className="grid gap-4 text-sm sm:grid-cols-2 lg:w-1/2">
+          <div className="grid gap-4 text-sm grid-cols-2 lg:grid-cols-4">
             <div className="rounded-2xl border border-border bg-muted p-4">
               <p className="text-xs text-muted-foreground">Selected Contract Rating</p>
               <p className="mt-2 text-2xl font-semibold text-foreground">
@@ -271,7 +299,7 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
               <div>
                 <h3 className="text-xl font-bold text-foreground">Domain Star Ratings</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Weighted average star ratings by domain across peer contracts
+                  Weighted average star ratings by domain across peers in {statesLabel}
                 </p>
               </div>
             </div>
@@ -282,13 +310,13 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
               <div key={`${chart.title ?? "domain"}-${index}`} className="rounded-3xl border border-border bg-card p-8">
                 <div className="mb-6 flex items-start justify-between gap-4">
                   {chart.title && <h3 className="text-lg font-semibold text-foreground">{chart.title}</h3>}
-                  {domainRank && (
+                  {domainRank ? (
                     <div className="flex-shrink-0 rounded-xl border border-border bg-muted px-4 py-2">
                       <p className="text-xs text-muted-foreground">Rank</p>
                       <p className="mt-1 text-xl font-semibold text-foreground">#{domainRank.rank}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">of {domainRank.total}</p>
                     </div>
-                  )}
+                  ) : null}
                 </div>
                 <ChartRenderer spec={chart} />
               </div>
