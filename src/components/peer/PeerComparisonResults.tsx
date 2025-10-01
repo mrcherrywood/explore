@@ -6,7 +6,10 @@ import { ChartRenderer, ChartSpec } from "@/components/chart/ChartRenderer";
 import { EnrollmentLevelId, formatEnrollment } from "@/lib/peer/enrollment-levels";
 
 type Selection = {
+  comparisonType: "contract" | "organization";
   contractId: string;
+  parentOrganization: string;
+  peerOrganizations: string[];
   states: string[];
   planTypeGroup: "SNP" | "NOT" | "ALL";
   enrollmentLevel: EnrollmentLevelId;
@@ -28,6 +31,14 @@ type PeerRow = {
   latestRatingNumeric: number | null;
 };
 
+type OrgRow = {
+  organization: string;
+  contractCount: number;
+  avgOverallRating: number | null;
+  domainAverages: Record<string, number>;
+  measureAverages: Record<string, { rate: number | null; star: number | null; label: string }>;
+};
+
 type PeerComparisonResponse = {
   metricsYear: number;
   states: string[];
@@ -39,8 +50,16 @@ type PeerComparisonResponse = {
   measureCharts: ChartSpec[];
 };
 
+type OrgComparisonResponse = {
+  metricsYear: number;
+  organizations: OrgRow[];
+  overallChart: ChartSpec | null;
+  domainCharts: ChartSpec[];
+  measureCharts: ChartSpec[];
+};
+
 export function PeerComparisonResults({ selection }: { selection: Selection }) {
-  const [data, setData] = useState<PeerComparisonResponse | null>(null);
+  const [data, setData] = useState<PeerComparisonResponse | OrgComparisonResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,7 +70,10 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
       setError(null);
       setData(null);
       try {
-        const response = await fetch("/api/peer/compare", {
+        const endpoint = selection.comparisonType === "organization" 
+          ? "/api/peer/org-compare" 
+          : "/api/peer/compare";
+        const response = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(selection),
@@ -62,7 +84,7 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
           throw new Error(payload.error || "Failed to build peer comparison");
         }
 
-        const payload: PeerComparisonResponse = await response.json();
+        const payload = await response.json();
         if (!cancelled) {
           setData(payload);
         }
@@ -83,27 +105,59 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
     };
   }, [selection]);
 
+  const isOrgComparison = selection.comparisonType === "organization";
+
   const selectedPeer = useMemo(() => {
-    if (!data) return null;
-    return data.peers.find((peer: PeerRow) => peer.contractId === selection.contractId) ?? null;
-  }, [data, selection.contractId]);
+    if (!data || isOrgComparison) return null;
+    return (data as PeerComparisonResponse).peers.find((peer: PeerRow) => peer.contractId === selection.contractId) ?? null;
+  }, [data, selection.contractId, isOrgComparison]);
+
+  const selectedOrg = useMemo(() => {
+    if (!data || !isOrgComparison) return null;
+    return (data as OrgComparisonResponse).organizations.find((org: OrgRow) => org.organization === selection.parentOrganization) ?? null;
+  }, [data, selection.parentOrganization, isOrgComparison]);
 
   const averageRating = useMemo(() => {
     if (!data) return null;
-    const ratings = data.peers
+    if (isOrgComparison) {
+      const ratings = (data as OrgComparisonResponse).organizations
+        .map((org: OrgRow) => org.avgOverallRating)
+        .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+      if (ratings.length === 0) return null;
+      return ratings.reduce((acc: number, value: number) => acc + value, 0) / ratings.length;
+    }
+    const ratings = (data as PeerComparisonResponse).peers
       .map((peer: PeerRow) => peer.latestRatingNumeric)
       .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
     if (ratings.length === 0) return null;
     return ratings.reduce((acc: number, value: number) => acc + value, 0) / ratings.length;
-  }, [data]);
+  }, [data, isOrgComparison]);
 
   const selectedRank = useMemo(() => {
-    if (!data || !selectedPeer) return null;
+    if (!data) return null;
+    
+    if (isOrgComparison) {
+      if (!selectedOrg) return null;
+      const selectedRating = selectedOrg.avgOverallRating;
+      if (selectedRating === null || selectedRating === undefined) return null;
+      
+      const orgsWithRatings = (data as OrgComparisonResponse).organizations
+        .filter((org: OrgRow) => org.avgOverallRating !== null && org.avgOverallRating !== undefined)
+        .sort((a, b) => {
+          const diff = b.avgOverallRating! - a.avgOverallRating!;
+          if (diff !== 0) return diff;
+          return a.organization.localeCompare(b.organization);
+        });
+      
+      const rank = orgsWithRatings.findIndex((org: OrgRow) => org.organization === selection.parentOrganization) + 1;
+      return rank > 0 ? { rank, total: orgsWithRatings.length } : null;
+    }
+    
+    if (!selectedPeer) return null;
     const selectedRating = selectedPeer.latestRatingNumeric;
     if (selectedRating === null || selectedRating === undefined) return null;
     
-    // Get all peers with ratings and sort by rating (descending - best first)
-    const peersWithRatings = data.peers
+    const peersWithRatings = (data as PeerComparisonResponse).peers
       .filter((peer: PeerRow) => 
         peer.latestRatingNumeric !== null && 
         peer.latestRatingNumeric !== undefined
@@ -114,17 +168,17 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
         return a.contractId.localeCompare(b.contractId);
       });
     
-    // Find the rank (1-indexed)
     const rank = peersWithRatings.findIndex((peer: PeerRow) => peer.contractId === selection.contractId) + 1;
     return rank > 0 ? { rank, total: peersWithRatings.length } : null;
-  }, [data, selectedPeer, selection.contractId]);
+  }, [data, selectedPeer, selectedOrg, selection.contractId, selection.parentOrganization, isOrgComparison]);
 
   // Calculate rank for a specific measure chart
   const getMeasureRank = (chart: ChartSpec): { rank: number; total: number } | null => {
     if (!chart.data || chart.data.length === 0) return null;
     
-    // Find the selected contract's data point
-    const selectedData = chart.data.find((d) => d[chart.highlightKey || "contract"] === selection.contractId);
+    // Find the selected entity's data point
+    const entityValue = isOrgComparison ? selection.parentOrganization : selection.contractId;
+    const selectedData = chart.data.find((d) => d[chart.highlightKey || "contract"] === entityValue);
     if (!selectedData) return null;
     
     // Get the value key (first series key)
@@ -156,13 +210,14 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
     });
     
     // Find the rank
-    const rank = sortedData.findIndex((d) => d[chart.highlightKey || "contract"] === selection.contractId) + 1;
+    const rank = sortedData.findIndex((d) => d[chart.highlightKey || "contract"] === entityValue) + 1;
     return rank > 0 ? { rank, total: chart.data.length } : null;
   };
 
   const statesLabel = useMemo(() => {
-    const dataStates = Array.isArray(data?.states)
-      ? (data?.states.filter((value): value is string => Boolean(value && value.trim().length > 0)))
+    if (isOrgComparison) return null;
+    const dataStates = Array.isArray((data as PeerComparisonResponse | null)?.states)
+      ? ((data as PeerComparisonResponse).states.filter((value): value is string => Boolean(value && value.trim().length > 0)))
       : [];
     const selectionStates = Array.isArray(selection.states)
       ? selection.states.filter((value) => Boolean(value && value.trim().length > 0))
@@ -177,7 +232,7 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
     }
     const listed = uniqueStates.slice(0, 3).join(", ");
     return `${listed} +${uniqueStates.length - 3} more`;
-  }, [data?.states, selection.states]);
+  }, [data, selection.states, isOrgComparison]);
 
   if (isLoading) {
     return (
@@ -185,8 +240,9 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <div className="text-center text-sm text-muted-foreground">
-            Building peer comparison for {selection.contractId} across {selection.states.length} state
-            {selection.states.length === 1 ? "" : "s"} ({selection.planTypeGroup})
+            {isOrgComparison
+              ? `Building organization comparison for ${selection.parentOrganization} vs ${selection.peerOrganizations.length} peer org${selection.peerOrganizations.length === 1 ? "" : "s"}`
+              : `Building peer comparison for ${selection.contractId} across ${selection.states.length} state${selection.states.length === 1 ? "" : "s"} (${selection.planTypeGroup})`}
           </div>
         </div>
       </section>
@@ -208,42 +264,67 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
     return null;
   }
 
-  const peerCount = data.peers.length;
+  const peerCount = isOrgComparison 
+    ? (data as OrgComparisonResponse).organizations.length
+    : (data as PeerComparisonResponse).peers.length;
 
-  const headingLabel = selectedPeer?.contractName || selectedPeer?.organizationMarketingName || selection.contractId;
+  const headingLabel = isOrgComparison
+    ? selection.parentOrganization
+    : (selectedPeer?.contractName || selectedPeer?.organizationMarketingName || selection.contractId);
 
   return (
     <section className="flex flex-col gap-6">
       <div className="rounded-3xl border border-border bg-card p-8">
         <div className="flex flex-col gap-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">Selected Contract</p>
+            <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
+              {isOrgComparison ? "Selected Organization" : "Selected Contract"}
+            </p>
             <h2 className="mt-2 text-2xl font-semibold text-foreground">{headingLabel}</h2>
             <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+              {!isOrgComparison && (
+                <>
+                  <span className="rounded-full border border-border px-3 py-1">
+                    States {statesLabel}
+                  </span>
+                  <span className="rounded-full border border-border px-3 py-1">
+                    {(data as PeerComparisonResponse).planTypeGroup === "ALL"
+                      ? "All Plans"
+                      : (data as PeerComparisonResponse).planTypeGroup === "SNP"
+                      ? "SNP Plans"
+                      : "Non-SNP Plans"}
+                  </span>
+                  <span className="rounded-full border border-border px-3 py-1">Enrollment {selection.enrollmentLevel}</span>
+                </>
+              )}
               <span className="rounded-full border border-border px-3 py-1">
-                States {statesLabel}
+                {peerCount} {isOrgComparison ? "organizations" : "contracts"}
               </span>
-              <span className="rounded-full border border-border px-3 py-1">
-                {data.planTypeGroup === "ALL"
-                  ? "All Plans"
-                  : data.planTypeGroup === "SNP"
-                  ? "SNP Plans"
-                  : "Non-SNP Plans"}
-              </span>
-              <span className="rounded-full border border-border px-3 py-1">Enrollment {selection.enrollmentLevel}</span>
-              <span className="rounded-full border border-border px-3 py-1">{peerCount} contracts</span>
+              {isOrgComparison && selectedOrg && (
+                <span className="rounded-full border border-border px-3 py-1">
+                  {selectedOrg.contractCount} contracts
+                </span>
+              )}
             </div>
           </div>
-          <div className="grid gap-4 text-sm grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 text-sm grid-cols-2 lg:grid-cols-3">
             <div className="rounded-2xl border border-border bg-muted p-4">
-              <p className="text-xs text-muted-foreground">Selected Contract Rating</p>
+              <p className="text-xs text-muted-foreground">
+                {isOrgComparison ? "Avg Organization Rating" : "Selected Contract Rating"}
+              </p>
               <p className="mt-2 text-2xl font-semibold text-foreground">
-                {selectedPeer?.latestRatingNumeric !== null && selectedPeer?.latestRatingNumeric !== undefined
-                  ? selectedPeer.latestRatingNumeric.toFixed(1)
-                  : "N/A"}
+                {isOrgComparison
+                  ? (selectedOrg?.avgOverallRating !== null && selectedOrg?.avgOverallRating !== undefined
+                      ? selectedOrg.avgOverallRating.toFixed(1)
+                      : "N/A")
+                  : (selectedPeer?.latestRatingNumeric !== null && selectedPeer?.latestRatingNumeric !== undefined
+                      ? selectedPeer.latestRatingNumeric.toFixed(1)
+                      : "N/A")}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {selectedPeer?.latestRatingYear ? `Latest CMS ${selectedPeer.latestRatingYear}` : "No recent rating"}
+                {isOrgComparison
+                  ? `Across ${selectedOrg?.contractCount ?? 0} contracts`
+                  : (selectedPeer?.latestRatingYear ? `Latest CMS ${selectedPeer.latestRatingYear}` : "No recent rating")}
               </p>
             </div>
             <div className="rounded-2xl border border-border bg-muted p-4">
@@ -251,7 +332,9 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
               <p className="mt-2 text-2xl font-semibold text-foreground">
                 {averageRating !== null ? averageRating.toFixed(1) : "N/A"}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">Across {peerCount} contracts</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Across {peerCount} {isOrgComparison ? "organizations" : "contracts"}
+              </p>
             </div>
             <div className="rounded-2xl border border-border bg-muted p-4">
               <p className="text-xs text-muted-foreground">Peer Rank</p>
@@ -259,18 +342,20 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
                 {selectedRank ? `#${selectedRank.rank}` : "N/A"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {selectedRank ? `Out of ${selectedRank.total} rated contracts` : "No rating available"}
+                {selectedRank ? `Out of ${selectedRank.total} rated ${isOrgComparison ? "organizations" : "contracts"}` : "No rating available"}
               </p>
             </div>
-            <div className="rounded-2xl border border-border bg-muted p-4">
-              <p className="text-xs text-muted-foreground">Selected Enrollment</p>
-              <p className="mt-2 text-lg font-semibold text-foreground">
-                {formatEnrollment(selectedPeer?.totalEnrollment ?? null)}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {selectedPeer?.reportedPlanCount ?? 0} plans with reported enrollment
-              </p>
-            </div>
+            {!isOrgComparison && (
+              <div className="rounded-2xl border border-border bg-muted p-4">
+                <p className="text-xs text-muted-foreground">Selected Enrollment</p>
+                <p className="mt-2 text-lg font-semibold text-foreground">
+                  {formatEnrollment(selectedPeer?.totalEnrollment ?? null)}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {selectedPeer?.reportedPlanCount ?? 0} plans with reported enrollment
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -299,7 +384,9 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
               <div>
                 <h3 className="text-xl font-bold text-foreground">Domain Star Ratings</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Weighted average star ratings by domain across peers in {statesLabel}
+                  {isOrgComparison
+                    ? "Weighted average star ratings by domain across peer organizations"
+                    : `Weighted average star ratings by domain across peers in ${statesLabel}`}
                 </p>
               </div>
             </div>
@@ -359,63 +446,110 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
         </div>
       )}
 
-      <div className="rounded-3xl border border-border bg-card">
-        <div className="border-b border-border px-6 py-4">
-          <h3 className="text-lg font-semibold text-foreground">Peer Contract Details</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Enrollment totals represent the latest CMS reporting period. Highlighted row is the selected contract.
-          </p>
+      {!isOrgComparison && (
+        <div className="rounded-3xl border border-border bg-card">
+          <div className="border-b border-border px-6 py-4">
+            <h3 className="text-lg font-semibold text-foreground">Peer Contract Details</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Enrollment totals represent the latest CMS reporting period. Highlighted row is the selected contract.
+            </p>
+          </div>
+          <div className="max-h-[540px] overflow-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 bg-card/95 backdrop-blur">
+                <tr className="text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="px-6 py-3">Contract</th>
+                  <th className="px-6 py-3">Organization</th>
+                  <th className="px-6 py-3">Enrollment</th>
+                  <th className="px-6 py-3">Reported Plans</th>
+                  <th className="px-6 py-3">Suppressed Plans</th>
+                  <th className="px-6 py-3">Latest Stars</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data as PeerComparisonResponse).peers.map((peer: PeerRow) => {
+                  const isSelected = peer.contractId === selection.contractId;
+                  return (
+                    <tr
+                      key={peer.contractId}
+                      className={`${isSelected ? "bg-primary/20" : "hover:bg-muted/70"} border-t border-border/60 transition`}
+                    >
+                      <td className="px-6 py-3 font-semibold text-foreground">
+                        <div>{peer.contractId}</div>
+                        {peer.contractName && (
+                          <div className="text-xs font-normal text-muted-foreground">{peer.contractName}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-3 text-muted-foreground">
+                        {peer.organizationMarketingName || "—"}
+                      </td>
+                      <td className="px-6 py-3 text-foreground">
+                        {peer.formattedEnrollment}
+                        <div className="text-xs text-muted-foreground">{peer.enrollmentLevel}</div>
+                      </td>
+                      <td className="px-6 py-3 text-muted-foreground">{peer.reportedPlanCount.toLocaleString()}</td>
+                      <td className="px-6 py-3 text-muted-foreground">{peer.suppressedPlanCount.toLocaleString()}</td>
+                      <td className="px-6 py-3 text-foreground">
+                        {peer.latestRatingNumeric !== null && peer.latestRatingNumeric !== undefined
+                          ? peer.latestRatingNumeric.toFixed(1)
+                          : "N/A"}
+                        <div className="text-xs text-muted-foreground">
+                          {peer.latestRatingYear ? `Year ${peer.latestRatingYear}` : "No data"}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="max-h-[540px] overflow-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 bg-card/95 backdrop-blur">
-              <tr className="text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-6 py-3">Contract</th>
-                <th className="px-6 py-3">Organization</th>
-                <th className="px-6 py-3">Enrollment</th>
-                <th className="px-6 py-3">Reported Plans</th>
-                <th className="px-6 py-3">Suppressed Plans</th>
-                <th className="px-6 py-3">Latest Stars</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.peers.map((peer: PeerRow) => {
-                const isSelected = peer.contractId === selection.contractId;
-                return (
-                  <tr
-                    key={peer.contractId}
-                    className={`${isSelected ? "bg-primary/20" : "hover:bg-muted/70"} border-t border-border/60 transition`}
-                  >
-                    <td className="px-6 py-3 font-semibold text-foreground">
-                      <div>{peer.contractId}</div>
-                      {peer.contractName && (
-                        <div className="text-xs font-normal text-muted-foreground">{peer.contractName}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-3 text-muted-foreground">
-                      {peer.organizationMarketingName || "—"}
-                    </td>
-                    <td className="px-6 py-3 text-foreground">
-                      {peer.formattedEnrollment}
-                      <div className="text-xs text-muted-foreground">{peer.enrollmentLevel}</div>
-                    </td>
-                    <td className="px-6 py-3 text-muted-foreground">{peer.reportedPlanCount.toLocaleString()}</td>
-                    <td className="px-6 py-3 text-muted-foreground">{peer.suppressedPlanCount.toLocaleString()}</td>
-                    <td className="px-6 py-3 text-foreground">
-                      {peer.latestRatingNumeric !== null && peer.latestRatingNumeric !== undefined
-                        ? peer.latestRatingNumeric.toFixed(1)
-                        : "N/A"}
-                      <div className="text-xs text-muted-foreground">
-                        {peer.latestRatingYear ? `Year ${peer.latestRatingYear}` : "No data"}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      )}
+
+      {isOrgComparison && (
+        <div className="rounded-3xl border border-border bg-card">
+          <div className="border-b border-border px-6 py-4">
+            <h3 className="text-lg font-semibold text-foreground">Organization Details</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Average ratings across all contracts for each organization. Highlighted row is the selected organization.
+            </p>
+          </div>
+          <div className="max-h-[540px] overflow-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 bg-card/95 backdrop-blur">
+                <tr className="text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="px-6 py-3">Organization</th>
+                  <th className="px-6 py-3">Contracts</th>
+                  <th className="px-6 py-3">Avg Overall Stars</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data as OrgComparisonResponse).organizations.map((org: OrgRow) => {
+                  const isSelected = org.organization === selection.parentOrganization;
+                  return (
+                    <tr
+                      key={org.organization}
+                      className={`${isSelected ? "bg-primary/20" : "hover:bg-muted/70"} border-t border-border/60 transition`}
+                    >
+                      <td className="px-6 py-3 font-semibold text-foreground">
+                        {org.organization}
+                      </td>
+                      <td className="px-6 py-3 text-muted-foreground">
+                        {org.contractCount}
+                      </td>
+                      <td className="px-6 py-3 text-foreground">
+                        {org.avgOverallRating !== null && org.avgOverallRating !== undefined
+                          ? org.avgOverallRating.toFixed(1)
+                          : "N/A"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

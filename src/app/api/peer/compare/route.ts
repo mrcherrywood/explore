@@ -491,10 +491,21 @@ export async function POST(req: NextRequest) {
       return aRating - bRating; // Low performance on left, high on right
     });
 
+    const contractLabelOptions = {
+      xLabelKey: "label" as const,
+      xLabelMaxLines: 1,
+      xLabelLineLength: 8,
+      xLabelAngle: -60,
+      xLabelPadding: 36,
+      highlightLegendSelected: "Selected Contract",
+      highlightLegendPeers: "Peer Contracts",
+    };
+
     const overallChart = sortedByPerformance.length > 0 ? {
       title: `Overall Star Ratings (${metricsYear})`,
       type: "bar" as const,
       xKey: "contract",
+      ...contractLabelOptions,
       series: [{ key: "overall", name: "Overall Stars" }],
       data: sortedByPerformance.map((peer) => ({
         contract: peer.contractId,
@@ -562,6 +573,7 @@ export async function POST(req: NextRequest) {
           title: `${metric.label} (${chartYear})`,
           type: "bar" as const,
           xKey: "contract",
+          ...contractLabelOptions,
           series: [{ key: "value", name: usesStarsOnly ? "Stars" : "Rate %" }],
           data: sortedData,
           highlightKey: "contract",
@@ -647,6 +659,7 @@ export async function POST(req: NextRequest) {
           title: `${domain} Domain Stars (${metricsYear})`,
           type: "bar" as const,
           xKey: "contract",
+          ...contractLabelOptions,
           series: [{ key: "stars", name: "Domain Stars" }],
           data: sortedData,
           highlightKey: "contract",

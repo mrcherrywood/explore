@@ -28,10 +28,17 @@ export type ChartSpec = {
   title?: string;
   type: "line" | "bar" | "area" | "pie";
   xKey: string;
+  xLabelKey?: string;
+  xLabelMaxLines?: number;
+  xLabelLineLength?: number;
+  xLabelAngle?: number;
+  xLabelPadding?: number;
   series: ChartSeries[];
   data: ChartDatum[];
   highlightKey?: string;
   highlightValue?: string | number;
+  highlightLegendSelected?: string;
+  highlightLegendPeers?: string;
   yAxisDomain?: [number, number];
   yAxisTicks?: number[];
   showLabels?: boolean;
@@ -95,6 +102,13 @@ function normalizeChartSpec(spec: unknown): ChartSpec | null {
     typeof spec.highlightValue === "string" || typeof spec.highlightValue === "number"
       ? spec.highlightValue
       : undefined;
+  const xLabelKey = typeof spec.xLabelKey === "string" ? spec.xLabelKey : undefined;
+  const xLabelMaxLines = typeof spec.xLabelMaxLines === "number" && spec.xLabelMaxLines > 0 ? spec.xLabelMaxLines : undefined;
+  const xLabelLineLength = typeof spec.xLabelLineLength === "number" && spec.xLabelLineLength > 0 ? spec.xLabelLineLength : undefined;
+  const xLabelAngle = typeof spec.xLabelAngle === "number" ? spec.xLabelAngle : undefined;
+  const xLabelPadding = typeof spec.xLabelPadding === "number" && spec.xLabelPadding >= 0 ? spec.xLabelPadding : undefined;
+  const highlightLegendSelected = typeof spec.highlightLegendSelected === "string" ? spec.highlightLegendSelected : undefined;
+  const highlightLegendPeers = typeof spec.highlightLegendPeers === "string" ? spec.highlightLegendPeers : undefined;
   const yAxisDomain = Array.isArray(spec.yAxisDomain) && 
     spec.yAxisDomain.length === 2 && 
     typeof spec.yAxisDomain[0] === "number" && 
@@ -110,10 +124,17 @@ function normalizeChartSpec(spec: unknown): ChartSpec | null {
     title: spec.title,
     type: spec.type,
     xKey: spec.xKey,
+    xLabelKey,
+    xLabelMaxLines,
+    xLabelLineLength,
+    xLabelAngle,
+    xLabelPadding,
     series,
     data,
     highlightKey,
     highlightValue,
+    highlightLegendSelected,
+    highlightLegendPeers,
     yAxisDomain,
     yAxisTicks,
     showLabels: spec.showLabels,
@@ -149,11 +170,12 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
       // Temporarily hide the export button
       const button = chartContainerRef.current.querySelector('.export-button') as HTMLElement;
       const originalDisplay = button?.style.display;
+      
       if (button) {
         button.style.display = 'none';
       }
       
-      // Generate PNG blob
+      // Generate PNG blob with style filter to exclude border/shadow properties
       const blob = await domtoimage.toBlob(chartContainerRef.current, {
         bgcolor: '#f8fafc',
         quality: 1,
@@ -164,6 +186,11 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
           transformOrigin: 'top left',
           width: `${chartContainerRef.current.offsetWidth}px`,
           height: `${chartContainerRef.current.offsetHeight}px`,
+        },
+        filterStyles: (_node: unknown, propertyName: string) => {
+          // Filter out border and shadow related properties
+          const excludedProps = ['border', 'border-radius', 'box-shadow', 'border-width', 'border-style', 'border-color'];
+          return !excludedProps.some(prop => propertyName.toLowerCase().includes(prop));
         },
       });
       
@@ -190,7 +217,7 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
     }
   };
 
-  const containerHeight = normalized.type === "pie" ? 320 : 360;
+  const containerHeight = normalized.type === "pie" ? 280 : 420;
 
   let chart: React.ReactElement | null = null;
   if (normalized.type === "line") {
@@ -218,9 +245,158 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
       </LineChart>
     );
   } else if (normalized.type === "bar") {
+    // Custom tick component to properly display truncated text
+    type TickPayload = {
+      value: string | number;
+      payload?: ChartDatum;
+    };
+
+    const maxLines = normalized.xLabelMaxLines ?? 2;
+    const lineLength = normalized.xLabelLineLength ?? 18;
+    const lineHeight = 12;
+    const labelAngle = normalized.xLabelAngle ?? 0;
+    const sinAngle = Math.sin((Math.abs(labelAngle) * Math.PI) / 180);
+
+    const wrapLabel = (value: string): string[] => {
+      if (!value) return [""];
+      if (labelAngle !== 0) {
+        return [value];
+      }
+      const existingLines = value.split(/\r?\n/).filter((line) => line.trim().length > 0);
+      if (existingLines.length > 0) {
+        return existingLines.slice(0, maxLines);
+      }
+
+      const words = value.split(/\s+/).filter(Boolean);
+      const lines: string[] = [];
+      let current = "";
+
+      const pushLine = (line: string) => {
+        if (line.trim().length === 0) return;
+        lines.push(line.trim());
+      };
+
+      const flushRemaining = () => {
+        if (current.trim().length > 0) {
+          pushLine(current);
+          current = "";
+        }
+      };
+
+      if (words.length === 0) {
+        return value.length > 0 ? [value.slice(0, lineLength)] : [""];
+      }
+
+      for (const word of words) {
+        const safeWord = word.trim();
+        if (!safeWord) continue;
+        if (safeWord.length > lineLength) {
+          flushRemaining();
+          for (let i = 0; i < safeWord.length; i += lineLength) {
+            pushLine(safeWord.slice(i, i + lineLength));
+            if (lines.length >= maxLines) break;
+          }
+          if (lines.length >= maxLines) break;
+          continue;
+        }
+        const candidate = current ? `${current} ${safeWord}` : safeWord;
+        if (candidate.length <= lineLength) {
+          current = candidate;
+          continue;
+        }
+        pushLine(current);
+        if (lines.length >= maxLines) break;
+        current = safeWord;
+      }
+
+      if (lines.length < maxLines) {
+        flushRemaining();
+      }
+
+      if (lines.length > maxLines) {
+        const truncated = lines.slice(0, maxLines);
+        const overflow = lines.slice(maxLines - 1).join(" ");
+        const trimmed = overflow.slice(0, lineLength - 1).trimEnd();
+        truncated[maxLines - 1] = `${trimmed}…`;
+        return truncated;
+      }
+
+      if (lines.length === maxLines && (current.trim().length > 0)) {
+        const truncated = current.slice(0, lineLength - 1).trimEnd();
+        lines[maxLines - 1] = `${lines[maxLines - 1]} ${truncated}…`.trim();
+      }
+
+      return lines.length > 0 ? lines : [value.slice(0, lineLength)];
+    };
+
+    const computedLineCount =
+      labelAngle === 0
+        ? normalized.data.reduce((max, entry) => {
+            const rawValue = normalized.xLabelKey
+              ? entry?.[normalized.xLabelKey]
+              : entry?.[normalized.xKey];
+            const textValue =
+              typeof rawValue === "string"
+                ? rawValue
+                : rawValue == null
+                  ? ""
+                  : String(rawValue);
+            const lines = wrapLabel(textValue);
+            return Math.max(max, lines.length > 0 ? lines.length : 1);
+          }, 1)
+        : 1;
+
+    const CustomTick = ({ x, y, payload }: { x: number; y: number; payload: TickPayload }) => {
+      const dataEntry = (payload?.payload as ChartDatum | undefined) ?? {};
+      const rawValue = payload?.value;
+      const displayValue = normalized.xLabelKey
+        ? (dataEntry?.[normalized.xLabelKey] ?? rawValue)
+        : rawValue;
+      const textValue = typeof displayValue === "string" ? displayValue : String(displayValue ?? "");
+      const titleValue = typeof rawValue === "string" ? rawValue : undefined;
+      const lines = wrapLabel(textValue);
+      const textAnchor = labelAngle === 0 ? "middle" : labelAngle < 0 ? "end" : "start";
+      const initialDy = labelAngle === 0 ? 12 : 8;
+      return (
+        <g transform={`translate(${x},${y})`}>
+          <text
+            x={0}
+            y={0}
+            dy={initialDy}
+            textAnchor={textAnchor}
+            fill="#475569"
+            fontSize={13}
+            fontWeight={600}
+            transform={labelAngle === 0 ? undefined : `rotate(${labelAngle})`}
+          >
+            {titleValue ? <title>{titleValue}</title> : null}
+            {lines.map((line, index) => (
+              <tspan key={index} x={0} dy={index === 0 ? 0 : lineHeight}>
+                {line}
+              </tspan>
+            ))}
+          </text>
+        </g>
+      );
+    };
+
+    const lineCount = labelAngle === 0 ? Math.min(maxLines, computedLineCount) : 1;
+    const angleAllowance = labelAngle === 0 ? 0 : Math.max(24, sinAngle * 80);
+    const xAxisHeight = lineHeight * lineCount + angleAllowance;
+    const bottomMargin = labelAngle === 0 ? 0 : Math.ceil(Math.max(4, angleAllowance * 0.5));
+
     chart = (
-      <BarChart data={normalized.data} margin={{ top: 30, right: 5, left: 5, bottom: 5 }}>
-        <XAxis dataKey={normalized.xKey} stroke="#64748b" tick={{ fill: "#475569", fontSize: 13, fontWeight: 500 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={80} />
+      <BarChart data={normalized.data} margin={{ top: 60, right: 5, left: 5, bottom: bottomMargin }}>
+        <XAxis
+          dataKey={normalized.xKey}
+          stroke="#64748b"
+          tick={CustomTick}
+          axisLine={false}
+          tickLine={false}
+          height={xAxisHeight}
+          interval={0}
+          minTickGap={0}
+        />
         <YAxis stroke="#64748b" tick={{ fill: "#475569", fontSize: 13, fontWeight: 500 }} axisLine={false} tickLine={false} domain={normalized.yAxisDomain} ticks={normalized.yAxisTicks} />
         <Tooltip 
           contentStyle={{ background: "rgba(255,255,255,0.98)", borderRadius: 12, border: "1px solid rgba(148,163,184,0.3)", color: "#1e293b", padding: 12 }} 
@@ -319,20 +495,34 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
           className="h-3 w-3 rounded" 
           style={{ backgroundColor: "#ef4444", background: "#ef4444", border: "1px solid #ef4444" }} 
         />
-        <span style={{ color: "#475569" }}>Selected Contract</span>
+        <span style={{ color: "#475569" }}>
+          {normalized.highlightLegendSelected
+            ?? (normalized.highlightKey === "organization"
+              ? "Selected Organization"
+              : normalized.highlightKey === "contract"
+                ? "Selected Contract"
+                : "Selected")}
+        </span>
       </div>
       <div className="flex items-center gap-2">
         <div 
           className="h-3 w-3 rounded" 
           style={{ backgroundColor: "#38bdf8", background: "#38bdf8", border: "1px solid #38bdf8" }} 
         />
-        <span style={{ color: "#475569" }}>Peer Contracts</span>
+        <span style={{ color: "#475569" }}>
+          {normalized.highlightLegendPeers
+            ?? (normalized.highlightKey === "organization"
+              ? "Peer Organizations"
+              : normalized.highlightKey === "contract"
+                ? "Peer Contracts"
+                : "Peers")}
+        </span>
       </div>
     </div>
   ) : null;
 
   return (
-    <div ref={chartContainerRef} className="relative w-full overflow-visible rounded-3xl border border-border/30 bg-slate-50/50 dark:bg-slate-900/40 p-5 shadow-sm">
+    <div ref={chartContainerRef} className="relative w-full overflow-visible rounded-3xl border border-border/30 bg-slate-50/50 dark:bg-slate-900/40 pt-5 px-5 pb-2 shadow-sm">
       <button
         onClick={handleExportPNG}
         className="export-button absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
