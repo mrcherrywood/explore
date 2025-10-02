@@ -18,6 +18,11 @@ const PLAN_TYPE_OPTIONS: Array<{ id: ContractLeaderboardSelection["planTypeGroup
   { id: "NOT", label: "Non-SNP Plans", description: "General population plans" },
 ];
 
+const CONTRACT_SERIES_OPTIONS: Array<{ id: ContractLeaderboardSelection["contractSeries"]; label: string; description: string }> = [
+  { id: "H_ONLY", label: "H-Series Contracts", description: "Exclude S-series employer or EGWP contracts" },
+  { id: "S_ONLY", label: "S-Series Contracts", description: "Focus only on S-series contracts" },
+];
+
 const ORGANIZATION_BUCKETS: Array<{ id: OrganizationBucket; label: string; description: string }> = [
   { id: "all", label: "All Parent Orgs", description: "Organizations with more than one contract" },
   { id: "lt5", label: "Less than 5 contracts", description: "Smaller parent organizations" },
@@ -46,6 +51,7 @@ export function LeaderboardBuilder() {
   const [selectedState, setSelectedState] = useState<string>("");
   const [planTypeGroup, setPlanTypeGroup] = useState<ContractLeaderboardSelection["planTypeGroup"]>("ALL");
   const [enrollmentLevel, setEnrollmentLevel] = useState<EnrollmentLevelId>("all");
+  const [contractSeries, setContractSeries] = useState<ContractLeaderboardSelection["contractSeries"]>("H_ONLY");
   const [orgBucket, setOrgBucket] = useState<OrganizationBucket>("all");
   const [topLimit, setTopLimit] = useState<number>(DEFAULT_TOP_LIMIT);
   const [includeMeasures, setIncludeMeasures] = useState<boolean>(true);
@@ -107,7 +113,7 @@ export function LeaderboardBuilder() {
         return Boolean(planTypeGroup);
       }
       if (currentStep === 3) {
-        return Boolean(enrollmentLevel);
+        return Boolean(contractSeries) && Boolean(enrollmentLevel);
       }
       return false;
     }
@@ -120,7 +126,7 @@ export function LeaderboardBuilder() {
   };
 
   const canGenerate = mode === "contract"
-    ? (stateOption === "all" || Boolean(selectedState)) && Boolean(planTypeGroup) && Boolean(enrollmentLevel)
+    ? (stateOption === "all" || Boolean(selectedState)) && Boolean(planTypeGroup) && Boolean(contractSeries) && Boolean(enrollmentLevel)
     : Boolean(orgBucket);
 
   const resetSelections = () => {
@@ -128,6 +134,7 @@ export function LeaderboardBuilder() {
     setSelectedState("");
     setPlanTypeGroup("ALL");
     setEnrollmentLevel("all");
+    setContractSeries("H_ONLY");
     setOrgBucket("all");
     setTopLimit(DEFAULT_TOP_LIMIT);
     setResults(null);
@@ -149,6 +156,7 @@ export function LeaderboardBuilder() {
               state: stateOption === "state" ? selectedState : undefined,
               planTypeGroup,
               enrollmentLevel,
+              contractSeries,
               topLimit,
             },
             topLimit,
@@ -250,13 +258,13 @@ export function LeaderboardBuilder() {
                 <p className={`text-xs font-medium ${step === stepNumber ? "text-foreground" : "text-muted-foreground"}`}>
                   {mode === "contract" && stepNumber === 1 && "Select Geography"}
                   {mode === "contract" && stepNumber === 2 && "Plan Type Group"}
-                  {mode === "contract" && stepNumber === 3 && "Enrollment Level"}
+                  {mode === "contract" && stepNumber === 3 && "Contract Series & Enrollment"}
                   {mode === "organization" && stepNumber === 1 && "Organization Size"}
                 </p>
                 <p className="text-[0.65rem] text-muted-foreground">
                   {mode === "contract" && stepNumber === 1 && (stateOption === "all" ? "All Contracts" : selectedState || "Select a state")}
                   {mode === "contract" && stepNumber === 2 && PLAN_TYPE_OPTIONS.find((option) => option.id === planTypeGroup)?.label}
-                  {mode === "contract" && stepNumber === 3 && ENROLLMENT_LEVELS.find((bucket) => bucket.id === enrollmentLevel)?.label}
+                  {mode === "contract" && stepNumber === 3 && `${CONTRACT_SERIES_OPTIONS.find((option) => option.id === contractSeries)?.label ?? ""} • ${ENROLLMENT_LEVELS.find((bucket) => bucket.id === enrollmentLevel)?.label ?? ""}`}
                   {mode === "organization" && stepNumber === 1 && ORGANIZATION_BUCKETS.find((option) => option.id === orgBucket)?.label}
                 </p>
               </div>
@@ -370,6 +378,25 @@ export function LeaderboardBuilder() {
 
           {mode === "contract" && step === 3 && (
             <div>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">Contract Series</h3>
+              <div className="mb-6 grid gap-3 md:grid-cols-2">
+                {CONTRACT_SERIES_OPTIONS.map((option) => {
+                  const isSelected = contractSeries === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => setContractSeries(option.id)}
+                      className={`flex h-full flex-col gap-2 rounded-xl border px-4 py-3 text-left transition ${
+                        isSelected ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-muted hover:border-border/70"
+                      }`}
+                    >
+                      <span className="text-sm font-semibold">{option.label}</span>
+                      <span className="text-xs text-muted-foreground">{option.description}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
               <h3 className="mb-4 text-sm font-semibold text-foreground">Enrollment Level</h3>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {ENROLLMENT_LEVELS.filter((bucket) => bucket.id !== "null").map((bucket) => {

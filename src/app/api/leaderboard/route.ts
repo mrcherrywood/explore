@@ -31,6 +31,7 @@ const MIN_TOP_LIMIT = 5;
 const MAX_TOP_LIMIT = 20;
 
 const PLAN_TYPES = new Set(["ALL", "SNP", "NOT"]);
+const CONTRACT_SERIES = new Set(["H_ONLY", "S_ONLY"] as const);
 const STATE_OPTIONS = new Set(["all", "state"]);
 const VALID_ENROLLMENT_LEVELS = new Set<EnrollmentLevelId>(
   ENROLLMENT_LEVELS.map((level) => level.id)
@@ -269,6 +270,9 @@ function normalizeRequest(payload: LeaderboardRequest): NormalizedRequest {
       ? rawEnrollment
       : "all";
 
+    const rawSeries = (rawSelection.contractSeries ?? "H_ONLY") as ContractLeaderboardSelection["contractSeries"];
+    const contractSeries = CONTRACT_SERIES.has(rawSeries) ? rawSeries : "H_ONLY";
+
     const state = stateOption === "state" ? normalizeState(rawSelection.state) : null;
     if (stateOption === "state") {
       if (!state) {
@@ -284,6 +288,7 @@ function normalizeRequest(payload: LeaderboardRequest): NormalizedRequest {
       state: state ?? undefined,
       planTypeGroup,
       enrollmentLevel,
+      contractSeries,
       topLimit: requestedTopLimit,
     };
 
@@ -394,9 +399,17 @@ function filterContracts(
   contractRecords: Map<string, ContractRecord>,
   selection: ContractLeaderboardSelection
 ): ContractRecord[] {
-  const { stateOption, state, planTypeGroup, enrollmentLevel } = selection;
+  const { stateOption, state, planTypeGroup, enrollmentLevel, contractSeries } = selection;
 
   return Array.from(contractRecords.values()).filter((record) => {
+    if (contractSeries === "H_ONLY" && !record.contractId.startsWith("H")) {
+      return false;
+    }
+
+    if (contractSeries === "S_ONLY" && !record.contractId.startsWith("S")) {
+      return false;
+    }
+
     if (stateOption === "state") {
       if (!record.stateEligible) return false;
       if (!record.dominantState || record.dominantState !== state) return false;
@@ -680,6 +693,49 @@ function buildSections(
   return sections;
 }
 
+async function fetchMetricRows(
+  supabase: ServiceSupabaseClient,
+  contractIds: string[]
+): Promise<MetricRow[]> {
+  if (!contractIds.length) {
+    return [];
+  }
+
+  const pageSize = 1000;
+  let page = 0;
+  const allRows: MetricRow[] = [];
+  let hasMore = true;
+
+  while (hasMore) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    const { data, error } = await supabase
+      .from("ma_metrics")
+      .select(
+        "contract_id, metric_code, metric_label, metric_category, rate_percent, star_rating, year"
+      )
+      .in("contract_id", contractIds)
+      .order("contract_id", { ascending: true })
+      .order("metric_code", { ascending: true })
+      .order("year", { ascending: true })
+      .range(from, to);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allRows.push(...(data as MetricRow[]));
+    hasMore = data.length === pageSize;
+    page += 1;
+  }
+
+  return allRows;
+}
+
 function buildSection(
   mode: NormalizedRequest["mode"],
   key: string,
@@ -832,18 +888,10 @@ async function buildContractMetricSections(
   }
 
   const contractIds = contracts.map((record) => record.contractId);
-  const { data: metricRows, error: metricError } = await supabase
-    .from("ma_metrics")
-    .select(
-      "contract_id, metric_code, metric_label, metric_category, rate_percent, star_rating, year"
-    )
-    .in("contract_id", contractIds);
-
-  if (metricError) {
-    throw new Error(metricError.message);
-  }
-
-  const typedMetricRows = (metricRows ?? []) as MetricRow[];
+  const typedMetricRows = await fetchMetricRows(
+    supabase,
+    contractIds
+  );
   if (!typedMetricRows.length) {
     return [];
   }
@@ -1019,18 +1067,10 @@ async function buildOrganizationMetricSections(
     return [];
   }
 
-  const { data: metricRows, error: metricError } = await supabase
-    .from("ma_metrics")
-    .select(
-      "contract_id, metric_code, metric_label, metric_category, rate_percent, star_rating, year"
-    )
-    .in("contract_id", Array.from(allContracts));
-
-  if (metricError) {
-    throw new Error(metricError.message);
-  }
-
-  const typedMetricRows = (metricRows ?? []) as MetricRow[];
+  const typedMetricRows = await fetchMetricRows(
+    supabase,
+    Array.from(allContracts)
+  );
   if (!typedMetricRows.length) {
     return [];
   }

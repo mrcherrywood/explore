@@ -7,6 +7,7 @@ export type ContractLeaderboardSelection = {
   state?: string;
   planTypeGroup: "ALL" | "SNP" | "NOT";
   enrollmentLevel: EnrollmentLevelId;
+  contractSeries: "H_ONLY" | "S_ONLY";
   topLimit?: number;
 };
 

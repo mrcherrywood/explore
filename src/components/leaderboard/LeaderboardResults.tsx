@@ -59,17 +59,14 @@ function LeaderboardList({
                   <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-muted-foreground">
                     {entry.rank}
                   </span>
-                  <div>
+                  <div className="flex flex-col">
                     <p className="text-sm font-semibold text-foreground">{entry.entityLabel}</p>
                     {entry.parentOrganization && (
                       <p className="text-[0.65rem] text-muted-foreground">Parent Org {entry.parentOrganization}</p>
                     )}
-                    {entry.contractId && entry.contractId !== entry.entityId && (
-                      <p className="text-[0.65rem] text-muted-foreground">Contract {entry.contractId}</p>
-                    )}
-                    {entry.dominantState && (
+                    {entry.contractId && entry.dominantState && (
                       <p className="text-[0.65rem] text-muted-foreground">
-                        Dominant State {US_STATE_NAMES[entry.dominantState] ?? entry.dominantState}
+                        Dominant {entry.dominantState} • {(entry.dominantShare ?? 0) > 0 ? `${((entry.dominantShare ?? 0) * 100).toFixed(1)}%` : "<40%"}
                       </p>
                     )}
                   </div>
@@ -80,7 +77,7 @@ function LeaderboardList({
                 </div>
               </div>
               {entry.delta !== null && entry.delta !== undefined && (
-                <div className="flex items-center justify-between text-[0.65rem] text-muted-foreground">
+                <div className="flex items-center justify-between text-xs">
                   <span>
                     {entry.dominantShare !== null && entry.dominantShare !== undefined
                       ? `Dominant share ${(entry.dominantShare * 100).toFixed(1)}%`
@@ -118,6 +115,7 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
           ? "SNP Plans"
           : "Non-SNP Plans"
       );
+      chips.push(contractFilters.contractSeries === "H_ONLY" ? "H-Series Contracts" : "S-Series Contracts");
       chips.push(`Enrollment ${contractFilters.enrollmentLevel}`);
       chips.push(`Top ${contractFilters.topLimit ?? 10}`);
     } else {
