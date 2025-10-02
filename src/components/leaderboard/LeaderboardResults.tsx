@@ -105,21 +105,23 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
   const summaryChips = useMemo(() => {
     const chips: string[] = [];
     if (data.mode === "contract") {
+      const contractFilters = data.filters as import("@/lib/leaderboard/types").ContractLeaderboardFilters;
       chips.push(
-        data.filters.stateOption === "all"
+        contractFilters.stateOption === "all"
           ? "All Contracts"
-          : `State ${(data.filters.state && (US_STATE_NAMES[String(data.filters.state)] ?? data.filters.state)) || "Unknown"}`
+          : `State ${(contractFilters.state && (US_STATE_NAMES[String(contractFilters.state)] ?? contractFilters.state)) || "Unknown"}`
       );
       chips.push(
-        data.filters.planTypeGroup === "ALL"
+        contractFilters.planTypeGroup === "ALL"
           ? "All Plan Types"
-          : data.filters.planTypeGroup === "SNP"
+          : contractFilters.planTypeGroup === "SNP"
           ? "SNP Plans"
           : "Non-SNP Plans"
       );
-      chips.push(`Enrollment ${data.filters.enrollmentLevel}`);
-      chips.push(`Top ${data.filters.topLimit ?? 10}`);
+      chips.push(`Enrollment ${contractFilters.enrollmentLevel}`);
+      chips.push(`Top ${contractFilters.topLimit ?? 10}`);
     } else {
+      const orgFilters = data.filters as import("@/lib/leaderboard/types").OrganizationLeaderboardFilters;
       const bucketLabels: Record<string, string> = {
         all: "All Parent Orgs",
         lt5: "< 5 Contracts",
@@ -127,8 +129,8 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
         "10to20": "11 - 20 Contracts",
         "20plus": "21+ Contracts",
       };
-      chips.push(bucketLabels[data.filters.bucket] ?? "Parent Orgs");
-      chips.push(`Top ${data.filters.topLimit ?? 10}`);
+      chips.push(bucketLabels[orgFilters.bucket] ?? "Parent Orgs");
+      chips.push(`Top ${orgFilters.topLimit ?? 10}`);
     }
     if (data.dataYear) {
       chips.push(`Data ${data.dataYear}`);
