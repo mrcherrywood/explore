@@ -1,4 +1,8 @@
-import fetch from 'node-fetch';
+type LeaderboardEntry = {
+  rank: number;
+  entityLabel: string;
+  valueLabel: string;
+};
 
 async function main() {
   console.log('🔍 Testing leaderboard API...\n');
@@ -44,9 +48,10 @@ async function main() {
     console.log('  Biggest Movers:', overallSection.biggestMovers?.length || 0);
     console.log('  Biggest Decliners:', overallSection.biggestDecliners?.length || 0);
     
-    if (overallSection.topPerformers && overallSection.topPerformers.length > 0) {
+    const topPerformers = (overallSection.topPerformers ?? []) as LeaderboardEntry[];
+    if (topPerformers.length > 0) {
       console.log('\nSample Top Performers:');
-      overallSection.topPerformers.slice(0, 5).forEach((entry: any) => {
+      topPerformers.slice(0, 5).forEach((entry) => {
         console.log(`  ${entry.rank}. ${entry.entityLabel} - ${entry.valueLabel}`);
       });
     }

@@ -256,7 +256,7 @@ function MessageBubble({ role, content }: { role: Message["role"]; content: stri
         );
       },
     } satisfies Components;
-  }, [chartSpec]);
+  }, []);
 
   return (
     <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
