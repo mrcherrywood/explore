@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, FileText, Calendar, Sparkle, Users } from "lucide-react";
+import { BarChart3, FileText, Calendar, Sparkle, Trophy, Users } from "lucide-react";
 import { NavIcon } from "./NavIcon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { usePathname } from "next/navigation";
@@ -15,6 +15,7 @@ export function DataPageNav() {
         <NavIcon icon={BarChart3} label="Data" href="/data" active={pathname === "/data"} />
         <NavIcon icon={Calendar} label="Year/Year" href="/yoy" active={pathname === "/yoy"} />
         <NavIcon icon={Users} label="Peer" href="/peer" active={pathname === "/peer"} />
+        <NavIcon icon={Trophy} label="Leaders" href="/leaderboard" active={pathname === "/leaderboard"} />
         <NavIcon icon={Sparkle} label="AI Chat" href="/chat" active={pathname === "/chat"} />
       </div>
       <div className="flex flex-col items-center pb-6">

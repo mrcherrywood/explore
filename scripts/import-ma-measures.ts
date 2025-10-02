@@ -34,7 +34,7 @@ async function buildDomainMap(): Promise<Map<string, DomainMetadata>> {
   const { data, error } = await supabase
     .from('ma_measures')
     .select('code, domain, weight, year')
-    .in('year', [2025, 2024])
+    .in('year', [2025, 2024, 2023])
     .order('year', { ascending: false });
 
   if (error) {
@@ -160,7 +160,9 @@ async function importMeasures(year: number) {
 
 async function main() {
   try {
-    await importMeasures(2023);
+    for (const y of [2023, 2024, 2025]) {
+      await importMeasures(y);
+    }
   } catch (error) {
     console.error('Import failed:', error instanceof Error ? error.message : error);
     process.exit(1);

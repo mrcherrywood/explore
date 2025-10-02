@@ -71,8 +71,16 @@ async function handleOrganizationComparison(
 
   const measureMetadataByYear = new Map<number, Map<string, MeasureMeta>>();
   const normalizedNameToCategories = new Map<string, Set<string>>();
-  const deriveCategory = (code: string) => code.startsWith("C") ? "Part C" : code.startsWith("D") ? "Part D" : "Other";
-  const normalizeMeasureName = (value: string) => value.replace(/\s+/g, " ").trim().toLowerCase();
+  const deriveCategory = (code?: string | null) => {
+    const normalizedCode = (code ?? "").trim().toUpperCase();
+    if (normalizedCode.startsWith("C")) return "Part C";
+    if (normalizedCode.startsWith("D")) return "Part D";
+    return "Other";
+  };
+  const normalizeMeasureName = (value?: string | null) => {
+    const base = (value ?? "Unknown Metric").replace(/\s+/g, " ").trim().toLowerCase();
+    return base.length > 0 ? base : "unknown metric";
+  };
 
   (measures || []).forEach((m: { code: string; domain: string | null; weight: number | null; year: number; name: string | null }) => {
     if (!measureMetadataByYear.has(m.year)) {
@@ -144,7 +152,7 @@ async function handleOrganizationComparison(
   const domainMap = new Map<string, DomainData>();
 
   (metricRows as MetricEntry[] | null)?.forEach((entry) => {
-    const measureInfo = measureMetadataByYear.get(entry.year)?.get(entry.metric_code);
+    const measureInfo = entry.metric_code ? measureMetadataByYear.get(entry.year)?.get(entry.metric_code) : undefined;
     if (!measureInfo?.domain || !measureInfo?.weight) return;
 
     const starValue = entry.star_rating ? Number.parseFloat(entry.star_rating) : null;
@@ -207,8 +215,11 @@ async function handleOrganizationComparison(
   const measureDataMap = new Map<string, MeasureData>();
 
   (metricRows as MetricEntry[] | null)?.forEach((entry) => {
-    const measureInfo = measureMetadataByYear.get(entry.year)?.get(entry.metric_code);
-    const resolvedName = measureInfo?.name?.trim() || entry.metric_label?.trim() || entry.metric_code;
+    const measureInfo = entry.metric_code ? measureMetadataByYear.get(entry.year)?.get(entry.metric_code) : undefined;
+    const resolvedName = measureInfo?.name?.trim()
+      || entry.metric_label?.trim()
+      || entry.metric_code?.trim()
+      || "Unknown Metric";
     const category = measureInfo?.category ?? entry.metric_category ?? deriveCategory(entry.metric_code);
     const normalizedName = normalizeMeasureName(resolvedName);
     const metricKey = `${normalizedName}|${category}`;
@@ -232,7 +243,7 @@ async function handleOrganizationComparison(
 
     const yearData = measureData.yearData.get(entry.year)!;
     const starNumeric = entry.star_rating ? Number.parseFloat(entry.star_rating) : null;
-    
+
     if (entry.rate_percent !== null) {
       yearData.rates.push(entry.rate_percent);
     }
@@ -451,9 +462,13 @@ export async function POST(req: NextRequest) {
 
     const measureMetadataByYear = new Map<number, Map<string, MeasureMeta>>();
     const normalizedNameToCategories = new Map<string, Set<string>>();
-    const deriveCategory = (code: string) => code.startsWith("C") ? "Part C" : code.startsWith("D") ? "Part D" : "Other";
-
-    const normalizeMeasureName = (value: string) => value.replace(/\s+/g, " ").trim().toLowerCase();
+    const deriveCategory = (code?: string | null) => {
+      const normalizedCode = (code ?? "").trim().toUpperCase();
+      if (normalizedCode.startsWith("C")) return "Part C";
+      if (normalizedCode.startsWith("D")) return "Part D";
+      return "Other";
+    };
+    const normalizeMeasureName = (value?: string | null) => (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
 
     (measures || []).forEach((m: { code: string; domain: string | null; weight: number | null; year: number; name: string | null }) => {
       if (!measureMetadataByYear.has(m.year)) {
@@ -514,7 +529,7 @@ export async function POST(req: NextRequest) {
     const domainMap = new Map<string, DomainData>();
 
     (metricRows as MetricEntry[] | null)?.forEach((entry) => {
-      const measureInfo = measureMetadataByYear.get(entry.year)?.get(entry.metric_code);
+      const measureInfo = entry.metric_code ? measureMetadataByYear.get(entry.year)?.get(entry.metric_code) : undefined;
       if (!measureInfo?.domain || !measureInfo?.weight) return;
 
       const starValue = entry.star_rating ? Number.parseFloat(entry.star_rating) : null;
@@ -567,7 +582,6 @@ export async function POST(req: NextRequest) {
         };
       });
 
-    // Build measure charts
     type MeasureData = {
       key: string;
       label: string;
@@ -577,8 +591,11 @@ export async function POST(req: NextRequest) {
     const measureDataMap = new Map<string, MeasureData>();
 
     (metricRows as MetricEntry[] | null)?.forEach((entry) => {
-      const measureInfo = measureMetadataByYear.get(entry.year)?.get(entry.metric_code);
-      const resolvedName = measureInfo?.name?.trim() || entry.metric_label?.trim() || entry.metric_code;
+      const measureInfo = entry.metric_code ? measureMetadataByYear.get(entry.year)?.get(entry.metric_code) : undefined;
+      const resolvedName = measureInfo?.name?.trim()
+        || entry.metric_label?.trim()
+        || entry.metric_code?.trim()
+        || "Unknown Metric";
       const category = measureInfo?.category ?? entry.metric_category ?? deriveCategory(entry.metric_code);
       const normalizedName = normalizeMeasureName(resolvedName);
       const metricKey = `${normalizedName}|${category}`;
