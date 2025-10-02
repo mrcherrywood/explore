@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Loader2, Search, X } from "lucide-react";
 import { ENROLLMENT_LEVELS, EnrollmentLevelId } from "@/lib/peer/enrollment-levels";
 import { PeerComparisonResults } from "./PeerComparisonResults";
@@ -37,6 +37,7 @@ type ContractSummary = {
 type BuilderState = {
   comparisonType: ComparisonType;
   contractId: string;
+  contractSeries: "H_ONLY" | "S_ONLY";
   parentOrganization: string;
   peerOrganizations: string[];
   states: string[];
@@ -45,9 +46,14 @@ type BuilderState = {
 };
 
 const PLAN_TYPE_OPTIONS: Array<{ id: "SNP" | "NOT" | "ALL"; label: string; description: string }> = [
+  { id: "ALL", label: "All Plans", description: "Combine SNP and Non-SNP peers" },
   { id: "SNP", label: "Special Needs (SNP)", description: "Plans focused on special needs populations" },
   { id: "NOT", label: "Non-SNP Plans", description: "General population plans" },
-  { id: "ALL", label: "All Plans", description: "Combine SNP and Non-SNP peers" },
+];
+
+const CONTRACT_SERIES_OPTIONS: Array<{ id: "H_ONLY" | "S_ONLY"; label: string; description: string }> = [
+  { id: "H_ONLY", label: "H-Series Contracts", description: "Exclude S-series employer or EGWP contracts" },
+  { id: "S_ONLY", label: "S-Series Contracts", description: "Focus only on S-series contracts" },
 ];
 
 export function PeerComparisonBuilder() {
@@ -57,6 +63,7 @@ export function PeerComparisonBuilder() {
   const [contractSearch, setContractSearch] = useState("");
   const [organizationSearch, setOrganizationSearch] = useState("");
   const [selectedContractId, setSelectedContractId] = useState<string>("");
+  const [selectedContractSeries, setSelectedContractSeries] = useState<"H_ONLY" | "S_ONLY">("H_ONLY");
   const [selectedParentOrg, setSelectedParentOrg] = useState<string>("");
   const [selectedPeerOrgs, setSelectedPeerOrgs] = useState<string[]>([]);
 
@@ -112,16 +119,39 @@ export function PeerComparisonBuilder() {
   }, [comparisonType]);
 
   const filteredContracts = useMemo(() => {
-    if (!contractSearch) return contracts;
+    const bySeries = contracts.filter((contract) => {
+      if (selectedContractSeries === "H_ONLY") {
+        return contract.contract_id.toUpperCase().startsWith("H");
+      }
+      if (selectedContractSeries === "S_ONLY") {
+        return contract.contract_id.toUpperCase().startsWith("S");
+      }
+      return true;
+    });
+
+    if (!contractSearch) return bySeries;
     const query = contractSearch.toLowerCase();
-    return contracts.filter((contract) => {
+    return bySeries.filter((contract) => {
       return (
         contract.contract_id.toLowerCase().includes(query) ||
         contract.contract_name?.toLowerCase().includes(query) ||
         contract.organization_marketing_name?.toLowerCase().includes(query)
       );
     });
-  }, [contracts, contractSearch]);
+  }, [contracts, contractSearch, selectedContractSeries]);
+
+  useEffect(() => {
+    if (!selectedContractId) {
+      return;
+    }
+    const upper = selectedContractId.toUpperCase();
+    const matchesSeries =
+      (selectedContractSeries === "H_ONLY" && upper.startsWith("H")) ||
+      (selectedContractSeries === "S_ONLY" && upper.startsWith("S"));
+    if (!matchesSeries) {
+      setSelectedContractId("");
+    }
+  }, [selectedContractSeries, selectedContractId]);
 
   const filteredOrganizations = useMemo(() => {
     if (!organizationSearch) return organizations;
@@ -190,6 +220,11 @@ export function PeerComparisonBuilder() {
 
   const availablePlanTypes = useMemo(() => PLAN_TYPE_OPTIONS, []);
 
+  const selectedContractSeriesLabel = useMemo(() => {
+    const option = CONTRACT_SERIES_OPTIONS.find((entry) => entry.id === selectedContractSeries);
+    return option ? option.label : selectedContractSeries;
+  }, [selectedContractSeries]);
+
   const selectedPlanTypeLabel = useMemo(() => {
     if (!selectedPlanType) return null;
     return availablePlanTypes.find((option) => option.id === selectedPlanType)?.label ?? selectedPlanType;
@@ -223,10 +258,11 @@ export function PeerComparisonBuilder() {
     setSelectedPlanType(null);
     setSelectedEnrollmentLevel(null);
     setSubmittedSelection(null);
+    setSelectedContractSeries("H_ONLY");
     setStep(1);
   };
 
-  const submitSelection = async () => {
+  const submitSelection = useCallback(async () => {
     if (!canGenerate || isSubmitting) {
       return;
     }
@@ -237,6 +273,7 @@ export function PeerComparisonBuilder() {
     setSubmittedSelection({
       comparisonType,
       contractId: selectedContractId,
+      contractSeries: selectedContractSeries,
       parentOrganization: selectedParentOrg,
       peerOrganizations: selectedPeerOrgs,
       states: selectedStates.map((value) => value.toUpperCase()),
@@ -244,7 +281,66 @@ export function PeerComparisonBuilder() {
       enrollmentLevel: selectedEnrollmentLevel || "all",
     });
     setTimeout(() => setIsSubmitting(false), 150);
-  };
+  }, [
+    canGenerate,
+    comparisonType,
+    isSubmitting,
+    selectedContractId,
+    selectedContractSeries,
+    selectedEnrollmentLevel,
+    selectedParentOrg,
+    selectedPeerOrgs,
+    selectedPlanType,
+    selectedStates,
+  ]);
+
+  useEffect(() => {
+    if (comparisonType !== "contract") {
+      return;
+    }
+    if (selectedContractSeries !== "S_ONLY") {
+      return;
+    }
+    if (!selectedContractId) {
+      return;
+    }
+
+    const defaultsApplied =
+      selectedStates.length === 1 &&
+      selectedStates[0] === "ALL" &&
+      selectedPlanType === "ALL" &&
+      selectedEnrollmentLevel === "all";
+
+    if (!defaultsApplied) {
+      setSelectedStates(["ALL"]);
+      setSelectedPlanType("ALL");
+      setSelectedEnrollmentLevel("all");
+      setStep(4);
+      return;
+    }
+
+    const alreadySubmitted =
+      submittedSelection &&
+      submittedSelection.contractId === selectedContractId &&
+      submittedSelection.contractSeries === "S_ONLY";
+
+    if (!alreadySubmitted) {
+      if (!isSubmitting) {
+        setStep(4);
+        void submitSelection();
+      }
+    }
+  }, [
+    comparisonType,
+    isSubmitting,
+    selectedContractId,
+    selectedContractSeries,
+    selectedEnrollmentLevel,
+    selectedPlanType,
+    selectedStates,
+    submitSelection,
+    submittedSelection,
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -279,6 +375,7 @@ export function PeerComparisonBuilder() {
               setSelectedPlanType(null);
               setSelectedEnrollmentLevel(null);
               setSubmittedSelection(null);
+              setSelectedContractSeries("H_ONLY");
               setStep(1);
             }}
             className={`flex-1 rounded-xl px-4 py-2 text-sm font-medium transition ${
@@ -298,6 +395,7 @@ export function PeerComparisonBuilder() {
               setSelectedPlanType(null);
               setSelectedEnrollmentLevel(null);
               setSubmittedSelection(null);
+              setSelectedContractSeries("H_ONLY");
               setStep(1);
             }}
             className={`flex-1 rounded-xl px-4 py-2 text-sm font-medium transition ${
@@ -352,7 +450,9 @@ export function PeerComparisonBuilder() {
                   {stepNum === 4 && "Enrollment Level"}
                 </p>
                 <p className="text-[0.65rem] text-muted-foreground">
-                  {stepNum === 1 && ((comparisonType === "contract" ? selectedContractId : selectedParentOrg) ? "1 selected" : "0 selected")}
+                  {stepNum === 1 && (comparisonType === "contract"
+                    ? `${selectedContractSeriesLabel}${selectedContractId ? " • 1 selected" : " • 0 selected"}`
+                    : (selectedParentOrg ? "1 selected" : "0 selected"))}
                   {stepNum === 2 && (comparisonType === "contract" 
                     ? (selectedStates.length > 0 ? `${selectedStates.length} selected` : "None selected")
                     : (selectedPeerOrgs.length > 0 ? `${selectedPeerOrgs.length} selected` : "None selected"))}
@@ -369,6 +469,25 @@ export function PeerComparisonBuilder() {
           {step === 1 && comparisonType === "contract" && (
             <div>
               <h3 className="mb-4 text-sm font-semibold text-foreground">Select Contract</h3>
+              <div className="mb-4 grid gap-3 md:grid-cols-2">
+                {CONTRACT_SERIES_OPTIONS.map((option) => {
+                  const isSelected = selectedContractSeries === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => setSelectedContractSeries(option.id)}
+                      className={`flex h-full flex-col gap-2 rounded-xl border px-4 py-3 text-left transition ${
+                        isSelected
+                          ? "border-primary/40 bg-primary/10 text-primary"
+                          : "border-border bg-muted hover:border-border/70"
+                      }`}
+                    >
+                      <span className="text-sm font-semibold">{option.label}</span>
+                      <span className="text-xs text-muted-foreground">{option.description}</span>
+                    </button>
+                  );
+                })}
+              </div>
               <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <input

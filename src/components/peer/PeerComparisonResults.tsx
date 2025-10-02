@@ -8,6 +8,7 @@ import { EnrollmentLevelId, formatEnrollment } from "@/lib/peer/enrollment-level
 type Selection = {
   comparisonType: "contract" | "organization";
   contractId: string;
+  contractSeries: "H_ONLY" | "S_ONLY";
   parentOrganization: string;
   peerOrganizations: string[];
   states: string[];
@@ -106,6 +107,10 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
   }, [selection]);
 
   const isOrgComparison = selection.comparisonType === "organization";
+
+  const contractSeriesLabel = useMemo(() => {
+    return selection.contractSeries === "S_ONLY" ? "S-Series Contracts" : "H-Series Contracts";
+  }, [selection.contractSeries]);
 
   const selectedPeer = useMemo(() => {
     if (!data || isOrgComparison) return null;
@@ -284,6 +289,9 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
             <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
               {!isOrgComparison && (
                 <>
+                  <span className="rounded-full border border-border px-3 py-1">
+                    {contractSeriesLabel}
+                  </span>
                   <span className="rounded-full border border-border px-3 py-1">
                     States {statesLabel}
                   </span>

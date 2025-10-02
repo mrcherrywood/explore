@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       WITH latest_period AS (
         SELECT ${report_year}::int AS report_year, ${report_month}::int AS report_month
       ),
-      landscape AS (
+      contract_landscape AS (
         SELECT DISTINCT
           pl.contract_id,
           pl.plan_id,
@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
         LEFT JOIN ma_contracts c
           ON c.contract_id = pl.contract_id
         WHERE pl.state_abbreviation IS NOT NULL
+          AND pl.contract_id = '${escapeLiteral(contractId)}'
       ),
       enrollment AS (
         SELECT
@@ -86,14 +87,13 @@ export async function POST(req: NextRequest) {
             ELSE SUM(e.enrollment) FILTER (WHERE e.enrollment IS NOT NULL)
           END AS total_enrollment,
           ARRAY_AGG(DISTINCT l.plan_type_group) AS plan_type_groups
-        FROM ma_plan_enrollment e
-        JOIN latest_period lp
-          ON lp.report_year = e.report_year
-         AND lp.report_month = e.report_month
-        JOIN landscape l
-          ON l.contract_id = e.contract_id
-         AND l.plan_id = e.plan_id
-        WHERE e.contract_id = '${escapeLiteral(contractId)}'
+        FROM contract_landscape l
+        LEFT JOIN latest_period lp ON TRUE
+        LEFT JOIN ma_plan_enrollment e
+          ON e.contract_id = l.contract_id
+         AND e.plan_id = l.plan_id
+         AND e.report_year = lp.report_year
+         AND e.report_month = lp.report_month
         GROUP BY l.state_abbreviation
       )
       SELECT state, total_enrollment, plan_type_groups
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
 
     const rows: RpcRow[] = Array.isArray(rpcResult) ? (rpcResult as RpcRow[]) : [];
 
-    const states = rows
+    let states = rows
       .filter((row) => row.state)
       .map((row) => {
         const enrollmentTotal =
@@ -125,6 +125,39 @@ export async function POST(req: NextRequest) {
           availablePlanTypes: Array.isArray(row.plan_type_groups) ? row.plan_type_groups : [],
         };
       });
+
+    if (states.length === 0) {
+      const { data: landscapeRows, error: landscapeError } = await supabase
+        .from("ma_plan_landscape")
+        .select("plan_type, special_needs_plan_indicator")
+        .eq("contract_id", contractId)
+        .limit(2000);
+
+      if (landscapeError) {
+        throw new Error(landscapeError.message);
+      }
+
+      const fallbackPlanTypes = new Set<string>();
+      (landscapeRows ?? []).forEach((row: { plan_type: string | null; special_needs_plan_indicator: string | null }) => {
+        const planType = (row.plan_type ?? "").toLowerCase();
+        const snpIndicator = (row.special_needs_plan_indicator ?? "").toLowerCase();
+        if (planType.includes("snp") || snpIndicator.startsWith("yes")) {
+          fallbackPlanTypes.add("SNP");
+        } else {
+          fallbackPlanTypes.add("NOT");
+        }
+      });
+
+      states = [
+        {
+          state: "ALL",
+          totalEnrollment: null,
+          enrollmentLevel: getEnrollmentLevel(null),
+          formattedEnrollment: formatEnrollment(null),
+          availablePlanTypes: Array.from(fallbackPlanTypes.size ? fallbackPlanTypes : ["ALL"]),
+        },
+      ];
+    }
 
     const summedEnrollment = states.reduce((acc, entry) => {
       if (entry.totalEnrollment === null) {

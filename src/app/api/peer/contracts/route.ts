@@ -8,18 +8,30 @@ export async function GET() {
   try {
     const supabase = createServiceRoleClient();
 
-    const { data, error } = await supabase
-      .from("ma_contracts")
-      .select("contract_id, contract_name, organization_marketing_name, snp_indicator")
-      .order("contract_id", { ascending: true });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
     type ContractRow = Pick<Database["public"]["Tables"]["ma_contracts"]["Row"], "contract_id" | "contract_name" | "organization_marketing_name" | "snp_indicator">;
 
-    const rows = (data ?? []) as ContractRow[];
+    const rows: ContractRow[] = [];
+    const pageSize = 1000;
+    let page = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from("ma_contracts")
+        .select("contract_id, contract_name, organization_marketing_name, snp_indicator")
+        .order("contract_id", { ascending: true })
+        .order("organization_marketing_name", { ascending: true })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const batch = (data ?? []) as ContractRow[];
+      rows.push(...batch);
+      hasMore = batch.length === pageSize;
+      page += 1;
+    }
 
     // Get SNP status from plan landscape by checking plan_type
     const { data: planData } = await supabase

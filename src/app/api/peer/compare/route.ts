@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
       : [];
     const planTypeGroup = typeof body?.planTypeGroup === "string" ? body.planTypeGroup.trim().toUpperCase() : "";
     const enrollmentLevel = body?.enrollmentLevel;
+    const rawContractSeries = typeof body?.contractSeries === "string" ? body.contractSeries.trim().toUpperCase() : "H_ONLY";
+    const contractSeries = rawContractSeries === "S_ONLY" ? "S_ONLY" : "H_ONLY";
 
     if (!contractId) {
       return NextResponse.json({ error: "contractId is required" }, { status: 400 });
@@ -44,11 +46,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid enrollment level" }, { status: 400 });
     }
 
-    const statesInClause = states.map((value: string) => `'${escapeLiteral(value)}'`).join(", ");
+    const isNationalSelection = states.length === 0 || states.includes("ALL");
+    const statesInClause = states
+      .filter((value) => value !== "ALL")
+      .map((value: string) => `'${escapeLiteral(value)}'`)
+      .join(", ");
 
-    if (!statesInClause) {
+    if (!isNationalSelection && !statesInClause) {
       return NextResponse.json({ error: "states is required" }, { status: 400 });
     }
+
+    const contractSeriesFilter = contractSeries === "S_ONLY" ? "pl.contract_id ILIKE 'S%'" : "pl.contract_id ILIKE 'H%'";
 
     let supabase: ReturnType<typeof createServiceRoleClient>;
     try {
@@ -119,7 +127,8 @@ export async function POST(req: NextRequest) {
           ON lp.report_year = pl.year
         LEFT JOIN ma_contracts c
           ON c.contract_id = pl.contract_id
-        WHERE pl.state_abbreviation IN (${statesInClause})
+        WHERE ${contractSeriesFilter}
+        ${isNationalSelection ? "" : `AND pl.state_abbreviation IN (${statesInClause})`}
       ),
       enrollment AS (
         SELECT
@@ -185,10 +194,14 @@ export async function POST(req: NextRequest) {
     });
 
     const peerContracts = new Set<string>();
+    const normalizeSeries = (value: string) => value.trim().toUpperCase().startsWith("S") ? "S_ONLY" : "H_ONLY";
+
     peers.forEach((peer) => {
       // If "all" is selected, include all peers; otherwise filter by enrollment level
       if (enrollmentLevel === "all" || peer.enrollmentLevel === enrollmentLevel) {
-        peerContracts.add(peer.contractId);
+        if (normalizeSeries(peer.contractId) === contractSeries) {
+          peerContracts.add(peer.contractId);
+        }
       }
     });
 
@@ -206,7 +219,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const uniquePeerContracts = Array.from(peerContracts);
+    const uniquePeerContracts = Array.from(peerContracts).filter((id) => normalizeSeries(id) === contractSeries);
 
     if (uniquePeerContracts.length === 0) {
       return NextResponse.json({
