@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { Trophy, TrendingDown, TrendingUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, Trophy, TrendingDown, TrendingUp, X } from "lucide-react";
 import type { LeaderboardEntry, LeaderboardResponse, LeaderboardSection } from "@/lib/leaderboard/types";
 import { US_STATE_NAMES } from "@/lib/leaderboard/states";
 
@@ -27,6 +27,15 @@ function formatPrior(entry: LeaderboardEntry, metricType: LeaderboardSection["me
   }
   return metricType === "rate" ? `${entry.priorValue.toFixed(1)}%` : entry.priorValue.toFixed(1);
 }
+
+const slugifyLabel = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "section";
+
+const shortenLabel = (value: string, maxLength = 32) =>
+  value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 
 function LeaderboardList({
   title,
@@ -139,6 +148,84 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
     return chips;
   }, [data]);
 
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const sectionAnchors = useMemo(() => {
+    const anchors: { id: string; label: string }[] = [{ id: "leaderboard-summary", label: "Summary" }];
+
+    data.sections.forEach((section, index) => {
+      const title = section.title || `Section ${index + 1}`;
+      anchors.push({ id: `leaderboard-section-${index + 1}-${slugifyLabel(title)}`, label: title });
+    });
+
+    return anchors;
+  }, [data.sections]);
+
+  useEffect(() => {
+    if (sectionAnchors.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
+        if (visible[0]) {
+          setActiveSectionId(visible[0].target.id);
+          return;
+        }
+
+        const nearest = entries
+          .slice()
+          .sort((a, b) => Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top))[0];
+
+        if (nearest) {
+          setActiveSectionId(nearest.target.id);
+        }
+      },
+      {
+        rootMargin: "-45% 0px -45% 0px",
+        threshold: [0.1, 0.5, 0.75],
+      }
+    );
+
+    sectionAnchors.forEach((anchor) => {
+      const element = document.getElementById(anchor.id);
+      if (element) observer.observe(element);
+    });
+
+    return () => observer.disconnect();
+  }, [sectionAnchors]);
+
+  useEffect(() => {
+    if (sectionAnchors.length > 0) {
+      setActiveSectionId((prev) => prev ?? sectionAnchors[0].id);
+    }
+  }, [sectionAnchors]);
+
+  useEffect(() => {
+    if (!isDrawerOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsDrawerOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isDrawerOpen]);
+
+  const handleAnchorJump = (anchorId: string) => {
+    const element = document.getElementById(anchorId);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    setActiveSectionId(anchorId);
+    setIsDrawerOpen(false);
+  };
+
   if (!data.sections || data.sections.length === 0) {
     return (
       <section className="rounded-3xl border border-border bg-card p-8 text-sm text-muted-foreground">
@@ -148,32 +235,99 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
   }
 
   return (
-    <section className="flex flex-col gap-6">
-      <div className="rounded-3xl border border-border bg-card p-8">
-        <div className="flex flex-wrap gap-3">
-          {summaryChips.map((chip) => (
-            <span key={chip} className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
-              {chip}
-            </span>
-          ))}
-        </div>
-      </div>
+    <>
+      <section className="flex flex-col gap-6">
+        <div id="leaderboard-summary" className="rounded-3xl border border-border bg-card p-8">
+          <div className="flex flex-wrap gap-3">
+            {summaryChips.map((chip) => (
+              <span key={chip} className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+                {chip}
+              </span>
+            ))}
+          </div>
 
-      {data.sections.map((section) => (
-        <div key={section.key} className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-8">
-          <div className="flex flex-col gap-1">
-            <h3 className="text-lg font-semibold text-foreground">{section.title}</h3>
-            <p className="text-xs text-muted-foreground">
-              Ranking based on {section.metricType === "rate" ? "rate percentage" : "star rating"} across the selected cohort.
-            </p>
+          {sectionAnchors.length > 1 && (
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsDrawerOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-primary/10 px-4 py-2 text-xs font-medium text-primary shadow-sm transition hover:border-primary/70 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                Jump to section
+              </button>
+            </div>
+          )}
+        </div>
+
+        {data.sections.map((section, index) => (
+          <div
+            key={section.key}
+            id={`leaderboard-section-${index + 1}-${slugifyLabel(section.title || `section-${index + 1}`)}`}
+            className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-8"
+          >
+            <div className="flex flex-col gap-1">
+              <h3 className="text-lg font-semibold text-foreground">{section.title}</h3>
+              <p className="text-xs text-muted-foreground">
+                Ranking based on {section.metricType === "rate" ? "rate percentage" : "star rating"} across the selected cohort.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <LeaderboardList title="Top Performers" icon={Trophy} entries={section.topPerformers} metricType={section.metricType} />
+              <LeaderboardList title="Biggest Movers" icon={TrendingUp} entries={section.biggestMovers} metricType={section.metricType} />
+              <LeaderboardList title="Biggest Decliners" icon={TrendingDown} entries={section.biggestDecliners} metricType={section.metricType} />
+            </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <LeaderboardList title="Top Performers" icon={Trophy} entries={section.topPerformers} metricType={section.metricType} />
-            <LeaderboardList title="Biggest Movers" icon={TrendingUp} entries={section.biggestMovers} metricType={section.metricType} />
-            <LeaderboardList title="Biggest Decliners" icon={TrendingDown} entries={section.biggestDecliners} metricType={section.metricType} />
+        ))}
+      </section>
+
+      {sectionAnchors.length > 1 && isDrawerOpen && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-background/70 backdrop-blur-sm"
+          onClick={() => setIsDrawerOpen(false)}
+        >
+          <div
+            className="w-full max-w-xl rounded-3xl border border-border bg-card p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">Quick jump</p>
+                <h3 className="text-lg font-semibold text-foreground">Navigate to a section</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDrawerOpen(false)}
+                className="rounded-full border border-border bg-card p-2 text-muted-foreground transition hover:text-foreground"
+                aria-label="Close navigation drawer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 max-h-80 space-y-2 overflow-y-auto pr-2">
+              {sectionAnchors.map((anchor) => {
+                const isActive = activeSectionId === anchor.id;
+                return (
+                  <button
+                    key={anchor.id}
+                    type="button"
+                    onClick={() => handleAnchorJump(anchor.id)}
+                    className={`flex w-full items-center justify-between rounded-xl border px-4 py-2 text-sm transition ${
+                      isActive
+                        ? "border-primary/60 bg-primary/10 text-primary"
+                        : "border-border bg-muted/40 text-foreground hover:border-border/70"
+                    }`}
+                    title={anchor.label}
+                  >
+                    <span className="max-w-xs truncate text-left md:max-w-sm">{shortenLabel(anchor.label, 48)}</span>
+                    {isActive && <Check className="ml-3 h-4 w-4 text-primary" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
-      ))}
-    </section>
+      )}
+    </>
   );
 }

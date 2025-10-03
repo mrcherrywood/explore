@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
+const MAX_RATING_ROWS = 5000;
+const MAX_METRIC_ROWS = 20000;
+
 export const runtime = "nodejs";
 
 async function handleOrganizationComparison(
@@ -39,7 +42,8 @@ async function handleOrganizationComparison(
     .select("contract_id, overall_rating_numeric, year")
     .in("contract_id", allContractIds)
     .in("year", years)
-    .order("year", { ascending: true });
+    .order("year", { ascending: true })
+    .range(0, MAX_RATING_ROWS - 1);
 
   if (ratingError) {
     throw new Error(ratingError.message);
@@ -50,7 +54,9 @@ async function handleOrganizationComparison(
     .from("ma_metrics")
     .select("contract_id, metric_code, metric_label, metric_category, rate_percent, star_rating, year")
     .in("contract_id", allContractIds)
-    .in("year", years);
+    .in("year", years)
+    .order("year", { ascending: true })
+    .range(0, MAX_METRIC_ROWS - 1);
 
   if (metricError) {
     throw new Error(metricError.message);
@@ -430,7 +436,8 @@ export async function POST(req: NextRequest) {
       .select("contract_id, overall_rating_numeric, overall_rating, year")
       .eq("contract_id", contractId)
       .in("year", years)
-      .order("year", { ascending: true });
+      .order("year", { ascending: true })
+      .range(0, MAX_RATING_ROWS - 1);
 
     if (ratingError) {
       throw new Error(ratingError.message);
@@ -441,7 +448,9 @@ export async function POST(req: NextRequest) {
       .from("ma_metrics")
       .select("contract_id, metric_code, metric_label, metric_category, rate_percent, star_rating, year")
       .eq("contract_id", contractId)
-      .in("year", years);
+      .in("year", years)
+      .order("year", { ascending: true })
+      .range(0, MAX_METRIC_ROWS - 1);
 
     if (metricError) {
       throw new Error(metricError.message);
