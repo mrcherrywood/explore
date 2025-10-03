@@ -174,8 +174,7 @@ export async function GET(request: Request) {
       .from('ma_plan_landscape')
       .select('*', { count: 'exact' })
       .eq('contract_id', contractId)
-      .eq('year', year)
-      .limit(100);
+      .eq('year', year);
 
     // Calculate landscape statistics
     const typedPlans = (planLandscape || []) as MAPlanLandscape[];
