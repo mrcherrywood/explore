@@ -192,7 +192,13 @@ export async function GET(request: Request) {
     const uniqueStates = new Set(typedPlans.map(p => p.state_abbreviation).filter(Boolean));
     const uniqueCounties = new Set(typedPlans.map(p => p.county_name).filter(Boolean));
 
-    const snpPlans = typedPlans.filter(p => p.special_needs_plan_indicator === 'Yes').length;
+    // Count unique SNP plan IDs (not plan-county combinations)
+    const uniqueSnpPlanIds = new Set(
+      typedPlans
+        .filter(p => p.special_needs_plan_indicator === 'Yes')
+        .map(p => p.plan_id)
+    );
+    const snpPlans = uniqueSnpPlanIds.size;
 
     // Fetch latest enrollment snapshot if available
     const { data: latestEnrollmentPeriod, error: periodError } = await supabase
