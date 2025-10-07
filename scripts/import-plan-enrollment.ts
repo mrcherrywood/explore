@@ -11,7 +11,7 @@ type RawEnrollmentRow = {
   'Plan ID': string | number | null;
   'Plan Type'?: string | null;
   Enrollment?: string | number | null;
-};
+} & Record<string, string | number | null | undefined>;
 
 type EnrollmentInsert = {
   contract_id: string;
@@ -34,7 +34,20 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const MONTHLY_FILE_REGEX = /^Monthly_Report_By_Plan_(\d{4})_(\d{1,2})_condensed\.json$/;
+const MONTHLY_FILE_REGEX = /^Monthly_Report_By_Plan_(\d{4})_(\d{1,2})(?:_condensed)?\.json$/;
+
+function getColumnValue(row: RawEnrollmentRow, targetKey: string): string | number | null | undefined {
+  if (row[targetKey] !== undefined) {
+    return row[targetKey];
+  }
+
+  const matchedKey = Object.keys(row).find((candidate) => candidate.trim().toLowerCase() === targetKey.trim().toLowerCase());
+  if (!matchedKey) {
+    return undefined;
+  }
+
+  return row[matchedKey];
+}
 
 function discoverMonthlyFiles(): Array<{ year: number; month: number; filePath: string; fileName: string }> {
   const dataRoot = path.join(process.cwd(), 'data');
@@ -136,12 +149,22 @@ async function importMonthlyFile(file: { year: number; month: number; filePath: 
         return null;
       }
 
-      const { enrollment, isSuppressed } = parseEnrollment(row.Enrollment);
+      const enrollmentRaw = getColumnValue(row, 'Enrollment');
+      const { enrollment, isSuppressed } = parseEnrollment(enrollmentRaw);
+
+      const planTypeRaw = getColumnValue(row, 'Plan Type');
+      let planType: string | null = null;
+      if (typeof planTypeRaw === 'string') {
+        planType = planTypeRaw.trim() || null;
+      } else if (planTypeRaw != null) {
+        const serialized = planTypeRaw.toString().trim();
+        planType = serialized.length > 0 ? serialized : null;
+      }
 
       return {
         contract_id: contractId,
         plan_id: planId,
-        plan_type: row['Plan Type']?.trim() || null,
+        plan_type: planType,
         enrollment,
         is_suppressed: isSuppressed,
         report_year: year,

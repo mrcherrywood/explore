@@ -72,7 +72,17 @@ type SummaryData = {
       enrollment: number | null;
       is_suppressed: boolean;
       is_snp: boolean;
+      previous_enrollment: number | null;
+      enrollment_change: number | null;
+      enrollment_percent_change: number | null;
     }>;
+    previousPeriod: {
+      reportYear: number;
+      reportMonth: number;
+      totalEnrollment: number | null;
+    } | null;
+    yoyEnrollmentChange: number | null;
+    yoyEnrollmentPercent: number | null;
   } | null;
   summaryRating: {
     part_c_summary: string | null;
@@ -84,6 +94,24 @@ type SummaryData = {
     disaster_percent_2021: number | null;
     disaster_percent_2022: number | null;
     disaster_percent_2023: number | null;
+  } | null;
+  computedRatings: {
+    overall: number | null;
+    partC: number | null;
+    partD: number | null;
+  };
+  qualityImprovement: {
+    thresholdMet: boolean;
+    excludedMeasures: string[];
+  };
+  cai: {
+    cai_value: number | null;
+    overall_fac: number | null;
+    part_c_fac: number | null;
+    part_d_ma_pd_fac: number | null;
+    part_d_pdp_fac: number | null;
+    overallBeforeCAI: number | null;
+    overallAfterCAI: number | null;
   } | null;
   disenrollment: {
     year: number;
@@ -194,11 +222,69 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
     return `${isWholeNumber ? value.toFixed(0) : value.toFixed(1)}%`;
   };
 
+  const formatSignedNumber = (value: number | null | undefined) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+    if (value === 0) {
+      return '0';
+    }
+    const abs = Math.abs(value).toLocaleString();
+    const sign = value > 0 ? '+' : '-';
+    return `${sign}${abs}`;
+  };
+
+  const formatSignedPercent = (value: number | null | undefined) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+    if (value === 0) {
+      return '0%';
+    }
+    const abs = Math.abs(value);
+    const formatted = Math.abs(abs) >= 10 ? abs.toFixed(0) : abs.toFixed(1);
+    const sign = value > 0 ? '+' : '-';
+    return `${sign}${formatted}%`;
+  };
+
+  const hasYoyEnrollmentData = Boolean(
+    enrollmentSnapshot?.previousPeriod &&
+    (enrollmentSnapshot.yoyEnrollmentChange !== null || enrollmentSnapshot.yoyEnrollmentPercent !== null)
+  );
+
+  const enrollmentChangeDirection: 'up' | 'down' | 'flat' = (() => {
+    if (!hasYoyEnrollmentData) {
+      return 'flat';
+    }
+    const change = enrollmentSnapshot?.yoyEnrollmentChange ?? 0;
+    if (change > 0) {
+      return 'up';
+    }
+    if (change < 0) {
+      return 'down';
+    }
+    return 'flat';
+  })();
+
+  const ChangeIcon = enrollmentChangeDirection === 'down' ? TrendingDown : TrendingUp;
+  const changeAccentClass = enrollmentChangeDirection === 'up'
+    ? 'text-emerald-500'
+    : enrollmentChangeDirection === 'down'
+    ? 'text-red-500'
+    : 'text-muted-foreground';
+
+  const yoyChangeDisplay = formatSignedNumber(enrollmentSnapshot?.yoyEnrollmentChange);
+  const yoyPercentDisplay = formatSignedPercent(enrollmentSnapshot?.yoyEnrollmentPercent);
+  const previousPeriodLabel = enrollmentSnapshot?.previousPeriod
+    ? formatMonthYear(enrollmentSnapshot.previousPeriod.reportYear, enrollmentSnapshot.previousPeriod.reportMonth)
+    : null;
+
   type RatingCardConfig = {
     key: 'overall' | 'partC' | 'partD';
     label: string;
-    numeric: number | null | undefined;
-    text: string | null | undefined;
+    computed: number | null | undefined;
+    cmsNumeric: number | null | undefined;
+    cmsText: string | null | undefined;
     fallback?: number;
   };
 
@@ -206,30 +292,41 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
     {
       key: 'overall',
       label: 'Overall Rating',
-      numeric: summaryRating?.overall_rating_numeric,
-      text: summaryRating?.overall_rating,
+      computed: data.computedRatings.overall,
+      cmsNumeric: summaryRating?.overall_rating_numeric,
+      cmsText: summaryRating?.overall_rating,
       fallback: overallStars.average,
     },
     {
       key: 'partC',
       label: 'Part C Summary',
-      numeric: summaryRating?.part_c_summary_numeric,
-      text: summaryRating?.part_c_summary,
+      computed: data.computedRatings.partC,
+      cmsNumeric: summaryRating?.part_c_summary_numeric,
+      cmsText: summaryRating?.part_c_summary,
     },
     {
       key: 'partD',
       label: 'Part D Summary',
-      numeric: summaryRating?.part_d_summary_numeric,
-      text: summaryRating?.part_d_summary,
+      computed: data.computedRatings.partD,
+      cmsNumeric: summaryRating?.part_d_summary_numeric,
+      cmsText: summaryRating?.part_d_summary,
     },
   ];
 
-  const formatRatingValue = (numeric: number | null | undefined, text: string | null | undefined, fallback?: number) => {
-    if (typeof numeric === 'number' && Number.isFinite(numeric)) {
-      return numeric.toFixed(1);
+  const formatRatingValue = (
+    computed: number | null | undefined,
+    cmsNumeric: number | null | undefined,
+    cmsText: string | null | undefined,
+    fallback?: number
+  ) => {
+    if (typeof computed === 'number' && Number.isFinite(computed)) {
+      return computed.toFixed(2);
     }
-    if (text && text.trim().length > 0) {
-      return text.trim();
+    if (typeof cmsNumeric === 'number' && Number.isFinite(cmsNumeric)) {
+      return cmsNumeric.toFixed(1);
+    }
+    if (cmsText && cmsText.trim().length > 0) {
+      return cmsText.trim();
     }
     if (typeof fallback === 'number' && Number.isFinite(fallback)) {
       return fallback.toFixed(2);
@@ -238,21 +335,31 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
   };
 
   const formatRatingAnnotation = (
-    numeric: number | null | undefined,
-    text: string | null | undefined,
+    computed: number | null | undefined,
+    cmsNumeric: number | null | undefined,
+    cmsText: string | null | undefined,
     fallback?: number
   ) => {
-    if (typeof numeric === 'number' && text && text.trim().length > 0 && text.trim() !== numeric.toString()) {
-      return `Source: ${text.trim()}`;
+    if (typeof computed === 'number' && Number.isFinite(computed)) {
+      if (typeof cmsNumeric === 'number' && Number.isFinite(cmsNumeric) && Number(cmsNumeric.toFixed(1)) !== Number(computed.toFixed(1))) {
+        return `CMS reported ${cmsNumeric.toFixed(1)} stars`;
+      }
+      if (cmsText && cmsText.trim().length > 0 && cmsText.trim() !== computed.toFixed(2)) {
+        return `Source: ${cmsText.trim()}`;
+      }
+      return null;
     }
-    if ((numeric === null || numeric === undefined) && text && text.trim().length > 0) {
-      return text.trim();
+    if (typeof cmsNumeric === 'number' && Number.isFinite(cmsNumeric)) {
+      return `CMS reported ${cmsNumeric.toFixed(1)} stars`;
     }
-    if ((numeric === null || numeric === undefined) && (!text || text.trim().length === 0) && typeof fallback === 'number') {
+    if (cmsText && cmsText.trim().length > 0) {
+      return cmsText.trim();
+    }
+    if (typeof fallback === 'number' && Number.isFinite(fallback)) {
       return 'Fallback: average across contract measures';
     }
     return null;
-  }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -331,12 +438,15 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
           <p className="mt-1 text-xs text-muted-foreground">
             Latest CMS summary ratings with measure distribution context
           </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Overall ratings exclude the Reward Factor, as CMS has discontinued this component of the Stars program.
+          </p>
         </div>
         <div className="px-8 py-6 space-y-6">
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
             {ratingCards.map((card) => {
-              const displayValue = formatRatingValue(card.numeric, card.text, card.fallback);
-              const annotation = formatRatingAnnotation(card.numeric, card.text, card.fallback);
+              const displayValue = formatRatingValue(card.computed, card.cmsNumeric, card.cmsText, card.fallback);
+              const annotation = formatRatingAnnotation(card.computed, card.cmsNumeric, card.cmsText, card.fallback);
               return (
                 <div key={card.key} className="rounded-2xl border border-border bg-muted p-6">
                   <p className="text-xs text-muted-foreground">{card.label}</p>
@@ -350,6 +460,42 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
                 </div>
               );
             })}
+            <div className="rounded-2xl border border-border bg-muted p-6">
+              <p className="text-xs text-muted-foreground">Quality Improvement Measures</p>
+              <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                <p>
+                  {data.qualityImprovement.thresholdMet
+                    ? 'Threshold met (>= 3.75). Measures that would lower the score are excluded.'
+                    : 'Threshold not met (< 3.75). All quality improvement measures are included.'}
+                </p>
+                {data.qualityImprovement.thresholdMet && data.qualityImprovement.excludedMeasures.length > 0 ? (
+                  <div>
+                    <p>Excluded measures:</p>
+                    <ul className="mt-1 list-disc space-y-1 pl-4 text-muted-foreground">
+                      {data.qualityImprovement.excludedMeasures.map((code) => (
+                        <li key={code}>{code}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            {data.cai && data.cai.cai_value !== null ? (
+              <div className="rounded-2xl border border-border bg-muted p-6">
+                <p className="text-xs text-muted-foreground">CAI Adjustment</p>
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold text-foreground">
+                      {data.cai.cai_value > 0 ? '+' : ''}{data.cai.cai_value.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>Before CAI: {data.cai.overallBeforeCAI?.toFixed(2) ?? 'N/A'}</p>
+                    <p>After CAI: {data.cai.overallAfterCAI?.toFixed(2) ?? 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <div className="rounded-2xl border border-border bg-muted p-6">
               <p className="text-xs text-muted-foreground">Total Measures Tracked</p>
               <p className="mt-3 text-3xl font-bold text-foreground">{overallStars.totalMeasures}</p>
@@ -581,6 +727,25 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
                     {formatNumber(enrollmentSnapshot.totalEnrollment)}
                   </p>
                 </div>
+                {hasYoyEnrollmentData ? (
+                  <div className="rounded-2xl border border-border bg-muted p-4">
+                    <div className="flex items-center gap-2">
+                      <ChangeIcon className={`h-4 w-4 ${changeAccentClass}`} />
+                      <p className="text-xs text-muted-foreground">YoY Enrollment Change</p>
+                    </div>
+                    <p className={`mt-2 text-2xl font-bold ${changeAccentClass}`}>
+                      {yoyChangeDisplay ?? 'N/A'}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {previousPeriodLabel ? `vs ${previousPeriodLabel}` : 'Prior year'}
+                      {yoyPercentDisplay ? (
+                        <span className={`ml-2 font-semibold ${changeAccentClass}`}>
+                          {yoyPercentDisplay}
+                        </span>
+                      ) : null}
+                    </p>
+                  </div>
+                ) : null}
                 <div className="rounded-2xl border border-border bg-muted p-4">
                   <p className="text-xs text-muted-foreground">Reported Plans</p>
                   <p className="mt-2 text-2xl font-bold text-foreground">
@@ -695,8 +860,45 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
                         <p className="text-xs text-muted-foreground">{plan.plan_type || "Type not specified"}</p>
                       </div>
                     </div>
-                    <div className="text-xs text-foreground">
-                      {plan.enrollment !== null ? `${plan.enrollment.toLocaleString()} members` : plan.is_suppressed ? "Suppressed" : "N/A"}
+                    <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
+                      <div className="text-sm font-semibold text-foreground">
+                        {plan.enrollment !== null ? `${plan.enrollment.toLocaleString()} members` : plan.is_suppressed ? "Suppressed" : "N/A"}
+                      </div>
+                      {(() => {
+                        if (
+                          plan.enrollment_change === null ||
+                          plan.enrollment_percent_change === null
+                        ) {
+                          return null;
+                        }
+
+                        if (plan.enrollment_percent_change === 0) {
+                          return (
+                            <span className="text-muted-foreground">No change from prior year</span>
+                          );
+                        }
+
+                        const direction = plan.enrollment_change > 0 ? 'up' : 'down';
+                        const iconClass = direction === 'up' ? 'text-emerald-500' : 'text-red-500';
+                        const Icon = direction === 'up' ? TrendingUp : TrendingDown;
+
+                        const changeDisplay = formatSignedNumber(plan.enrollment_change);
+                        const percentDisplay = formatSignedPercent(plan.enrollment_percent_change);
+
+                        if (!changeDisplay && !percentDisplay) {
+                          return null;
+                        }
+
+                        return (
+                          <div className={`flex items-center gap-2 ${iconClass}`}>
+                            <Icon className="h-3 w-3" />
+                            <span className="font-semibold">
+                              {changeDisplay ?? 'N/A'}
+                              {percentDisplay ? ` (${percentDisplay})` : ''}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}
