@@ -13,6 +13,7 @@ export interface Database {
         Row: {
           contract_id: string
           created_at: string | null
+          is_blue_cross_blue_shield: boolean
           organization_marketing_name: string | null
           organization_type: string | null
           parent_organization: string | null
@@ -23,6 +24,7 @@ export interface Database {
         Insert: {
           contract_id: string
           created_at?: string | null
+          is_blue_cross_blue_shield?: boolean
           organization_marketing_name?: string | null
           organization_type?: string | null
           parent_organization?: string | null
@@ -33,6 +35,7 @@ export interface Database {
         Update: {
           contract_id?: string
           created_at?: string | null
+          is_blue_cross_blue_shield?: boolean
           organization_marketing_name?: string | null
           organization_type?: string | null
           parent_organization?: string | null

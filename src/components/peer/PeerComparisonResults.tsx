@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, TriangleAlert, X } from "lucide-react";
 import { ChartRenderer, ChartSpec } from "@/components/chart/ChartRenderer";
 import { EnrollmentLevelId, formatEnrollment } from "@/lib/peer/enrollment-levels";
+import { isInverseMeasure } from "@/lib/metrics/inverse-measures";
 
 type Selection = {
   comparisonType: "contract" | "organization";
@@ -293,10 +294,8 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
     if (selectedValue === null || selectedValue === undefined) return null;
     
     // Determine if this is an inverted measure (lower is better)
-    const title = chart.title?.toLowerCase() || "";
-    const isInvertedMeasure = 
-      title.includes("members choosing to leave") ||
-      title.includes("complaints about");
+    const title = chart.title || "";
+    const isInvertedMeasure = isInverseMeasure(title);
     
     // Sort all data points by value
     // For inverted measures: ascending (lower is better)

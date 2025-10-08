@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 
+import { isBlueContract } from './blue-contracts';
+
 // Load environment variables from .env.local (aligns with other import scripts)
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
@@ -52,6 +54,7 @@ type ContractInsert = {
   organization_marketing_name: string | null;
   contract_name: string | null;
   parent_organization: string | null;
+  is_blue_cross_blue_shield: boolean;
 };
 
 function normalizeText(value: unknown): string | null {
@@ -185,6 +188,7 @@ async function importCaiYear(year: number, fileName: string, rows: RawCaiRow[]) 
         organization_marketing_name: insert.organization_marketing_name,
         contract_name: insert.contract_name,
         parent_organization: insert.parent_organization,
+        is_blue_cross_blue_shield: isBlueContract(contractId),
       });
     }
   }

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import type { Database } from '@/lib/supabase/database.types';
+import {
+  generateSqlFromPrompt,
+  SqlGenerationError,
+  type SqlGenerationMetadata,
+} from '@/lib/ai/sqlGenerator';
 
 export const runtime = 'nodejs';
 
@@ -27,6 +32,95 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No messages provided' }, { status: 400 });
   }
 
+function getLastUserMessage(messages: ChatMessage[]) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === 'user' && typeof message.content === 'string') {
+      const trimmed = message.content.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+  return null;
+}
+
+function formatValue(value: unknown) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'number') return Number.isFinite(value) ? value.toString() : '';
+  if (typeof value === 'string') return value.replace(/\|/g, '\\|');
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  try {
+    return `\`${JSON.stringify(value)}\``;
+  } catch (error) {
+    console.error('Failed to stringify value for markdown cell', error);
+    return '`[object]`';
+  }
+}
+
+function formatRowsAsMarkdown(rows: unknown[]): string | null {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return null;
+  }
+
+  const validRows = rows.filter((row) => row && typeof row === 'object' && !Array.isArray(row)) as Record<string, unknown>[];
+  if (validRows.length === 0) {
+    return null;
+  }
+
+  const columns = Array.from(new Set(validRows.flatMap((row) => Object.keys(row))));
+  if (columns.length === 0) {
+    return null;
+  }
+
+  const header = `| ${columns.join(' | ')} |`;
+  const divider = `| ${columns.map(() => '---').join(' | ')} |`;
+  const body = validRows
+    .map((row) => `| ${columns.map((column) => formatValue(row[column])).join(' | ')} |`)
+    .join('\n');
+
+  return `${header}\n${divider}\n${body}`;
+}
+
+function buildAssistantMessage({
+  sql,
+  rows,
+  metadata,
+}: {
+  sql: string;
+  rows: unknown[];
+  metadata?: SqlGenerationMetadata;
+}) {
+  const parts: string[] = [];
+
+  if (metadata?.rephrasedQuestion) {
+    parts.push(`**Rephrased Question:** ${metadata.rephrasedQuestion}`);
+  }
+
+  if (metadata?.intentReasoning) {
+    parts.push(`**Intent Reasoning:** ${metadata.intentReasoning}`);
+  }
+
+  if (metadata?.reasoning) {
+    parts.push(`**SQL Logic:** ${metadata.reasoning}`);
+  }
+
+  if (metadata?.tables?.length) {
+    parts.push(`**Tables Considered:** ${metadata.tables.join(', ')}`);
+  }
+
+  const formattedRows = formatRowsAsMarkdown(rows);
+  if (formattedRows) {
+    parts.push(`**Result Table:**\n${formattedRows}`);
+  } else {
+    parts.push('No rows returned for the generated query.');
+  }
+
+  parts.push(`**Generated SQL:**\n\n\`\`\`sql\n${sql}\n\`\`\``);
+
+  return parts.join('\n\n');
+}
+
   const system = `You are a helpful assistant for a Medicare Advantage analytics workspace.\n\n` +
     `You have access to these PostgreSQL database tables:\n` +
     `- ma_contracts: Contract metadata (contract_id TEXT, contract_name TEXT, organization_marketing_name TEXT, parent_organization TEXT, organization_type TEXT, snp_indicator TEXT, year INTEGER)\n` +
@@ -47,11 +141,6 @@ export async function POST(req: NextRequest) {
     "\n```\n" +
     `Chart types: line, bar, area, pie. Otherwise, provide clear text summaries with tables when appropriate.`;
 
-  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-  if (!openRouterApiKey) {
-    return NextResponse.json({ error: 'Missing OPENROUTER_API_KEY' }, { status: 500 });
-  }
-
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -65,6 +154,65 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Failed to initialise Supabase client', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to initialise Supabase client' }, { status: 500 });
+  }
+
+  let fallbackReason: string | undefined;
+
+  const userPrompt = getLastUserMessage(messages as ChatMessage[]);
+
+  if (userPrompt) {
+    try {
+      const sqlResult = await generateSqlFromPrompt(userPrompt);
+
+      if (sqlResult.status === 'success') {
+        // @ts-expect-error - Custom RPC not in generated types
+        const { data, error } = await supabase.rpc('exec_raw_sql', { query: sqlResult.sql });
+
+        if (error) {
+          throw new SqlGenerationError(`SQL execution failed: ${error.message}`, error);
+        }
+
+        let rows: unknown[] = [];
+        if (typeof data === 'string') {
+          try {
+            const parsed = JSON.parse(data);
+            rows = Array.isArray(parsed) ? parsed : [];
+          } catch (parseError) {
+            console.error('Failed to parse SQL result from Supabase RPC', parseError);
+            rows = [];
+          }
+        } else if (Array.isArray(data)) {
+          rows = data;
+        }
+
+        const content = buildAssistantMessage({
+          sql: sqlResult.sql,
+          rows,
+          metadata: sqlResult.metadata,
+        });
+
+        return NextResponse.json({
+          message: {
+            role: 'assistant',
+            content,
+          },
+        });
+      }
+
+      fallbackReason = sqlResult.reason;
+    } catch (error) {
+      if (error instanceof SqlGenerationError) {
+        console.error('SQL generation failed, falling back to OpenRouter workflow', error);
+        fallbackReason = error.message;
+      } else {
+        console.error('Unexpected SQL generation failure, falling back to OpenRouter workflow', error);
+      }
+    }
+  }
+
+  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+  if (!openRouterApiKey) {
+    return NextResponse.json({ error: 'Missing OPENROUTER_API_KEY' }, { status: 500 });
   }
 
   const tools = [
@@ -168,6 +316,13 @@ export async function POST(req: NextRequest) {
     { role: 'system', content: system },
     ...(messages as ChatMessage[]),
   ];
+
+  if (fallbackReason) {
+    conversation.push({
+      role: 'assistant',
+      content: `SQL generator fallback: ${fallbackReason}`,
+    });
+  }
 
   const maxToolIterations = 6;
 

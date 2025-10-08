@@ -73,6 +73,9 @@ function LeaderboardList({
                     {entry.parentOrganization && (
                       <p className="text-[0.65rem] text-muted-foreground">Parent Org {entry.parentOrganization}</p>
                     )}
+                    {entry.isBlueCrossBlueShield && (
+                      <p className="text-[0.65rem] text-primary">Blue Cross Blue Shield</p>
+                    )}
                     {entry.contractId && entry.dominantState && (
                       <p className="text-[0.65rem] text-muted-foreground">
                         Dominant {entry.dominantState} • {(entry.dominantShare ?? 0) > 0 ? `${((entry.dominantShare ?? 0) * 100).toFixed(1)}%` : "<40%"}
@@ -93,6 +96,7 @@ function LeaderboardList({
                       : entry.metadata?.contractCount
                       ? `${entry.metadata.contractCount} contracts`
                       : ""}
+                    {entry.metadata?.blueContractCount ? ` • ${entry.metadata.blueContractCount} Blue` : ""}
                   </span>
                   <span className={entry.delta > 0 ? "text-green-400" : entry.delta < 0 ? "text-red-400" : "text-muted-foreground"}>
                     {formatDelta(entry, metricType)}
@@ -127,6 +131,9 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
       chips.push(contractFilters.contractSeries === "H_ONLY" ? "H-Series Contracts" : "S-Series Contracts");
       chips.push(`Enrollment ${contractFilters.enrollmentLevel}`);
       chips.push(`Top ${contractFilters.topLimit ?? 10}`);
+      if (contractFilters.blueOnly) {
+        chips.push("Blue Cross Blue Shield Only");
+      }
     } else {
       const orgFilters = data.filters as import("@/lib/leaderboard/types").OrganizationLeaderboardFilters;
       const bucketLabels: Record<string, string> = {
@@ -138,6 +145,9 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
       };
       chips.push(bucketLabels[orgFilters.bucket] ?? "Parent Orgs");
       chips.push(`Top ${orgFilters.topLimit ?? 10}`);
+      if (orgFilters.blueOnly) {
+        chips.push("Blue Cross Blue Shield Only");
+      }
     }
     if (data.dataYear) {
       chips.push(`Data ${data.dataYear}`);
@@ -268,7 +278,8 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
             <div className="flex flex-col gap-1">
               <h3 className="text-lg font-semibold text-foreground">{section.title}</h3>
               <p className="text-xs text-muted-foreground">
-                Ranking based on {section.metricType === "rate" ? "rate percentage" : "star rating"} across the selected cohort.
+                Ranking based on {section.metricType === "rate" ? "rate percentage" : "star rating"} across the selected cohort
+                {section.direction === "lower" ? " (lower is better)" : ""}.
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-3">

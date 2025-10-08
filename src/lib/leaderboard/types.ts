@@ -9,6 +9,7 @@ export type ContractLeaderboardSelection = {
   enrollmentLevel: EnrollmentLevelId;
   contractSeries: "H_ONLY" | "S_ONLY";
   topLimit?: number;
+  blueOnly?: boolean;
 };
 
 export type OrganizationBucket = "all" | "lt5" | "5to10" | "10to20" | "20plus";
@@ -16,6 +17,7 @@ export type OrganizationBucket = "all" | "lt5" | "5to10" | "10to20" | "20plus";
 export type OrganizationLeaderboardSelection = {
   bucket: OrganizationBucket;
   topLimit?: number;
+  blueOnly?: boolean;
 };
 
 export type LeaderboardRequest = {
@@ -43,6 +45,7 @@ export type LeaderboardEntry = {
   reportYear: number | null;
   priorYear: number | null;
   metadata?: Record<string, unknown>;
+  isBlueCrossBlueShield?: boolean | null;
 };
 
 export type LeaderboardSection = {
@@ -50,6 +53,7 @@ export type LeaderboardSection = {
   title: string;
   metricType: "stars" | "rate";
   unitLabel: string;
+  direction: "higher" | "lower";
   topPerformers: LeaderboardEntry[];
   biggestMovers: LeaderboardEntry[];
   biggestDecliners: LeaderboardEntry[];

@@ -19,6 +19,7 @@ import {
   type OrganizationLeaderboardFilters,
   type OrganizationLeaderboardSelection,
 } from "@/lib/leaderboard/types";
+import { isInverseMeasure } from "@/lib/metrics/inverse-measures";
 import { US_STATE_NAMES } from "@/lib/leaderboard/states";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
@@ -57,12 +58,15 @@ type ContractRecord = {
   totalEnrollment: number | null;
   enrollmentLevel: EnrollmentLevelId;
   planTypeGroups: string[];
+  isBlueCrossBlueShield: boolean;
 };
 
 type OrganizationRecord = {
   organization: string;
   contractCount: number;
   contracts: string[];
+  hasBlueContracts: boolean;
+  blueContractCount: number;
 };
 
 type MetricSnapshots = Map<string, { current: number | null; prior: number | null }>;
@@ -99,6 +103,7 @@ type LeaderboardEntryDraft = {
   dominantShare?: number | null;
   dominantState?: string | null;
   stateEligible?: boolean;
+  isBlueCrossBlueShield?: boolean;
   metadata?: Record<string, unknown>;
   value: number | null;
   priorValue: number | null;
@@ -283,6 +288,8 @@ function normalizeRequest(payload: LeaderboardRequest): NormalizedRequest {
       }
     }
 
+    const blueOnly = Boolean(rawSelection.blueOnly);
+
     const selection: ContractLeaderboardSelection = {
       stateOption,
       state: state ?? undefined,
@@ -290,6 +297,7 @@ function normalizeRequest(payload: LeaderboardRequest): NormalizedRequest {
       enrollmentLevel,
       contractSeries,
       topLimit: requestedTopLimit,
+      blueOnly,
     };
 
     return {
@@ -307,9 +315,12 @@ function normalizeRequest(payload: LeaderboardRequest): NormalizedRequest {
       ? rawBucket
       : "all") as OrganizationBucket;
 
+    const blueOnly = Boolean(rawSelection.blueOnly);
+
     const selection: OrganizationLeaderboardSelection = {
       bucket,
       topLimit: requestedTopLimit,
+      blueOnly,
     };
 
     return {
@@ -348,6 +359,7 @@ function buildContractRecords(rows: Awaited<ReturnType<typeof fetchContractLands
       totalEnrollment,
       enrollmentLevel: getEnrollmentLevel(totalEnrollment),
       planTypeGroups: planTypes,
+      isBlueCrossBlueShield: Boolean(row.is_blue_cross_blue_shield),
     });
   }
 
@@ -399,7 +411,7 @@ function filterContracts(
   contractRecords: Map<string, ContractRecord>,
   selection: ContractLeaderboardSelection
 ): ContractRecord[] {
-  const { stateOption, state, planTypeGroup, enrollmentLevel, contractSeries } = selection;
+  const { stateOption, state, planTypeGroup, enrollmentLevel, contractSeries, blueOnly } = selection;
 
   return Array.from(contractRecords.values()).filter((record) => {
     if (contractSeries === "H_ONLY" && !record.contractId.startsWith("H")) {
@@ -427,6 +439,10 @@ function filterContracts(
       return false;
     }
 
+    if (blueOnly && !record.isBlueCrossBlueShield) {
+      return false;
+    }
+
     return true;
   });
 }
@@ -438,7 +454,11 @@ async function buildOrganizationLeaderboardResponse(
 ): Promise<LeaderboardResponse> {
   const { organizations, contractsByOrganization } = buildOrganizationRecords(contractRecords);
   const rule = ORGANIZATION_BUCKET_RULES[request.selection.bucket];
-  const filteredOrganizations = Array.from(organizations.values()).filter((org) => rule(org.contractCount));
+  let filteredOrganizations = Array.from(organizations.values()).filter((org) => rule(org.contractCount));
+  
+  if (request.selection.blueOnly) {
+    filteredOrganizations = filteredOrganizations.filter((org) => org.hasBlueContracts);
+  }
 
   if (!filteredOrganizations.length) {
     return emptyResponse(request);
@@ -500,10 +520,23 @@ function buildOrganizationRecords(contractRecords: Map<string, ContractRecord>) 
   }
 
   contractsByOrganization.forEach((contracts, organization) => {
+    let hasBlueContracts = false;
+    let blueContractCount = 0;
+    
+    for (const contractId of contracts) {
+      const contract = contractRecords.get(contractId);
+      if (contract?.isBlueCrossBlueShield) {
+        hasBlueContracts = true;
+        blueContractCount++;
+      }
+    }
+    
     organizations.set(organization, {
       organization,
       contractCount: contracts.length,
       contracts,
+      hasBlueContracts,
+      blueContractCount,
     });
   });
 
@@ -745,7 +778,8 @@ function buildSection(
   records: Map<string, ContractRecord | OrganizationRecord>,
   topLimit: number,
   dataYear: number | null,
-  priorYear: number | null
+  priorYear: number | null,
+  direction: "higher" | "lower" = "higher"
 ): LeaderboardSection {
   const drafts: LeaderboardEntryDraft[] = [];
 
@@ -771,6 +805,7 @@ function buildSection(
         dominantShare: contract.dominantShare ?? null,
         dominantState: contract.dominantState ?? null,
         stateEligible: contract.stateEligible,
+        isBlueCrossBlueShield: contract.isBlueCrossBlueShield,
         value: current,
         priorValue: prior,
         delta: current !== null && prior !== null ? current - prior : null,
@@ -780,7 +815,10 @@ function buildSection(
       drafts.push({
         entityId: id,
         entityLabel: organization.organization,
-        metadata: { contractCount: organization.contractCount },
+        metadata: { 
+          contractCount: organization.contractCount,
+          blueContractCount: organization.blueContractCount,
+        },
         value: current,
         priorValue: prior,
         delta: current !== null && prior !== null ? current - prior : null,
@@ -788,31 +826,32 @@ function buildSection(
     }
   }
 
-  const topPerformers = rankByValue(drafts, topLimit);
-  const biggestMovers = rankByDelta(drafts, topLimit, false);
-  const biggestDecliners = rankByDelta(drafts, topLimit, true);
+  const topPerformers = rankByValue(drafts, topLimit, direction === "lower");
+  const biggestMovers = rankByDelta(drafts, topLimit, direction === "lower");
+  const biggestDecliners = rankByDelta(drafts, topLimit, direction !== "lower");
 
   return {
     key,
     title,
     metricType,
     unitLabel: metricType === "stars" ? "Stars" : "%",
+    direction,
     topPerformers: finalizeEntries(topPerformers, metricType, dataYear, priorYear),
     biggestMovers: finalizeEntries(biggestMovers, metricType, dataYear, priorYear),
     biggestDecliners: finalizeEntries(biggestDecliners, metricType, dataYear, priorYear),
   };
 }
 
-function rankByValue(entries: LeaderboardEntryDraft[], topLimit: number): RankedEntry[] {
+function rankByValue(entries: LeaderboardEntryDraft[], topLimit: number, ascending = false): RankedEntry[] {
   return entries
     .filter((entry) => entry.value !== null)
     .sort((a, b) => {
       const aValue = a.value ?? Number.NEGATIVE_INFINITY;
       const bValue = b.value ?? Number.NEGATIVE_INFINITY;
-      if (bValue === aValue) {
+      if (aValue === bValue) {
         return a.entityLabel.localeCompare(b.entityLabel);
       }
-      return bValue - aValue;
+      return ascending ? aValue - bValue : bValue - aValue;
     })
     .slice(0, topLimit)
     .map((entry, index) => ({ ...entry, rank: index + 1 }));
@@ -851,6 +890,7 @@ function finalizeEntries(
     dominantState: entry.dominantState ?? null,
     dominantShare: entry.dominantShare ?? null,
     stateEligible: entry.stateEligible,
+    isBlueCrossBlueShield: entry.isBlueCrossBlueShield ?? false,
     metadata: entry.metadata,
     value: entry.value,
     valueLabel: formatMetric(entry.value, metricType),
@@ -936,6 +976,8 @@ async function buildContractMetricSections(
   const domainAggregates = new Map<string, Map<string, MetricAggregate>>();
   const measureAggregates = new Map<string, Map<string, MetricAggregate>>();
   const measureLabels = new Map<string, string>();
+  const measureDirections = new Map<string, "higher" | "lower">();
+  const domainDirections = new Map<string, { inverseCount: number; totalCount: number }>();
 
   const contractMap = new Map<string, ContractRecord>();
   for (const contract of contracts) {
@@ -985,6 +1027,18 @@ async function buildContractMetricSections(
       value,
       metricType
     );
+
+    const isInverse = isInverseMeasure(measureTitle, row.metric_code ?? undefined);
+    if (!measureDirections.has(measureKey)) {
+      measureDirections.set(measureKey, isInverse ? "lower" : "higher");
+    }
+
+    const stats = domainDirections.get(domain) ?? { inverseCount: 0, totalCount: 0 };
+    stats.totalCount += 1;
+    if (isInverse) {
+      stats.inverseCount += 1;
+    }
+    domainDirections.set(domain, stats);
   }
 
   const contractRecordMap = new Map<string, ContractRecord | OrganizationRecord>();
@@ -1000,6 +1054,8 @@ async function buildContractMetricSections(
   for (const [domain, aggregates] of sortedDomains) {
     const { snapshots, metricType } = snapshotsFromAggregates(aggregates);
     if (!snapshots.size) continue;
+    const stats = domainDirections.get(domain);
+    const direction = stats && stats.totalCount > 0 && stats.inverseCount >= stats.totalCount / 2 ? "lower" : "higher";
     sections.push(
       buildSection(
         "contract",
@@ -1010,7 +1066,8 @@ async function buildContractMetricSections(
         contractRecordMap,
         topLimit,
         metricsDataYear,
-        metricsPriorYear
+        metricsPriorYear,
+        direction
       )
     );
   }
@@ -1022,6 +1079,7 @@ async function buildContractMetricSections(
     const { snapshots, metricType } = snapshotsFromAggregates(aggregates);
     if (!snapshots.size) continue;
     const label = measureLabels.get(measureKey) ?? measureKey;
+    const direction = measureDirections.get(measureKey) ?? "higher";
     sections.push(
       buildSection(
         "contract",
@@ -1032,7 +1090,8 @@ async function buildContractMetricSections(
         contractRecordMap,
         topLimit,
         metricsDataYear,
-        metricsPriorYear
+        metricsPriorYear,
+        direction
       )
     );
   }
@@ -1115,6 +1174,8 @@ async function buildOrganizationMetricSections(
   const domainAggregates = new Map<string, Map<string, MetricAggregate>>();
   const measureAggregates = new Map<string, Map<string, MetricAggregate>>();
   const measureLabels = new Map<string, string>();
+  const measureDirections = new Map<string, "higher" | "lower">();
+  const domainDirections = new Map<string, { inverseCount: number; totalCount: number }>();
 
   const organizationRecords = new Map<string, OrganizationRecord>();
   for (const organization of organizations) {
@@ -1170,6 +1231,18 @@ async function buildOrganizationMetricSections(
       metricType,
       appliedWeight
     );
+
+    const isInverse = isInverseMeasure(measureTitle, row.metric_code ?? undefined);
+    if (!measureDirections.has(measureKey)) {
+      measureDirections.set(measureKey, isInverse ? "lower" : "higher");
+    }
+
+    const stats = domainDirections.get(domain) ?? { inverseCount: 0, totalCount: 0 };
+    stats.totalCount += 1;
+    if (isInverse) {
+      stats.inverseCount += 1;
+    }
+    domainDirections.set(domain, stats);
   }
 
   const recordMap = new Map<string, ContractRecord | OrganizationRecord>();
@@ -1185,6 +1258,8 @@ async function buildOrganizationMetricSections(
   for (const [domain, aggregates] of sortedDomains) {
     const { snapshots, metricType } = snapshotsFromAggregates(aggregates);
     if (!snapshots.size) continue;
+    const stats = domainDirections.get(domain);
+    const direction = stats && stats.totalCount > 0 && stats.inverseCount >= stats.totalCount / 2 ? "lower" : "higher";
     sections.push(
       buildSection(
         "organization",
@@ -1195,7 +1270,8 @@ async function buildOrganizationMetricSections(
         recordMap,
         topLimit,
         orgMetricsDataYear,
-        orgMetricsPriorYear
+        orgMetricsPriorYear,
+        direction
       )
     );
   }
@@ -1207,6 +1283,7 @@ async function buildOrganizationMetricSections(
     const { snapshots, metricType } = snapshotsFromAggregates(aggregates);
     if (!snapshots.size) continue;
     const label = measureLabels.get(measureKey) ?? measureKey;
+    const direction = measureDirections.get(measureKey) ?? "higher";
     sections.push(
       buildSection(
         "organization",
@@ -1217,7 +1294,8 @@ async function buildOrganizationMetricSections(
         recordMap,
         topLimit,
         orgMetricsDataYear,
-        orgMetricsPriorYear
+        orgMetricsPriorYear,
+        direction
       )
     );
   }

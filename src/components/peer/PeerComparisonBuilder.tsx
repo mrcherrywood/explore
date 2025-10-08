@@ -18,6 +18,8 @@ type OrganizationRow = {
   parent_organization: string;
   contract_count: number;
   has_snp_plans: boolean;
+  has_blue_contracts: boolean;
+  blue_contract_count: number;
 };
 
 type StateRow = {
@@ -66,6 +68,7 @@ export function PeerComparisonBuilder() {
   const [selectedContractSeries, setSelectedContractSeries] = useState<"H_ONLY" | "S_ONLY">("H_ONLY");
   const [selectedParentOrg, setSelectedParentOrg] = useState<string>("");
   const [selectedPeerOrgs, setSelectedPeerOrgs] = useState<string[]>([]);
+  const [showBlueOnly, setShowBlueOnly] = useState(false);
 
   const [states, setStates] = useState<StateRow[]>([]);
   const [statesLoading, setStatesLoading] = useState(false);
@@ -113,6 +116,7 @@ export function PeerComparisonBuilder() {
 
     if (comparisonType === "contract") {
       fetchContracts();
+      setShowBlueOnly(false);
     } else {
       fetchOrganizations();
     }
@@ -154,12 +158,34 @@ export function PeerComparisonBuilder() {
   }, [selectedContractSeries, selectedContractId]);
 
   const filteredOrganizations = useMemo(() => {
-    if (!organizationSearch) return organizations;
+    let list = organizations;
+    if (showBlueOnly) {
+      list = list.filter((org) => org.has_blue_contracts);
+    }
+    if (!organizationSearch) return list;
     const query = organizationSearch.toLowerCase();
-    return organizations.filter((org) => {
+    return list.filter((org) => {
       return org.parent_organization.toLowerCase().includes(query);
     });
-  }, [organizations, organizationSearch]);
+  }, [organizations, organizationSearch, showBlueOnly]);
+
+  const blueOrganizations = useMemo(
+    () => organizations.filter((org) => org.has_blue_contracts),
+    [organizations]
+  );
+
+  const availableBluePeers = useMemo(
+    () => blueOrganizations.filter((org) => org.parent_organization !== selectedParentOrg),
+    [blueOrganizations, selectedParentOrg]
+  );
+
+  const handleSelectAllBluePeers = useCallback(() => {
+    if (availableBluePeers.length === 0) {
+      return;
+    }
+    const bluePeerIds = availableBluePeers.map((org) => org.parent_organization);
+    setSelectedPeerOrgs(bluePeerIds);
+  }, [availableBluePeers]);
 
   useEffect(() => {
     // Only fetch states for contract-level comparison
@@ -259,6 +285,7 @@ export function PeerComparisonBuilder() {
     setSelectedEnrollmentLevel(null);
     setSubmittedSelection(null);
     setSelectedContractSeries("H_ONLY");
+    setShowBlueOnly(false);
     setStep(1);
   };
 
@@ -376,6 +403,7 @@ export function PeerComparisonBuilder() {
               setSelectedEnrollmentLevel(null);
               setSubmittedSelection(null);
               setSelectedContractSeries("H_ONLY");
+              setShowBlueOnly(false);
               setStep(1);
             }}
             className={`flex-1 rounded-xl px-4 py-2 text-sm font-medium transition ${
@@ -396,6 +424,7 @@ export function PeerComparisonBuilder() {
               setSelectedEnrollmentLevel(null);
               setSubmittedSelection(null);
               setSelectedContractSeries("H_ONLY");
+              setShowBlueOnly(false);
               setStep(1);
             }}
             className={`flex-1 rounded-xl px-4 py-2 text-sm font-medium transition ${
@@ -537,15 +566,29 @@ export function PeerComparisonBuilder() {
           {step === 1 && comparisonType === "organization" && (
             <div>
               <h3 className="mb-4 text-sm font-semibold text-foreground">Select Primary Parent Organization</h3>
-              <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search by organization name..."
-                  value={organizationSearch}
-                  onChange={(e) => setOrganizationSearch(e.target.value)}
-                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-                />
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search by organization name..."
+                    value={organizationSearch}
+                    onChange={(e) => setOrganizationSearch(e.target.value)}
+                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                  />
+                </div>
+                {blueOrganizations.length > 0 && (
+                  <button
+                    onClick={() => setShowBlueOnly((prev) => !prev)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                      showBlueOnly
+                        ? "border-primary/50 bg-primary/10 text-primary"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
+                    }`}
+                  >
+                    {showBlueOnly ? "Showing Blue Orgs" : "Show Blue Only"}
+                  </button>
+                )}
               </div>
               <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
                 {filteredOrganizations.map((org) => {
@@ -565,6 +608,11 @@ export function PeerComparisonBuilder() {
                           }`}>
                             {org.parent_organization}
                           </p>
+                          {org.has_blue_contracts && (
+                            <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-medium text-primary">
+                              BLUE
+                            </span>
+                          )}
                           {org.has_snp_plans && (
                             <span className="rounded-md bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground">
                               SNP
@@ -573,6 +621,7 @@ export function PeerComparisonBuilder() {
                         </div>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {org.contract_count} contract{org.contract_count !== 1 ? "s" : ""}
+                          {org.has_blue_contracts && ` • ${org.blue_contract_count} Blue`}
                         </p>
                       </div>
                       {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}
@@ -587,15 +636,37 @@ export function PeerComparisonBuilder() {
             <div>
               <h3 className="mb-2 text-sm font-semibold text-foreground">Select Peer Organizations</h3>
               <p className="mb-4 text-xs text-muted-foreground">Choose one or more peer organizations to compare against {selectedParentOrg}.</p>
-              <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search by organization name..."
-                  value={organizationSearch}
-                  onChange={(e) => setOrganizationSearch(e.target.value)}
-                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-                />
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search by organization name..."
+                    value={organizationSearch}
+                    onChange={(e) => setOrganizationSearch(e.target.value)}
+                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                  />
+                </div>
+                {blueOrganizations.length > 0 && (
+                  <button
+                    onClick={() => setShowBlueOnly((prev) => !prev)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                      showBlueOnly
+                        ? "border-primary/50 bg-primary/10 text-primary"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-primary"
+                    }`}
+                  >
+                    {showBlueOnly ? "Showing Blue Orgs" : "Show Blue Only"}
+                  </button>
+                )}
+                {availableBluePeers.length > 0 && (
+                  <button
+                    onClick={handleSelectAllBluePeers}
+                    className="rounded-full border border-primary/50 bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition hover:border-primary hover:bg-primary/20"
+                  >
+                    Select All Blue Cross Blue Shield
+                  </button>
+                )}
               </div>
               <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
                 {filteredOrganizations
@@ -623,6 +694,11 @@ export function PeerComparisonBuilder() {
                             }`}>
                               {org.parent_organization}
                             </p>
+                            {org.has_blue_contracts && (
+                              <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-medium text-primary">
+                                BLUE
+                              </span>
+                            )}
                             {org.has_snp_plans && (
                               <span className="rounded-md bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground">
                                 SNP
@@ -631,6 +707,7 @@ export function PeerComparisonBuilder() {
                           </div>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {org.contract_count} contract{org.contract_count !== 1 ? "s" : ""}
+                            {org.has_blue_contracts && ` • ${org.blue_contract_count} Blue`}
                           </p>
                         </div>
                         {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}

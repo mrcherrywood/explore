@@ -29,7 +29,9 @@ export async function POST(req: NextRequest) {
     const userMessage = messages[messages.length - 1]?.content || '';
     
     // Build conversation history for context (excluding the latest message)
-    const chatHistory = messages.slice(0, -1).map(msg => 
+    // Limit to last 4 messages (2 exchanges) to prevent exceeding token limits
+    const recentMessages = messages.slice(Math.max(0, messages.length - 5), -1);
+    const chatHistory = recentMessages.map(msg => 
       `${msg.role === 'user' ? 'Human' : 'Assistant'}: ${msg.content}`
     ).join('\n\n');
 

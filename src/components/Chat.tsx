@@ -40,11 +40,16 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState<string>("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  useEffect(() => {
+    setCurrentTime(new Date().toLocaleString());
+  }, []);
 
   const showPlaceholder = messages.length === 0 && !isLoading;
   return (
@@ -62,7 +67,7 @@ export default function Chat() {
                 <h1 className="text-xl font-semibold">Medicare Insight AI</h1>
               </div>
             </div>
-            <div className="text-xs text-muted-foreground">{new Date().toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground">{currentTime}</div>
           </header>
 
           <main className="flex flex-1 flex-col bg-background">

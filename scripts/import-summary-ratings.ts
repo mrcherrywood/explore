@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 
+import { isBlueContract } from './blue-contracts';
+
 // Load environment variables from .env.local
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
@@ -53,6 +55,7 @@ type ContractInsert = {
   organization_marketing_name: string | null;
   parent_organization: string | null;
   snp_indicator: string | null;
+  is_blue_cross_blue_shield: boolean;
 };
 
 function parseNumeric(value: unknown): number | null {
@@ -91,7 +94,7 @@ async function importSummaryYear(year: number) {
 
   const contractMap = new Map<string, ContractInsert>();
 
-  const inserts: SummaryInsert[] = rows
+  const inserts = rows
     .map((row) => {
       const contractId = row.CONTRACT_ID?.trim();
       if (!contractId) {
@@ -143,6 +146,7 @@ async function importSummaryYear(year: number) {
           organization_marketing_name: insert.organization_marketing_name,
           parent_organization: insert.parent_organization,
           snp_indicator: insert.snp_indicator,
+          is_blue_cross_blue_shield: isBlueContract(contractId),
         });
       }
 

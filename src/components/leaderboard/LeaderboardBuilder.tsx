@@ -55,6 +55,7 @@ export function LeaderboardBuilder() {
   const [orgBucket, setOrgBucket] = useState<OrganizationBucket>("all");
   const [topLimit, setTopLimit] = useState<number>(DEFAULT_TOP_LIMIT);
   const [includeMeasures, setIncludeMeasures] = useState<boolean>(true);
+  const [blueOnly, setBlueOnly] = useState<boolean>(false);
 
   const [results, setResults] = useState<LeaderboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +103,7 @@ export function LeaderboardBuilder() {
     setStep(1);
     setResults(null);
     setError(null);
+    setBlueOnly(false);
   }, [mode]);
 
   const canProceed = (currentStep: number) => {
@@ -122,7 +124,6 @@ export function LeaderboardBuilder() {
     if (currentStep === 1) {
       return Boolean(orgBucket);
     }
-    return false;
   };
 
   const canGenerate = mode === "contract"
@@ -137,6 +138,7 @@ export function LeaderboardBuilder() {
     setContractSeries("H_ONLY");
     setOrgBucket("all");
     setTopLimit(DEFAULT_TOP_LIMIT);
+    setBlueOnly(false);
     setResults(null);
     setError(null);
     setStep(1);
@@ -158,6 +160,7 @@ export function LeaderboardBuilder() {
               enrollmentLevel,
               contractSeries,
               topLimit,
+              blueOnly,
             },
             topLimit,
             includeMeasures,
@@ -167,6 +170,7 @@ export function LeaderboardBuilder() {
             selection: {
               bucket: orgBucket,
               topLimit,
+              blueOnly,
             },
             topLimit,
             includeMeasures,
@@ -209,7 +213,7 @@ export function LeaderboardBuilder() {
                 : "Rank parent organizations by contract footprint and year-over-year momentum."}
             </p>
           </div>
-          {(stateOption !== "all" || selectedState || planTypeGroup !== "ALL" || enrollmentLevel !== "all" || orgBucket !== "all" || topLimit !== DEFAULT_TOP_LIMIT) && (
+          {(stateOption !== "all" || selectedState || planTypeGroup !== "ALL" || enrollmentLevel !== "all" || orgBucket !== "all" || topLimit !== DEFAULT_TOP_LIMIT || blueOnly) && (
             <button
               onClick={resetSelections}
               className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs text-muted-foreground transition hover:border-red-400/60 hover:text-red-200"
@@ -462,6 +466,26 @@ export function LeaderboardBuilder() {
             onChange={(event) => setTopLimit(Number(event.target.value))}
           />
           <p className="text-[0.65rem] text-muted-foreground">Adjust the number of entries returned for each leaderboard.</p>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Blue Cross Blue Shield Focus</span>
+            <p className="text-[0.65rem] text-muted-foreground">
+              {mode === "contract"
+                ? "Limit contract results to Blue Cross Blue Shield-affiliated contracts."
+                : "Limit organization results to parents with Blue Cross Blue Shield contracts."}
+            </p>
+          </div>
+          <label className="relative inline-flex cursor-pointer items-center">
+            <input
+              type="checkbox"
+              checked={blueOnly}
+              onChange={(event) => setBlueOnly(event.target.checked)}
+              className="peer sr-only"
+            />
+            <div className="peer h-6 w-11 rounded-full bg-muted border border-border after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-card after:transition-all after:content-[''] peer-checked:bg-primary/20 peer-checked:after:translate-x-full peer-checked:after:border-primary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20"></div>
+          </label>
         </div>
 
         <div className="mt-4 flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-4">

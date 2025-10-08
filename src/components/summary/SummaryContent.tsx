@@ -464,9 +464,9 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
               <p className="text-xs text-muted-foreground">Quality Improvement Measures</p>
               <div className="mt-3 space-y-2 text-xs text-muted-foreground">
                 <p>
-                  {data.qualityImprovement.thresholdMet
-                    ? 'Threshold met (>= 3.75). Measures that would lower the score are excluded.'
-                    : 'Threshold not met (< 3.75). All quality improvement measures are included.'}
+                  Quality improvement measures are always included in the Part C and Part D summaries below. {data.qualityImprovement.thresholdMet
+                    ? "For the overall rating, since the contract is >= 3.75, only measures that would lower the overall rating are excluded from it."
+                    : "For the overall rating, since the contract is < 3.75, all quality improvement measures are included."}
                 </p>
                 {data.qualityImprovement.thresholdMet && data.qualityImprovement.excludedMeasures.length > 0 ? (
                   <div>

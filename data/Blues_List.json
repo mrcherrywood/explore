@@ -1,0 +1,596 @@
+{
+  "Sheet1": [
+    {
+      "CONTRACT_ID": "H0192",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H9065",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H9219",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H0544",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1607",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1732",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H2836",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3536",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3655",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H4036",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H4346",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H4909",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5422",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5854",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H7093",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H9525",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "R4487",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "R5941",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8552",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H4161",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8432",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3447",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5596",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H4213",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5795",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3554",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H6158",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5010",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5609",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S8067",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H7063",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5883",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3557",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H0104",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S6506",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1350",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H9656",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1302",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3822",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8634",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8547",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1352",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H6502",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5726",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1248",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H2461",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H0107",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3170",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8181",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3251",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1666",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3404",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3449",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H9147",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5540",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3979",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H4801",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8554",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H4152",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8133",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H9706",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H0302",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5140",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H2230",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H2261",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H9572",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5584",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5959",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8003",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5953",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H0927",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H6078",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S2893",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H2425",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H0504",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H4937",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S2468",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5928",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3259",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H7917",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S1030",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H0885",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3923",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3962",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H6067",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H7379",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8854",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3335",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3351",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S3521",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3777",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8213",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5434",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "R3332",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5904",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1035",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5427",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H9699",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5431",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1947",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5106",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5593",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3957",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8166",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3916",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3384",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5526",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S1140",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5715",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H6453",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3832",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8298",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5993",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3952",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H4003",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H7522",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5743",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H6202",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5594",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3909",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H4004",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H7245",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3817",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H6237",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H4605",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1997",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5009",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1304",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1969",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5916",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S6875",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H9946",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3015",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5471",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H4005",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5774",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H6898",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H4227",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5900",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H0907",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1423",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H1894",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H2593",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H3240",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H5828",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8849",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "S5960",
+      "BLUE": true
+    },
+    {
+      "CONTRACT_ID": "H8786",
+      "BLUE": true
+    }
+  ]
+}

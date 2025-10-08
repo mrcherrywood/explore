@@ -24,7 +24,7 @@ export async function GET() {
     // Get all contracts with parent organizations for the latest year only
     const { data, error } = await supabase
       .from("ma_contracts")
-      .select("parent_organization, contract_id, snp_indicator")
+      .select("parent_organization, contract_id, snp_indicator, is_blue_cross_blue_shield")
       .eq("year", latestYear)
       .not("parent_organization", "is", null)
       .order("parent_organization", { ascending: true });
@@ -37,6 +37,7 @@ export async function GET() {
       parent_organization: string | null;
       contract_id: string;
       snp_indicator: string | null;
+      is_blue_cross_blue_shield: boolean | null;
     };
 
     const rows = (data ?? []) as ContractRow[];
@@ -77,7 +78,7 @@ export async function GET() {
     });
 
     // Group by parent organization
-    const orgMap = new Map<string, { contractCount: number; hasSnpPlans: boolean }>();
+    const orgMap = new Map<string, { contractCount: number; hasSnpPlans: boolean; hasBlueContracts: boolean; blueCount: number }>();
     
     rows.forEach((row) => {
       const parentOrg = row.parent_organization;
@@ -86,13 +87,21 @@ export async function GET() {
       const existing = orgMap.get(parentOrg);
       const hasSnp = snpContracts.has(row.contract_id);
       
+      const isBlue = Boolean(row.is_blue_cross_blue_shield);
+
       if (existing) {
         existing.contractCount += 1;
         existing.hasSnpPlans = existing.hasSnpPlans || hasSnp;
+        existing.hasBlueContracts = existing.hasBlueContracts || isBlue;
+        if (isBlue) {
+          existing.blueCount += 1;
+        }
       } else {
         orgMap.set(parentOrg, {
           contractCount: 1,
           hasSnpPlans: hasSnp,
+          hasBlueContracts: isBlue,
+          blueCount: isBlue ? 1 : 0,
         });
       }
     });
@@ -102,6 +111,8 @@ export async function GET() {
         parent_organization,
         contract_count: data.contractCount,
         has_snp_plans: data.hasSnpPlans,
+        has_blue_contracts: data.hasBlueContracts,
+        blue_contract_count: data.blueCount,
       }))
       .filter(org => org.contract_count > 1) // Only include orgs with more than one contract
       .sort((a, b) => a.parent_organization.localeCompare(b.parent_organization));

@@ -17,6 +17,7 @@ export type ContractLandscapeRow = {
   plan_type_groups: string[];
   dominant_state: string | null;
   dominant_share: number | null;
+  is_blue_cross_blue_shield: boolean | null;
 };
 
 function escapeLiteral(value: string): string {
@@ -130,6 +131,7 @@ export async function fetchContractLandscape(
       mc.contract_name,
       mc.organization_marketing_name,
       mc.parent_organization,
+      mc.is_blue_cross_blue_shield,
       ct.total_enrollment,
       COALESCE(pg.plan_type_groups, ARRAY[]::text[]) AS plan_type_groups,
       ds.state_abbreviation AS dominant_state,
@@ -171,5 +173,8 @@ export async function fetchContractLandscape(
       row.dominant_share === null || row.dominant_share === undefined
         ? null
         : Number(row.dominant_share),
+    is_blue_cross_blue_shield:
+      row.is_blue_cross_blue_shield === null || row.is_blue_cross_blue_shield === undefined
+        ? null
+        : Boolean(row.is_blue_cross_blue_shield),
   }));
-}
