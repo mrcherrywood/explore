@@ -178,3 +178,4 @@ export async function fetchContractLandscape(
         ? null
         : Boolean(row.is_blue_cross_blue_shield),
   }));
+}
