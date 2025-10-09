@@ -112,13 +112,67 @@ export async function GET(req: Request) {
     });
   } catch (error) {
     console.error("Leaderboard states API error", error);
+    const detail = serializeError(error);
     return NextResponse.json(
       {
         error: "Failed to fetch leaderboard states",
-        details: error instanceof Error ? error.message : "Unknown error",
+        details: detail,
       },
       { status: 500 }
     );
+  }
+}
+
+function serializeError(error: unknown): string {
+  if (!error) {
+    return "Unknown error";
+  }
+
+  if (error instanceof Error) {
+    const structured: Record<string, unknown> = {
+      name: error.name,
+      message: error.message,
+    };
+    if ("code" in error && typeof (error as { code?: unknown }).code !== "undefined") {
+      structured.code = (error as { code?: unknown }).code;
+    }
+    if ("details" in error && typeof (error as { details?: unknown }).details !== "undefined") {
+      structured.details = (error as { details?: unknown }).details;
+    }
+    if ("hint" in error && typeof (error as { hint?: unknown }).hint !== "undefined") {
+      structured.hint = (error as { hint?: unknown }).hint;
+    }
+    if (error.stack) {
+      structured.stack = error.stack;
+    }
+    return safeStringify(structured);
+  }
+
+  if (typeof error === "object") {
+    return safeStringify(error);
+  }
+
+  return String(error);
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    const seen = new WeakSet<object>();
+    return JSON.stringify(
+      value,
+      (_key, innerValue) => {
+        if (typeof innerValue === "object" && innerValue !== null) {
+          if (seen.has(innerValue)) {
+            return "[Circular]";
+          }
+          seen.add(innerValue);
+        }
+        return innerValue;
+      },
+      2
+    );
+  } catch {
+    return String(value);
   }
 }
 

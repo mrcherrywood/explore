@@ -8,7 +8,7 @@ import mapboxgl, {
   type MapLayerMouseEvent,
 } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { Loader2, MapPin, RefreshCw } from "lucide-react";
+import { Loader2, MapPin, RefreshCw, Search, X } from "lucide-react";
 import { format } from "date-fns";
 import { useTheme } from "next-themes";
 import { ENROLLMENT_LEVELS, formatEnrollment, type EnrollmentLevelId } from "@/lib/peer/enrollment-levels";
@@ -339,7 +339,10 @@ export function ContractsMapExplorer() {
   });
   const [selectedState, setSelectedState] = useState<string>(NATIONAL_STATE_CODE);
   const [targetContractId, setTargetContractId] = useState<string>("");
+  const [contractSearchQuery, setContractSearchQuery] = useState<string>("");
+  const [isContractDropdownOpen, setIsContractDropdownOpen] = useState<boolean>(false);
   const [selectedMeasure, setSelectedMeasure] = useState<string>("");
+  const contractDropdownRef = useRef<HTMLDivElement | null>(null);
   const [measureOptions, setMeasureOptions] = useState<MeasureOption[]>([]);
   const [measureOptionsFetchState, setMeasureOptionsFetchState] = useState<FetchState>("idle");
   const [measureOptionsError, setMeasureOptionsError] = useState<string | null>(null);
@@ -955,6 +958,35 @@ export function ContractsMapExplorer() {
     }));
   }, [payload]);
 
+  const filteredContractOptions = useMemo(() => {
+    if (!contractSearchQuery.trim()) return contractOptions;
+    const query = contractSearchQuery.toLowerCase();
+    return contractOptions.filter(
+      (option) =>
+        option.value.toLowerCase().includes(query) ||
+        option.label.toLowerCase().includes(query)
+    );
+  }, [contractOptions, contractSearchQuery]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        contractDropdownRef.current &&
+        !contractDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsContractDropdownOpen(false);
+      }
+    };
+
+    if (isContractDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isContractDropdownOpen]);
+
   const targetContract = payload?.targetContract;
 
   const cohortStats = useMemo(() => {
@@ -1167,20 +1199,85 @@ export function ContractsMapExplorer() {
                 </select>
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2" ref={contractDropdownRef}>
                 <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Target contract</label>
-                <select
-                  value={targetContractId}
-                  onChange={(event) => setTargetContractId(event.target.value)}
-                  className="rounded-xl border border-border bg-muted px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                >
-                  <option value="">None selected</option>
-                  {contractOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsContractDropdownOpen(!isContractDropdownOpen)}
+                    className="w-full rounded-xl border border-border bg-muted px-4 py-2 text-left text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 flex items-center justify-between"
+                  >
+                    <span className="truncate">
+                      {targetContractId
+                        ? contractOptions.find((opt) => opt.value === targetContractId)?.label || "None selected"
+                        : "None selected"}
+                    </span>
+                    <Search className="h-4 w-4 text-muted-foreground flex-shrink-0 ml-2" />
+                  </button>
+                  {isContractDropdownOpen && (
+                    <div className="absolute z-50 mt-1 w-full rounded-xl border border-border bg-card shadow-lg">
+                      <div className="p-2 border-b border-border">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <input
+                            type="text"
+                            placeholder="Search contracts..."
+                            value={contractSearchQuery}
+                            onChange={(e) => setContractSearchQuery(e.target.value)}
+                            className="w-full rounded-lg border border-border bg-muted pl-9 pr-9 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            autoFocus
+                          />
+                          {contractSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setContractSearchQuery("")}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-muted-foreground/10 rounded"
+                            >
+                              <X className="h-3 w-3 text-muted-foreground" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTargetContractId("");
+                            setIsContractDropdownOpen(false);
+                            setContractSearchQuery("");
+                          }}
+                          className={`w-full px-4 py-2 text-left text-sm hover:bg-muted/40 transition ${
+                            targetContractId === "" ? "bg-primary/5 text-primary" : "text-muted-foreground"
+                          }`}
+                        >
+                          None selected
+                        </button>
+                        {filteredContractOptions.length > 0 ? (
+                          filteredContractOptions.map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => {
+                                setTargetContractId(option.value);
+                                setIsContractDropdownOpen(false);
+                                setContractSearchQuery("");
+                              }}
+                              className={`w-full px-4 py-2 text-left text-sm hover:bg-muted/40 transition ${
+                                targetContractId === option.value ? "bg-primary/5 text-primary" : "text-foreground"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                            No contracts found
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-col gap-2">

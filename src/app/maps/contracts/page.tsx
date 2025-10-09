@@ -23,7 +23,7 @@ export default function MapsContractsPage() {
                 <h1 className="text-2xl font-semibold text-foreground">State-Level Contract Insights</h1>
               </div>
             </div>
-            <div className="text-xs text-muted-foreground">Interactive cohort benchmarking</div>
+            <div className="text-xs text-muted-foreground">{new Date().toLocaleString()}</div>
           </header>
 
           <main className="flex flex-1 flex-col gap-6 px-10 pb-10 pt-8">

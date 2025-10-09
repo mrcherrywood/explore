@@ -58,7 +58,8 @@ export async function fetchContractLandscape(
       SELECT DISTINCT
         pe.contract_id,
         pe.plan_id,
-        COALESCE(pl.state_abbreviation, 'XX') AS state_abbreviation,
+        pl.state_abbreviation AS state_abbreviation,
+        COALESCE(pl.state_abbreviation, 'XX') AS state_bucket,
         CASE
           WHEN COALESCE(c.snp_indicator, '') ILIKE 'yes%'
             OR COALESCE(pl.special_needs_plan_indicator, '') ILIKE 'yes%'
@@ -79,7 +80,7 @@ export async function fetchContractLandscape(
     contract_state_enrollment AS (
       SELECT
         pf.contract_id,
-        pf.state_abbreviation,
+        pf.state_bucket AS state_abbreviation,
         CASE
           WHEN COUNT(*) FILTER (WHERE pe.enrollment IS NOT NULL) = 0 THEN NULL
           ELSE SUM(pe.enrollment) FILTER (WHERE pe.enrollment IS NOT NULL)
@@ -90,7 +91,14 @@ export async function fetchContractLandscape(
        AND pe.plan_id = pf.plan_id
        AND pe.report_year = ${escapeLiteral(String(period.reportYear))}
        AND pe.report_month = ${escapeLiteral(String(period.reportMonth))}
-      GROUP BY pf.contract_id, pf.state_abbreviation
+      GROUP BY pf.contract_id, pf.state_bucket
+    ),
+    plan_groups AS (
+      SELECT
+        pf.contract_id,
+        ARRAY_AGG(DISTINCT pf.plan_type_group) AS plan_type_groups
+      FROM plan_features pf
+      GROUP BY pf.contract_id
     ),
     contract_totals AS (
       SELECT
@@ -114,17 +122,32 @@ export async function fetchContractLandscape(
         END AS share,
         ROW_NUMBER() OVER (
           PARTITION BY cse.contract_id
-          ORDER BY cse.total_enrollment DESC NULLS LAST, cse.state_abbreviation ASC
+          ORDER BY
+            CASE WHEN cse.state_abbreviation = 'XX' THEN 1 ELSE 0 END,
+            cse.total_enrollment DESC NULLS LAST,
+            cse.state_abbreviation ASC
         ) AS rn
       FROM contract_state_enrollment cse
       JOIN contract_totals ct ON ct.contract_id = cse.contract_id
     ),
-    plan_groups AS (
+    fallback_state AS (
       SELECT
         contract_id,
-        ARRAY_AGG(DISTINCT plan_type_group) AS plan_type_groups
-      FROM plan_features
-      GROUP BY contract_id
+        state_abbreviation,
+        plan_count,
+        ROW_NUMBER() OVER (
+          PARTITION BY contract_id
+          ORDER BY plan_count DESC, state_abbreviation ASC
+        ) AS rn
+      FROM (
+        SELECT
+          contract_id,
+          state_abbreviation,
+          COUNT(*) AS plan_count
+        FROM ma_plan_landscape
+        WHERE state_abbreviation IS NOT NULL
+        GROUP BY contract_id, state_abbreviation
+      ) fs
     )
     SELECT
       ct.contract_id,
@@ -134,12 +157,22 @@ export async function fetchContractLandscape(
       mc.is_blue_cross_blue_shield,
       ct.total_enrollment,
       COALESCE(pg.plan_type_groups, ARRAY[]::text[]) AS plan_type_groups,
-      ds.state_abbreviation AS dominant_state,
-      ds.share AS dominant_share
+      CASE
+        WHEN ds.state_abbreviation IS NULL OR ds.state_abbreviation = 'XX'
+          THEN COALESCE(fs.state_abbreviation, ds.state_abbreviation)
+        ELSE ds.state_abbreviation
+      END AS dominant_state,
+      CASE
+        WHEN ds.state_abbreviation IS NULL OR ds.state_abbreviation = 'XX'
+          THEN NULL
+        ELSE ds.share
+      END AS dominant_share
     FROM contract_totals ct
     LEFT JOIN plan_groups pg ON pg.contract_id = ct.contract_id
     LEFT JOIN dominant_state ds
       ON ds.contract_id = ct.contract_id AND ds.rn = 1
+    LEFT JOIN fallback_state fs
+      ON fs.contract_id = ct.contract_id AND fs.rn = 1
     LEFT JOIN ma_contracts mc ON mc.contract_id = ct.contract_id
   `;
 

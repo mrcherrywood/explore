@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Star, TrendingUp, TrendingDown, Building2, MapPin, DollarSign, Users, Info } from "lucide-react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { Star, TrendingUp, TrendingDown, Building2, MapPin, DollarSign, Users, Info, Search, X } from "lucide-react";
 
 type SummaryData = {
   year: number;
@@ -144,6 +144,46 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState(initialYear || "");
   const [selectedContractId, setSelectedContractId] = useState(initialContractId || "");
+  const [contractSearchQuery, setContractSearchQuery] = useState<string>("");
+  const [isContractDropdownOpen, setIsContractDropdownOpen] = useState<boolean>(false);
+  const contractDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const contractOptions = useMemo(() => {
+    if (!data?.filters.availableContracts) return [];
+    return data.filters.availableContracts.map((contract) => ({
+      value: contract.contract_id,
+      label: `${contract.contract_id} - ${contract.organization_marketing_name || contract.contract_name}`,
+    }));
+  }, [data?.filters.availableContracts]);
+
+  const filteredContractOptions = useMemo(() => {
+    if (!contractSearchQuery.trim()) return contractOptions;
+    const query = contractSearchQuery.toLowerCase();
+    return contractOptions.filter(
+      (option) =>
+        option.value.toLowerCase().includes(query) ||
+        option.label.toLowerCase().includes(query)
+    );
+  }, [contractOptions, contractSearchQuery]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        contractDropdownRef.current &&
+        !contractDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsContractDropdownOpen(false);
+      }
+    };
+
+    if (isContractDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isContractDropdownOpen]);
 
   useEffect(() => {
     async function fetchData() {
@@ -380,19 +420,72 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
               ))}
             </select>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" ref={contractDropdownRef}>
             <label className="text-sm text-muted-foreground">Contract:</label>
-            <select
-              value={selectedContractId}
-              onChange={(e) => setSelectedContractId(e.target.value)}
-              className="rounded-full border border-border bg-muted px-4 py-2 text-sm text-foreground"
-            >
-              {filters.availableContracts.map((contract) => (
-                <option key={contract.contract_id} value={contract.contract_id}>
-                  {contract.contract_id} - {contract.organization_marketing_name || contract.contract_name}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsContractDropdownOpen(!isContractDropdownOpen)}
+                className="rounded-full border border-border bg-muted px-4 py-2 text-sm text-foreground hover:bg-muted/80 transition flex items-center gap-2 min-w-[300px]"
+              >
+                <span className="truncate flex-1 text-left">
+                  {selectedContractId
+                    ? contractOptions.find((opt) => opt.value === selectedContractId)?.label || "Select contract"
+                    : "Select contract"}
+                </span>
+                <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              </button>
+              {isContractDropdownOpen && (
+                <div className="absolute z-50 mt-1 w-full min-w-[400px] rounded-xl border border-border bg-card shadow-lg">
+                  <div className="p-2 border-b border-border">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search contracts..."
+                        value={contractSearchQuery}
+                        onChange={(e) => setContractSearchQuery(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-muted pl-9 pr-9 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        autoFocus
+                      />
+                      {contractSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setContractSearchQuery("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-muted-foreground/10 rounded"
+                        >
+                          <X className="h-3 w-3 text-muted-foreground" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto">
+                    {filteredContractOptions.length > 0 ? (
+                      filteredContractOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setSelectedContractId(option.value);
+                            setIsContractDropdownOpen(false);
+                            setContractSearchQuery("");
+                          }}
+                          className={`w-full px-4 py-2 text-left text-sm hover:bg-muted/40 transition ${
+                            selectedContractId === option.value ? "bg-primary/5 text-primary" : "text-foreground"
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                        No contracts found
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

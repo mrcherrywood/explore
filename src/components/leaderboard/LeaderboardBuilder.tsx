@@ -72,7 +72,11 @@ export function LeaderboardBuilder() {
         const response = await fetch("/api/leaderboard/states");
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload.error || "Failed to fetch states");
+          const message =
+            (payload.details && String(payload.details)) ||
+            (payload.error && String(payload.error)) ||
+            "Failed to fetch states";
+          throw new Error(message);
         }
         const payload: LeaderboardStateResponse = await response.json();
         setStates(payload.states || []);
