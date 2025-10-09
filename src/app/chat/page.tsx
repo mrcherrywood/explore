@@ -1,4 +1,5 @@
 import Chat from "@/components/Chat";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "AI Assistant • Program Insight Studio",
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function ChatPage() {
+  const showAiAssistant = false;
+  if (!showAiAssistant) {
+    redirect("/data");
+  }
   return <Chat />;
 }

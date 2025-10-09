@@ -91,12 +91,10 @@ function LeaderboardList({
               {entry.delta !== null && entry.delta !== undefined && (
                 <div className="flex items-center justify-between text-xs">
                   <span>
-                    {entry.dominantShare !== null && entry.dominantShare !== undefined
-                      ? `Dominant share ${(entry.dominantShare * 100).toFixed(1)}%`
-                      : entry.metadata?.contractCount
-                      ? `${entry.metadata.contractCount} contracts`
+                    {entry.metadata?.contractCount ? `${entry.metadata.contractCount} contracts` : ""}
+                    {entry.metadata?.blueContractCount
+                      ? `${entry.metadata?.contractCount ? " • " : ""}${entry.metadata.blueContractCount} Blue`
                       : ""}
-                    {entry.metadata?.blueContractCount ? ` • ${entry.metadata.blueContractCount} Blue` : ""}
                   </span>
                   <span className={entry.delta > 0 ? "text-green-400" : entry.delta < 0 ? "text-red-400" : "text-muted-foreground"}>
                     {formatDelta(entry, metricType)}

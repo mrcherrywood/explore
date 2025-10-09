@@ -1,3 +1,6 @@
+export const NATIONAL_STATE_CODE = "ALL" as const;
+export const NATIONAL_STATE_NAME = "All States" as const;
+
 export const US_STATE_NAMES: Record<string, string> = {
   AL: "Alabama",
   AK: "Alaska",

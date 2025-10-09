@@ -4,11 +4,7 @@ import {
   fetchContractLandscape,
   fetchLatestEnrollmentPeriod,
 } from "@/lib/leaderboard/data";
-import {
-  ENROLLMENT_LEVELS,
-  getEnrollmentLevel,
-  type EnrollmentLevelId,
-} from "@/lib/peer/enrollment-levels";
+import type { EnrollmentLevelId } from "@/lib/peer/enrollment-levels";
 import {
   type ContractLeaderboardFilters,
   type ContractLeaderboardSelection,
@@ -21,44 +17,36 @@ import {
 } from "@/lib/leaderboard/types";
 import { isInverseMeasure } from "@/lib/metrics/inverse-measures";
 import { US_STATE_NAMES } from "@/lib/leaderboard/states";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import {
+  CONTRACT_SERIES_SET,
+  PLAN_TYPE_SET,
+  STATE_OPTION_SET,
+  VALID_ENROLLMENT_LEVELS,
+} from "@/lib/leaderboard/filters";
+import {
+  buildContractRecords,
+  fetchSummarySnapshots,
+  filterContracts,
+  normalizeContractId,
+  toNumeric,
+  type ContractRecord,
+  type ContractSnapshots,
+  type MetricSnapshots,
+  type ServiceSupabaseClient,
+} from "@/lib/leaderboard/contracts";
 
 export const runtime = "nodejs";
-
-const DOMINANT_SHARE_THRESHOLD = 0.4;
 const DEFAULT_TOP_LIMIT = 10;
 const MIN_TOP_LIMIT = 5;
 const MAX_TOP_LIMIT = 20;
 
-const PLAN_TYPES = new Set(["ALL", "SNP", "NOT"]);
-const CONTRACT_SERIES = new Set(["H_ONLY", "S_ONLY"] as const);
-const STATE_OPTIONS = new Set(["all", "state"]);
-const VALID_ENROLLMENT_LEVELS = new Set<EnrollmentLevelId>(
-  ENROLLMENT_LEVELS.map((level) => level.id)
-);
 const ORGANIZATION_BUCKET_RULES: Record<OrganizationBucket, (count: number) => boolean> = {
   all: (count) => count > 1,
   lt5: (count) => count >= 2 && count <= 4,
   "5to10": (count) => count >= 5 && count <= 10,
   "10to20": (count) => count >= 11 && count <= 20,
   "20plus": (count) => count >= 21,
-};
-
-type ServiceSupabaseClient = SupabaseClient<Database>;
-
-type ContractRecord = {
-  contractId: string;
-  contractName: string | null;
-  marketingName: string | null;
-  parentOrganization: string | null;
-  dominantState: string | null;
-  dominantShare: number | null;
-  stateEligible: boolean;
-  totalEnrollment: number | null;
-  enrollmentLevel: EnrollmentLevelId;
-  planTypeGroups: string[];
-  isBlueCrossBlueShield: boolean;
 };
 
 type OrganizationRecord = {
@@ -68,8 +56,6 @@ type OrganizationRecord = {
   hasBlueContracts: boolean;
   blueContractCount: number;
 };
-
-type MetricSnapshots = Map<string, { current: number | null; prior: number | null }>;
 
 type NormalizedContractRequest = {
   mode: "contract";
@@ -86,14 +72,6 @@ type NormalizedOrganizationRequest = {
 };
 
 type NormalizedRequest = NormalizedContractRequest | NormalizedOrganizationRequest;
-
-type ContractSnapshots = {
-  overall: MetricSnapshots;
-  partC: MetricSnapshots;
-  partD: MetricSnapshots;
-  dataYear: number | null;
-  priorYear: number | null;
-};
 
 type LeaderboardEntryDraft = {
   entityId: string;
@@ -247,10 +225,6 @@ function normalizeState(value: string | undefined | null): string | null {
   return upper.length ? upper : null;
 }
 
-function normalizeContractId(value: string | null | undefined): string {
-  return (value ?? "").trim().toUpperCase();
-}
-
 function normalizeRequest(payload: LeaderboardRequest): NormalizedRequest {
   if (!payload || typeof payload !== "object") {
     throw new Error("Invalid leaderboard request");
@@ -263,12 +237,12 @@ function normalizeRequest(payload: LeaderboardRequest): NormalizedRequest {
   if (payload.mode === "contract") {
     const rawSelection = (payload.selection ?? {}) as Partial<ContractLeaderboardSelection>;
     const rawStateOption = rawSelection.stateOption ?? "all";
-    const stateOption = STATE_OPTIONS.has(rawStateOption)
+    const stateOption = STATE_OPTION_SET.has(rawStateOption)
       ? (rawStateOption as "all" | "state")
       : "all";
 
     const rawPlanType = rawSelection.planTypeGroup ?? "ALL";
-    const planTypeGroup = PLAN_TYPES.has(rawPlanType) ? rawPlanType : "ALL";
+    const planTypeGroup = PLAN_TYPE_SET.has(rawPlanType) ? rawPlanType : "ALL";
 
     const rawEnrollment = (rawSelection.enrollmentLevel ?? "all") as EnrollmentLevelId;
     const enrollmentLevel = VALID_ENROLLMENT_LEVELS.has(rawEnrollment)
@@ -276,7 +250,7 @@ function normalizeRequest(payload: LeaderboardRequest): NormalizedRequest {
       : "all";
 
     const rawSeries = (rawSelection.contractSeries ?? "H_ONLY") as ContractLeaderboardSelection["contractSeries"];
-    const contractSeries = CONTRACT_SERIES.has(rawSeries) ? rawSeries : "H_ONLY";
+    const contractSeries = CONTRACT_SERIES_SET.has(rawSeries) ? rawSeries : "H_ONLY";
 
     const state = stateOption === "state" ? normalizeState(rawSelection.state) : null;
     if (stateOption === "state") {
@@ -334,38 +308,6 @@ function normalizeRequest(payload: LeaderboardRequest): NormalizedRequest {
   throw new Error("Unsupported leaderboard mode");
 }
 
-function buildContractRecords(rows: Awaited<ReturnType<typeof fetchContractLandscape>>): Map<string, ContractRecord> {
-  const map = new Map<string, ContractRecord>();
-
-  for (const row of rows) {
-    const contractId = normalizeContractId(row.contract_id);
-    if (!contractId) continue;
-
-    const dominantState = row.dominant_state ? row.dominant_state.trim().toUpperCase() : null;
-    const dominantShare = row.dominant_share ?? null;
-    const totalEnrollment = row.total_enrollment ?? null;
-    const planTypes = Array.isArray(row.plan_type_groups)
-      ? row.plan_type_groups.map((value) => String(value).toUpperCase())
-      : [];
-
-    map.set(contractId, {
-      contractId,
-      contractName: row.contract_name ?? null,
-      marketingName: row.organization_marketing_name ?? null,
-      parentOrganization: row.parent_organization ?? null,
-      dominantState,
-      dominantShare,
-      stateEligible: dominantShare !== null && dominantShare >= DOMINANT_SHARE_THRESHOLD,
-      totalEnrollment,
-      enrollmentLevel: getEnrollmentLevel(totalEnrollment),
-      planTypeGroups: planTypes,
-      isBlueCrossBlueShield: Boolean(row.is_blue_cross_blue_shield),
-    });
-  }
-
-  return map;
-}
-
 async function buildContractLeaderboardResponse(
   supabase: ServiceSupabaseClient,
   request: NormalizedContractRequest,
@@ -407,46 +349,6 @@ async function buildContractLeaderboardResponse(
   };
 }
 
-function filterContracts(
-  contractRecords: Map<string, ContractRecord>,
-  selection: ContractLeaderboardSelection
-): ContractRecord[] {
-  const { stateOption, state, planTypeGroup, enrollmentLevel, contractSeries, blueOnly } = selection;
-
-  return Array.from(contractRecords.values()).filter((record) => {
-    if (contractSeries === "H_ONLY" && !record.contractId.startsWith("H")) {
-      return false;
-    }
-
-    if (contractSeries === "S_ONLY" && !record.contractId.startsWith("S")) {
-      return false;
-    }
-
-    if (stateOption === "state") {
-      if (!record.stateEligible) return false;
-      if (!record.dominantState || record.dominantState !== state) return false;
-    }
-
-    if (planTypeGroup === "SNP" && !record.planTypeGroups.includes("SNP")) {
-      return false;
-    }
-
-    if (planTypeGroup === "NOT" && !record.planTypeGroups.includes("NOT")) {
-      return false;
-    }
-
-    if (enrollmentLevel !== "all" && record.enrollmentLevel !== enrollmentLevel) {
-      return false;
-    }
-
-    if (blueOnly && !record.isBlueCrossBlueShield) {
-      return false;
-    }
-
-    return true;
-  });
-}
-
 async function buildOrganizationLeaderboardResponse(
   supabase: ServiceSupabaseClient,
   request: NormalizedOrganizationRequest,
@@ -455,7 +357,7 @@ async function buildOrganizationLeaderboardResponse(
   const { organizations, contractsByOrganization } = buildOrganizationRecords(contractRecords);
   const rule = ORGANIZATION_BUCKET_RULES[request.selection.bucket];
   let filteredOrganizations = Array.from(organizations.values()).filter((org) => rule(org.contractCount));
-  
+
   if (request.selection.blueOnly) {
     filteredOrganizations = filteredOrganizations.filter((org) => org.hasBlueContracts);
   }
@@ -522,7 +424,7 @@ function buildOrganizationRecords(contractRecords: Map<string, ContractRecord>) 
   contractsByOrganization.forEach((contracts, organization) => {
     let hasBlueContracts = false;
     let blueContractCount = 0;
-    
+
     for (const contractId of contracts) {
       const contract = contractRecords.get(contractId);
       if (contract?.isBlueCrossBlueShield) {
@@ -530,7 +432,7 @@ function buildOrganizationRecords(contractRecords: Map<string, ContractRecord>) 
         blueContractCount++;
       }
     }
-    
+
     organizations.set(organization, {
       organization,
       contractCount: contracts.length,
@@ -541,125 +443,6 @@ function buildOrganizationRecords(contractRecords: Map<string, ContractRecord>) 
   });
 
   return { organizations, contractsByOrganization };
-}
-
-type SummaryRow = Pick<
-  Database["public"]["Tables"]["summary_ratings"]["Row"],
-  | "contract_id"
-  | "year"
-  | "overall_rating_numeric"
-  | "overall_rating"
-  | "part_c_summary_numeric"
-  | "part_c_summary"
-  | "part_d_summary_numeric"
-  | "part_d_summary"
->;
-
-async function fetchSummarySnapshots(
-  supabase: ServiceSupabaseClient,
-  contractIds: string[]
-): Promise<ContractSnapshots> {
-  if (!contractIds.length) {
-    return {
-      overall: new Map(),
-      partC: new Map(),
-      partD: new Map(),
-      dataYear: null,
-      priorYear: null,
-    };
-  }
-
-  // Supabase has a default limit of 1000 rows, we need to fetch in batches
-  // Expected: ~3 years of data per contract = ~2800 rows for 948 contracts
-  const allData: SummaryRow[] = [];
-  const pageSize = 1000;
-  let page = 0;
-  let hasMore = true;
-
-  while (hasMore) {
-    const { data, error } = await supabase
-      .from("summary_ratings")
-      .select(
-        "contract_id, year, overall_rating_numeric, overall_rating, part_c_summary_numeric, part_c_summary, part_d_summary_numeric, part_d_summary"
-      )
-      .in("contract_id", contractIds)
-      .range(page * pageSize, (page + 1) * pageSize - 1);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    if (data && data.length > 0) {
-      allData.push(...(data as SummaryRow[]));
-      hasMore = data.length === pageSize;
-      page++;
-    } else {
-      hasMore = false;
-    }
-  }
-
-  const rows = allData.map((row) => ({
-    contractId: normalizeContractId(row.contract_id),
-    year: Number(row.year),
-    overall: toNumeric(row.overall_rating_numeric ?? row.overall_rating),
-    partC: toNumeric(row.part_c_summary_numeric ?? row.part_c_summary),
-    partD: toNumeric(row.part_d_summary_numeric ?? row.part_d_summary),
-  }));
-
-  if (!rows.length) {
-    return {
-      overall: new Map(),
-      partC: new Map(),
-      partD: new Map(),
-      dataYear: null,
-      priorYear: null,
-    };
-  }
-
-  const years = Array.from(new Set(rows.map((row) => row.year))).sort((a, b) => b - a);
-  const dataYear = years[0] ?? null;
-  const priorYear = years.find((year) => year < (dataYear ?? year)) ?? null;
-
-  const overall = new Map<string, { current: number | null; prior: number | null }>();
-  const partC = new Map<string, { current: number | null; prior: number | null }>();
-  const partD = new Map<string, { current: number | null; prior: number | null }>();
-
-  for (const row of rows) {
-    if (!row.contractId) continue;
-    if (dataYear !== null && row.year === dataYear) {
-      ensureSnapshot(overall, row.contractId).current = row.overall;
-      ensureSnapshot(partC, row.contractId).current = row.partC;
-      ensureSnapshot(partD, row.contractId).current = row.partD;
-    }
-    if (priorYear !== null && row.year === priorYear) {
-      ensureSnapshot(overall, row.contractId).prior = row.overall;
-      ensureSnapshot(partC, row.contractId).prior = row.partC;
-      ensureSnapshot(partD, row.contractId).prior = row.partD;
-    }
-  }
-
-  return {
-    overall,
-    partC,
-    partD,
-    dataYear,
-    priorYear,
-  };
-}
-
-function ensureSnapshot(map: MetricSnapshots, id: string) {
-  if (!map.has(id)) {
-    map.set(id, { current: null, prior: null });
-  }
-  return map.get(id)!;
-}
-
-function toNumeric(value: unknown): number | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
 }
 
 function buildSections(
