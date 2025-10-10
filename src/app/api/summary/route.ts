@@ -57,62 +57,86 @@ export async function GET(request: Request) {
       resolvedYear = (latestYearData as { year: number } | null)?.year ?? new Date().getFullYear();
     }
 
-    const year = resolvedYear;
+    let year = resolvedYear;
 
     // Resolve contract ID, defaulting to the first contract for the year if unspecified
-    let resolvedContractId = contractIdParam?.trim();
-    if (!resolvedContractId) {
-      const { data: firstContract } = await supabase
-        .from('ma_contracts')
-        .select('contract_id')
-        .eq('year', year)
-        .order('contract_id', { ascending: true })
-        .limit(1)
-        .single();
+    let contract: MAContract | null = null;
+    let resolvedContractId = contractIdParam?.trim()?.toUpperCase() ?? '';
 
-      resolvedContractId = (firstContract as { contract_id: string } | null)?.contract_id?.trim();
-    }
+    if (resolvedContractId) {
+      let contractData: MAContract | null = null;
 
-    if (!resolvedContractId) {
-      return NextResponse.json({ error: 'No contracts found' }, { status: 404 });
-    }
+      if (year !== undefined) {
+        const { data: exactRow, error: exactError } = await supabase
+          .from('ma_contracts')
+          .select('*')
+          .eq('contract_id', resolvedContractId)
+          .eq('year', year)
+          .maybeSingle();
 
-    let contractId = resolvedContractId;
+        if (exactError && exactError.code !== 'PGRST116') {
+          throw new Error(exactError.message);
+        }
 
-    // Fetch contract details, falling back to first contract for the year when unavailable
-    const { data: contractData, error: contractError } = await supabase
-      .from('ma_contracts')
-      .select('*')
-      .eq('contract_id', contractId)
-      .eq('year', year)
-      .single();
-
-    let contract = (contractData as MAContract | null) ?? null;
-
-    if (contractError || !contract) {
-      const isNotFound = contractError?.code === 'PGRST116';
-      if (contractError && !isNotFound) {
-        throw new Error(contractError.message);
+        contractData = (exactRow as MAContract | null) ?? null;
       }
 
+      if (!contractData) {
+        const { data: latestRow, error: latestError } = await supabase
+          .from('ma_contracts')
+          .select('*')
+          .eq('contract_id', resolvedContractId)
+          .order('year', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestError && latestError.code !== 'PGRST116') {
+          throw new Error(latestError.message);
+        }
+
+        contractData = (latestRow as MAContract | null) ?? null;
+      }
+
+      contract = contractData;
+
+      if (contract?.year !== null && contract?.year !== undefined) {
+        year = contract.year;
+      }
+    }
+
+    if (!contract) {
       const { data: fallbackContract, error: fallbackError } = await supabase
         .from('ma_contracts')
         .select('*')
-        .eq('year', year)
+        .order('year', { ascending: false })
         .order('contract_id', { ascending: true })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (fallbackError) {
         throw new Error(fallbackError.message);
       }
 
       contract = (fallbackContract as MAContract | null) ?? null;
-      contractId = (contract?.contract_id ?? '').trim();
+
+      if (!contract) {
+        return NextResponse.json({ error: 'No contracts found' }, { status: 404 });
+      }
+
+      resolvedContractId = (contract.contract_id ?? '').trim().toUpperCase();
+      if (contract.year !== null && contract.year !== undefined) {
+        year = contract.year;
+      }
     }
 
-    if (!contract || !contractId) {
+    const contractId = (contract.contract_id ?? '').trim().toUpperCase();
+
+    if (!contractId) {
       return NextResponse.json({ error: 'Contract not found for specified year' }, { status: 404 });
+    }
+
+    if (year === undefined) {
+      year = contract.year ?? new Date().getFullYear();
     }
 
     // Fetch all metrics for this contract
@@ -306,14 +330,53 @@ export async function GET(request: Request) {
     }
 
     // Fetch plan landscape data for this contract
-    const { data: planLandscape, count: planCount } = await supabase
-      .from('ma_plan_landscape')
-      .select('*', { count: 'exact' })
-      .eq('contract_id', contractId)
-      .eq('year', year);
+    let planLandscapeYear = year;
+    let planCountValue: number | null = null;
+
+    const fetchPlanLandscape = async (targetYear: number | undefined) => {
+      const query = supabase
+        .from('ma_plan_landscape')
+        .select('*', { count: 'exact' })
+        .eq('contract_id', contractId);
+
+      if (targetYear !== undefined) {
+        query.eq('year', targetYear);
+      }
+
+      return query;
+    };
+
+    let { data: planLandscape, count: planCount } = await fetchPlanLandscape(planLandscapeYear);
+
+    let typedPlans = (planLandscape || []) as MAPlanLandscape[];
+
+    if (!typedPlans.length) {
+      const { data: fallbackYearRow, error: fallbackYearError } = await supabase
+        .from('ma_plan_landscape')
+        .select('year')
+        .eq('contract_id', contractId)
+        .order('year', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fallbackYearError && fallbackYearError.code !== 'PGRST116') {
+        throw new Error(fallbackYearError.message);
+      }
+
+      const fallbackYear = (fallbackYearRow as { year: number } | null)?.year;
+
+      if (fallbackYear !== undefined && fallbackYear !== null && fallbackYear !== planLandscapeYear) {
+        planLandscapeYear = fallbackYear;
+        const fallbackResult = await fetchPlanLandscape(planLandscapeYear);
+        planLandscape = fallbackResult.data;
+        planCount = fallbackResult.count;
+        typedPlans = (planLandscape || []) as MAPlanLandscape[];
+      }
+    }
+
+    planCountValue = planCount ?? (typedPlans.length ? typedPlans.length : null);
 
     // Calculate landscape statistics
-    const typedPlans = (planLandscape || []) as MAPlanLandscape[];
     const avgPartCPremium = typedPlans.reduce((sum, plan) => {
       const premium = parseFloat(plan.part_c_premium || '0');
       return sum + (isNaN(premium) ? 0 : premium);
@@ -749,7 +812,8 @@ export async function GET(request: Request) {
         lowest: lowestPerforming,
       },
       planLandscape: {
-        totalPlans: planCount || 0,
+        year: planLandscapeYear ?? null,
+        totalPlans: planCountValue ?? 0,
         avgPartCPremium,
         avgPartDPremium,
         statesServed: uniqueStates.size,

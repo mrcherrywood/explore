@@ -378,13 +378,6 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
     return null;
   };
 
-  const formatFallbackValue = (fallback?: number) => {
-    if (typeof fallback === 'number' && Number.isFinite(fallback)) {
-      return fallback.toFixed(2);
-    }
-    return null;
-  };
-
   const valuesAreEqual = (a: string | null, b: string | null) => {
     if (!a || !b) {
       return false;
@@ -536,14 +529,11 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
             {ratingCards.map((card) => {
               const cmsDisplay = formatCmsValue(card.cmsNumeric, card.cmsText);
               const computedDisplay = formatComputedValue(card.computed);
-              const fallbackDisplay = formatFallbackValue(card.fallback);
 
               const primaryRow = cmsDisplay
                 ? { label: 'CMS reported', value: cmsDisplay, source: 'cms' as const }
                 : computedDisplay
                 ? { label: 'Calculated score', value: computedDisplay, source: 'computed' as const }
-                : fallbackDisplay
-                ? { label: 'Contract average', value: fallbackDisplay, source: 'fallback' as const }
                 : { label: 'CMS reported', value: 'N/A', source: 'na' as const };
 
               const secondaryRows: Array<{ label: string; value: string }> = [];
@@ -554,9 +544,6 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
                 secondaryRows.push({ label: 'Calculated score', value: computedDisplay });
               }
 
-              if (primaryRow.source !== 'fallback' && fallbackDisplay && !valuesAreEqual(primaryRow.value, fallbackDisplay)) {
-                secondaryRows.push({ label: 'Contract average', value: fallbackDisplay });
-              }
 
               return (
                 <div key={card.key} className="rounded-2xl border border-border bg-muted p-6">
@@ -618,10 +605,6 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
                 </div>
               </div>
             ) : null}
-            <div className="rounded-2xl border border-border bg-muted p-6">
-              <p className="text-xs text-muted-foreground">Total Measures Tracked</p>
-              <p className="mt-3 text-3xl font-bold text-foreground">{overallStars.totalMeasures}</p>
-            </div>
             <div className="rounded-2xl border border-border bg-muted p-4 md:col-span-2 xl:col-span-3">
               <div className="flex items-center justify-between gap-6">
                 <div className="flex-1">

@@ -81,6 +81,7 @@ type LeaderboardEntryDraft = {
   dominantShare?: number | null;
   dominantState?: string | null;
   stateEligible?: boolean;
+  totalEnrollment?: number | null;
   isBlueCrossBlueShield?: boolean;
   metadata?: Record<string, unknown>;
   value: number | null;
@@ -588,6 +589,7 @@ function buildSection(
         dominantShare: contract.dominantShare ?? null,
         dominantState: contract.dominantState ?? null,
         stateEligible: contract.stateEligible,
+        totalEnrollment: contract.totalEnrollment ?? null,
         isBlueCrossBlueShield: contract.isBlueCrossBlueShield,
         value: current,
         priorValue: prior,
@@ -673,6 +675,7 @@ function finalizeEntries(
     dominantState: entry.dominantState ?? null,
     dominantShare: entry.dominantShare ?? null,
     stateEligible: entry.stateEligible,
+    totalEnrollment: entry.totalEnrollment ?? null,
     isBlueCrossBlueShield: entry.isBlueCrossBlueShield ?? false,
     metadata: entry.metadata,
     value: entry.value,

@@ -35,6 +35,7 @@ export type LeaderboardEntry = {
   dominantState?: string | null;
   dominantShare?: number | null;
   stateEligible?: boolean;
+  totalEnrollment?: number | null;
   value: number | null;
   valueLabel: string;
   priorValue: number | null;

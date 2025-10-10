@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, Trophy, TrendingDown, TrendingUp, X } from "lucide-react";
+import Link from "next/link";
 import type { LeaderboardEntry, LeaderboardResponse, LeaderboardSection } from "@/lib/leaderboard/types";
 import { US_STATE_NAMES } from "@/lib/leaderboard/states";
 
@@ -61,56 +62,79 @@ function LeaderboardList({
         <p className="text-xs text-muted-foreground">Insufficient data.</p>
       ) : (
         <ol className="flex flex-col gap-3">
-          {entries.map((entry) => (
-            <li key={`${title}-${entry.entityId}`} className="flex flex-col gap-1 rounded-xl border border-border/60 bg-muted/50 p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-muted-foreground">
-                    {entry.rank}
-                  </span>
-                  <div className="flex flex-col">
-                    <p className="text-sm font-semibold text-foreground">{entry.entityLabel}</p>
-                    {entry.parentOrganization && (
-                      <p className="text-[0.65rem] text-muted-foreground">Parent Org {entry.parentOrganization}</p>
-                    )}
-                    {entry.isBlueCrossBlueShield && (
-                      <p className="text-[0.65rem] text-primary">Blue Cross Blue Shield</p>
-                    )}
-                    {entry.contractId && entry.dominantState && (
-                      <p className="text-[0.65rem] text-muted-foreground">
-                        Dominant {entry.dominantState} • {(entry.dominantShare ?? 0) > 0 ? `${((entry.dominantShare ?? 0) * 100).toFixed(1)}%` : "<40%"}
-                      </p>
-                    )}
+          {entries.map((entry) => {
+            const content = (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-muted-foreground">
+                      {entry.rank}
+                    </span>
+                    <div className="flex flex-col">
+                      <p className="text-sm font-semibold text-foreground">{entry.entityLabel}</p>
+                      {entry.totalEnrollment && (
+                        <p className="text-[0.65rem] text-muted-foreground">{entry.totalEnrollment.toLocaleString()} enrolled</p>
+                      )}
+                      {entry.parentOrganization && (
+                        <p className="text-[0.65rem] text-muted-foreground">Parent Org {entry.parentOrganization}</p>
+                      )}
+                      {entry.isBlueCrossBlueShield && (
+                        <p className="text-[0.65rem] text-primary">Blue Cross Blue Shield</p>
+                      )}
+                      {entry.contractId && entry.dominantState && (
+                        <p className="text-[0.65rem] text-muted-foreground">
+                          Dominant {entry.dominantState} • {(entry.dominantShare ?? 0) > 0 ? `${((entry.dominantShare ?? 0) * 100).toFixed(1)}%` : "<40%"}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end text-sm">
+                    <span className="font-semibold text-foreground">
+                      {formatValue(entry, metricType)}
+                      {entry.reportYear ? (
+                        <span className="ml-2 text-[0.65rem] font-normal text-muted-foreground">({entry.reportYear})</span>
+                      ) : null}
+                    </span>
+                    <span className="text-[0.65rem] text-muted-foreground">
+                      Prev {formatPrior(entry, metricType)}
+                      {entry.priorYear ? ` (${entry.priorYear})` : ""}
+                    </span>
                   </div>
                 </div>
-                <div className="flex flex-col items-end text-sm">
-                  <span className="font-semibold text-foreground">
-                    {formatValue(entry, metricType)}
-                    {entry.reportYear ? (
-                      <span className="ml-2 text-[0.65rem] font-normal text-muted-foreground">({entry.reportYear})</span>
-                    ) : null}
-                  </span>
-                  <span className="text-[0.65rem] text-muted-foreground">
-                    Prev {formatPrior(entry, metricType)}
-                    {entry.priorYear ? ` (${entry.priorYear})` : ""}
-                  </span>
-                </div>
-              </div>
-              {entry.delta !== null && entry.delta !== undefined && (
-                <div className="flex items-center justify-between text-xs">
-                  <span>
-                    {entry.metadata?.contractCount ? `${entry.metadata.contractCount} contracts` : ""}
-                    {entry.metadata?.blueContractCount
-                      ? `${entry.metadata?.contractCount ? " • " : ""}${entry.metadata.blueContractCount} Blue`
-                      : ""}
-                  </span>
-                  <span className={entry.delta > 0 ? "text-green-400" : entry.delta < 0 ? "text-red-400" : "text-muted-foreground"}>
-                    {formatDelta(entry, metricType)}
-                  </span>
-                </div>
-              )}
-            </li>
-          ))}
+                {entry.delta !== null && entry.delta !== undefined && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span>
+                      {entry.metadata?.contractCount ? `${entry.metadata.contractCount} contracts` : ""}
+                      {entry.metadata?.blueContractCount
+                        ? `${entry.metadata?.contractCount ? " • " : ""}${entry.metadata.blueContractCount} Blue`
+                        : ""}
+                    </span>
+                    <span className={entry.delta > 0 ? "text-green-400" : entry.delta < 0 ? "text-red-400" : "text-muted-foreground"}>
+                      {formatDelta(entry, metricType)}
+                    </span>
+                  </div>
+                )}
+              </>
+            );
+
+            const baseClasses = "flex flex-col gap-1 rounded-xl border border-border/60 bg-muted/50 p-3";
+            const linkClasses = entry.contractId ? "transition-all hover:border-primary/40 hover:bg-muted/70 hover:shadow-sm" : "";
+
+            return (
+              <li key={`${title}-${entry.entityId}`}>
+                {entry.contractId ? (
+                  <Link
+                    href={`/summary?contractId=${entry.contractId}${entry.reportYear ? `&year=${entry.reportYear}` : ""}`}
+                    className={`${baseClasses} ${linkClasses}`}
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <div className={baseClasses}>{content}</div>
+                )}
+              </li>
+            );
+          })}
         </ol>
       )}
     </div>
