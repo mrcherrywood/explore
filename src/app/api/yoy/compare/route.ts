@@ -2,20 +2,44 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 const MAX_RATING_ROWS = 5000;
-const MAX_METRIC_ROWS = 20000;
+const MAX_METRIC_ROWS = 100000;
 
 export const runtime = "nodejs";
 
+function normalizeLabel(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function escapeLiteral(value: string) {
+  return value.replace(/'/g, "''");
+}
+
 async function handleOrganizationComparison(
   supabase: ReturnType<typeof createServiceRoleClient>,
-  parentOrganization: string,
+  parentOrganizationInput: string,
   years: number[]
 ) {
+  const parentOrganization = normalizeLabel(parentOrganizationInput);
+  if (!parentOrganization) {
+    return NextResponse.json(
+      {
+        error: "parentOrganization is required for organization comparison",
+        code: "ORGANIZATION_NO_PARENT",
+      },
+      { status: 400 }
+    );
+  }
+
+  const parentOrganizationPattern = `${parentOrganization}%`;
   // Get all contracts for this organization across the selected years
   const { data: contractData, error: contractError } = await supabase
     .from("ma_contracts")
-    .select("contract_id, year")
-    .eq("parent_organization", parentOrganization)
+    .select("contract_id, year, parent_organization")
+    .ilike("parent_organization", parentOrganizationPattern)
     .in("year", years);
 
   if (contractError) {
@@ -25,18 +49,85 @@ async function handleOrganizationComparison(
   type ContractRow = {
     contract_id: string;
     year: number;
+    parent_organization: string | null;
   };
 
-  const contractsByYear = new Map<number, string[]>();
-  (contractData as ContractRow[] || []).forEach((row) => {
-    if (!contractsByYear.has(row.year)) {
-      contractsByYear.set(row.year, []);
-    }
-    contractsByYear.get(row.year)!.push(row.contract_id);
-  });
+  const availableParents = Array.from(
+    new Set(
+      ((contractData as ContractRow[] | null) ?? [])
+        .map((row) => normalizeLabel(row.parent_organization))
+        .filter((label): label is string => Boolean(label))
+    )
+  ).sort();
+
+  const matchingContractRows = ((contractData as ContractRow[] | null) ?? []).filter(
+    (row) => normalizeLabel(row.parent_organization) === parentOrganization
+  );
+
+  const seedContractIds = Array.from(
+    new Set(
+      matchingContractRows
+        .map((row) => row.contract_id)
+        .filter((id) => typeof id === "string" && id.trim().length > 0)
+    )
+  );
+
+  if (seedContractIds.length === 0) {
+    return NextResponse.json(
+      {
+        error: "No contracts found for the selected parent organization",
+        code: "ORGANIZATION_NO_CONTRACTS",
+        details: `No contracts in years ${years.join(", ")}`,
+      },
+      { status: 404 }
+    );
+  }
+
+  const { data: expandedContractData, error: expandedContractError } = await supabase
+    .from("ma_contracts")
+    .select("contract_id, year, parent_organization")
+    .in("contract_id", seedContractIds)
+    .in("year", years);
+
+  if (expandedContractError) {
+    throw new Error(expandedContractError.message);
+  }
+
+  const expandedContracts = ((expandedContractData as ContractRow[] | null) ?? []).map((row) => ({
+    ...row,
+    parent_organization: normalizeLabel(row.parent_organization),
+  }));
+
+  const metricsYearStatsAccumulator = new Map<number, {
+    total: number;
+    withStars: number;
+    withRates: number;
+    uniqueContracts: Set<string>;
+    sampleCodes: Set<string>;
+  }>();
+
+  const organizationDiagnostics = {
+    parentOrganization,
+    requestedPattern: parentOrganizationPattern,
+    availableParentCount: availableParents.length,
+    availableParentsSample: availableParents.slice(0, 10),
+    initialContractRowCount: (contractData as ContractRow[] | null)?.length ?? 0,
+    normalizedMatchCount: matchingContractRows.length,
+    seedContractCount: seedContractIds.length,
+    expandedContractCount: expandedContracts.length,
+    metricsYearStats: [] as Array<{
+      year: number;
+      total: number;
+      withStars: number;
+      withRates: number;
+      uniqueContractCount: number;
+      sampleContracts: string[];
+      sampleCodes: string[];
+    }>,
+  };
 
   // Fetch overall ratings for all contracts across all years
-  const allContractIds = (contractData as ContractRow[] || []).map((c) => c.contract_id);
+  const allContractIds = Array.from(new Set(expandedContracts.map((c) => c.contract_id)));
   const { data: ratingRows, error: ratingError } = await supabase
     .from("summary_ratings")
     .select("contract_id, overall_rating_numeric, year")
@@ -50,13 +141,27 @@ async function handleOrganizationComparison(
   }
 
   // Fetch metrics for all contracts
-  const { data: metricRows, error: metricError } = await supabase
-    .from("ma_metrics")
-    .select("contract_id, metric_code, metric_label, metric_category, rate_percent, star_rating, year")
-    .in("contract_id", allContractIds)
-    .in("year", years)
-    .order("year", { ascending: true })
-    .range(0, MAX_METRIC_ROWS - 1);
+  const contractListClause = allContractIds.map((id) => `'${escapeLiteral(id)}'`).join(", ");
+  const yearListClause = years.map((year) => Number.isFinite(year) ? Number(year) : null).filter((year): year is number => year !== null).join(", ");
+
+  const metricsQuery = `
+    SELECT
+      TRIM(UPPER(contract_id)) AS contract_id,
+      TRIM(UPPER(metric_code)) AS metric_code,
+      metric_label,
+      metric_category,
+      rate_percent,
+      star_rating,
+      year
+    FROM ma_metrics
+    WHERE TRIM(UPPER(contract_id)) IN (${contractListClause})
+      AND year IN (${yearListClause})
+  `;
+
+  const { data: metricRows, error: metricError } = await (supabase.rpc as unknown as <T>(fn: string, args: Record<string, unknown>) => Promise<{ data: T | null; error: Error | null }>) (
+    "exec_raw_sql",
+    { query: metricsQuery }
+  );
 
   if (metricError) {
     throw new Error(metricError.message);
@@ -76,9 +181,11 @@ async function handleOrganizationComparison(
   };
 
   const measureMetadataByYear = new Map<number, Map<string, MeasureMeta>>();
+  const measureMetadataTimeline = new Map<string, Array<{ year: number; meta: MeasureMeta }>>();
   const normalizedNameToCategories = new Map<string, Set<string>>();
+  const normalizeCode = (code?: string | null) => (code ?? "").trim().toUpperCase();
   const deriveCategory = (code?: string | null) => {
-    const normalizedCode = (code ?? "").trim().toUpperCase();
+    const normalizedCode = normalizeCode(code);
     if (normalizedCode.startsWith("C")) return "Part C";
     if (normalizedCode.startsWith("D")) return "Part D";
     return "Other";
@@ -89,22 +196,61 @@ async function handleOrganizationComparison(
   };
 
   (measures || []).forEach((m: { code: string; domain: string | null; weight: number | null; year: number; name: string | null }) => {
+    const normalizedCode = normalizeCode(m.code);
+    const category = deriveCategory(normalizedCode);
     if (!measureMetadataByYear.has(m.year)) {
       measureMetadataByYear.set(m.year, new Map());
     }
     const yearMap = measureMetadataByYear.get(m.year)!;
-    if (!yearMap.has(m.code)) {
-      const category = deriveCategory(m.code);
-      yearMap.set(m.code, { domain: m.domain, weight: m.weight, name: m.name, category });
-      if (m.name) {
-        const normalizedName = normalizeMeasureName(m.name);
-        if (!normalizedNameToCategories.has(normalizedName)) {
-          normalizedNameToCategories.set(normalizedName, new Set());
-        }
-        normalizedNameToCategories.get(normalizedName)!.add(category);
+    yearMap.set(normalizedCode, { domain: m.domain, weight: m.weight, name: m.name, category });
+
+    if (!measureMetadataTimeline.has(normalizedCode)) {
+      measureMetadataTimeline.set(normalizedCode, []);
+    }
+    measureMetadataTimeline.get(normalizedCode)!.push({ year: m.year, meta: { domain: m.domain, weight: m.weight, name: m.name, category } });
+
+    if (m.name) {
+      const normalizedName = normalizeMeasureName(m.name);
+      if (!normalizedNameToCategories.has(normalizedName)) {
+        normalizedNameToCategories.set(normalizedName, new Set());
       }
+      normalizedNameToCategories.get(normalizedName)!.add(category);
     }
   });
+
+  measureMetadataTimeline.forEach((entries) => {
+    entries.sort((a, b) => b.year - a.year);
+  });
+
+  const getMeasureMeta = (code?: string | null, year?: number | null): MeasureMeta | undefined => {
+    if (!code || typeof code !== "string") {
+      return undefined;
+    }
+    const trimmedCode = normalizeCode(code);
+    if (!trimmedCode) {
+      return undefined;
+    }
+    const yearNumber = typeof year === "number" ? year : undefined;
+    if (yearNumber !== undefined) {
+      const exact = measureMetadataByYear.get(yearNumber)?.get(trimmedCode);
+      if (exact) {
+        return exact;
+      }
+    }
+    const timeline = measureMetadataTimeline.get(trimmedCode);
+    if (!timeline || timeline.length === 0) {
+      return undefined;
+    }
+    if (yearNumber === undefined) {
+      return timeline[0]?.meta;
+    }
+    for (const entry of timeline) {
+      if (entry.year <= yearNumber) {
+        return entry.meta;
+      }
+    }
+    return timeline[0]?.meta;
+  };
 
   type MetricEntry = {
     contract_id: string;
@@ -136,6 +282,40 @@ async function handleOrganizationComparison(
     };
   });
 
+  const parentBreakdown = years
+    .map((year) => {
+      const rowsForYear = expandedContracts.filter((row) => row.year === year);
+      if (rowsForYear.length === 0) {
+        return null;
+      }
+
+      const parents = new Map<string | null, Set<string>>();
+      rowsForYear.forEach((row) => {
+        const key = row.parent_organization ?? null;
+        if (!parents.has(key)) {
+          parents.set(key, new Set());
+        }
+        parents.get(key)!.add(row.contract_id);
+      });
+
+      const entries = Array.from(parents.entries()).map(([name, contractIds]) => ({
+        name,
+        contractIds: Array.from(contractIds).sort((a, b) => a.localeCompare(b)),
+      }));
+
+      entries.sort((a, b) => {
+        const labelA = (a.name ?? "").toLowerCase();
+        const labelB = (b.name ?? "").toLowerCase();
+        return labelA.localeCompare(labelB);
+      });
+
+      return {
+        year,
+        parents: entries,
+      };
+    })
+    .filter((entry): entry is { year: number; parents: Array<{ name: string | null; contractIds: string[] }> } => entry !== null);
+
   const overallChart = overallChartData.length > 0 ? {
     title: "Average Overall Star Rating Over Time",
     type: "bar" as const,
@@ -158,11 +338,43 @@ async function handleOrganizationComparison(
   const domainMap = new Map<string, DomainData>();
 
   (metricRows as MetricEntry[] | null)?.forEach((entry) => {
-    const measureInfo = entry.metric_code ? measureMetadataByYear.get(entry.year)?.get(entry.metric_code) : undefined;
-    if (!measureInfo?.domain || !measureInfo?.weight) return;
+    const normalizedContractId = typeof entry.contract_id === "string" ? entry.contract_id.trim().toUpperCase() : null;
+    const normalizedMetricCode = typeof entry.metric_code === "string" ? normalizeCode(entry.metric_code) : null;
+    const rawStar = entry.star_rating !== null && entry.star_rating !== undefined
+      ? Number.parseFloat(String(entry.star_rating))
+      : null;
+    const hasStar = rawStar !== null && Number.isFinite(rawStar);
+    const starValue = hasStar ? rawStar : null;
+    const hasRate = entry.rate_percent !== null && entry.rate_percent !== undefined && Number.isFinite(Number(entry.rate_percent));
 
-    const starValue = entry.star_rating ? Number.parseFloat(entry.star_rating) : null;
-    if (!Number.isFinite(starValue) || starValue === null || starValue <= 0) return;
+    if (!metricsYearStatsAccumulator.has(entry.year)) {
+      metricsYearStatsAccumulator.set(entry.year, {
+        total: 0,
+        withStars: 0,
+        withRates: 0,
+        uniqueContracts: new Set(),
+        sampleCodes: new Set(),
+      });
+    }
+    const yearStats = metricsYearStatsAccumulator.get(entry.year)!;
+    yearStats.total += 1;
+    if (hasStar) {
+      yearStats.withStars += 1;
+    }
+    if (hasRate) {
+      yearStats.withRates += 1;
+    }
+    if (normalizedContractId) {
+      yearStats.uniqueContracts.add(normalizedContractId);
+    }
+    if (normalizedMetricCode) {
+      yearStats.sampleCodes.add(normalizedMetricCode);
+    }
+
+    const measureInfo = getMeasureMeta(normalizedMetricCode, entry.year);
+    if (!measureInfo?.domain || !measureInfo?.weight || !hasStar || starValue === null || starValue <= 0) {
+      return;
+    }
 
     const domain = measureInfo.domain;
     const weight = measureInfo.weight;
@@ -221,7 +433,7 @@ async function handleOrganizationComparison(
   const measureDataMap = new Map<string, MeasureData>();
 
   (metricRows as MetricEntry[] | null)?.forEach((entry) => {
-    const measureInfo = entry.metric_code ? measureMetadataByYear.get(entry.year)?.get(entry.metric_code) : undefined;
+    const measureInfo = getMeasureMeta(entry.metric_code, entry.year);
     const resolvedName = measureInfo?.name?.trim()
       || entry.metric_label?.trim()
       || entry.metric_code?.trim()
@@ -361,6 +573,20 @@ async function handleOrganizationComparison(
       }
     })
     .filter((chart): chart is NonNullable<typeof chart> => chart !== null);
+
+  organizationDiagnostics.metricsYearStats = years.map((year) => {
+    const stats = metricsYearStatsAccumulator.get(year);
+    return {
+      year,
+      total: stats?.total ?? 0,
+      withStars: stats?.withStars ?? 0,
+      withRates: stats?.withRates ?? 0,
+      uniqueContractCount: stats ? stats.uniqueContracts.size : 0,
+      sampleContracts: stats ? Array.from(stats.uniqueContracts).slice(0, 10) : [],
+      sampleCodes: stats ? Array.from(stats.sampleCodes).slice(0, 10) : [],
+    };
+  });
+
   return NextResponse.json({
     comparisonType: "organization",
     parentOrganization,
@@ -370,6 +596,8 @@ async function handleOrganizationComparison(
     overallChart,
     domainCharts,
     measureCharts,
+    parentBreakdown,
+    diagnostics: organizationDiagnostics,
   });
 }
 

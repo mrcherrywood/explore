@@ -30,6 +30,13 @@ type YoYComparisonResponse = {
   overallChart: ChartSpec | null;
   domainCharts: ChartSpec[];
   measureCharts: ChartSpec[];
+  parentBreakdown?: Array<{
+    year: number;
+    parents: Array<{
+      name: string | null;
+      contractIds: string[];
+    }>;
+  }>;
 };
 
 export function YoYComparisonResults({ selection }: { selection: Selection }) {
@@ -228,6 +235,38 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
                 <span className="rounded-full border border-border px-3 py-1">{data.years.length} years</span>
                 <span className="rounded-full border border-border px-3 py-1">{yearRange}</span>
               </div>
+
+              {selection.comparisonType === "organization" && data.parentBreakdown && data.parentBreakdown.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                    Parent Organization History
+                  </p>
+                  <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground">
+                    {data.parentBreakdown
+                      .slice()
+                      .sort((a, b) => a.year - b.year)
+                      .map((entry) => (
+                        <div key={entry.year} className="space-y-1">
+                          <div className="font-medium text-foreground">{entry.year}</div>
+                          <ul className="space-y-1 pl-4">
+                            {entry.parents.map((parent, index) => (
+                              <li key={`${entry.year}-${parent.name ?? "unknown"}-${index}`} className="list-disc">
+                                <span className="text-foreground">
+                                  {parent.name && parent.name.trim().length > 0 ? parent.name : "Unknown Parent"}
+                                </span>
+                                {parent.contractIds.length > 0 && (
+                                  <span className="ml-2 text-muted-foreground/80">
+                                    ({parent.contractIds.join(", ")})
+                                  </span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {sectionAnchors.length > 1 && (
