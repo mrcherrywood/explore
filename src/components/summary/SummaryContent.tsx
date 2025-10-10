@@ -200,10 +200,15 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
         }
         const result = await response.json();
         setData(result);
-        
-        // Update selected values if they weren't set
-        if (!selectedYear) setSelectedYear(result.year.toString());
-        if (!selectedContractId) setSelectedContractId(result.contractId);
+
+        const resolvedYear = result?.year ? result.year.toString() : "";
+        if (resolvedYear && resolvedYear !== selectedYear) {
+          setSelectedYear(resolvedYear);
+        }
+
+        if (result?.contractId && result.contractId !== selectedContractId) {
+          setSelectedContractId(result.contractId);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {

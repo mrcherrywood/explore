@@ -77,9 +77,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'No contracts found' }, { status: 404 });
     }
 
-    const contractId = resolvedContractId;
+    let contractId = resolvedContractId;
 
-    // Fetch contract details
+    // Fetch contract details, falling back to first contract for the year when unavailable
     const { data: contractData, error: contractError } = await supabase
       .from('ma_contracts')
       .select('*')
@@ -87,13 +87,31 @@ export async function GET(request: Request) {
       .eq('year', year)
       .single();
 
-    if (contractError) {
-      throw new Error(contractError.message);
+    let contract = (contractData as MAContract | null) ?? null;
+
+    if (contractError || !contract) {
+      const isNotFound = contractError?.code === 'PGRST116';
+      if (contractError && !isNotFound) {
+        throw new Error(contractError.message);
+      }
+
+      const { data: fallbackContract, error: fallbackError } = await supabase
+        .from('ma_contracts')
+        .select('*')
+        .eq('year', year)
+        .order('contract_id', { ascending: true })
+        .limit(1)
+        .single();
+
+      if (fallbackError) {
+        throw new Error(fallbackError.message);
+      }
+
+      contract = (fallbackContract as MAContract | null) ?? null;
+      contractId = (contract?.contract_id ?? '').trim();
     }
 
-    const contract = (contractData as MAContract | null);
-
-    if (!contract) {
+    if (!contract || !contractId) {
       return NextResponse.json({ error: 'Contract not found for specified year' }, { status: 404 });
     }
 
@@ -674,9 +692,10 @@ export async function GET(request: Request) {
 
     // Get available years and contracts for filtering
     const { data: availableYears } = await supabase
-      .from('ma_metrics')
+      .from('ma_contracts')
       .select('year')
-      .order('year', { ascending: false });
+      .order('year', { ascending: false })
+      .limit(5000);
 
     const { data: availableContracts } = await supabase
       .from('ma_contracts')

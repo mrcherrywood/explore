@@ -22,6 +22,14 @@ type DomainMetadata = {
   weight: number;
 };
 
+const DOMAIN_CODE_ALIASES: Record<number, Record<string, string>> = {
+  2026: {
+    C31: 'C28',
+    C32: 'C29',
+    C33: 'C30',
+  },
+};
+
 function normalizeMeasureName(rawName: string): string {
   return rawName
     .replace(/\u0096/g, '–')
@@ -66,6 +74,17 @@ async function importMeasures(year: number) {
   console.log(`\n📅 Importing measure definitions for ${year}`);
 
   const domainMap = await buildDomainMap();
+  const aliasesForYear = DOMAIN_CODE_ALIASES[year] ?? null;
+  if (aliasesForYear) {
+    for (const [code, sourceCode] of Object.entries(aliasesForYear)) {
+      if (!domainMap.has(code)) {
+        const source = domainMap.get(sourceCode);
+        if (source) {
+          domainMap.set(code, { ...source });
+        }
+      }
+    }
+  }
   if (domainMap.size === 0) {
     console.error('No existing domain metadata found. Aborting to avoid creating new domains.');
     process.exit(1);
@@ -87,7 +106,7 @@ async function importMeasures(year: number) {
   const measureDefinitions = new Map<string, { code: string; name: string; domain: string; weight: number }>();
 
   for (const row of rawData) {
-    for (const [key, value] of Object.entries(row)) {
+    for (const key of Object.keys(row)) {
       if (!key.includes(':')) {
         continue;
       }
@@ -154,17 +173,17 @@ async function importMeasures(year: number) {
     console.error('  ❌ Failed to insert measures:', insertError.message);
     process.exit(1);
   }
-
   console.log(`✅ Successfully imported ${payload.length} measures for ${year}`);
 }
 
 async function main() {
   try {
-    for (const y of [2023, 2024, 2025]) {
+    const yearsToImport = [2023, 2024, 2025, 2026];
+    for (const y of yearsToImport) {
       await importMeasures(y);
     }
   } catch (error) {
-    console.error('Import failed:', error instanceof Error ? error.message : error);
+    console.error('Import failed:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

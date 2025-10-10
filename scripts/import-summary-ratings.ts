@@ -191,7 +191,7 @@ async function importSummaryYear(year: number) {
 async function main() {
   console.log('🚀 Starting summary ratings import...');
 
-  const yearsToImport = [2023, 2024, 2025];
+  const yearsToImport = [2023, 2024, 2025, 2026];
   for (const year of yearsToImport) {
     await importSummaryYear(year);
   }
