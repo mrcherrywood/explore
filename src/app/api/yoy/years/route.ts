@@ -33,44 +33,65 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({ years });
     } else {
-      // Get years where this organization has contracts with data
-      // First get all contracts for this organization across all years
-      const { data: contractData, error: contractError } = await supabase
+      // Get all contract IDs currently associated with this organization
+      const { data: contractRows, error: contractError } = await supabase
         .from("ma_contracts")
-        .select("contract_id, year")
-        .eq("parent_organization", parentOrganization);
+        .select("contract_id")
+        .eq("parent_organization", parentOrganization)
+        .order("year", { ascending: false })
+        .limit(5000);
 
       if (contractError) {
         throw new Error(contractError.message);
       }
 
-      type ContractRow = {
-        contract_id: string;
-        year: number;
-      };
+      const contractIds = Array.from(
+        new Set(
+          (contractRows as Array<{ contract_id: string }> | null)?.map((row) =>
+            (row.contract_id || "").trim().toUpperCase()
+          ) ?? []
+        ).values()
+      ).filter((value) => value.length > 0);
 
-      const contractsByYear = new Map<number, string[]>();
-      (contractData as ContractRow[] || []).forEach((row) => {
-        if (!contractsByYear.has(row.year)) {
-          contractsByYear.set(row.year, []);
+      if (contractIds.length === 0) {
+        return NextResponse.json({ years: [] });
+      }
+
+      const yearsWithData = new Set<number>();
+
+      const { data: metricYearRows, error: metricYearError } = await supabase
+        .from("ma_metrics")
+        .select("year")
+        .in("contract_id", contractIds)
+        .order("year", { ascending: false })
+        .limit(5000);
+
+      if (metricYearError) {
+        throw new Error(metricYearError.message);
+      }
+
+      (metricYearRows as Array<{ year: number | null }> | null)?.forEach((row) => {
+        if (typeof row.year === "number") {
+          yearsWithData.add(row.year);
         }
-        contractsByYear.get(row.year)!.push(row.contract_id);
       });
 
-      // Get years where at least one contract has metrics data
-      const yearsWithData = new Set<number>();
-      for (const [year, contractIds] of contractsByYear.entries()) {
-        const { data: metricsData, error: metricsError } = await supabase
-          .from("ma_metrics")
-          .select("year")
-          .in("contract_id", contractIds)
-          .eq("year", year)
-          .limit(1);
+      const { data: ratingYearRows, error: ratingYearError } = await supabase
+        .from("summary_ratings")
+        .select("year")
+        .in("contract_id", contractIds)
+        .order("year", { ascending: false })
+        .limit(5000);
 
-        if (!metricsError && metricsData && metricsData.length > 0) {
-          yearsWithData.add(year);
-        }
+      if (ratingYearError) {
+        throw new Error(ratingYearError.message);
       }
+
+      (ratingYearRows as Array<{ year: number | null }> | null)?.forEach((row) => {
+        if (typeof row.year === "number") {
+          yearsWithData.add(row.year);
+        }
+      });
 
       const years = Array.from(yearsWithData).sort((a, b) => b - a);
       return NextResponse.json({ years });

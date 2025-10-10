@@ -84,8 +84,16 @@ function LeaderboardList({
                   </div>
                 </div>
                 <div className="flex flex-col items-end text-sm">
-                  <span className="font-semibold text-foreground">{formatValue(entry, metricType)}</span>
-                  <span className="text-[0.65rem] text-muted-foreground">Prev {formatPrior(entry, metricType)}</span>
+                  <span className="font-semibold text-foreground">
+                    {formatValue(entry, metricType)}
+                    {entry.reportYear ? (
+                      <span className="ml-2 text-[0.65rem] font-normal text-muted-foreground">({entry.reportYear})</span>
+                    ) : null}
+                  </span>
+                  <span className="text-[0.65rem] text-muted-foreground">
+                    Prev {formatPrior(entry, metricType)}
+                    {entry.priorYear ? ` (${entry.priorYear})` : ""}
+                  </span>
                 </div>
               </div>
               {entry.delta !== null && entry.delta !== undefined && (

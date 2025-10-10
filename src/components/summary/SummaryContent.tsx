@@ -358,52 +358,43 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
     },
   ];
 
-  const formatRatingValue = (
-    computed: number | null | undefined,
+  const formatCmsValue = (
     cmsNumeric: number | null | undefined,
-    cmsText: string | null | undefined,
-    fallback?: number
+    cmsText: string | null | undefined
   ) => {
-    if (typeof computed === 'number' && Number.isFinite(computed)) {
-      return computed.toFixed(2);
-    }
     if (typeof cmsNumeric === 'number' && Number.isFinite(cmsNumeric)) {
       return cmsNumeric.toFixed(1);
     }
     if (cmsText && cmsText.trim().length > 0) {
       return cmsText.trim();
     }
+    return null;
+  };
+
+  const formatComputedValue = (computed: number | null | undefined) => {
+    if (typeof computed === 'number' && Number.isFinite(computed)) {
+      return computed.toFixed(2);
+    }
+    return null;
+  };
+
+  const formatFallbackValue = (fallback?: number) => {
     if (typeof fallback === 'number' && Number.isFinite(fallback)) {
       return fallback.toFixed(2);
     }
-    return 'N/A';
+    return null;
   };
 
-  const formatRatingAnnotation = (
-    computed: number | null | undefined,
-    cmsNumeric: number | null | undefined,
-    cmsText: string | null | undefined,
-    fallback?: number
-  ) => {
-    if (typeof computed === 'number' && Number.isFinite(computed)) {
-      if (typeof cmsNumeric === 'number' && Number.isFinite(cmsNumeric) && Number(cmsNumeric.toFixed(1)) !== Number(computed.toFixed(1))) {
-        return `CMS reported ${cmsNumeric.toFixed(1)} stars`;
-      }
-      if (cmsText && cmsText.trim().length > 0 && cmsText.trim() !== computed.toFixed(2)) {
-        return `Source: ${cmsText.trim()}`;
-      }
-      return null;
+  const valuesAreEqual = (a: string | null, b: string | null) => {
+    if (!a || !b) {
+      return false;
     }
-    if (typeof cmsNumeric === 'number' && Number.isFinite(cmsNumeric)) {
-      return `CMS reported ${cmsNumeric.toFixed(1)} stars`;
+    const numA = Number(a);
+    const numB = Number(b);
+    if (!Number.isNaN(numA) && !Number.isNaN(numB)) {
+      return Math.abs(numA - numB) < 0.01;
     }
-    if (cmsText && cmsText.trim().length > 0) {
-      return cmsText.trim();
-    }
-    if (typeof fallback === 'number' && Number.isFinite(fallback)) {
-      return 'Fallback: average across contract measures';
-    }
-    return null;
+    return a === b;
   };
 
   return (
@@ -543,17 +534,50 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
         <div className="px-8 py-6 space-y-6">
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
             {ratingCards.map((card) => {
-              const displayValue = formatRatingValue(card.computed, card.cmsNumeric, card.cmsText, card.fallback);
-              const annotation = formatRatingAnnotation(card.computed, card.cmsNumeric, card.cmsText, card.fallback);
+              const cmsDisplay = formatCmsValue(card.cmsNumeric, card.cmsText);
+              const computedDisplay = formatComputedValue(card.computed);
+              const fallbackDisplay = formatFallbackValue(card.fallback);
+
+              const primaryRow = cmsDisplay
+                ? { label: 'CMS reported', value: cmsDisplay, source: 'cms' as const }
+                : computedDisplay
+                ? { label: 'Calculated score', value: computedDisplay, source: 'computed' as const }
+                : fallbackDisplay
+                ? { label: 'Contract average', value: fallbackDisplay, source: 'fallback' as const }
+                : { label: 'CMS reported', value: 'N/A', source: 'na' as const };
+
+              const secondaryRows: Array<{ label: string; value: string }> = [];
+
+              if (primaryRow.source === 'cms' && computedDisplay && !valuesAreEqual(primaryRow.value, computedDisplay)) {
+                secondaryRows.push({ label: 'Calculated score', value: computedDisplay });
+              } else if (primaryRow.source !== 'computed' && computedDisplay && !valuesAreEqual(primaryRow.value, computedDisplay)) {
+                secondaryRows.push({ label: 'Calculated score', value: computedDisplay });
+              }
+
+              if (primaryRow.source !== 'fallback' && fallbackDisplay && !valuesAreEqual(primaryRow.value, fallbackDisplay)) {
+                secondaryRows.push({ label: 'Contract average', value: fallbackDisplay });
+              }
+
               return (
                 <div key={card.key} className="rounded-2xl border border-border bg-muted p-6">
                   <p className="text-xs text-muted-foreground">{card.label}</p>
                   <div className="mt-3 flex items-center gap-3">
                     <Star className="h-7 w-7 text-yellow-400" />
-                    <p className="text-3xl font-bold text-foreground">{displayValue}</p>
+                    <div>
+                      <p className="text-3xl font-bold text-foreground">{primaryRow.value}</p>
+                      {primaryRow.label && primaryRow.source !== 'cms' ? (
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{primaryRow.label}</p>
+                      ) : null}
+                    </div>
                   </div>
-                  {annotation ? (
-                    <p className="mt-2 text-xs text-muted-foreground">{annotation}</p>
+                  {secondaryRows.length > 0 ? (
+                    <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                      {secondaryRows.map((row) => (
+                        <p key={`${card.key}-${row.label}`}>
+                          {row.label}: <span className="font-medium text-foreground">{row.value}</span>
+                        </p>
+                      ))}
+                    </div>
                   ) : null}
                 </div>
               );
