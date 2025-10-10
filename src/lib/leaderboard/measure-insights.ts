@@ -63,18 +63,25 @@ type MeasureMetadataRow = {
 export async function fetchMeasureDetails(
   supabase: ServiceSupabaseClient,
   contractIds: string[],
-  measureCode: string
+  measureCode: string,
+  preferredYear?: number
 ): Promise<MeasureDetails | null> {
   if (!contractIds.length) {
     return null;
   }
 
-  const { data: metadataRows, error: metadataError } = await supabase
+  let metadataQuery = supabase
     .from("ma_measures")
     .select("code, name, alias, domain, weight, year")
     .eq("code", measureCode)
     .order("year", { ascending: false })
     .limit(1);
+
+  if (typeof preferredYear === "number") {
+    metadataQuery = metadataQuery.lte("year", preferredYear ?? 0);
+  }
+
+  const { data: metadataRows, error: metadataError } = await metadataQuery;
 
   if (metadataError) {
     throw new Error(metadataError.message);
@@ -90,12 +97,18 @@ export async function fetchMeasureDetails(
   const chunkSize = 500;
   for (let index = 0; index < contractIds.length; index += chunkSize) {
     const chunk = contractIds.slice(index, index + chunkSize);
-    const { data, error } = await supabase
+    let metricQuery = supabase
       .from("ma_metrics")
       .select("contract_id, rate_percent, value_numeric, value_unit, star_rating, year")
       .eq("metric_code", measureCode)
       .in("contract_id", chunk)
       .order("year", { ascending: false });
+
+    if (typeof preferredYear === "number") {
+      metricQuery = metricQuery.lte("year", preferredYear);
+    }
+
+    const { data, error } = await metricQuery;
 
     if (error) {
       throw new Error(error.message);

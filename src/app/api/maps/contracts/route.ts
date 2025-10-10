@@ -27,6 +27,7 @@ import {
 } from "@/lib/leaderboard/measure-insights";
 import type { ContractLeaderboardSelection } from "@/lib/leaderboard/types";
 import type { EnrollmentLevelId } from "@/lib/peer/enrollment-levels";
+import { isSupportedEnrollmentYear } from "@/lib/leaderboard/constants";
 
 export const runtime = "nodejs";
 
@@ -145,10 +146,11 @@ export async function GET(req: NextRequest) {
     const blueOnly = parseBoolean(searchParams.get("blueOnly"));
     const contractId = normalizeContractId(searchParams.get("contractId"));
     const measureCode = parseMeasureCode(searchParams.get("measure"));
+    const year = parseYear(searchParams.get("year"));
 
     const supabase = createServiceRoleClient();
 
-    const period = await fetchLatestEnrollmentPeriod(supabase);
+    const period = await fetchLatestEnrollmentPeriod(supabase, year);
     if (!period) {
       return NextResponse.json(
         { error: "No enrollment period available" },
@@ -185,14 +187,16 @@ export async function GET(req: NextRequest) {
 
     const snapshots = await fetchSummarySnapshots(
       supabase,
-      filteredContracts.map((record) => record.contractId)
+      filteredContracts.map((record) => record.contractId),
+      year
     );
 
     const measureDetails = measureCode
       ? await fetchMeasureDetails(
           supabase,
           filteredContracts.map((record) => record.contractId),
-          measureCode
+          measureCode,
+          year
         )
       : null;
 
@@ -328,6 +332,15 @@ function parseBoolean(input: string | null): boolean {
   if (!input) return false;
   const normalized = input.trim().toLowerCase();
   return normalized === "true" || normalized === "1" || normalized === "yes";
+}
+
+function parseYear(input: string | null): number | undefined {
+  if (!input) return undefined;
+  const numeric = Number.parseInt(input, 10);
+  if (!Number.isFinite(numeric)) {
+    return undefined;
+  }
+  return isSupportedEnrollmentYear(numeric) ? numeric : undefined;
 }
 
 type MetricKey = keyof Pick<ContractSnapshots, "overall" | "partC" | "partD">;

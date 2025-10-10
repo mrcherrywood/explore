@@ -12,6 +12,7 @@ import { Loader2, MapPin, RefreshCw, Search, X } from "lucide-react";
 import { format } from "date-fns";
 import { useTheme } from "next-themes";
 import { ENROLLMENT_LEVELS, formatEnrollment, type EnrollmentLevelId } from "@/lib/peer/enrollment-levels";
+import { SUPPORTED_ENROLLMENT_YEARS, DEFAULT_ENROLLMENT_YEAR } from "@/lib/leaderboard/constants";
 import { NATIONAL_STATE_CODE, NATIONAL_STATE_NAME, US_STATE_NAMES } from "@/lib/leaderboard/states";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import { ExportCsvButton } from "@/components/data-browser/ExportCsvButton";
@@ -337,6 +338,7 @@ export function ContractsMapExplorer() {
     enrollmentLevel: "all",
     blueOnly: false,
   });
+  const [selectedYear, setSelectedYear] = useState<number>(DEFAULT_ENROLLMENT_YEAR);
   const [selectedState, setSelectedState] = useState<string>(NATIONAL_STATE_CODE);
   const [targetContractId, setTargetContractId] = useState<string>("");
   const [contractSearchQuery, setContractSearchQuery] = useState<string>("");
@@ -556,8 +558,9 @@ export function ContractsMapExplorer() {
       contractSeries: selection.contractSeries,
       enrollmentLevel: selection.enrollmentLevel,
       blueOnly: selection.blueOnly,
+      year: selectedYear,
     }),
-    [selection.planTypeGroup, selection.contractSeries, selection.enrollmentLevel, selection.blueOnly]
+    [selection.planTypeGroup, selection.contractSeries, selection.enrollmentLevel, selection.blueOnly, selectedYear]
   );
 
   useEffect(() => {
@@ -580,6 +583,7 @@ export function ContractsMapExplorer() {
         params.set("planTypeGroup", stateFilterParams.planTypeGroup);
         params.set("contractSeries", stateFilterParams.contractSeries);
         params.set("enrollmentLevel", stateFilterParams.enrollmentLevel);
+        params.set("year", stateFilterParams.year.toString());
         const query = params.toString() ? `?${params.toString()}` : "";
         const response = await fetch(`/api/leaderboard/states${query}`);
         if (!response.ok) {
@@ -739,6 +743,7 @@ export function ContractsMapExplorer() {
     if (selectedMeasure) {
       params.set("measure", selectedMeasure);
     }
+    params.set("year", selectedYear.toString());
 
     try {
       const response = await fetch(`/api/maps/contracts?${params.toString()}`);
@@ -768,7 +773,16 @@ export function ContractsMapExplorer() {
       setDataError(error instanceof Error ? error.message : "Failed to generate map data");
       setDataFetchState("error");
     }
-  }, [selectedState, selection.planTypeGroup, selection.contractSeries, selection.enrollmentLevel, selection.blueOnly, targetContractId, selectedMeasure]);
+  }, [
+    selectedState,
+    selection.planTypeGroup,
+    selection.contractSeries,
+    selection.enrollmentLevel,
+    selection.blueOnly,
+    targetContractId,
+    selectedMeasure,
+    selectedYear,
+  ]);
 
   useEffect(() => {
     fetchData();
@@ -1102,8 +1116,8 @@ export function ContractsMapExplorer() {
     const statePart = (selectedState ?? NATIONAL_STATE_CODE).toLowerCase();
     const measurePart = selectedMeasure ? selectedMeasure.toLowerCase() : null;
     const bluePart = selection.blueOnly ? "bcbs" : null;
-    return ["peer_comparison", statePart, measurePart, bluePart].filter(Boolean).join("_");
-  }, [selectedState, selectedMeasure, selection.blueOnly]);
+    return ["peer_comparison", statePart, measurePart, bluePart, selectedYear].filter(Boolean).join("_");
+  }, [selectedState, selectedMeasure, selection.blueOnly, selectedYear]);
 
   const toggleBlueOnly = () => {
     setSelection((prev) => ({ ...prev, blueOnly: !prev.blueOnly }));
@@ -1146,6 +1160,25 @@ export function ContractsMapExplorer() {
                   </select>
                 </div>
                 {stateFetchError && <p className="text-xs text-red-300">{stateFetchError}</p>}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Year</label>
+                <select
+                  value={selectedYear.toString()}
+                  onChange={(event) => {
+                    const nextYear = Number(event.target.value);
+                    setSelectedYear(Number.isFinite(nextYear) ? nextYear : DEFAULT_ENROLLMENT_YEAR);
+                    setPayload(null);
+                  }}
+                  className="rounded-xl border border-border bg-muted px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  {SUPPORTED_ENROLLMENT_YEARS.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex flex-col gap-2">

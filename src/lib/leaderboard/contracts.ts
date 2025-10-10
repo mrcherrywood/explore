@@ -122,7 +122,8 @@ export function filterContracts(
 
 export async function fetchSummarySnapshots(
   supabase: ServiceSupabaseClient,
-  contractIds: string[]
+  contractIds: string[],
+  preferredYear?: number
 ): Promise<ContractSnapshots> {
   if (!contractIds.length) {
     return {
@@ -179,9 +180,13 @@ export async function fetchSummarySnapshots(
     };
   }
 
-  const years = Array.from(new Set(rows.map((row) => row.year))).sort((a, b) => b - a);
-  const dataYear = years[0] ?? null;
-  const priorYear = years.find((year) => year < (dataYear ?? year)) ?? null;
+  const uniqueYears = Array.from(new Set(rows.map((row) => row.year))).sort((a, b) => b - a);
+  const candidateYears = typeof preferredYear === "number"
+    ? uniqueYears.filter((year) => year <= preferredYear)
+    : uniqueYears;
+
+  const dataYear = candidateYears[0] ?? null;
+  const priorYear = candidateYears.find((year) => year < (dataYear ?? year)) ?? null;
 
   const overall = new Map<string, { current: number | null; prior: number | null }>();
   const partC = new Map<string, { current: number | null; prior: number | null }>();

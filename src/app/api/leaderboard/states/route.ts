@@ -5,6 +5,7 @@ import { buildContractRecords, fetchSummarySnapshots, filterContracts, type Cont
 import { CONTRACT_SERIES_SET, PLAN_TYPE_SET, VALID_ENROLLMENT_LEVELS } from "@/lib/leaderboard/filters";
 import { fetchMeasureDetails, type ContractMeasureValue, type MeasurePoint } from "@/lib/leaderboard/measure-insights";
 import { US_STATE_NAMES } from "@/lib/leaderboard/states";
+import { isSupportedEnrollmentYear } from "@/lib/leaderboard/constants";
 import type { ContractLeaderboardSelection } from "@/lib/leaderboard/types";
 import { formatEnrollment } from "@/lib/peer/enrollment-levels";
 
@@ -42,6 +43,7 @@ export async function GET(req: Request) {
     const planTypeGroup = parsePlanTypeGroup(searchParams.get("planTypeGroup"));
     const contractSeries = parseContractSeries(searchParams.get("contractSeries"));
     const enrollmentLevel = parseEnrollmentLevel(searchParams.get("enrollmentLevel"));
+    const year = parseYear(searchParams.get("year"));
 
     let supabase;
     try {
@@ -54,7 +56,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const period = await fetchLatestEnrollmentPeriod(supabase);
+    const period = await fetchLatestEnrollmentPeriod(supabase, year);
     if (!period) {
       return NextResponse.json({ states: [], measure: null });
     }
@@ -204,6 +206,15 @@ function parseEnrollmentLevel(input: string | null): ContractLeaderboardSelectio
   if (!input) return "all";
   const value = input.trim().toLowerCase() as ContractLeaderboardSelection["enrollmentLevel"];
   return VALID_ENROLLMENT_LEVELS.has(value) ? value : "all";
+}
+
+function parseYear(input: string | null): number | undefined {
+  if (!input) return undefined;
+  const numeric = Number.parseInt(input, 10);
+  if (!Number.isFinite(numeric)) {
+    return undefined;
+  }
+  return isSupportedEnrollmentYear(numeric) ? numeric : undefined;
 }
 
 function buildStateAggregates(contracts: ContractRecord[]): Map<string, StateAggregate> {

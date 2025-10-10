@@ -25,15 +25,37 @@ function escapeLiteral(value: string): string {
 }
 
 export async function fetchLatestEnrollmentPeriod(
-  supabase: ServiceSupabaseClient
+  supabase: ServiceSupabaseClient,
+  preferredYear?: number
 ): Promise<LatestEnrollmentPeriod | null> {
-  const { data, error } = await supabase
+  const preferred = await selectEnrollmentPeriod(supabase, preferredYear);
+  if (preferred) {
+    return preferred;
+  }
+
+  if (typeof preferredYear === "number") {
+    return selectEnrollmentPeriod(supabase);
+  }
+
+  return null;
+}
+
+async function selectEnrollmentPeriod(
+  supabase: ServiceSupabaseClient,
+  year?: number
+): Promise<LatestEnrollmentPeriod | null> {
+  let query = supabase
     .from("ma_plan_enrollment")
     .select("report_year, report_month")
     .order("report_year", { ascending: false })
     .order("report_month", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  if (typeof year === "number") {
+    query = query.eq("report_year", year);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     throw new Error(error.message);
