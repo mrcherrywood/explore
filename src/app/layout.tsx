@@ -16,6 +16,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Health Plan Data Explorer",
   description: "Health Plan Data Explorer",
+  openGraph: {
+    title: "Health Plan Data Explorer",
+    description: "Health Plan Data Explorer",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Health Plan Data Explorer",
+    description: "Health Plan Data Explorer",
+  },
 };
 
 export default function RootLayout({
