@@ -9,7 +9,6 @@ import mapboxgl, {
 } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Loader2, MapPin, RefreshCw, Search, X } from "lucide-react";
-import { format } from "date-fns";
 import { useTheme } from "next-themes";
 import { ENROLLMENT_LEVELS, formatEnrollment, type EnrollmentLevelId } from "@/lib/peer/enrollment-levels";
 import { SUPPORTED_ENROLLMENT_YEARS, DEFAULT_ENROLLMENT_YEAR } from "@/lib/leaderboard/constants";
@@ -359,6 +358,7 @@ export function ContractsMapExplorer() {
   const popupRef = useRef<mapboxgl.Popup | null>(null);
   const selectedStateRef = useRef(selectedState);
   const stateLookupRef = useRef<Map<string, StateOption>>(new Map());
+  const exportContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     selectedStateRef.current = selectedState;
@@ -1123,8 +1123,9 @@ export function ContractsMapExplorer() {
     setSelection((prev) => ({ ...prev, blueOnly: !prev.blueOnly }));
   };
 
+
   return (
-    <div className="flex flex-col gap-6">
+    <div ref={exportContainerRef} className="flex flex-col gap-6">
       <section className="rounded-3xl border border-border bg-card p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex flex-1 flex-col gap-4">
@@ -1364,9 +1365,6 @@ export function ContractsMapExplorer() {
             >
               <RefreshCw className="h-3 w-3" /> Refresh analysis
             </button>
-            <p className="text-xs text-muted-foreground">
-              Last updated {payload ? format(new Date(payload.generatedAt), "MMM d, yyyy 'at' h:mm a") : "—"}
-            </p>
           </div>
         </div>
       </section>

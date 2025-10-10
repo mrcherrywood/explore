@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Loader2, Search, X } from "lucide-react";
 import { YoYComparisonResults } from "./YoYComparisonResults";
+import { ExportPdfButton } from "@/components/shared/ExportPdfButton";
 
 type ComparisonType = "contract" | "organization";
 
@@ -43,6 +44,7 @@ export function YoYComparisonBuilder() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [step, setStep] = useState(1);
+  const exportContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Fetch contracts or organizations based on comparison type
   useEffect(() => {
@@ -194,8 +196,28 @@ export function YoYComparisonBuilder() {
     setTimeout(() => setIsSubmitting(false), 150);
   };
 
+  const exportFileName = useMemo(() => {
+    const baseId = comparisonType === "contract" ? selectedContractId : selectedParentOrg;
+    const years = Array.from(selectedYears).sort((a, b) => a - b);
+    const prefix = comparisonType === "contract" ? "yoy-contract" : "yoy-organization";
+    const parts = [prefix, baseId, years.length > 0 ? years.join("-") : null].filter(
+      (segment): segment is string => Boolean(segment && segment.trim().length > 0)
+    );
+    if (parts.length === 0) return null;
+    return parts
+      .join("_")
+      .replace(/[^a-z0-9_\-]+/gi, "-")
+      .toLowerCase();
+  }, [comparisonType, selectedContractId, selectedParentOrg, selectedYears]);
+
   return (
-    <div className="flex flex-col gap-6">
+    <div ref={exportContainerRef} className="flex flex-col gap-6">
+      <div className="flex justify-end">
+        <ExportPdfButton
+          targetRef={exportContainerRef}
+          fileName={exportFileName ?? undefined}
+        />
+      </div>
       <section className="rounded-3xl border border-border bg-card p-8">
         <div className="mb-6 flex items-center justify-between">
           <div>

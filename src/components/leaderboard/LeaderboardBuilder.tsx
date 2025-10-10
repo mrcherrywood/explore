@@ -456,56 +456,58 @@ export function LeaderboardBuilder() {
           )}
         </div>
 
-        <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-border bg-muted/40 p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Leaderboard size</span>
-            <span className="text-sm text-foreground">Top {topLimit}</span>
-          </div>
-          <input
-            type="range"
-            min={5}
-            max={20}
-            step={1}
-            value={topLimit}
-            onChange={(event) => setTopLimit(Number(event.target.value))}
-          />
-          <p className="text-[0.65rem] text-muted-foreground">Adjust the number of entries returned for each leaderboard.</p>
-        </div>
-
-        <div className="mt-4 flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Blue Cross Blue Shield Focus</span>
-            <p className="text-[0.65rem] text-muted-foreground">
-              {mode === "contract"
-                ? "Limit contract results to Blue Cross Blue Shield-affiliated contracts."
-                : "Limit organization results to parents with Blue Cross Blue Shield contracts."}
-            </p>
-          </div>
-          <label className="relative inline-flex cursor-pointer items-center">
+        <div className="mt-6 flex flex-col gap-4 md:flex-row">
+          <div className="flex flex-col gap-4 rounded-2xl border border-border bg-muted/40 p-4 md:basis-1/3 md:flex-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Leaderboard size</span>
+              <span className="text-sm text-foreground">Top {topLimit}</span>
+            </div>
             <input
-              type="checkbox"
-              checked={blueOnly}
-              onChange={(event) => setBlueOnly(event.target.checked)}
-              className="peer sr-only"
+              type="range"
+              min={5}
+              max={20}
+              step={1}
+              value={topLimit}
+              onChange={(event) => setTopLimit(Number(event.target.value))}
             />
-            <div className="peer h-6 w-11 rounded-full bg-muted border border-border after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-card after:transition-all after:content-[''] peer-checked:bg-primary/20 peer-checked:after:translate-x-full peer-checked:after:border-primary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20"></div>
-          </label>
-        </div>
-
-        <div className="mt-4 flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Include Domain & Measure Statistics</span>
-            <p className="text-[0.65rem] text-muted-foreground">Show detailed performance breakdowns by domain and individual measures</p>
+            <p className="text-[0.65rem] text-muted-foreground">Adjust the number of entries returned for each leaderboard.</p>
           </div>
-          <label className="relative inline-flex cursor-pointer items-center">
-            <input
-              type="checkbox"
-              checked={includeMeasures}
-              onChange={(event) => setIncludeMeasures(event.target.checked)}
-              className="peer sr-only"
-            />
-            <div className="peer h-6 w-11 rounded-full bg-muted border border-border after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-card after:transition-all after:content-[''] peer-checked:bg-primary/20 peer-checked:after:translate-x-full peer-checked:after:border-primary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20"></div>
-          </label>
+
+          <div className="flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-4 md:basis-1/3 md:flex-1">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Blue Cross Blue Shield Focus</span>
+              <p className="text-[0.65rem] text-muted-foreground">
+                {mode === "contract"
+                  ? "Limit contract results to Blue Cross Blue Shield-affiliated contracts."
+                  : "Limit organization results to parents with Blue Cross Blue Shield contracts."}
+              </p>
+            </div>
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                checked={blueOnly}
+                onChange={(event) => setBlueOnly(event.target.checked)}
+                className="peer sr-only"
+              />
+              <div className="peer h-6 w-11 rounded-full bg-muted border border-border after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-card after:transition-all after:content-[''] peer-checked:bg-primary/20 peer-checked:after:translate-x-full peer-checked:after:border-primary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20"></div>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-4 md:basis-1/3 md:flex-1">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Include Domain & Measure Statistics</span>
+              <p className="text-[0.65rem] text-muted-foreground">Show detailed performance breakdowns by domain and individual measures</p>
+            </div>
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                checked={includeMeasures}
+                onChange={(event) => setIncludeMeasures(event.target.checked)}
+                className="peer sr-only"
+              />
+              <div className="peer h-6 w-11 rounded-full bg-muted border border-border after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-border after:bg-card after:transition-all after:content-[''] peer-checked:bg-primary/20 peer-checked:after:translate-x-full peer-checked:after:border-primary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20"></div>
+            </label>
+          </div>
         </div>
 
         <div className="mt-6 flex items-center justify-between">

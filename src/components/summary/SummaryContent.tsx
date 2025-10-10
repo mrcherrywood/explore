@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import { Star, TrendingUp, TrendingDown, Building2, MapPin, DollarSign, Users, Info, Search, X } from "lucide-react";
+import { ExportPdfButton } from "@/components/shared/ExportPdfButton";
 
 type SummaryData = {
   year: number;
@@ -147,6 +148,7 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
   const [contractSearchQuery, setContractSearchQuery] = useState<string>("");
   const [isContractDropdownOpen, setIsContractDropdownOpen] = useState<boolean>(false);
   const contractDropdownRef = useRef<HTMLDivElement | null>(null);
+  const exportContainerRef = useRef<HTMLDivElement | null>(null);
 
   const contractOptions = useMemo(() => {
     if (!data?.filters.availableContracts) return [];
@@ -246,6 +248,16 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
     enrollmentSnapshot,
     disenrollment,
   } = data;
+
+  const exportFileName = [
+    "contract-summary",
+    data.year?.toString() ?? "",
+    contract.contract_id ?? "",
+  ]
+    .filter((segment) => segment && segment.trim().length > 0)
+    .join("_")
+    .replace(/[^a-z0-9_\-]+/gi, "-")
+    .toLowerCase();
 
   const formatMonthYear = (year: number, month: number) => {
     const date = new Date(Date.UTC(year, month - 1));
@@ -391,7 +403,14 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div ref={exportContainerRef} className="flex flex-col gap-6">
+      <div className="flex justify-end">
+        <ExportPdfButton
+          targetRef={exportContainerRef}
+          fileName={exportFileName || undefined}
+          label="Export PDF"
+        />
+      </div>
       {/* Filters */}
       <div className="rounded-3xl border border-border bg-card px-8 py-6">
         <div className="flex flex-wrap items-center gap-4">

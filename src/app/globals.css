@@ -223,3 +223,8 @@ a {
 .recharts-tooltip-item-value {
   color: #f8fafc !important;
 }
+
+/* Hide borders during PDF export */
+.pdf-export-mode * {
+  border-color: transparent !important;
+}

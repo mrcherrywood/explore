@@ -1,7 +1,6 @@
 import { TrendingUp } from "lucide-react";
 import { DataPageNav } from "@/components/navigation/DataPageNav";
-import { ComparisonBuilder } from "@/components/analytics/ComparisonBuilder";
-import { ComparisonResults } from "@/components/analytics/ComparisonResults";
+import { AnalyticsPageContent } from "@/components/analytics/AnalyticsPageContent";
 
 export const metadata = {
   title: "AI Analytics • Program Insight Studio",
@@ -22,8 +21,6 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
   const selectedMeasures = typeof measuresParam === "string" ? measuresParam.split(",").filter(Boolean) : [];
   const selectedYears = typeof yearsParam === "string" ? yearsParam.split(",").filter(Boolean) : [];
 
-  const hasSelections = selectedContracts.length > 0 && selectedMeasures.length > 0 && selectedYears.length > 0;
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="flex min-h-screen">
@@ -43,19 +40,11 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
           </header>
 
           <main className="flex flex-1 flex-col gap-6 px-10 pb-10 pt-8">
-            <ComparisonBuilder
+            <AnalyticsPageContent
               selectedContracts={selectedContracts}
               selectedMeasures={selectedMeasures}
               selectedYears={selectedYears}
             />
-
-            {hasSelections && (
-              <ComparisonResults
-                contracts={selectedContracts}
-                measures={selectedMeasures}
-                years={selectedYears}
-              />
-            )}
           </main>
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { useState } from "react";
+import { Download, Loader2 } from "lucide-react";
 import type { TableConfig } from "@/lib/data-browser/config";
 
 type ExportCsvButtonProps = {
@@ -53,22 +54,37 @@ function downloadCsv(content: string, filename: string) {
 }
 
 export function ExportCsvButton({ config, rows, tableName }: ExportCsvButtonProps) {
-  const handleExport = () => {
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (isExporting) return;
+    
+    setIsExporting(true);
+    
+    // Add a small delay to show the spinner
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     const csv = generateCsv(config, rows);
     const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
     const filename = `${tableName}_${timestamp}.csv`;
     downloadCsv(csv, filename);
+    
+    setIsExporting(false);
   };
 
   return (
     <button
       type="button"
       onClick={handleExport}
-      disabled={rows.length === 0}
+      disabled={rows.length === 0 || isExporting}
       className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground transition hover:border-primary/60 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:text-muted-foreground"
       title={rows.length === 0 ? "No data to export" : "Export current view to CSV"}
     >
-      <Download className="h-3.5 w-3.5" />
+      {isExporting ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Download className="h-3.5 w-3.5" />
+      )}
       Export CSV
     </button>
   );

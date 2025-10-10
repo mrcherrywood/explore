@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Loader2, Search, X } from "lucide-react";
 import { ENROLLMENT_LEVELS, EnrollmentLevelId } from "@/lib/peer/enrollment-levels";
 import { PeerComparisonResults } from "./PeerComparisonResults";
+import { ExportPdfButton } from "@/components/shared/ExportPdfButton";
 
 type ComparisonType = "contract" | "organization";
 
@@ -81,6 +82,7 @@ export function PeerComparisonBuilder() {
 
   const [submittedSelection, setSubmittedSelection] = useState<BuilderState | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const exportContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     async function fetchContracts() {
@@ -321,6 +323,24 @@ export function PeerComparisonBuilder() {
     selectedStates,
   ]);
 
+  const exportFileName = useMemo(() => {
+    if (comparisonType === "contract") {
+      if (!selectedContractId) return null;
+      return ["peer-contract", selectedContractId, selectedPlanType ?? undefined, selectedEnrollmentLevel ?? undefined]
+        .filter((segment): segment is string => Boolean(segment && String(segment).trim().length > 0))
+        .join("_")
+        .replace(/[^a-z0-9_\-]+/gi, "-")
+        .toLowerCase();
+    }
+    if (!selectedParentOrg) return null;
+    const peersPart = selectedPeerOrgs.length > 0 ? `${selectedPeerOrgs.length}peers` : null;
+    return ["peer-organization", selectedParentOrg, peersPart]
+      .filter((segment): segment is string => Boolean(segment && segment.trim().length > 0))
+      .join("_")
+      .replace(/[^a-z0-9_\-]+/gi, "-")
+      .toLowerCase();
+  }, [comparisonType, selectedContractId, selectedParentOrg, selectedPeerOrgs.length, selectedPlanType, selectedEnrollmentLevel]);
+
   useEffect(() => {
     if (comparisonType !== "contract") {
       return;
@@ -370,7 +390,13 @@ export function PeerComparisonBuilder() {
   ]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div ref={exportContainerRef} className="flex flex-col gap-6">
+      <div className="flex justify-end">
+        <ExportPdfButton
+          targetRef={exportContainerRef}
+          fileName={exportFileName ?? undefined}
+        />
+      </div>
       <section className="rounded-3xl border border-border bg-card p-8">
         <div className="mb-6 flex items-center justify-between">
           <div>
