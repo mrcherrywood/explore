@@ -35,6 +35,7 @@ async function handleOrganizationComparison(
   }
 
   const parentOrganizationPattern = `${parentOrganization}%`;
+  const normalizeContractId = (value?: string | null) => (value ?? "").trim().toUpperCase();
   // Get all contracts for this organization across the selected years
   const { data: contractData, error: contractError } = await supabase
     .from("ma_contracts")
@@ -139,6 +140,59 @@ async function handleOrganizationComparison(
   if (ratingError) {
     throw new Error(ratingError.message);
   }
+
+  const contractsByYear = new Map<number, Set<string>>();
+  expandedContracts.forEach((row) => {
+    const normalizedId = normalizeContractId(row.contract_id);
+    if (!normalizedId || typeof row.year !== "number") {
+      return;
+    }
+    if (!contractsByYear.has(row.year)) {
+      contractsByYear.set(row.year, new Set());
+    }
+    contractsByYear.get(row.year)!.add(normalizedId);
+  });
+
+  const ratingByYearContract = new Map<string, number | null>();
+  (ratingRows || []).forEach((row: { contract_id: string; overall_rating_numeric: number | null; year: number }) => {
+    const normalizedId = normalizeContractId(row.contract_id);
+    if (!normalizedId || typeof row.year !== "number") {
+      return;
+    }
+    const rating = Number.isFinite(row.overall_rating_numeric) ? Number(row.overall_rating_numeric) : null;
+    ratingByYearContract.set(`${row.year}|${normalizedId}`, rating);
+  });
+
+  const fourStarMembership = years.map((year) => {
+    const members = contractsByYear.get(year) ?? new Set<string>();
+    const totalMembers = members.size;
+    let ratedMembers = 0;
+    let fourStarCount = 0;
+
+    members.forEach((contractId) => {
+      const key = `${year}|${contractId}`;
+      const rating = ratingByYearContract.get(key);
+      if (typeof rating !== "number") {
+        return;
+      }
+      ratedMembers += 1;
+      if (rating >= 4) {
+        fourStarCount += 1;
+      }
+    });
+
+    const percentageOfTotal = totalMembers > 0 ? (fourStarCount / totalMembers) * 100 : null;
+    const percentageOfRated = ratedMembers > 0 ? (fourStarCount / ratedMembers) * 100 : null;
+
+    return {
+      year,
+      totalMembers,
+      ratedMembers,
+      fourStarCount,
+      percentageOfTotal,
+      percentageOfRated,
+    };
+  });
 
   // Fetch metrics for all contracts
   const contractListClause = allContractIds.map((id) => `'${escapeLiteral(id)}'`).join(", ");
@@ -597,6 +651,7 @@ async function handleOrganizationComparison(
     domainCharts,
     measureCharts,
     parentBreakdown,
+    fourStarMembership,
     diagnostics: organizationDiagnostics,
   });
 }

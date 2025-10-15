@@ -37,6 +37,14 @@ type YoYComparisonResponse = {
       contractIds: string[];
     }>;
   }>;
+  fourStarMembership?: Array<{
+    year: number;
+    totalMembers: number;
+    ratedMembers: number;
+    fourStarCount: number;
+    percentageOfTotal: number | null;
+    percentageOfRated: number | null;
+  }>;
 };
 
 export function YoYComparisonResults({ selection }: { selection: Selection }) {
@@ -179,6 +187,44 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
     setIsDrawerOpen(false);
   };
 
+  const fourStarStats = useMemo(() => {
+    if (!data || selection.comparisonType !== "organization" || !data.fourStarMembership) {
+      return null;
+    }
+
+    const rows = data.fourStarMembership
+      .slice()
+      .sort((a, b) => a.year - b.year);
+
+    const summary = rows.reduce(
+      (acc, row) => {
+        acc.totalMembers += row.totalMembers;
+        acc.totalRated += row.ratedMembers;
+        acc.totalFourStar += row.fourStarCount;
+        return acc;
+      },
+      { totalMembers: 0, totalRated: 0, totalFourStar: 0 }
+    );
+
+    const overallPercentOfTotal = summary.totalMembers > 0
+      ? (summary.totalFourStar / summary.totalMembers) * 100
+      : null;
+    const overallPercentOfRated = summary.totalRated > 0
+      ? (summary.totalFourStar / summary.totalRated) * 100
+      : null;
+
+    return {
+      rows,
+      summary: {
+        totalMembers: summary.totalMembers,
+        totalRated: summary.totalRated,
+        totalFourStar: summary.totalFourStar,
+        percentOfTotal: overallPercentOfTotal,
+        percentOfRated: overallPercentOfRated,
+      },
+    };
+  }, [data, selection.comparisonType]);
+
   if (isLoading) {
     return (
       <section className="rounded-3xl border border-border bg-card p-8">
@@ -223,7 +269,7 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
-                {selection.comparisonType === "contract" ? "Selected Contract" : "Selected Organization"}
+                {selection.comparisonType === "organization" ? "Selected Organization" : "Selected Contract"}
               </p>
               <h2 className="mt-2 text-2xl font-semibold text-foreground">{headingLabel}</h2>
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
@@ -236,6 +282,47 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
                 <span className="rounded-full border border-border px-3 py-1">{yearRange}</span>
               </div>
 
+              {selection.comparisonType === "organization" && fourStarStats && (
+                <div className="mt-6 space-y-4">
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                      Membership in Four-Star-or-Better Contracts
+                    </p>
+                    <div className="mt-3 text-xs text-muted-foreground">
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-border text-left text-xs">
+                          <thead className="text-muted-foreground">
+                            <tr>
+                              <th className="px-3 py-2 font-medium">Year</th>
+                              <th className="px-3 py-2 font-medium">Contracts</th>
+                              <th className="px-3 py-2 font-medium">Rated</th>
+                              <th className="px-3 py-2 font-medium">Four-Star+</th>
+                              <th className="px-3 py-2 font-medium">% of Contracts</th>
+                              <th className="px-3 py-2 font-medium">% of Rated</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/60">
+                            {fourStarStats.rows.map((row) => (
+                              <tr key={row.year}>
+                                <td className="px-3 py-2 text-foreground">{row.year}</td>
+                                <td className="px-3 py-2">{row.totalMembers.toLocaleString()}</td>
+                                <td className="px-3 py-2">{row.ratedMembers.toLocaleString()}</td>
+                                <td className="px-3 py-2">{row.fourStarCount.toLocaleString()}</td>
+                                <td className="px-3 py-2">
+                                  {typeof row.percentageOfTotal === "number" ? `${row.percentageOfTotal.toFixed(1)}%` : "–"}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {typeof row.percentageOfRated === "number" ? `${row.percentageOfRated.toFixed(1)}%` : "–"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               {selection.comparisonType === "organization" && data.parentBreakdown && data.parentBreakdown.length > 0 && (
                 <div className="mt-4 space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
