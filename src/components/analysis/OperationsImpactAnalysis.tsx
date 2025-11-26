@@ -620,7 +620,7 @@ export function OperationsImpactAnalysis() {
                   </p>
                   <p>
                     <strong className="text-foreground">Step 4: Compute Projected Thresholds</strong> — Using the new contract-level stats (after measure removal), 
-                    we recompute the percentile cutpoints across all contracts. The thresholds shift because every contract's mean and variance changes.
+                    we recompute the percentile cutpoints across all contracts. The thresholds shift because every contract&apos;s mean and variance changes.
                   </p>
                   <p>
                     <strong className="text-foreground">Step 5: Reclassify Contracts</strong> — Each contract is reclassified into mean and variance categories 
@@ -670,13 +670,13 @@ export function OperationsImpactAnalysis() {
               <div className="space-y-3">
                 <h4 className="text-sm font-medium text-foreground">Projected Threshold Changes (Overall Rating)</h4>
                 <p className="text-xs text-muted-foreground">
-                  When the {data.removedMeasuresSummary?.count || 0} measures are removed, each contract's weighted mean and variance change. 
+                  When the {data.removedMeasuresSummary?.count || 0} measures are removed, each contract&apos;s weighted mean and variance change. 
                   This shifts the distribution of all contracts, resulting in new percentile cutpoints:
                 </p>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-lg border border-border bg-muted/50 p-4">
                     <p className="text-xs font-medium text-muted-foreground mb-3">Performance (Mean) Thresholds</p>
-                    <p className="text-[10px] text-muted-foreground mb-2">Determines if a contract qualifies for "High" or "Relatively High" mean category</p>
+                    <p className="text-[10px] text-muted-foreground mb-2">Determines if a contract qualifies for &quot;High&quot; or &quot;Relatively High&quot; mean category</p>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">65th Percentile:</span>
