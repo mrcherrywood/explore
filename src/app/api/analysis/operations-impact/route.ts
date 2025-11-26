@@ -10,39 +10,46 @@ export const dynamic = 'force-dynamic';
 
 // CMS measures being removed from Star Ratings calculation
 // Based on CMS announcement for 2028-2029 Stars
-const CMS_REMOVED_MEASURE_CODES = new Set([
+// Map of measure code to the year it will be removed
+const CMS_REMOVED_MEASURES: Record<string, number> = {
   // C: Plan Makes Timely Decisions about Appeals – 2029 Stars
-  'C31',
+  'C31': 2029,
   // C: Reviewing Appeals Decisions – 2029 Stars
-  'C32',
+  'C32': 2029,
   // C: Special Needs Plan (SNP) Care Management – 2029 Stars
-  'C07',
+  'C07': 2029,
   // C: Call Center – Foreign Language Interpreter and TTY Availability – 2028 Stars
-  'C33',
+  'C33': 2028,
   // D: Call Center – Foreign Language Interpreter and TTY Availability – 2028 Stars
-  'D01',
+  'D01': 2028,
   // C: Complaints about the Health Plan – 2029 Stars
-  'C28',
+  'C28': 2029,
   // D: Complaints about the Drug Plan – 2029 Stars
-  'D02',
+  'D02': 2029,
   // D: Medicare Plan Finder Price Accuracy – 2029 Stars
-  'D07',
+  'D07': 2029,
   // C: Diabetes Care – Eye Exam – 2029 Stars
-  'C11',
+  'C11': 2029,
   // C: Statin Therapy for Patients with Cardiovascular Disease – 2028 Stars
-  'C19',
+  'C19': 2028,
   // C: Members Choosing to Leave the Plan – 2029 Stars
-  'C29',
+  'C29': 2029,
   // D: Members Choosing to Leave the Plan – 2029 Stars
-  'D03',
+  'D03': 2029,
   // C: Customer Service – 2029 Stars
-  'C24',
+  'C24': 2029,
   // C: Rating of Health Care Quality – 2029 Stars
-  'C25',
-]);
+  'C25': 2029,
+};
+
+const CMS_REMOVED_MEASURE_CODES = new Set(Object.keys(CMS_REMOVED_MEASURES));
 
 function isMeasureBeingRemoved(code: string): boolean {
   return CMS_REMOVED_MEASURE_CODES.has(code.trim().toUpperCase());
+}
+
+function getMeasureRemovalYear(code: string): number | null {
+  return CMS_REMOVED_MEASURES[code.trim().toUpperCase()] ?? null;
 }
 
 type MeasureRow = {
@@ -471,6 +478,7 @@ export async function GET(request: Request) {
         name: m.name,
         domain: m.domain,
         weight: m.weight,
+        removalYear: getMeasureRemovalYear(m.code),
       }))
       .sort((a, b) => a.code.localeCompare(b.code));
 
@@ -794,7 +802,7 @@ export async function GET(request: Request) {
           finalBracketLosers: analyses.filter(a => a.finalStarBracketChange < 0).length,
         };
       })
-      .filter(p => p.contractCount > 0)
+      .filter(p => p.contractCount > 1) // Only show parent orgs with more than one contract
       .sort((a, b) => (b.avgFinalOverallChange || b.avgOverallChange || -Infinity) - (a.avgFinalOverallChange || a.avgOverallChange || -Infinity));
 
     return NextResponse.json({

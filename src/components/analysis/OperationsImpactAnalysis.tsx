@@ -18,6 +18,7 @@ type RemovedMeasure = {
   name: string | null;
   domain: string;
   weight: number;
+  removalYear: number | null;
 };
 
 type ContractAnalysis = {
@@ -522,6 +523,7 @@ export function OperationsImpactAnalysis() {
                     <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Code</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Measure Name</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Domain</th>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Removal Year</th>
                     <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Weight</th>
                   </tr>
                 </thead>
@@ -534,13 +536,22 @@ export function OperationsImpactAnalysis() {
                       <td className="px-3 py-2 font-mono text-xs text-amber-400">{measure.code}</td>
                       <td className="px-3 py-2 text-foreground">{measure.name || "—"}</td>
                       <td className="px-3 py-2 text-muted-foreground">{measure.domain}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          measure.removalYear === 2028 
+                            ? "bg-rose-500/10 text-rose-400" 
+                            : "bg-amber-500/10 text-amber-400"
+                        }`}>
+                          {measure.removalYear || "—"}
+                        </span>
+                      </td>
                       <td className="px-3 py-2 text-right text-foreground">{measure.weight}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-border bg-muted/30">
-                    <td colSpan={3} className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                    <td colSpan={4} className="px-3 py-2 text-xs font-medium text-muted-foreground">
                       Total
                     </td>
                     <td className="px-3 py-2 text-right font-medium text-foreground">
@@ -630,9 +641,9 @@ export function OperationsImpactAnalysis() {
                 </div>
               </div>
 
-              {/* R-Factor Mapping Reference */}
+              {/* Reward Factor Mapping Reference */}
               <div className="rounded-lg border border-border bg-muted/30 p-4">
-                <h4 className="text-sm font-medium text-foreground mb-3">R-Factor Mapping Rules (CMS)</h4>
+                <h4 className="text-sm font-medium text-foreground mb-3">Reward Factor Mapping Rules (CMS)</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
@@ -755,9 +766,9 @@ export function OperationsImpactAnalysis() {
                 </div>
               </div>
 
-              {/* R-Factor Change Distribution */}
+              {/* Reward Factor Change Distribution */}
               <div className="space-y-3">
-                <h4 className="text-sm font-medium text-foreground">R-Factor Change Distribution</h4>
+                <h4 className="text-sm font-medium text-foreground">Reward Factor Change Distribution</h4>
                 <p className="text-xs text-muted-foreground">
                   How contracts moved between Reward Factor values due to threshold shifts:
                 </p>
