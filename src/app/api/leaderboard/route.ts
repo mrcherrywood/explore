@@ -87,16 +87,25 @@ type LeaderboardEntryDraft = {
   value: number | null;
   priorValue: number | null;
   delta: number | null;
+  reportYear?: number | null;
+  priorYear?: number | null;
 };
 
 type RankedEntry = LeaderboardEntryDraft & { rank: number };
 
 type MetricAggregate = {
-  currentSum: number;
-  currentWeight: number;
-  priorSum: number;
-  priorWeight: number;
-  metricType: "stars" | "rate";
+  currentRateSum: number;
+  currentRateWeight: number;
+  currentRateYear: number | null;
+  priorRateSum: number;
+  priorRateWeight: number;
+  priorRateYear: number | null;
+  currentStarSum: number;
+  currentStarWeight: number;
+  currentStarYear: number | null;
+  priorStarSum: number;
+  priorStarWeight: number;
+  priorStarYear: number | null;
 };
 
 type MetricRow = Pick<
@@ -113,6 +122,7 @@ type MetricRow = Pick<
 type MeasureRow = {
   code: string | null;
   name: string | null;
+  alias: string | null;
   domain: string | null;
 };
 
@@ -321,12 +331,23 @@ async function buildContractLeaderboardResponse(
 
   const eligibleIds = eligible.map((record) => record.contractId);
   const snapshots = await fetchSummarySnapshots(supabase, eligibleIds);
-  const sections = buildSections("contract", snapshots, eligible, request.topLimit);
+  
+  // Filter to only include contracts with an overall star rating
+  const withOverallRating = eligible.filter((record) => {
+    const snapshot = snapshots.overall.get(record.contractId);
+    return snapshot && snapshot.current !== null;
+  });
+  
+  if (withOverallRating.length === 0) {
+    return emptyResponse(request);
+  }
+  
+  const sections = buildSections("contract", snapshots, withOverallRating, request.topLimit);
 
   if (request.includeMeasures) {
     const metricSections = await buildContractMetricSections(
       supabase,
-      eligible,
+      withOverallRating,
       request.topLimit,
       snapshots.dataYear,
       snapshots.priorYear
@@ -372,19 +393,33 @@ async function buildOrganizationLeaderboardResponse(
   );
 
   const snapshots = await fetchSummarySnapshots(supabase, contractIds);
+  
+  // Filter organizations to only include those with at least one contract that has an overall star rating
+  const orgsWithRatings = filteredOrganizations.filter((org) => {
+    const orgContracts = contractsByOrganization.get(org.organization) ?? [];
+    return orgContracts.some((contractId) => {
+      const snapshot = snapshots.overall.get(contractId);
+      return snapshot && snapshot.current !== null;
+    });
+  });
+  
+  if (orgsWithRatings.length === 0) {
+    return emptyResponse(request);
+  }
+  
   const aggregatedSnapshots = aggregateSnapshotsToOrganizations(
     snapshots,
-    filteredOrganizations,
+    orgsWithRatings,
     contractsByOrganization,
     contractRecords
   );
 
-  const sections = buildSections("organization", aggregatedSnapshots, filteredOrganizations, request.topLimit);
+  const sections = buildSections("organization", aggregatedSnapshots, orgsWithRatings, request.topLimit);
 
   if (request.includeMeasures) {
     const metricSections = await buildOrganizationMetricSections(
       supabase,
-      filteredOrganizations,
+      orgsWithRatings,
       contractsByOrganization,
       contractRecords,
       request.topLimit
@@ -572,6 +607,8 @@ function buildSection(
     if (!record) continue;
 
     const { current, prior } = snapshot;
+    const snapshotReportYear = snapshot.currentYear ?? dataYear;
+    const snapshotPriorYear = snapshot.priorYear ?? priorYear;
     if (current === null && prior === null) {
       continue;
     }
@@ -594,6 +631,8 @@ function buildSection(
         value: current,
         priorValue: prior,
         delta: current !== null && prior !== null ? current - prior : null,
+        reportYear: snapshotReportYear,
+        priorYear: snapshotPriorYear,
       });
     } else {
       const organization = record as OrganizationRecord;
@@ -607,13 +646,26 @@ function buildSection(
         value: current,
         priorValue: prior,
         delta: current !== null && prior !== null ? current - prior : null,
+        reportYear: snapshotReportYear,
+        priorYear: snapshotPriorYear,
       });
     }
   }
 
   const topPerformers = rankByValue(drafts, topLimit, direction === "lower");
-  const biggestMovers = rankByDelta(drafts, topLimit, direction === "lower");
-  const biggestDecliners = rankByDelta(drafts, topLimit, direction !== "lower");
+
+  const improvementFilter = direction === "lower" ? (delta: number) => delta < 0 : (delta: number) => delta > 0;
+  const declineFilter = direction === "lower" ? (delta: number) => delta > 0 : (delta: number) => delta < 0;
+
+  const improvementEntries = drafts.filter(
+    (entry) => entry.delta !== null && improvementFilter(entry.delta)
+  );
+  const declineEntries = drafts.filter(
+    (entry) => entry.delta !== null && declineFilter(entry.delta)
+  );
+
+  const biggestMovers = rankByDelta(improvementEntries, topLimit, direction === "lower");
+  const biggestDecliners = rankByDelta(declineEntries, topLimit, direction !== "lower");
 
   return {
     key,
@@ -685,8 +737,8 @@ function finalizeEntries(
     delta: entry.delta,
     deltaLabel: entry.delta === null ? "—" : formatDelta(entry.delta, metricType),
     rank: entry.rank,
-    reportYear: dataYear,
-    priorYear,
+    reportYear: entry.reportYear ?? dataYear ?? null,
+    priorYear: entry.priorYear ?? priorYear ?? null,
   }));
 }
 
@@ -745,7 +797,7 @@ async function buildContractMetricSections(
   if (metricCodes.length) {
     const { data: measureRows, error: measureError } = await supabase
       .from("ma_measures")
-      .select("code, name, domain")
+      .select("code, name, alias, domain")
       .in("code", metricCodes);
 
     if (measureError) {
@@ -764,6 +816,8 @@ async function buildContractMetricSections(
   const measureLabels = new Map<string, string>();
   const measureDirections = new Map<string, "higher" | "lower">();
   const domainDirections = new Map<string, { inverseCount: number; totalCount: number }>();
+  const groupedMeasureEntries = new Map<string, Array<{ orgId: string; year: number; value: number; metricType: "stars" | "rate"; weight: number }>>();
+  const measureYears = new Map<string, { dataYear: number; priorYear: number | null }>();
 
   const contractMap = new Map<string, ContractRecord>();
   for (const contract of contracts) {
@@ -790,11 +844,12 @@ async function buildContractMetricSections(
     const measureMeta = row.metric_code ? measureLookup.get(row.metric_code) : undefined;
     const domainRaw = measureMeta?.domain ?? row.metric_category ?? "Other";
     const domain = String(domainRaw ?? "Other").trim() || "Other";
-    const measureKey = row.metric_code ?? `${domain}-${row.metric_label ?? "unknown"}`;
-    const measureTitle = measureMeta?.name ?? row.metric_label ?? row.metric_code ?? "Unknown Metric";
+    const canonicalTitle = (measureMeta?.alias ?? measureMeta?.name ?? row.metric_label ?? row.metric_code ?? "Unknown Metric").trim();
+    const measureKey = `${domain}:${canonicalTitle.toLowerCase()}`;
+    const measureTitle = canonicalTitle;
     measureLabels.set(measureKey, measureTitle);
 
-    const domainAggregate = ensureMetricAggregate(domainAggregates, domain, contractId, metricType);
+    const domainAggregate = ensureMetricAggregate(domainAggregates, domain, contractId);
     accumulateMetricAggregate(
       domainAggregate,
       rowYear,
@@ -804,15 +859,26 @@ async function buildContractMetricSections(
       metricType
     );
 
-    const measureAggregate = ensureMetricAggregate(measureAggregates, measureKey, contractId, metricType);
-    accumulateMetricAggregate(
-      measureAggregate,
-      rowYear,
-      metricsDataYear,
-      metricsPriorYear,
-      value,
-      metricType
-    );
+    if (!groupedMeasureEntries.has(measureKey)) {
+      groupedMeasureEntries.set(measureKey, []);
+    }
+    const rateVal = toNumeric(row.rate_percent);
+    if (rateVal !== null) {
+      const list = groupedMeasureEntries.get(measureKey)!;
+      list.push({ orgId: contractId, year: rowYear, value: rateVal, metricType: "rate", weight: 1 });
+
+      if (!measureYears.has(measureKey)) {
+        measureYears.set(measureKey, { dataYear: rowYear, priorYear: null });
+      } else {
+        const y = measureYears.get(measureKey)!;
+        if (rowYear > y.dataYear) {
+          y.priorYear = y.dataYear;
+          y.dataYear = rowYear;
+        } else if (rowYear < y.dataYear && (y.priorYear === null || rowYear > y.priorYear)) {
+          y.priorYear = rowYear;
+        }
+      }
+    }
 
     const isInverse = isInverseMeasure(measureTitle, row.metric_code ?? undefined);
     if (!measureDirections.has(measureKey)) {
@@ -825,6 +891,23 @@ async function buildContractMetricSections(
       stats.inverseCount += 1;
     }
     domainDirections.set(domain, stats);
+  }
+
+  for (const [mKey, entries] of groupedMeasureEntries.entries()) {
+    const rateEntries = entries.filter((e) => e.metricType === "rate");
+    if (!rateEntries.length) {
+      continue;
+    }
+
+    const years = Array.from(new Set(rateEntries.map((e) => e.year))).sort((a, b) => b - a);
+    const mDataYear = years[0] as number;
+    const mPriorYear = years.find((y) => y < mDataYear) ?? null;
+    measureYears.set(mKey, { dataYear: mDataYear, priorYear: mPriorYear });
+
+    for (const e of rateEntries) {
+      const agg = ensureMetricAggregate(measureAggregates, mKey, e.orgId);
+      accumulateMetricAggregate(agg, e.year, mDataYear, mPriorYear, e.value, e.metricType, e.weight);
+    }
   }
 
   const contractRecordMap = new Map<string, ContractRecord | OrganizationRecord>();
@@ -866,6 +949,9 @@ async function buildContractMetricSections(
     if (!snapshots.size) continue;
     const label = measureLabels.get(measureKey) ?? measureKey;
     const direction = measureDirections.get(measureKey) ?? "higher";
+    const years = measureYears.get(measureKey);
+    const reportDataYear = years?.dataYear ?? metricsDataYear;
+    const reportPriorYear = years?.priorYear ?? metricsPriorYear;
     sections.push(
       buildSection(
         "contract",
@@ -875,8 +961,8 @@ async function buildContractMetricSections(
         snapshots,
         contractRecordMap,
         topLimit,
-        metricsDataYear,
-        metricsPriorYear,
+        reportDataYear,
+        reportPriorYear,
         direction
       )
     );
@@ -943,7 +1029,7 @@ async function buildOrganizationMetricSections(
   if (metricCodes.length) {
     const { data: measureRows, error: measureError } = await supabase
       .from("ma_measures")
-      .select("code, name, domain")
+      .select("code, name, alias, domain")
       .in("code", metricCodes);
 
     if (measureError) {
@@ -962,6 +1048,9 @@ async function buildOrganizationMetricSections(
   const measureLabels = new Map<string, string>();
   const measureDirections = new Map<string, "higher" | "lower">();
   const domainDirections = new Map<string, { inverseCount: number; totalCount: number }>();
+  const groupedMeasureEntries = new Map<string, Array<{ orgId: string; year: number; value: number; metricType: "stars" | "rate"; weight: number }>>();
+  const groupedDomainEntries = new Map<string, Array<{ orgId: string; year: number; value: number; metricType: "stars" | "rate"; weight: number }>>();
+  const measureYears = new Map<string, { dataYear: number; priorYear: number | null }>();
 
   const organizationRecords = new Map<string, OrganizationRecord>();
   for (const organization of organizations) {
@@ -989,34 +1078,40 @@ async function buildOrganizationMetricSections(
     const measureMeta = row.metric_code ? measureLookup.get(row.metric_code) : undefined;
     const domainRaw = measureMeta?.domain ?? row.metric_category ?? "Other";
     const domain = String(domainRaw ?? "Other").trim() || "Other";
-    const measureKey = row.metric_code ?? `${domain}-${row.metric_label ?? "unknown"}`;
-    const measureTitle = measureMeta?.name ?? row.metric_label ?? row.metric_code ?? "Unknown Metric";
+    const canonicalTitle = (measureMeta?.alias ?? measureMeta?.name ?? row.metric_label ?? row.metric_code ?? "Unknown Metric").trim();
+    const measureKey = `${domain}:${canonicalTitle.toLowerCase()}`;
+    const measureTitle = canonicalTitle;
     measureLabels.set(measureKey, measureTitle);
 
     const weight = contractRecords.get(contractId)?.totalEnrollment ?? 1;
     const appliedWeight = weight && weight > 0 ? weight : 1;
 
-    const domainAggregate = ensureMetricAggregate(domainAggregates, domain, organizationId, metricType);
-    accumulateMetricAggregate(
-      domainAggregate,
-      rowYear,
-      orgMetricsDataYear,
-      orgMetricsPriorYear,
-      value,
-      metricType,
-      appliedWeight
-    );
+    if (!groupedMeasureEntries.has(measureKey)) {
+      groupedMeasureEntries.set(measureKey, []);
+    }
+    const rateVal = toNumeric(row.rate_percent);
+    if (rateVal !== null) {
+      const list = groupedMeasureEntries.get(measureKey)!;
+      list.push({ orgId: organizationId, year: rowYear, value: rateVal, metricType: "rate", weight: appliedWeight });
 
-    const measureAggregate = ensureMetricAggregate(measureAggregates, measureKey, organizationId, metricType);
-    accumulateMetricAggregate(
-      measureAggregate,
-      rowYear,
-      orgMetricsDataYear,
-      orgMetricsPriorYear,
-      value,
-      metricType,
-      appliedWeight
-    );
+      if (!measureYears.has(measureKey)) {
+        measureYears.set(measureKey, { dataYear: rowYear, priorYear: null });
+      } else {
+        const y = measureYears.get(measureKey)!;
+        if (rowYear > y.dataYear) {
+          y.priorYear = y.dataYear;
+          y.dataYear = rowYear;
+        } else if (rowYear < y.dataYear && (y.priorYear === null || rowYear > y.priorYear)) {
+          y.priorYear = rowYear;
+        }
+      }
+    }
+
+    if (!groupedDomainEntries.has(domain)) {
+      groupedDomainEntries.set(domain, []);
+    }
+    const domainList = groupedDomainEntries.get(domain)!;
+    domainList.push({ orgId: organizationId, year: rowYear, value, metricType, weight: appliedWeight });
 
     const isInverse = isInverseMeasure(measureTitle, row.metric_code ?? undefined);
     if (!measureDirections.has(measureKey)) {
@@ -1029,6 +1124,80 @@ async function buildOrganizationMetricSections(
       stats.inverseCount += 1;
     }
     domainDirections.set(domain, stats);
+  }
+
+  // Accumulate per-domain using the metric type with the most valid YOY pairs
+  for (const [domain, entries] of groupedDomainEntries.entries()) {
+    const years = Array.from(new Set(entries.map((e) => e.year))).sort((a, b) => b - a);
+    const dDataYear = years[0] as number;
+    const dPriorYear = years.find((y) => y < dDataYear) ?? null;
+
+    const presence = new Map<string, { rate: { data: boolean; prior: boolean }; stars: { data: boolean; prior: boolean } }>();
+    for (const e of entries) {
+      if (e.year !== dDataYear && (dPriorYear === null || e.year !== dPriorYear)) continue;
+      const rec = presence.get(e.orgId) ?? { rate: { data: false, prior: false }, stars: { data: false, prior: false } };
+      const slot = e.metricType === "rate" ? rec.rate : rec.stars;
+      if (e.year === dDataYear) slot.data = true;
+      if (dPriorYear !== null && e.year === dPriorYear) slot.prior = true;
+      presence.set(e.orgId, rec);
+    }
+
+    let ratePairs = 0;
+    let starPairs = 0;
+    for (const rec of presence.values()) {
+      if (rec.rate.data && rec.rate.prior) ratePairs += 1;
+      if (rec.stars.data && rec.stars.prior) starPairs += 1;
+    }
+    const rateDataCount = entries.filter((e) => e.metricType === "rate" && e.year === dDataYear).length;
+    const starDataCount = entries.filter((e) => e.metricType === "stars" && e.year === dDataYear).length;
+    const totalRate = entries.filter((e) => e.metricType === "rate").length;
+    const totalStars = entries.filter((e) => e.metricType === "stars").length;
+
+    let chosenType: "rate" | "stars";
+    if (ratePairs > starPairs) {
+      chosenType = "rate";
+    } else if (starPairs > ratePairs) {
+      chosenType = "stars";
+    } else if (rateDataCount > starDataCount) {
+      chosenType = "rate";
+    } else if (starDataCount > rateDataCount) {
+      chosenType = "stars";
+    } else if (totalRate > totalStars) {
+      chosenType = "rate";
+    } else if (totalStars > totalRate) {
+      chosenType = "stars";
+    } else if (totalStars > 0) {
+      chosenType = "stars";
+    } else {
+      if (totalRate === 0 && totalStars === 0) {
+        continue;
+      }
+      chosenType = "rate";
+    }
+
+    for (const e of entries) {
+      if (e.metricType !== chosenType) continue;
+      const agg = ensureMetricAggregate(domainAggregates, domain, e.orgId);
+      accumulateMetricAggregate(agg, e.year, dDataYear, dPriorYear, e.value, e.metricType, e.weight);
+    }
+  }
+
+  // Accumulate per-measure using the metric type with the most valid YOY pairs
+  for (const [mKey, entries] of groupedMeasureEntries.entries()) {
+    const rateEntries = entries.filter((e) => e.metricType === "rate");
+    if (!rateEntries.length) {
+      continue;
+    }
+
+    const years = Array.from(new Set(rateEntries.map((e) => e.year))).sort((a, b) => b - a);
+    const mDataYear = years[0] as number;
+    const mPriorYear = years.find((y) => y < mDataYear) ?? null;
+    measureYears.set(mKey, { dataYear: mDataYear, priorYear: mPriorYear });
+
+    for (const e of rateEntries) {
+      const agg = ensureMetricAggregate(measureAggregates, mKey, e.orgId);
+      accumulateMetricAggregate(agg, e.year, mDataYear, mPriorYear, e.value, e.metricType, e.weight);
+    }
   }
 
   const recordMap = new Map<string, ContractRecord | OrganizationRecord>();
@@ -1070,6 +1239,9 @@ async function buildOrganizationMetricSections(
     if (!snapshots.size) continue;
     const label = measureLabels.get(measureKey) ?? measureKey;
     const direction = measureDirections.get(measureKey) ?? "higher";
+    const years = measureYears.get(measureKey);
+    const reportDataYear = years?.dataYear ?? orgMetricsDataYear;
+    const reportPriorYear = years?.priorYear ?? orgMetricsPriorYear;
     sections.push(
       buildSection(
         "organization",
@@ -1079,8 +1251,8 @@ async function buildOrganizationMetricSections(
         snapshots,
         recordMap,
         topLimit,
-        orgMetricsDataYear,
-        orgMetricsPriorYear,
+        reportDataYear,
+        reportPriorYear,
         direction
       )
     );
@@ -1093,7 +1265,6 @@ function ensureMetricAggregate(
   collection: Map<string, Map<string, MetricAggregate>>,
   key: string,
   contractId: string,
-  metricType: "stars" | "rate"
 ): MetricAggregate {
   if (!collection.has(key)) {
     collection.set(key, new Map());
@@ -1101,18 +1272,22 @@ function ensureMetricAggregate(
   const aggregates = collection.get(key)!;
   if (!aggregates.has(contractId)) {
     aggregates.set(contractId, {
-      currentSum: 0,
-      currentWeight: 0,
-      priorSum: 0,
-      priorWeight: 0,
-      metricType,
+      currentRateSum: 0,
+      currentRateWeight: 0,
+      currentRateYear: null,
+      priorRateSum: 0,
+      priorRateWeight: 0,
+      priorRateYear: null,
+      currentStarSum: 0,
+      currentStarWeight: 0,
+      currentStarYear: null,
+      priorStarSum: 0,
+      priorStarWeight: 0,
+      priorStarYear: null,
     });
   }
 
   const aggregate = aggregates.get(contractId)!;
-  if (aggregate.metricType === "stars" && metricType === "rate") {
-    aggregate.metricType = "rate";
-  }
   return aggregate;
 }
 
@@ -1125,48 +1300,148 @@ function accumulateMetricAggregate(
   metricType: "stars" | "rate",
   weight = 1
 ) {
-  if (aggregate.metricType === "stars" && metricType === "rate") {
-    aggregate.metricType = "rate";
+  const isRate = metricType === "rate";
+
+  if (dataYear !== null && year === dataYear) {
+    if (isRate) {
+      if (aggregate.currentRateYear !== dataYear) {
+        aggregate.currentRateYear = dataYear;
+        aggregate.currentRateSum = 0;
+        aggregate.currentRateWeight = 0;
+      }
+      aggregate.currentRateSum += value * weight;
+      aggregate.currentRateWeight += weight;
+    } else {
+      if (aggregate.currentStarYear !== dataYear) {
+        aggregate.currentStarYear = dataYear;
+        aggregate.currentStarSum = 0;
+        aggregate.currentStarWeight = 0;
+      }
+      aggregate.currentStarSum += value * weight;
+      aggregate.currentStarWeight += weight;
+    }
+    return;
   }
 
-  if (year === dataYear) {
-    aggregate.currentSum += value * weight;
-    aggregate.currentWeight += weight;
-  } else if (priorYear !== null && year === priorYear) {
-    aggregate.priorSum += value * weight;
-    aggregate.priorWeight += weight;
+  if (priorYear !== null && year === priorYear) {
+    if (isRate) {
+      if (aggregate.priorRateYear !== priorYear) {
+        aggregate.priorRateYear = priorYear;
+        aggregate.priorRateSum = 0;
+        aggregate.priorRateWeight = 0;
+      }
+      aggregate.priorRateSum += value * weight;
+      aggregate.priorRateWeight += weight;
+    } else {
+      if (aggregate.priorStarYear !== priorYear) {
+        aggregate.priorStarYear = priorYear;
+        aggregate.priorStarSum = 0;
+        aggregate.priorStarWeight = 0;
+      }
+      aggregate.priorStarSum += value * weight;
+      aggregate.priorStarWeight += weight;
+    }
+    return;
+  }
+
+  if (dataYear !== null && year < dataYear) {
+    if (isRate) {
+      if (aggregate.priorRateYear === null || year > aggregate.priorRateYear) {
+        aggregate.priorRateYear = year;
+        aggregate.priorRateSum = value * weight;
+        aggregate.priorRateWeight = weight;
+      } else if (year === aggregate.priorRateYear) {
+        aggregate.priorRateSum += value * weight;
+        aggregate.priorRateWeight += weight;
+      }
+    } else {
+      if (aggregate.priorStarYear === null || year > aggregate.priorStarYear) {
+        aggregate.priorStarYear = year;
+        aggregate.priorStarSum = value * weight;
+        aggregate.priorStarWeight = weight;
+      } else if (year === aggregate.priorStarYear) {
+        aggregate.priorStarSum += value * weight;
+        aggregate.priorStarWeight += weight;
+      }
+    }
   }
 }
 
 function snapshotsFromAggregates(aggregates: Map<string, MetricAggregate>) {
   const snapshots: MetricSnapshots = new Map();
-  let metricType: "stars" | "rate" = "stars";
+  let sectionMetricType: "stars" | "rate" = "stars";
+  let anyCurrentRate = false;
+  let anyPriorRate = false;
+  let anyCurrentStar = false;
+  let anyPriorStar = false;
+
+  for (const aggregate of aggregates.values()) {
+    if (aggregate.currentRateWeight > 0) anyCurrentRate = true;
+    if (aggregate.priorRateWeight > 0) anyPriorRate = true;
+    if (aggregate.currentStarWeight > 0) anyCurrentStar = true;
+    if (aggregate.priorStarWeight > 0) anyPriorStar = true;
+  }
+
+  if (anyCurrentRate && anyPriorRate) {
+    sectionMetricType = "rate";
+  } else if (anyCurrentStar && anyPriorStar) {
+    sectionMetricType = "stars";
+  } else {
+    sectionMetricType = anyCurrentRate ? "rate" : "stars";
+  }
 
   for (const [contractId, aggregate] of aggregates.entries()) {
-    if (aggregate.metricType === "rate") {
-      metricType = "rate";
+    let current: number | null = null;
+    let prior: number | null = null;
+    let currentYear: number | null = null;
+    let priorYear: number | null = null;
+
+    if (sectionMetricType === "rate") {
+      current =
+        aggregate.currentRateWeight > 0
+          ? aggregate.currentRateSum / aggregate.currentRateWeight
+          : null;
+      prior =
+        aggregate.priorRateWeight > 0
+          ? aggregate.priorRateSum / aggregate.priorRateWeight
+          : null;
+      currentYear = aggregate.currentRateWeight > 0 ? aggregate.currentRateYear : null;
+      priorYear = aggregate.priorRateWeight > 0 ? aggregate.priorRateYear : null;
+    } else {
+      current =
+        aggregate.currentStarWeight > 0
+          ? aggregate.currentStarSum / aggregate.currentStarWeight
+          : null;
+      prior =
+        aggregate.priorStarWeight > 0
+          ? aggregate.priorStarSum / aggregate.priorStarWeight
+          : null;
+      currentYear = aggregate.currentStarWeight > 0 ? aggregate.currentStarYear : null;
+      priorYear = aggregate.priorStarWeight > 0 ? aggregate.priorStarYear : null;
     }
 
-    const current = aggregate.currentWeight > 0 ? aggregate.currentSum / aggregate.currentWeight : null;
-    const prior = aggregate.priorWeight > 0 ? aggregate.priorSum / aggregate.priorWeight : null;
-
     if (current !== null || prior !== null) {
-      snapshots.set(contractId, { current, prior });
+      snapshots.set(contractId, {
+        current,
+        prior,
+        currentYear,
+        priorYear,
+      });
     }
   }
 
-  return { snapshots, metricType };
+  return { snapshots, metricType: sectionMetricType };
 }
 
 function resolveMetricValue(row: MetricRow): { value: number; metricType: "stars" | "rate" } | null {
-  const rate = toNumeric(row.rate_percent);
-  if (rate !== null) {
-    return { value: rate, metricType: "rate" };
-  }
-
   const star = toNumeric(row.star_rating);
   if (star !== null) {
     return { value: star, metricType: "stars" };
+  }
+
+  const rate = toNumeric(row.rate_percent);
+  if (rate !== null) {
+    return { value: rate, metricType: "rate" };
   }
 
   return null;
@@ -1189,6 +1464,8 @@ function aggregateSnapshotsToOrganizations(
       let currentWeight = 0;
       let priorTotal = 0;
       let priorWeight = 0;
+      let currentYear: number | null = null;
+      let priorYear: number | null = null;
 
       for (const contractId of contracts) {
         const snapshot = source.get(contractId);
@@ -1200,11 +1477,21 @@ function aggregateSnapshotsToOrganizations(
         if (snapshot.current !== null) {
           currentTotal += snapshot.current * appliedWeight;
           currentWeight += appliedWeight;
+          if (snapshot.currentYear !== null) {
+            if (currentYear === null || snapshot.currentYear > currentYear) {
+              currentYear = snapshot.currentYear;
+            }
+          }
         }
 
         if (snapshot.prior !== null) {
           priorTotal += snapshot.prior * appliedWeight;
           priorWeight += appliedWeight;
+          if (snapshot.priorYear !== null) {
+            if (priorYear === null || snapshot.priorYear > priorYear) {
+              priorYear = snapshot.priorYear;
+            }
+          }
         }
       }
 
@@ -1212,7 +1499,12 @@ function aggregateSnapshotsToOrganizations(
       const priorAvg = priorWeight > 0 ? priorTotal / priorWeight : null;
 
       if (currentAvg !== null || priorAvg !== null) {
-        aggregated.set(organization.organization, { current: currentAvg, prior: priorAvg });
+        aggregated.set(organization.organization, {
+          current: currentAvg,
+          prior: priorAvg,
+          currentYear: currentYear ?? snapshots.dataYear ?? null,
+          priorYear: priorYear ?? snapshots.priorYear ?? null,
+        });
       }
     }
 

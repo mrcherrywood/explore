@@ -22,7 +22,14 @@ export type ContractRecord = {
   isBlueCrossBlueShield: boolean;
 };
 
-export type MetricSnapshots = Map<string, { current: number | null; prior: number | null }>;
+export type MetricSnapshot = {
+  current: number | null;
+  prior: number | null;
+  currentYear: number | null;
+  priorYear: number | null;
+};
+
+export type MetricSnapshots = Map<string, MetricSnapshot>;
 
 export type ContractSnapshots = {
   overall: MetricSnapshots;
@@ -188,21 +195,125 @@ export async function fetchSummarySnapshots(
   const dataYear = candidateYears[0] ?? null;
   const priorYear = candidateYears.find((year) => year < (dataYear ?? year)) ?? null;
 
-  const overall = new Map<string, { current: number | null; prior: number | null }>();
-  const partC = new Map<string, { current: number | null; prior: number | null }>();
-  const partD = new Map<string, { current: number | null; prior: number | null }>();
+  const overall: MetricSnapshots = new Map();
+  const partC: MetricSnapshots = new Map();
+  const partD: MetricSnapshots = new Map();
+
+  const rowsByContract = new Map<string, typeof rows>();
+  for (const row of rows) {
+    if (!row.contractId || !Number.isFinite(row.year)) continue;
+    if (!rowsByContract.has(row.contractId)) {
+      rowsByContract.set(row.contractId, []);
+    }
+    rowsByContract.get(row.contractId)!.push(row);
+  }
 
   for (const row of rows) {
     if (!row.contractId) continue;
     if (dataYear !== null && row.year === dataYear) {
-      ensureSnapshot(overall, row.contractId).current = row.overall;
-      ensureSnapshot(partC, row.contractId).current = row.partC;
-      ensureSnapshot(partD, row.contractId).current = row.partD;
+      const overallSnap = ensureSnapshot(overall, row.contractId);
+      overallSnap.current = row.overall;
+      overallSnap.currentYear = row.year;
+
+      const partCSnap = ensureSnapshot(partC, row.contractId);
+      partCSnap.current = row.partC;
+      partCSnap.currentYear = row.year;
+
+      const partDSnap = ensureSnapshot(partD, row.contractId);
+      partDSnap.current = row.partD;
+      partDSnap.currentYear = row.year;
     }
     if (priorYear !== null && row.year === priorYear) {
-      ensureSnapshot(overall, row.contractId).prior = row.overall;
-      ensureSnapshot(partC, row.contractId).prior = row.partC;
-      ensureSnapshot(partD, row.contractId).prior = row.partD;
+      const overallSnap = ensureSnapshot(overall, row.contractId);
+      if (row.overall !== null) {
+        overallSnap.prior = row.overall;
+        overallSnap.priorYear = row.year;
+      }
+
+      const partCSnap = ensureSnapshot(partC, row.contractId);
+      if (row.partC !== null) {
+        partCSnap.prior = row.partC;
+        partCSnap.priorYear = row.year;
+      }
+
+      const partDSnap = ensureSnapshot(partD, row.contractId);
+      if (row.partD !== null) {
+        partDSnap.prior = row.partD;
+        partDSnap.priorYear = row.year;
+      }
+    }
+  }
+
+  for (const [contractId, contractRows] of rowsByContract.entries()) {
+    const sorted = contractRows
+      .filter((row) => Number.isFinite(row.year))
+      .sort((a, b) => b.year - a.year);
+
+    const overallSnap = overall.get(contractId);
+    const partCSnap = partC.get(contractId);
+    const partDSnap = partD.get(contractId);
+
+    if (overallSnap && overallSnap.current !== null && overallSnap.prior === null) {
+      const priorRow = sorted.find((row) => row.year < (overallSnap.currentYear ?? dataYear ?? Number.POSITIVE_INFINITY));
+      if (priorRow && priorRow.overall !== null) {
+        overallSnap.prior = priorRow.overall;
+        overallSnap.priorYear = priorRow.year;
+      }
+    }
+
+    if (overallSnap && overallSnap.current === null) {
+      const fallbackRow = sorted.find((row) => row.overall !== null && (dataYear === null || row.year <= dataYear));
+      if (fallbackRow) {
+        overallSnap.current = fallbackRow.overall;
+        overallSnap.currentYear = fallbackRow.year;
+        const priorRow = sorted.find((row) => row.year < fallbackRow.year && row.overall !== null);
+        if (priorRow) {
+          overallSnap.prior = priorRow.overall;
+          overallSnap.priorYear = priorRow.year;
+        }
+      }
+    }
+
+    if (partCSnap && partCSnap.current !== null && partCSnap.prior === null) {
+      const priorRow = sorted.find((row) => row.year < (partCSnap.currentYear ?? dataYear ?? Number.POSITIVE_INFINITY));
+      if (priorRow && priorRow.partC !== null) {
+        partCSnap.prior = priorRow.partC;
+        partCSnap.priorYear = priorRow.year;
+      }
+    }
+
+    if (partCSnap && partCSnap.current === null) {
+      const fallbackRow = sorted.find((row) => row.partC !== null && (dataYear === null || row.year <= dataYear));
+      if (fallbackRow) {
+        partCSnap.current = fallbackRow.partC;
+        partCSnap.currentYear = fallbackRow.year;
+        const priorRow = sorted.find((row) => row.year < fallbackRow.year && row.partC !== null);
+        if (priorRow) {
+          partCSnap.prior = priorRow.partC;
+          partCSnap.priorYear = priorRow.year;
+        }
+      }
+    }
+
+    if (partDSnap && partDSnap.current !== null && partDSnap.prior === null) {
+      const priorRow = sorted.find((row) => row.year < (partDSnap.currentYear ?? dataYear ?? Number.POSITIVE_INFINITY));
+      if (priorRow && priorRow.partD !== null) {
+        partDSnap.prior = priorRow.partD;
+        partDSnap.priorYear = priorRow.year;
+      }
+    }
+
+    if (partDSnap && partDSnap.current === null) {
+      const fallbackRow = sorted.find((row) => row.partD !== null && (dataYear === null || row.year <= dataYear));
+      if (fallbackRow) {
+        partDSnap.current = fallbackRow.partD;
+        partDSnap.currentYear = fallbackRow.year;
+        const priorRow = sorted.find((row) => row.year < fallbackRow.year && row.partD !== null);
+        if (priorRow) {
+          partDSnap.prior = priorRow.partD;
+          partDSnap.priorYear = priorRow.year;
+        }
+      }
     }
   }
 
@@ -217,7 +328,7 @@ export async function fetchSummarySnapshots(
 
 export function ensureSnapshot(map: MetricSnapshots, id: string) {
   if (!map.has(id)) {
-    map.set(id, { current: null, prior: null });
+    map.set(id, { current: null, prior: null, currentYear: null, priorYear: null });
   }
   return map.get(id)!;
 }

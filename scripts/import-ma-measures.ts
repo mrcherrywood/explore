@@ -24,9 +24,17 @@ type DomainMetadata = {
 
 const DOMAIN_CODE_ALIASES: Record<number, Record<string, string>> = {
   2026: {
-    C31: 'C28',
-    C32: 'C29',
-    C33: 'C30',
+    // CAHPS renumbering in 2026: map new codes to 2025 equivalents for domain/weight
+    C24: 'C21', // Customer Service
+    C25: 'C22', // Rating of Health Care Quality
+    C26: 'C23', // Rating of Health Plan
+    C27: 'C24', // Care Coordination
+    C28: 'C25', // Complaints about the Health Plan
+    C29: 'C26', // Members Choosing to Leave the Plan
+    C30: 'C27', // Health Plan Quality Improvement
+    C31: 'C28', // Plan Makes Timely Decisions about Appeals
+    C32: 'C29', // Reviewing Appeals Decisions
+    C33: 'C30', // Call Center – Foreign Language Interpreter and TTY Availability
   },
 };
 

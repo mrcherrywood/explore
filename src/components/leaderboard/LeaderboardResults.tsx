@@ -43,11 +43,13 @@ function LeaderboardList({
   icon: Icon,
   entries,
   metricType,
+  showInlineRate,
 }: {
   title: string;
   icon: typeof Trophy;
   entries: LeaderboardEntry[];
   metricType: LeaderboardSection["metricType"];
+  showInlineRate?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4">
@@ -72,6 +74,12 @@ function LeaderboardList({
                     </span>
                     <div className="flex flex-col">
                       <p className="text-sm font-semibold text-foreground">{entry.entityLabel}</p>
+                      {showInlineRate && metricType === "rate" && entry.value !== null && (
+                        <p className="text-[0.65rem] text-muted-foreground">
+                          Measure rate {entry.valueLabel}
+                          {entry.reportYear ? ` (${entry.reportYear})` : ""}
+                        </p>
+                      )}
                       {entry.totalEnrollment && (
                         <p className="text-[0.65rem] text-muted-foreground">{entry.totalEnrollment.toLocaleString()} enrolled</p>
                       )}
@@ -313,9 +321,27 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
-              <LeaderboardList title="Top Performers" icon={Trophy} entries={section.topPerformers} metricType={section.metricType} />
-              <LeaderboardList title="Biggest Movers" icon={TrendingUp} entries={section.biggestMovers} metricType={section.metricType} />
-              <LeaderboardList title="Biggest Decliners" icon={TrendingDown} entries={section.biggestDecliners} metricType={section.metricType} />
+              <LeaderboardList
+                title="Top Performers"
+                icon={Trophy}
+                entries={section.topPerformers}
+                metricType={section.metricType}
+                showInlineRate={section.key.startsWith("measure-")}
+              />
+              <LeaderboardList
+                title="Biggest Movers"
+                icon={TrendingUp}
+                entries={section.biggestMovers}
+                metricType={section.metricType}
+                showInlineRate={section.key.startsWith("measure-")}
+              />
+              <LeaderboardList
+                title="Biggest Decliners"
+                icon={TrendingDown}
+                entries={section.biggestDecliners}
+                metricType={section.metricType}
+                showInlineRate={section.key.startsWith("measure-")}
+              />
             </div>
           </div>
         ))}
