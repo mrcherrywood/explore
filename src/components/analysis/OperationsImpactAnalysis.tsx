@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
 import { Loader2, TrendingUp, TrendingDown, Minus, Search, ChevronDown, ChevronUp, Info } from "lucide-react";
 
 type DomainSummary = {
@@ -805,7 +806,12 @@ export function OperationsImpactAnalysis() {
                       <div className="space-y-2">
                         {data.rewardFactorImpact.overall.topGainers.slice(0, 5).map((c) => (
                           <div key={c.contractId} className="flex items-center justify-between text-xs">
-                            <span className="font-mono text-foreground">{c.contractId}</span>
+                            <Link 
+                              href={`/summary?contractId=${c.contractId}&year=2026`}
+                              className="font-mono text-primary hover:underline"
+                            >
+                              {c.contractId}
+                            </Link>
                             <span className="text-emerald-500">
                               {c.currentRFactor.toFixed(1)} → {c.projectedRFactor.toFixed(1)} (+{c.change.toFixed(1)})
                             </span>
@@ -820,7 +826,12 @@ export function OperationsImpactAnalysis() {
                       <div className="space-y-2">
                         {data.rewardFactorImpact.overall.topLosers.slice(0, 5).map((c) => (
                           <div key={c.contractId} className="flex items-center justify-between text-xs">
-                            <span className="font-mono text-foreground">{c.contractId}</span>
+                            <Link 
+                              href={`/summary?contractId=${c.contractId}&year=2026`}
+                              className="font-mono text-primary hover:underline"
+                            >
+                              {c.contractId}
+                            </Link>
                             <span className="text-rose-500">
                               {c.currentRFactor.toFixed(1)} → {c.projectedRFactor.toFixed(1)} ({c.change.toFixed(1)})
                             </span>
@@ -1019,7 +1030,14 @@ export function OperationsImpactAnalysis() {
                       key={contract.contractId}
                       className={`border-b border-border/50 transition-colors hover:bg-muted/30 ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
                     >
-                      <td className="px-4 py-3 font-mono text-xs text-foreground">{contract.contractId}</td>
+                      <td className="px-4 py-3 font-mono text-xs">
+                        <Link 
+                          href={`/summary?contractId=${contract.contractId}&year=2026`}
+                          className="text-primary hover:underline"
+                        >
+                          {contract.contractId}
+                        </Link>
+                      </td>
                       <td className="px-4 py-3">
                         <div className="max-w-[240px]">
                           <p className="truncate text-foreground">{contract.organizationMarketingName || contract.contractName || "—"}</p>
