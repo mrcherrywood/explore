@@ -36,7 +36,8 @@ export default function OperationsImpactPage() {
                     This analysis shows the projected impact on each plan&apos;s overall star rating based on CMS announcements
                     to remove specific measures from the Stars rating calculation for 2028-2029. Measures include: Appeals decisions,
                     SNP Care Management, Call Center availability, Complaints, Price Accuracy, Diabetes Eye Exam, Statin Therapy,
-                    Disenrollment, Customer Service, and Rating of Health Care Quality.
+                    Disenrollment, Customer Service, and Rating of Health Care Quality. Additionally, this analysis reflects how
+                    reward factor thresholds will shift as the measure set changes, affecting which contracts qualify for bonus points.
                   </p>
                 </div>
               </div>
