@@ -45,6 +45,13 @@ function isMeasureBeingRemoved(code: string): boolean {
   return CMS_REMOVED_MEASURE_CODES.has(code.trim().toUpperCase());
 }
 
+type MeasureRow = {
+  code: string;
+  name: string | null;
+  domain: string;
+  weight: number;
+};
+
 type MeasureInfo = {
   code: string;
   name: string | null;
@@ -235,7 +242,7 @@ export async function GET(request: Request) {
     const { data: measures, error: measuresError } = await supabase
       .from('ma_measures')
       .select('code, name, domain, weight')
-      .eq('year', year);
+      .eq('year', year) as { data: MeasureRow[] | null; error: typeof measuresError };
 
     if (measuresError) {
       throw new Error(measuresError.message);
