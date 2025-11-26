@@ -624,7 +624,7 @@ export function OperationsImpactAnalysis() {
                   </p>
                   <p>
                     <strong className="text-foreground">Step 5: Reclassify Contracts</strong> — Each contract is reclassified into mean and variance categories 
-                    using the new projected thresholds, which determines their new r-factor (0.0, 0.1, 0.2, 0.3, or 0.4).
+                    using the new projected thresholds, which determines their new Reward Factor (0.0, 0.1, 0.2, 0.3, or 0.4).
                   </p>
                 </div>
               </div>
@@ -739,17 +739,17 @@ export function OperationsImpactAnalysis() {
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="rounded-lg border border-border bg-muted/50 p-4 text-center">
                     <p className="text-2xl font-bold text-emerald-500">{data.rewardFactorImpact.overall.summary.contractsGainingRFactor}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Contracts gaining r-factor</p>
+                    <p className="text-xs text-muted-foreground mt-1">Contracts gaining Reward Factor</p>
                   </div>
                   <div className="rounded-lg border border-border bg-muted/50 p-4 text-center">
                     <p className="text-2xl font-bold text-rose-500">{data.rewardFactorImpact.overall.summary.contractsLosingRFactor}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Contracts losing r-factor</p>
+                    <p className="text-xs text-muted-foreground mt-1">Contracts losing Reward Factor</p>
                   </div>
                   <div className="rounded-lg border border-border bg-muted/50 p-4 text-center">
                     <p className={`text-2xl font-bold ${data.rewardFactorImpact.overall.summary.avgRFactorChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                       {data.rewardFactorImpact.overall.summary.avgRFactorChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.summary.avgRFactorChange.toFixed(4)}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Avg r-factor change</p>
+                    <p className="text-xs text-muted-foreground mt-1">Avg Reward Factor change</p>
                   </div>
                 </div>
               </div>
@@ -758,7 +758,7 @@ export function OperationsImpactAnalysis() {
               <div className="space-y-3">
                 <h4 className="text-sm font-medium text-foreground">R-Factor Change Distribution</h4>
                 <p className="text-xs text-muted-foreground">
-                  How contracts moved between r-factor values due to threshold shifts:
+                  How contracts moved between Reward Factor values due to threshold shifts:
                 </p>
                 <div className="grid gap-2 md:grid-cols-4 lg:grid-cols-8">
                   <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-center">
@@ -992,10 +992,10 @@ export function OperationsImpactAnalysis() {
                       <SortHeader label="Current" sortKeyValue="currentOverallRating" tooltip="Current CMS overall star rating (1-5 scale)" />
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                      <SortHeader label="Final Projected" sortKeyValue="finalProjectedOverall" tooltip="Projected rating after removing measures AND applying new reward factor (base mean + r-factor)" />
+                      <SortHeader label="Final Projected" sortKeyValue="finalProjectedOverall" tooltip="Projected rating after removing measures AND applying new Reward Factor" />
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                      <SortHeader label="Final Change" sortKeyValue="finalOverallChange" tooltip="Difference between final projected (with r-factor) and current rating (positive = improvement)" />
+                      <SortHeader label="Final Change" sortKeyValue="finalOverallChange" tooltip="Difference between final projected (with Reward Factor) and current rating (positive = improvement)" />
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">
                       <SortHeader label="Rating Δ" sortKeyValue="finalStarBracketChange" tooltip="Change in rounded star rating including reward factor adjustment (e.g., +0.5★ means moving from 3.5 to 4.0 stars)" />
