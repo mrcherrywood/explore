@@ -242,7 +242,7 @@ export async function GET(request: Request) {
     const { data: measures, error: measuresError } = await supabase
       .from('ma_measures')
       .select('code, name, domain, weight')
-      .eq('year', year) as { data: MeasureRow[] | null; error: typeof measuresError };
+      .eq('year', year) as { data: MeasureRow[] | null; error: Error | null };
 
     if (measuresError) {
       throw new Error(measuresError.message);
