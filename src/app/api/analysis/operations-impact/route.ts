@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import {
+  analyzeRewardFactorImpact,
+  compareWithOfficial,
+  type ContractMeasure,
+} from '@/lib/reward-factor';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,6 +66,12 @@ type ContractAnalysis = {
   projectedOverallRating: number | null;
   projectedPartCRating: number | null;
   projectedPartDRating: number | null;
+  // Final projected ratings including reward factor adjustments
+  finalProjectedOverall: number | null;
+  finalProjectedPartC: number | null;
+  finalProjectedPartD: number | null;
+  finalOverallChange: number | null;
+  finalStarBracketChange: number;
   overallChange: number | null;
   partCChange: number | null;
   partDChange: number | null;
@@ -68,6 +79,20 @@ type ContractAnalysis = {
   operationsMeasuresExcluded: number;
   totalMeasuresUsed: number;
   totalMeasuresWithoutOps: number;
+  // Reward factor impact fields (added later)
+  rewardFactor?: {
+    currentRFactor: number;
+    projectedRFactor: number;
+    rFactorChange: number;
+    currentMean: number;
+    projectedMean: number;
+    currentVariance: number;
+    projectedVariance: number;
+    // Current rating with r-factor applied
+    currentAdjustedRating: number;
+    // Projected rating with r-factor applied
+    projectedAdjustedRating: number;
+  };
 };
 
 type ParentOrgAnalysis = {
@@ -75,11 +100,15 @@ type ParentOrgAnalysis = {
   contractCount: number;
   avgCurrentRating: number | null;
   avgProjectedRating: number | null;
+  avgFinalProjectedRating: number | null;
   avgOverallChange: number | null;
+  avgFinalOverallChange: number | null;
   contractsGaining: number;
   contractsLosing: number;
   bracketGainers: number;
   bracketLosers: number;
+  finalBracketGainers: number;
+  finalBracketLosers: number;
 };
 
 type DomainSummary = {
@@ -405,6 +434,12 @@ export async function GET(request: Request) {
         projectedOverallRating: projectedOverall,
         projectedPartCRating: projectedPartC,
         projectedPartDRating: projectedPartD,
+        // These will be populated after reward factor calculation
+        finalProjectedOverall: null,
+        finalProjectedPartC: null,
+        finalProjectedPartD: null,
+        finalOverallChange: null,
+        finalStarBracketChange: 0,
         overallChange,
         partCChange,
         partDChange,
@@ -414,77 +449,6 @@ export async function GET(request: Request) {
         totalMeasuresWithoutOps,
       });
     }
-
-    // Sort by overall change (biggest gainers first)
-    contractAnalyses.sort((a, b) => {
-      const aChange = a.overallChange ?? -Infinity;
-      const bChange = b.overallChange ?? -Infinity;
-      return bChange - aChange;
-    });
-
-    // Calculate aggregate statistics
-    const validAnalyses = contractAnalyses.filter(c => c.overallChange !== null);
-    const totalContracts = validAnalyses.length;
-    const avgOverallChange = totalContracts > 0
-      ? validAnalyses.reduce((sum, c) => sum + (c.overallChange || 0), 0) / totalContracts
-      : 0;
-    
-    const contractsGaining = validAnalyses.filter(c => (c.overallChange || 0) > 0.01).length;
-    const contractsLosing = validAnalyses.filter(c => (c.overallChange || 0) < -0.01).length;
-    const contractsUnchanged = totalContracts - contractsGaining - contractsLosing;
-
-    const bracketGainers = validAnalyses.filter(c => c.starBracketChange > 0).length;
-    const bracketLosers = validAnalyses.filter(c => c.starBracketChange < 0).length;
-
-    // Distribution of changes
-    const changeDistribution = {
-      '> +0.5': validAnalyses.filter(c => (c.overallChange || 0) > 0.5).length,
-      '+0.25 to +0.5': validAnalyses.filter(c => (c.overallChange || 0) > 0.25 && (c.overallChange || 0) <= 0.5).length,
-      '+0.1 to +0.25': validAnalyses.filter(c => (c.overallChange || 0) > 0.1 && (c.overallChange || 0) <= 0.25).length,
-      '0 to +0.1': validAnalyses.filter(c => (c.overallChange || 0) >= 0 && (c.overallChange || 0) <= 0.1).length,
-      '-0.1 to 0': validAnalyses.filter(c => (c.overallChange || 0) < 0 && (c.overallChange || 0) >= -0.1).length,
-      '-0.25 to -0.1': validAnalyses.filter(c => (c.overallChange || 0) < -0.1 && (c.overallChange || 0) >= -0.25).length,
-      '-0.5 to -0.25': validAnalyses.filter(c => (c.overallChange || 0) < -0.25 && (c.overallChange || 0) >= -0.5).length,
-      '< -0.5': validAnalyses.filter(c => (c.overallChange || 0) < -0.5).length,
-    };
-
-    // Build parent organization analysis
-    const parentOrgMap = new Map<string, ContractAnalysis[]>();
-    for (const analysis of validAnalyses) {
-      const parent = analysis.parentOrganization?.trim() || 'Unknown';
-      if (!parentOrgMap.has(parent)) {
-        parentOrgMap.set(parent, []);
-      }
-      parentOrgMap.get(parent)!.push(analysis);
-    }
-
-    const parentOrganizations: ParentOrgAnalysis[] = Array.from(parentOrgMap.entries())
-      .map(([parentOrganization, analyses]) => {
-        const withRatings = analyses.filter(a => a.currentOverallRating !== null && a.projectedOverallRating !== null);
-        const avgCurrent = withRatings.length > 0
-          ? withRatings.reduce((sum, a) => sum + (a.currentOverallRating || 0), 0) / withRatings.length
-          : null;
-        const avgProjected = withRatings.length > 0
-          ? withRatings.reduce((sum, a) => sum + (a.projectedOverallRating || 0), 0) / withRatings.length
-          : null;
-        const avgChange = withRatings.length > 0
-          ? withRatings.reduce((sum, a) => sum + (a.overallChange || 0), 0) / withRatings.length
-          : null;
-
-        return {
-          parentOrganization,
-          contractCount: analyses.length,
-          avgCurrentRating: avgCurrent,
-          avgProjectedRating: avgProjected,
-          avgOverallChange: avgChange,
-          contractsGaining: analyses.filter(a => (a.overallChange || 0) > 0.01).length,
-          contractsLosing: analyses.filter(a => (a.overallChange || 0) < -0.01).length,
-          bracketGainers: analyses.filter(a => a.starBracketChange > 0).length,
-          bracketLosers: analyses.filter(a => a.starBracketChange < 0).length,
-        };
-      })
-      .filter(p => p.contractCount > 0)
-      .sort((a, b) => (b.avgOverallChange || -Infinity) - (a.avgOverallChange || -Infinity));
 
     // Build list of removed measures with their info
     const removedMeasures = Array.from(measureMap.values())
@@ -499,6 +463,320 @@ export async function GET(request: Request) {
 
     const totalRemovedWeight = removedMeasures.reduce((sum, m) => sum + m.weight, 0);
 
+    // Build contract measures data for reward factor analysis
+    const contractMeasuresData = new Map<string, ContractMeasure[]>();
+    for (const [contractId, contractMetrics] of metricsByContract) {
+      const measures: ContractMeasure[] = [];
+      for (const metric of contractMetrics) {
+        const measureInfo = measureMap.get(metric.code);
+        if (!measureInfo || measureInfo.weight <= 0) continue;
+        measures.push({
+          code: metric.code,
+          starValue: metric.starRating,
+          weight: measureInfo.weight,
+          category: metric.category,
+        });
+      }
+      if (measures.length > 0) {
+        contractMeasuresData.set(contractId, measures);
+      }
+    }
+
+    // Analyze reward factor impact for overall ratings
+    const overallRewardFactorImpact = analyzeRewardFactorImpact(
+      contractMeasuresData,
+      CMS_REMOVED_MEASURE_CODES,
+      'overall_mapd',
+      null
+    );
+
+    // Analyze reward factor impact for Part C
+    const partCRewardFactorImpact = analyzeRewardFactorImpact(
+      contractMeasuresData,
+      CMS_REMOVED_MEASURE_CODES,
+      'part_c',
+      'Part C'
+    );
+
+    // Analyze reward factor impact for Part D
+    const partDRewardFactorImpact = analyzeRewardFactorImpact(
+      contractMeasuresData,
+      CMS_REMOVED_MEASURE_CODES,
+      'part_d_mapd',
+      'Part D'
+    );
+
+    // Summarize reward factor impact
+    const summarizeRewardFactorImpact = (
+      impact: ReturnType<typeof analyzeRewardFactorImpact>,
+      ratingType: 'overall_mapd' | 'part_c' | 'part_d_mapd'
+    ) => {
+      const gains = impact.contractResults.filter(c => c.rFactorChange > 0);
+      const losses = impact.contractResults.filter(c => c.rFactorChange < 0);
+      const unchanged = impact.contractResults.filter(c => c.rFactorChange === 0);
+      
+      const avgChange = impact.contractResults.length > 0
+        ? impact.contractResults.reduce((sum, c) => sum + c.rFactorChange, 0) / impact.contractResults.length
+        : 0;
+
+      // Compare current thresholds with official CMS thresholds
+      const officialComparison = compareWithOfficial(
+        impact.currentThresholds,
+        ratingType,
+        true, // improvement measures included
+        true  // new measures included
+      );
+
+      return {
+        thresholds: {
+          current: impact.currentThresholds,
+          projected: impact.projectedThresholds,
+          changes: impact.thresholdChanges,
+          officialComparison: officialComparison ?? undefined,
+        },
+        summary: {
+          totalContracts: impact.contractResults.length,
+          contractsGainingRFactor: gains.length,
+          contractsLosingRFactor: losses.length,
+          contractsUnchanged: unchanged.length,
+          avgRFactorChange: avgChange,
+        },
+        distribution: {
+          gainsBy0_4: gains.filter(c => c.rFactorChange >= 0.4).length,
+          gainsBy0_3: gains.filter(c => c.rFactorChange >= 0.3 && c.rFactorChange < 0.4).length,
+          gainsBy0_2: gains.filter(c => c.rFactorChange >= 0.2 && c.rFactorChange < 0.3).length,
+          gainsBy0_1: gains.filter(c => c.rFactorChange > 0 && c.rFactorChange < 0.2).length,
+          lossesBy0_1: losses.filter(c => c.rFactorChange > -0.2 && c.rFactorChange < 0).length,
+          lossesBy0_2: losses.filter(c => c.rFactorChange <= -0.2 && c.rFactorChange > -0.3).length,
+          lossesBy0_3: losses.filter(c => c.rFactorChange <= -0.3 && c.rFactorChange > -0.4).length,
+          lossesBy0_4: losses.filter(c => c.rFactorChange <= -0.4).length,
+        },
+        // Include top 10 biggest changes in each direction
+        topGainers: gains
+          .sort((a, b) => b.rFactorChange - a.rFactorChange)
+          .slice(0, 10)
+          .map(c => ({
+            contractId: c.contractId,
+            currentRFactor: c.current.rFactor,
+            projectedRFactor: c.projected.rFactor,
+            change: c.rFactorChange,
+            currentMean: c.current.weightedMean,
+            projectedMean: c.projected.weightedMean,
+            currentVariance: c.current.weightedVariance,
+            projectedVariance: c.projected.weightedVariance,
+          })),
+        topLosers: losses
+          .sort((a, b) => a.rFactorChange - b.rFactorChange)
+          .slice(0, 10)
+          .map(c => ({
+            contractId: c.contractId,
+            currentRFactor: c.current.rFactor,
+            projectedRFactor: c.projected.rFactor,
+            change: c.rFactorChange,
+            currentMean: c.current.weightedMean,
+            projectedMean: c.projected.weightedMean,
+            currentVariance: c.current.weightedVariance,
+            projectedVariance: c.projected.weightedVariance,
+          })),
+      };
+    };
+
+    const rewardFactorImpact = {
+      overall: summarizeRewardFactorImpact(overallRewardFactorImpact, 'overall_mapd'),
+      partC: summarizeRewardFactorImpact(partCRewardFactorImpact, 'part_c'),
+      partD: summarizeRewardFactorImpact(partDRewardFactorImpact, 'part_d_mapd'),
+    };
+
+    // Add reward factor data to each contract analysis and calculate final projected ratings
+    const overallRFactorMap = new Map(
+      overallRewardFactorImpact.contractResults.map(c => [c.contractId, c])
+    );
+    const partCRFactorMap = new Map(
+      partCRewardFactorImpact.contractResults.map(c => [c.contractId, c])
+    );
+    const partDRFactorMap = new Map(
+      partDRewardFactorImpact.contractResults.map(c => [c.contractId, c])
+    );
+    
+    const roundToHalf = (n: number) => Math.round(n * 2) / 2;
+    const clampRating = (rating: number) => Math.min(5.0, Math.max(1.0, rating));
+
+    for (const analysis of contractAnalyses) {
+      const rfDataOverall = overallRFactorMap.get(analysis.contractId);
+      const rfDataPartC = partCRFactorMap.get(analysis.contractId);
+      const rfDataPartD = partDRFactorMap.get(analysis.contractId);
+
+      if (rfDataOverall) {
+        // Current rating with r-factor = CMS official or calculated mean + current r-factor
+        const currentWithRFactor = clampRating(
+          (analysis.currentOverallRating ?? rfDataOverall.current.weightedMean) 
+        );
+        // Projected rating with r-factor = projected mean + projected r-factor
+        const projectedWithRFactor = clampRating(
+          rfDataOverall.projected.weightedMean + rfDataOverall.projected.rFactor
+        );
+        
+        analysis.finalProjectedOverall = projectedWithRFactor;
+        analysis.finalOverallChange = currentWithRFactor !== null 
+          ? projectedWithRFactor - currentWithRFactor 
+          : null;
+        
+        const currentBracket = roundToHalf(currentWithRFactor);
+        const finalProjectedBracket = roundToHalf(projectedWithRFactor);
+        analysis.finalStarBracketChange = (finalProjectedBracket - currentBracket) * 2;
+        
+        analysis.rewardFactor = {
+          currentRFactor: rfDataOverall.current.rFactor,
+          projectedRFactor: rfDataOverall.projected.rFactor,
+          rFactorChange: rfDataOverall.rFactorChange,
+          currentMean: rfDataOverall.current.weightedMean,
+          projectedMean: rfDataOverall.projected.weightedMean,
+          currentVariance: rfDataOverall.current.weightedVariance,
+          projectedVariance: rfDataOverall.projected.weightedVariance,
+          currentAdjustedRating: clampRating(rfDataOverall.current.weightedMean + rfDataOverall.current.rFactor),
+          projectedAdjustedRating: projectedWithRFactor,
+        };
+      }
+      
+      // Calculate final projected ratings for Part C and Part D
+      if (rfDataPartC && analysis.projectedPartCRating !== null) {
+        analysis.finalProjectedPartC = clampRating(
+          rfDataPartC.projected.weightedMean + rfDataPartC.projected.rFactor
+        );
+      }
+      
+      if (rfDataPartD && analysis.projectedPartDRating !== null) {
+        analysis.finalProjectedPartD = clampRating(
+          rfDataPartD.projected.weightedMean + rfDataPartD.projected.rFactor
+        );
+      }
+    }
+
+    // Sort by final overall change (biggest gainers first)
+    contractAnalyses.sort((a, b) => {
+      const aChange = a.finalOverallChange ?? a.overallChange ?? -Infinity;
+      const bChange = b.finalOverallChange ?? b.overallChange ?? -Infinity;
+      return bChange - aChange;
+    });
+
+    // Calculate aggregate statistics (now including final projected ratings)
+    const validAnalyses = contractAnalyses.filter(c => c.overallChange !== null);
+    const totalContracts = validAnalyses.length;
+    
+    // Calculate average changes - use final change when available
+    const avgOverallChange = totalContracts > 0
+      ? validAnalyses.reduce((sum, c) => sum + (c.overallChange || 0), 0) / totalContracts
+      : 0;
+    const avgFinalOverallChange = validAnalyses.filter(c => c.finalOverallChange !== null).length > 0
+      ? validAnalyses.reduce((sum, c) => sum + (c.finalOverallChange || 0), 0) / validAnalyses.filter(c => c.finalOverallChange !== null).length
+      : null;
+    
+    const contractsGaining = validAnalyses.filter(c => (c.overallChange || 0) > 0.01).length;
+    const contractsLosing = validAnalyses.filter(c => (c.overallChange || 0) < -0.01).length;
+    const contractsUnchanged = totalContracts - contractsGaining - contractsLosing;
+    
+    const finalContractsGaining = validAnalyses.filter(c => (c.finalOverallChange || 0) > 0.01).length;
+    const finalContractsLosing = validAnalyses.filter(c => (c.finalOverallChange || 0) < -0.01).length;
+
+    const bracketGainers = validAnalyses.filter(c => c.starBracketChange > 0).length;
+    const bracketLosers = validAnalyses.filter(c => c.starBracketChange < 0).length;
+    const finalBracketGainers = validAnalyses.filter(c => c.finalStarBracketChange > 0).length;
+    const finalBracketLosers = validAnalyses.filter(c => c.finalStarBracketChange < 0).length;
+
+    // Star bracket transition distribution (e.g., "4.0★ → 3.5★")
+    const bracketTransitions = new Map<string, { count: number; direction: 'gain' | 'loss' | 'unchanged' }>();
+    
+    for (const c of validAnalyses) {
+      const currentBracket = c.currentOverallRating !== null ? roundToHalf(c.currentOverallRating) : null;
+      const finalBracket = c.finalProjectedOverall !== null 
+        ? roundToHalf(c.finalProjectedOverall) 
+        : (c.projectedOverallRating !== null ? roundToHalf(c.projectedOverallRating) : null);
+      
+      if (currentBracket !== null && finalBracket !== null) {
+        const change = finalBracket - currentBracket;
+        let direction: 'gain' | 'loss' | 'unchanged' = 'unchanged';
+        if (change > 0.01) direction = 'gain';
+        else if (change < -0.01) direction = 'loss';
+        
+        const key = `${currentBracket.toFixed(1)}★ → ${finalBracket.toFixed(1)}★`;
+        const existing = bracketTransitions.get(key) ?? { count: 0, direction };
+        bracketTransitions.set(key, { count: existing.count + 1, direction });
+      }
+    }
+    
+    // Convert to sorted array, separating gains, unchanged, and losses
+    const bracketTransitionArray = Array.from(bracketTransitions.entries())
+      .map(([transition, data]) => ({ transition, ...data }))
+      .sort((a, b) => {
+        // Sort by direction (gains first, then unchanged, then losses), then by count descending
+        const dirOrder = { gain: 0, unchanged: 1, loss: 2 };
+        if (dirOrder[a.direction] !== dirOrder[b.direction]) {
+          return dirOrder[a.direction] - dirOrder[b.direction];
+        }
+        return b.count - a.count;
+      });
+    
+    // Count by half-star change amount
+    const bracketChangeDistribution = {
+      '+1.0★': validAnalyses.filter(c => c.finalStarBracketChange === 2).length,
+      '+0.5★': validAnalyses.filter(c => c.finalStarBracketChange === 1).length,
+      'No change': validAnalyses.filter(c => c.finalStarBracketChange === 0).length,
+      '-0.5★': validAnalyses.filter(c => c.finalStarBracketChange === -1).length,
+      '-1.0★': validAnalyses.filter(c => c.finalStarBracketChange === -2).length,
+      '-1.5★': validAnalyses.filter(c => c.finalStarBracketChange === -3).length,
+      '-2.0★+': validAnalyses.filter(c => c.finalStarBracketChange <= -4).length,
+    };
+
+    // Build parent org analysis (after reward factor data is added)
+    const parentOrgMap = new Map<string, ContractAnalysis[]>();
+    for (const analysis of validAnalyses) {
+      const parent = analysis.parentOrganization?.trim() || 'Unknown';
+      if (!parentOrgMap.has(parent)) {
+        parentOrgMap.set(parent, []);
+      }
+      parentOrgMap.get(parent)!.push(analysis);
+    }
+
+    const parentOrganizations: ParentOrgAnalysis[] = Array.from(parentOrgMap.entries())
+      .map(([parentOrganization, analyses]) => {
+        const withRatings = analyses.filter(a => a.currentOverallRating !== null && a.projectedOverallRating !== null);
+        const withFinalRatings = analyses.filter(a => a.currentOverallRating !== null && a.finalProjectedOverall !== null);
+        
+        const avgCurrent = withRatings.length > 0
+          ? withRatings.reduce((sum, a) => sum + (a.currentOverallRating || 0), 0) / withRatings.length
+          : null;
+        const avgProjected = withRatings.length > 0
+          ? withRatings.reduce((sum, a) => sum + (a.projectedOverallRating || 0), 0) / withRatings.length
+          : null;
+        const avgFinalProjected = withFinalRatings.length > 0
+          ? withFinalRatings.reduce((sum, a) => sum + (a.finalProjectedOverall || 0), 0) / withFinalRatings.length
+          : null;
+        const avgChange = withRatings.length > 0
+          ? withRatings.reduce((sum, a) => sum + (a.overallChange || 0), 0) / withRatings.length
+          : null;
+        const avgFinalChange = withFinalRatings.length > 0
+          ? withFinalRatings.reduce((sum, a) => sum + (a.finalOverallChange || 0), 0) / withFinalRatings.length
+          : null;
+
+        return {
+          parentOrganization,
+          contractCount: analyses.length,
+          avgCurrentRating: avgCurrent,
+          avgProjectedRating: avgProjected,
+          avgFinalProjectedRating: avgFinalProjected,
+          avgOverallChange: avgChange,
+          avgFinalOverallChange: avgFinalChange,
+          contractsGaining: analyses.filter(a => (a.overallChange || 0) > 0.01).length,
+          contractsLosing: analyses.filter(a => (a.overallChange || 0) < -0.01).length,
+          bracketGainers: analyses.filter(a => a.starBracketChange > 0).length,
+          bracketLosers: analyses.filter(a => a.starBracketChange < 0).length,
+          finalBracketGainers: analyses.filter(a => a.finalStarBracketChange > 0).length,
+          finalBracketLosers: analyses.filter(a => a.finalStarBracketChange < 0).length,
+        };
+      })
+      .filter(p => p.contractCount > 0)
+      .sort((a, b) => (b.avgFinalOverallChange || b.avgOverallChange || -Infinity) - (a.avgFinalOverallChange || a.avgOverallChange || -Infinity));
+
     return NextResponse.json({
       year,
       domains: Array.from(allDomains.values()).sort((a, b) => a.domain.localeCompare(b.domain)),
@@ -510,16 +788,23 @@ export async function GET(request: Request) {
       summary: {
         totalContracts,
         avgOverallChange,
+        avgFinalOverallChange,
         contractsGaining,
         contractsLosing,
         contractsUnchanged,
+        finalContractsGaining,
+        finalContractsLosing,
         bracketGainers,
         bracketLosers,
-        changeDistribution,
+        finalBracketGainers,
+        finalBracketLosers,
+        bracketChangeDistribution,
+        bracketTransitions: bracketTransitionArray,
         totalParentOrgs: parentOrganizations.length,
       },
       contracts: contractAnalyses,
       parentOrganizations,
+      rewardFactorImpact,
     });
   } catch (error) {
     console.error('Operations impact analysis error:', error);

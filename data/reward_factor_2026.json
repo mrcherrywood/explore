@@ -1,0 +1,326 @@
+{
+    "reward_factor": {
+      "context": {
+        "name": "Historical Reward Factor (r-Factor)",
+        "star_year": 2026,
+        "source": "CMS 2026 Star Ratings Technical Notes (Last Updated 09/04/2025)",
+        "applies_to_ratings": [
+          "Part C summary rating (MA-PD, MA-only)",
+          "Part D summary rating (MA-PD, PDP)",
+          "MA-PD overall rating"
+        ],
+        "computed_scenarios": [
+          "with_improvement_measures",
+          "without_improvement_measures"
+        ]
+      },
+      "calculation": {
+        "inputs": {
+          "contract_measures": "All individual quality and performance measures for the contract that are included in the given rating (Part C summary, Part D summary, or MA-PD overall).",
+          "measure_stars": "Star value for each individual measure (1.0–5.0 in 0.5 increments).",
+          "measure_weights": "Weights from Attachment G for each individual measure.",
+          "rating_type": [
+            "part_c_summary",
+            "part_d_summary_mapd",
+            "part_d_summary_pdp",
+            "overall_mapd"
+          ],
+          "flags": {
+            "improvement_measures_included": "true or false, depending on whether the calculation is the scenario with or without improvement measures.",
+            "new_measures_included": "true or false, depending on whether newly introduced measures are included in the rating for that scenario."
+          }
+        },
+        "steps": [
+          "For the target rating type (Part C summary, Part D summary, or MA-PD overall), compute the weighted mean star rating across all included measures. This mean is the rating BEFORE applying the reward factor.",
+          "Compute a weighted variance of the individual measure stars around that mean, using the same measure weights used for the mean.",
+          "Across contracts, derive percentiles of the mean (performance) and the variance distributions separately for each rating type and each (improvement_measures_included, new_measures_included) scenario.",
+          "Classify each contract’s mean into a performance category (high, relatively_high, or below_threshold) using the 65th and 85th percentiles for that rating type and scenario.",
+          "Classify each contract’s variance into a variance category (low, medium, or high) using the 30th and 70th percentiles for that rating type and scenario.",
+          "Map the combination of mean category and variance category into an r-Factor value using the reward_factor_mapping rules.",
+          "Add the r-Factor to the base rating (summary or overall) to produce the reward-adjusted rating for that scenario, subject to the standard 1–5 star bounds."
+        ]
+      },
+      "weighted_mean": {
+        "definition": "The contract-level weighted average of individual measure star ratings for the target rating type (Part C summary, Part D summary, overall rating).",
+        "symbol": "xbar_j",
+        "formula_description": "Sum over all measures i of (weight_i * star_i) divided by the sum of weights for those measures.",
+        "interpretation": "This is the baseline summary or overall Star Rating BEFORE the reward factor is applied, used for both payment and percentile classification."
+      },
+      "weighted_variance": {
+        "definition": "A weighted variance of individual measure stars around the contract’s mean star rating for the target rating type.",
+        "formula_simple": "variance_j = n * SUMWX / (W * (n - 1))",
+        "formula_components": {
+          "n": "Number of individual performance measures included for the contract for that rating type.",
+          "W": "Sum of the weights for the n measures.",
+          "SUMWX": "Sum over all measures of (weight_i * (star_i - mean_star)^2)."
+        },
+        "formula_full_text": "s_j^2 = [n_j / (n_j - 1)] * [ sum_{i=1..n_j} w_i * (x_i - xbar_j)^2 ] / [ sum_{i=1..n_j} w_i ]",
+        "role": "Lower variance (more consistent performance across measures) is rewarded when combined with high or relatively high mean performance."
+      },
+      "percentile_categorization": {
+        "variance_categories": {
+          "low": {
+            "definition": "Variance from the 0th up to but less than the 30th percentile of the variance distribution.",
+            "percentile_range": "[0, 30)"
+          },
+          "medium": {
+            "definition": "Variance from the 30th percentile up to but less than the 70th percentile.",
+            "percentile_range": "[30, 70)"
+          },
+          "high": {
+            "definition": "Variance at or above the 70th percentile.",
+            "percentile_range": "[70, 100]"
+          }
+        },
+        "mean_categories": {
+          "high": {
+            "definition": "Mean (performance) at or above the 85th percentile for the given rating type and scenario.",
+            "cutpoint_source": "85th percentile of the distribution of weighted mean stars for that rating type and (improvement, new_measures) scenario."
+          },
+          "relatively_high": {
+            "definition": "Mean (performance) at or above the 65th percentile and below the 85th percentile.",
+            "cutpoint_source": "65th percentile of the distribution of weighted mean stars for that rating type and scenario."
+          },
+          "below_threshold": {
+            "definition": "Mean (performance) below the 65th percentile.",
+            "cutpoint_source": "Below the 65th percentile cutpoint for that rating type and scenario."
+          }
+        }
+      },
+      "reward_factor_mapping": {
+        "description": "Maps combinations of variance category and mean category to r-Factor values.",
+        "rules": [
+          {
+            "variance_category": "low",
+            "mean_category": "high",
+            "r_factor": 0.4
+          },
+          {
+            "variance_category": "medium",
+            "mean_category": "high",
+            "r_factor": 0.3
+          },
+          {
+            "variance_category": "low",
+            "mean_category": "relatively_high",
+            "r_factor": 0.2
+          },
+          {
+            "variance_category": "medium",
+            "mean_category": "relatively_high",
+            "r_factor": 0.1
+          },
+          {
+            "variance_category": "high_or_any",
+            "mean_category": "any_category_not_listed_above",
+            "r_factor": 0.0
+          }
+        ]
+      },
+      "application_to_ratings": {
+        "description": "How r-Factor is applied once computed.",
+        "steps": [
+          "Compute the base rating (summary or overall) for the chosen scenario (with or without improvement measures) using standard weighting and CAI steps.",
+          "Compute the r-Factor using the mean/variance categorization and mapping rules.",
+          "Add r-Factor to the base rating: adjusted_rating = base_rating + r_factor.",
+          "Bound the adjusted rating to the allowable Star range (1.0–5.0).",
+          "Use the adjusted rating as the Part C summary, Part D summary, or overall rating for the given scenario in downstream payment and reporting logic."
+        ]
+      },
+      "thresholds_2026": {
+        "notes": "These are the 2026 Star Ratings performance and variance thresholds used to classify contracts into mean and variance percentiles for the reward factor. Separate thresholds are used by rating type and by whether improvement and new measures are included.",
+        "calculation_methodology": {
+          "data_source": "CMS 2026 Star Ratings Technical Notes (Last Updated 09/04/2025), Table 7 (Performance Summary Thresholds) and Table 8 (Variance Thresholds). These thresholds are published by CMS and represent percentile cutpoints computed across all eligible contracts.",
+          "population_scope": {
+            "description": "The percentile thresholds are computed across all contracts that have sufficient measure data to compute a meaningful weighted mean and variance. Contracts must have at least 2 measures with non-zero weights and valid star values for the given rating type.",
+            "contract_types": [
+              "MA-PD contracts (for Part C, Part D MA-PD, and overall ratings)",
+              "MA-only contracts (for Part C ratings only)",
+              "PDP contracts (for Part D PDP ratings only)"
+            ],
+            "exclusions": [
+              "New contracts in their first year (insufficient data)",
+              "Contracts with fewer than 2 eligible measures for the rating type",
+              "Low enrollment contracts that do not meet CMS reporting thresholds"
+            ]
+          },
+          "percentile_computation": {
+            "method": "Linear interpolation between adjacent values when the exact percentile position falls between observations",
+            "formula": "For percentile p, compute index = (p/100) × (n-1) where n is the number of contracts. If index is an integer, use that position. Otherwise, interpolate between floor(index) and ceil(index) positions.",
+            "example": "For 65th percentile with 100 contracts: index = 0.65 × 99 = 64.35, so value = sorted_values[64] + 0.35 × (sorted_values[65] - sorted_values[64])"
+          },
+          "weighted_mean_calculation": {
+            "formula": "xbar_j = Σ(weight_i × star_i) / Σ(weight_i)",
+            "inputs": "Individual measure star ratings (1.0-5.0 in 0.5 increments) and their weights from CMS Attachment G",
+            "role": "The weighted mean represents the contract's performance level and is compared against the 65th and 85th percentile thresholds to determine mean category (high, relatively_high, below_threshold)"
+          },
+          "weighted_variance_calculation": {
+            "formula": "s_j² = [n / (n-1)] × [Σ(weight_i × (star_i - xbar_j)²)] / [Σ(weight_i)]",
+            "bessel_correction": "The n/(n-1) factor (Bessel's correction) is applied to produce an unbiased estimate of the population variance from the sample",
+            "role": "The weighted variance measures consistency across measures. Lower variance (below 30th percentile) indicates consistent performance and qualifies for a larger reward factor when combined with high mean performance."
+          },
+          "scenario_separation": {
+            "description": "Separate threshold distributions are computed for each combination of flags because including/excluding measures changes both the individual contract statistics and the overall distribution.",
+            "improvement_measures_flag": "When true, improvement measures (health plan quality improvement, drug plan quality improvement, etc.) are included in the calculation. When false, these measures are excluded.",
+            "new_measures_flag": "When true, newly introduced measures that may have limited data history are included. When false, only established measures with full historical data are used."
+          },
+          "rating_type_separation": {
+            "description": "Each rating type (Part C, Part D MA-PD, Part D PDP, Overall MA-PD) has its own set of thresholds because the included measures and contract populations differ.",
+            "part_c": "Includes only Part C quality and performance measures. Applies to MA-PD and MA-only contracts.",
+            "part_d_mapd": "Includes only Part D quality and performance measures for MA-PD contracts.",
+            "part_d_pdp": "Includes only Part D quality and performance measures for standalone PDP contracts.",
+            "overall_mapd": "Combines Part C and Part D measures for MA-PD contracts to produce the overall star rating used for QBP payment."
+          }
+        },
+        "performance_summary_thresholds_2026": [
+          {
+            "improvement_measures_included": true,
+            "new_measures_included": true,
+            "percentile": 65,
+            "part_c_rating": 3.695652,
+            "part_d_rating_mapd": 3.740741,
+            "part_d_rating_pdp": 3.385522,
+            "overall_rating_mapd": 3.649351
+          },
+          {
+            "improvement_measures_included": true,
+            "new_measures_included": true,
+            "percentile": 85,
+            "part_c_rating": 4.0,
+            "part_d_rating_mapd": 4.0,
+            "part_d_rating_pdp": 3.9133,
+            "overall_rating_mapd": 3.932432
+          },
+          {
+            "improvement_measures_included": true,
+            "new_measures_included": false,
+            "percentile": 65,
+            "part_c_rating": 3.708333,
+            "part_d_rating_mapd": 3.740741,
+            "part_d_rating_pdp": 3.385522,
+            "overall_rating_mapd": 3.656716
+          },
+          {
+            "improvement_measures_included": true,
+            "new_measures_included": false,
+            "percentile": 85,
+            "part_c_rating": 4.019608,
+            "part_d_rating_mapd": 4.0,
+            "part_d_rating_pdp": 3.9133,
+            "overall_rating_mapd": 3.943662
+          },
+          {
+            "improvement_measures_included": false,
+            "new_measures_included": true,
+            "percentile": 65,
+            "part_c_rating": 3.717391,
+            "part_d_rating_mapd": 3.769231,
+            "part_d_rating_pdp": 3.318182,
+            "overall_rating_mapd": 3.686567
+          },
+          {
+            "improvement_measures_included": false,
+            "new_measures_included": true,
+            "percentile": 85,
+            "part_c_rating": 4.020408,
+            "part_d_rating_mapd": 4.136364,
+            "part_d_rating_pdp": 4.117647,
+            "overall_rating_mapd": 3.953125
+          },
+          {
+            "improvement_measures_included": false,
+            "new_measures_included": false,
+            "percentile": 65,
+            "part_c_rating": 3.736842,
+            "part_d_rating_mapd": 3.769231,
+            "part_d_rating_pdp": 3.318182,
+            "overall_rating_mapd": 3.7
+          },
+          {
+            "improvement_measures_included": false,
+            "new_measures_included": false,
+            "percentile": 85,
+            "part_c_rating": 4.02381,
+            "part_d_rating_mapd": 4.136364,
+            "part_d_rating_pdp": 4.117647,
+            "overall_rating_mapd": 3.966667
+          }
+        ],
+        "variance_thresholds_2026": [
+          {
+            "improvement_measures_included": true,
+            "new_measures_included": true,
+            "percentile": 30,
+            "part_c_variance": 0.918435,
+            "part_d_variance_mapd": 0.754209,
+            "part_d_variance_pdp": 0.869005,
+            "overall_variance_mapd": 0.91485
+          },
+          {
+            "improvement_measures_included": true,
+            "new_measures_included": true,
+            "percentile": 70,
+            "part_c_variance": 1.28517,
+            "part_d_variance_mapd": 1.268986,
+            "part_d_variance_pdp": 1.747939,
+            "overall_variance_mapd": 1.263462
+          },
+          {
+            "improvement_measures_included": true,
+            "new_measures_included": false,
+            "percentile": 30,
+            "part_c_variance": 0.909844,
+            "part_d_variance_mapd": 0.754209,
+            "part_d_variance_pdp": 0.869005,
+            "overall_variance_mapd": 0.905154
+          },
+          {
+            "improvement_measures_included": true,
+            "new_measures_included": false,
+            "percentile": 70,
+            "part_c_variance": 1.281071,
+            "part_d_variance_mapd": 1.268986,
+            "part_d_variance_pdp": 1.747939,
+            "overall_variance_mapd": 1.272639
+          },
+          {
+            "improvement_measures_included": false,
+            "new_measures_included": true,
+            "percentile": 30,
+            "part_c_variance": 0.914326,
+            "part_d_variance_mapd": 0.736111,
+            "part_d_variance_pdp": 0.74918,
+            "overall_variance_mapd": 0.908919
+          },
+          {
+            "improvement_measures_included": false,
+            "new_measures_included": true,
+            "percentile": 70,
+            "part_c_variance": 1.328432,
+            "part_d_variance_mapd": 1.318182,
+            "part_d_variance_pdp": 1.814773,
+            "overall_variance_mapd": 1.26961
+          },
+          {
+            "improvement_measures_included": false,
+            "new_measures_included": false,
+            "percentile": 30,
+            "part_c_variance": 0.908942,
+            "part_d_variance_mapd": 0.736111,
+            "part_d_variance_pdp": 0.74918,
+            "overall_variance_mapd": 0.915156
+          },
+          {
+            "improvement_measures_included": false,
+            "new_measures_included": false,
+            "percentile": 70,
+            "part_c_variance": 1.310167,
+            "part_d_variance_mapd": 1.318182,
+            "part_d_variance_pdp": 1.814773,
+            "overall_variance_mapd": 1.289063
+          }
+        ]
+      }
+    }
+  }
+  
