@@ -6,3 +6,5 @@ UPDATE ma_measures
 SET weight = 1 
 WHERE code = 'C11';
 
+
+
