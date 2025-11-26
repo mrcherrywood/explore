@@ -399,9 +399,15 @@ export async function GET(request: Request) {
         }
       }
 
-      // Use CMS official ratings if available, otherwise calculate
+      // Use CMS official ratings - skip contracts without an official overall star rating
       const cmsRatings = summaryRatingsMap.get(contractId);
-      const currentOverall = cmsRatings?.overall ?? (currentOverallWeight > 0 ? currentOverallWeighted / currentOverallWeight : null);
+      
+      // Only include contracts that have an official overall star rating from CMS
+      if (!cmsRatings?.overall) {
+        continue;
+      }
+      
+      const currentOverall = cmsRatings.overall;
       const currentPartC = cmsRatings?.partC ?? (currentPartCWeight > 0 ? currentPartCWeighted / currentPartCWeight : null);
       const currentPartD = cmsRatings?.partD ?? (currentPartDWeight > 0 ? currentPartDWeighted / currentPartDWeight : null);
 
@@ -471,8 +477,15 @@ export async function GET(request: Request) {
     const totalRemovedWeight = removedMeasures.reduce((sum, m) => sum + m.weight, 0);
 
     // Build contract measures data for reward factor analysis
+    // Only include contracts with official overall star ratings
     const contractMeasuresData = new Map<string, ContractMeasure[]>();
     for (const [contractId, contractMetrics] of metricsByContract) {
+      // Skip contracts without an official overall star rating
+      const cmsRatings = summaryRatingsMap.get(contractId);
+      if (!cmsRatings?.overall) {
+        continue;
+      }
+      
       const measures: ContractMeasure[] = [];
       for (const metric of contractMetrics) {
         const measureInfo = measureMap.get(metric.code);
