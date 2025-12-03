@@ -97,16 +97,6 @@ function createEmptyScoreStats(): ScoreStats {
   return { avg: null, min: null, max: null, count: 0, scores: [] };
 }
 
-function createEmptyScoresByStarRating(): ScoresByStarRating {
-  return {
-    "1": createEmptyScoreStats(),
-    "2": createEmptyScoreStats(),
-    "3": createEmptyScoreStats(),
-    "4": createEmptyScoreStats(),
-    "5": createEmptyScoreStats(),
-  };
-}
-
 function calculateScoreStats(scores: number[]): ScoreStats {
   if (scores.length === 0) {
     return createEmptyScoreStats();
@@ -150,9 +140,9 @@ async function fetchAllRows<T>(
       if (filter.operator === "in") {
         query = query.in(filter.column, filter.value as unknown[]);
       } else if (filter.operator === "not.is") {
-        query = query.not(filter.column, "is", filter.value);
+        query = query.not(filter.column, "is", filter.value as null);
       } else if (filter.operator === "eq") {
-        query = query.eq(filter.column, filter.value);
+        query = query.eq(filter.column, filter.value as string | number);
       }
     }
 
