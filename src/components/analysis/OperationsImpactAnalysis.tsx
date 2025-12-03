@@ -94,6 +94,10 @@ type OfficialComparison = {
     variance30th: number;
     variance70th: number;
   };
+  matchedScenario?: {
+    improvementMeasuresIncluded: boolean;
+    newMeasuresIncluded: boolean;
+  };
 };
 
 type RewardFactorImpactData = {

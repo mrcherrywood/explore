@@ -369,8 +369,8 @@ export async function GET(request: Request) {
       const contractInfo = contractMap.get(contractId);
 
       // Calculate current ratings (with all measures)
-      let currentOverallWeighted = 0;
-      let currentOverallWeight = 0;
+      let _currentOverallWeighted = 0;
+      let _currentOverallWeight = 0;
       let currentPartCWeighted = 0;
       let currentPartCWeight = 0;
       let currentPartDWeighted = 0;
@@ -397,8 +397,8 @@ export async function GET(request: Request) {
         const isPartD = metric.category === 'Part D';
 
         // Current ratings (all measures)
-        currentOverallWeighted += starValue * weight;
-        currentOverallWeight += weight;
+        _currentOverallWeighted += starValue * weight;
+        _currentOverallWeight += weight;
         totalMeasuresUsed += 1;
 
         if (isPartC) {
@@ -679,7 +679,7 @@ export async function GET(request: Request) {
       
       // Create lookup maps for stats
       const currentStatsWithQIMap = new Map(currentStatsWithQI.map(s => [s.contractId, s]));
-      const currentStatsWithoutQIMap = new Map(currentStatsWithoutQI.map(s => [s.contractId, s]));
+      const _currentStatsWithoutQIMap = new Map(currentStatsWithoutQI.map(s => [s.contractId, s]));
       const projectedStatsWithQIMap = new Map(projectedStatsWithQI.map(s => [s.contractId, s]));
       const projectedStatsWithoutQIMap = new Map(projectedStatsWithoutQI.map(s => [s.contractId, s]));
       
