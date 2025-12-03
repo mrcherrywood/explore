@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { Loader2, TrendingUp, TrendingDown, Minus, Search, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Minus, Search, ChevronDown, ChevronUp, Info, Shield } from "lucide-react";
 
 type DomainSummary = {
   domain: string;
@@ -47,6 +47,12 @@ type ContractAnalysis = {
   operationsMeasuresExcluded: number;
   totalMeasuresUsed: number;
   totalMeasuresWithoutOps: number;
+  holdHarmless?: {
+    applied: boolean;
+    ratingWithQI: number | null;
+    ratingWithoutQI: number | null;
+    excludedMeasures: string[];
+  };
   rewardFactor?: {
     currentRFactor: number;
     projectedRFactor: number;
@@ -67,42 +73,69 @@ type PercentileThresholds = {
   variance70th: number;
 };
 
+type ThresholdChanges = {
+  mean65thChange: number;
+  mean85thChange: number;
+  variance30thChange: number;
+  variance70thChange: number;
+};
+
+type OfficialComparison = {
+  official: PercentileThresholds;
+  differences: {
+    mean65th: number;
+    mean85th: number;
+    variance30th: number;
+    variance70th: number;
+  };
+  percentDifferences: {
+    mean65th: number;
+    mean85th: number;
+    variance30th: number;
+    variance70th: number;
+  };
+};
+
 type RewardFactorImpactData = {
   thresholds: {
-    current: PercentileThresholds;
-    projected: PercentileThresholds;
+    current: {
+      withQI: PercentileThresholds;
+      withoutQI: PercentileThresholds;
+    };
+    projected: {
+      withQI: PercentileThresholds;
+      withoutQI: PercentileThresholds;
+    };
     changes: {
-      mean65thChange: number;
-      mean85thChange: number;
-      variance30thChange: number;
-      variance70thChange: number;
+      withQI: ThresholdChanges;
+      withoutQI: ThresholdChanges;
     };
     officialComparison?: {
-      official: PercentileThresholds;
-      differences: {
-        mean65th: number;
-        mean85th: number;
-        variance30th: number;
-        variance70th: number;
-      };
-      percentDifferences: {
-        mean65th: number;
-        mean85th: number;
-        variance30th: number;
-        variance70th: number;
-      };
+      withQI?: OfficialComparison;
+      withoutQI?: OfficialComparison;
     };
   };
   summary: {
     totalContracts: number;
+    // Total contracts contributing to threshold calculation (ALL contracts)
+    totalContractsWithQI: number;
+    totalContractsWithoutQI: number;
+    // Contracts USING each threshold set (based on hold harmless eligibility)
+    contractsUsingWithQIThresholds: number;
+    contractsUsingWithoutQIThresholds: number;
     contractsGainingRFactor: number;
     contractsLosingRFactor: number;
     contractsUnchanged: number;
     avgRFactorChange: number;
+    holdHarmlessGaining: number;
+    holdHarmlessLosing: number;
+    nonHoldHarmlessGaining: number;
+    nonHoldHarmlessLosing: number;
   };
   distribution: Record<string, number>;
   topGainers: Array<{
     contractId: string;
+    hasHoldHarmless: boolean;
     currentRFactor: number;
     projectedRFactor: number;
     change: number;
@@ -113,6 +146,7 @@ type RewardFactorImpactData = {
   }>;
   topLosers: Array<{
     contractId: string;
+    hasHoldHarmless: boolean;
     currentRFactor: number;
     projectedRFactor: number;
     change: number;
@@ -147,6 +181,15 @@ type AnalysisData = {
     count: number;
     totalWeight: number;
   };
+  qualityImprovementMeasures?: {
+    codes: string[];
+    threshold: number;
+  };
+  holdHarmlessSummary?: {
+    contractsWithHoldHarmless: number;
+    contractsEligibleForHoldHarmless: number;
+    description: string;
+  };
   summary: {
     totalContracts: number;
     avgOverallChange: number;
@@ -163,6 +206,7 @@ type AnalysisData = {
     bracketChangeDistribution: Record<string, number>;
     bracketTransitions: Array<{ transition: string; count: number; direction: 'gain' | 'loss' | 'unchanged' }>;
     totalParentOrgs: number;
+    contractsWithHoldHarmless?: number;
   };
   contracts: ContractAnalysis[];
   parentOrganizations: ParentOrgAnalysis[];
@@ -173,7 +217,7 @@ type AnalysisData = {
   };
 };
 
-type SortKey = "contractId" | "organizationMarketingName" | "currentOverallRating" | "projectedOverallRating" | "finalProjectedOverall" | "overallChange" | "finalOverallChange" | "starBracketChange" | "finalStarBracketChange" | "rFactorChange";
+type SortKey = "contractId" | "organizationMarketingName" | "currentOverallRating" | "projectedOverallRating" | "finalProjectedOverall" | "overallChange" | "finalOverallChange" | "starBracketChange" | "finalStarBracketChange" | "rFactorChange" | "holdHarmless";
 type OrgSortKey = "parentOrganization" | "contractCount" | "avgCurrentRating" | "avgProjectedRating" | "avgFinalProjectedRating" | "avgOverallChange" | "avgFinalOverallChange" | "contractsGaining" | "contractsLosing";
 type SortDirection = "asc" | "desc";
 type ViewMode = "contracts" | "organizations";
@@ -227,7 +271,7 @@ export function OperationsImpactAnalysis() {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortKey(key);
-      const descByDefault = ["overallChange", "finalOverallChange", "starBracketChange", "finalStarBracketChange", "rFactorChange"];
+      const descByDefault = ["overallChange", "finalOverallChange", "starBracketChange", "finalStarBracketChange", "rFactorChange", "holdHarmless"];
       setSortDirection(descByDefault.includes(key) ? "desc" : "asc");
     }
   };
@@ -303,6 +347,11 @@ export function OperationsImpactAnalysis() {
         case "rFactorChange":
           aVal = a.rewardFactor?.rFactorChange ?? null;
           bVal = b.rewardFactor?.rFactorChange ?? null;
+          break;
+        case "holdHarmless":
+          // Sort by hold harmless applied (true = 1, false/undefined = 0)
+          aVal = a.holdHarmless?.applied ? 1 : 0;
+          bVal = b.holdHarmless?.applied ? 1 : 0;
           break;
       }
 
@@ -592,6 +641,38 @@ export function OperationsImpactAnalysis() {
         )}
       </div>
 
+      {/* Hold Harmless Provision */}
+      {data.holdHarmlessSummary && (
+        <div className="rounded-2xl border border-blue-500/30 bg-blue-500/5 p-6">
+          <div className="flex items-start gap-3">
+            <Shield className="h-5 w-5 text-blue-400 mt-0.5" />
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-blue-400">Quality Improvement Hold Harmless Provision</h3>
+                <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full font-medium">
+                  {data.holdHarmlessSummary.contractsWithHoldHarmless} contracts protected
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {data.holdHarmlessSummary.description}
+              </p>
+              {data.qualityImprovementMeasures && (
+                <div className="mt-3 flex items-center gap-3 text-xs">
+                  <span className="text-muted-foreground">QI Measures:</span>
+                  {data.qualityImprovementMeasures.codes.map(code => (
+                    <span key={code} className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-mono">
+                      {code}
+                    </span>
+                  ))}
+                  <span className="text-muted-foreground">•</span>
+                  <span className="text-muted-foreground">Threshold: {data.qualityImprovementMeasures.threshold}★</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reward Factor Threshold Impact */}
       {data.rewardFactorImpact && (
         <div className="rounded-2xl border border-border bg-card p-6">
@@ -678,65 +759,126 @@ export function OperationsImpactAnalysis() {
                 </div>
               </div>
 
-              {/* Overall Rating Thresholds */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium text-foreground">Projected Threshold Changes (Overall Rating)</h4>
-                <p className="text-xs text-muted-foreground">
-                  When the {data.removedMeasuresSummary?.count || 0} measures are removed, each contract&apos;s weighted mean and variance change. 
-                  This shifts the distribution of all contracts, resulting in new percentile cutpoints:
-                </p>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-lg border border-border bg-muted/50 p-4">
-                    <p className="text-xs font-medium text-muted-foreground mb-3">Performance (Mean) Thresholds</p>
-                    <p className="text-[10px] text-muted-foreground mb-2">Determines if a contract qualifies for &quot;High&quot; or &quot;Relatively High&quot; mean category</p>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">65th Percentile:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-foreground">{data.rewardFactorImpact.overall.thresholds.current.mean65th.toFixed(4)}</span>
-                          <span className="text-muted-foreground">→</span>
-                          <span className="font-mono text-foreground">{data.rewardFactorImpact.overall.thresholds.projected.mean65th.toFixed(4)}</span>
-                          <span className={`font-mono text-xs ${data.rewardFactorImpact.overall.thresholds.changes.mean65thChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                            ({data.rewardFactorImpact.overall.thresholds.changes.mean65thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.mean65thChange.toFixed(4)})
+              {/* Overall Rating Thresholds - Two Scenarios */}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-foreground">Projected Threshold Changes (Overall Rating)</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Thresholds are calculated separately for contracts WITH Quality Improvement measures and those WITHOUT (Hold Harmless).
+                    Each contract uses the threshold set appropriate to their hold harmless status.
+                  </p>
+                </div>
+                
+                {/* WITH QI Measures (No Hold Harmless) */}
+                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-semibold text-foreground">With QI Measures</span>
+                    <span className="text-[10px] bg-muted px-2 py-0.5 rounded text-muted-foreground">
+                      {data.rewardFactorImpact.overall.summary.totalContractsWithQI} contracts → {data.rewardFactorImpact.overall.summary.contractsUsingWithQIThresholds} using
+                    </span>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <p className="text-[10px] font-medium text-muted-foreground mb-2">Mean Thresholds</p>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">65th:</span>
+                          <span className="font-mono">
+                            {data.rewardFactorImpact.overall.thresholds.current.withQI.mean65th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withQI.mean65th.toFixed(4)}
+                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withQI.mean65thChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                              ({data.rewardFactorImpact.overall.thresholds.changes.withQI.mean65thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withQI.mean65thChange.toFixed(4)})
+                            </span>
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">85th:</span>
+                          <span className="font-mono">
+                            {data.rewardFactorImpact.overall.thresholds.current.withQI.mean85th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withQI.mean85th.toFixed(4)}
+                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withQI.mean85thChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                              ({data.rewardFactorImpact.overall.thresholds.changes.withQI.mean85thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withQI.mean85thChange.toFixed(4)})
+                            </span>
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">85th Percentile:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-foreground">{data.rewardFactorImpact.overall.thresholds.current.mean85th.toFixed(4)}</span>
-                          <span className="text-muted-foreground">→</span>
-                          <span className="font-mono text-foreground">{data.rewardFactorImpact.overall.thresholds.projected.mean85th.toFixed(4)}</span>
-                          <span className={`font-mono text-xs ${data.rewardFactorImpact.overall.thresholds.changes.mean85thChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                            ({data.rewardFactorImpact.overall.thresholds.changes.mean85thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.mean85thChange.toFixed(4)})
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-muted-foreground mb-2">Variance Thresholds</p>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">30th:</span>
+                          <span className="font-mono">
+                            {data.rewardFactorImpact.overall.thresholds.current.withQI.variance30th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withQI.variance30th.toFixed(4)}
+                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withQI.variance30thChange >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                              ({data.rewardFactorImpact.overall.thresholds.changes.withQI.variance30thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withQI.variance30thChange.toFixed(4)})
+                            </span>
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">70th:</span>
+                          <span className="font-mono">
+                            {data.rewardFactorImpact.overall.thresholds.current.withQI.variance70th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withQI.variance70th.toFixed(4)}
+                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withQI.variance70thChange >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                              ({data.rewardFactorImpact.overall.thresholds.changes.withQI.variance70thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withQI.variance70thChange.toFixed(4)})
+                            </span>
                           </span>
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div className="rounded-lg border border-border bg-muted/50 p-4">
-                    <p className="text-xs font-medium text-muted-foreground mb-3">Variance Thresholds</p>
-                    <p className="text-[10px] text-muted-foreground mb-2">Lower variance = more consistent performance across measures</p>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">30th Percentile:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-foreground">{data.rewardFactorImpact.overall.thresholds.current.variance30th.toFixed(4)}</span>
-                          <span className="text-muted-foreground">→</span>
-                          <span className="font-mono text-foreground">{data.rewardFactorImpact.overall.thresholds.projected.variance30th.toFixed(4)}</span>
-                          <span className={`font-mono text-xs ${data.rewardFactorImpact.overall.thresholds.changes.variance30thChange >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                            ({data.rewardFactorImpact.overall.thresholds.changes.variance30thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.variance30thChange.toFixed(4)})
+                </div>
+
+                {/* WITHOUT QI Measures (Hold Harmless) */}
+                <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Shield className="h-3.5 w-3.5 text-blue-400" />
+                    <span className="text-xs font-semibold text-blue-400">Without QI Measures (Hold Harmless)</span>
+                    <span className="text-[10px] bg-blue-500/20 px-2 py-0.5 rounded text-blue-400">
+                      {data.rewardFactorImpact.overall.summary.totalContractsWithoutQI} contracts → {data.rewardFactorImpact.overall.summary.contractsUsingWithoutQIThresholds} using
+                    </span>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <p className="text-[10px] font-medium text-muted-foreground mb-2">Mean Thresholds</p>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">65th:</span>
+                          <span className="font-mono">
+                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.mean65th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withoutQI.mean65th.toFixed(4)}
+                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean65thChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                              ({data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean65thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean65thChange.toFixed(4)})
+                            </span>
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">85th:</span>
+                          <span className="font-mono">
+                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.mean85th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withoutQI.mean85th.toFixed(4)}
+                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean85thChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                              ({data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean85thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean85thChange.toFixed(4)})
+                            </span>
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">70th Percentile:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-foreground">{data.rewardFactorImpact.overall.thresholds.current.variance70th.toFixed(4)}</span>
-                          <span className="text-muted-foreground">→</span>
-                          <span className="font-mono text-foreground">{data.rewardFactorImpact.overall.thresholds.projected.variance70th.toFixed(4)}</span>
-                          <span className={`font-mono text-xs ${data.rewardFactorImpact.overall.thresholds.changes.variance70thChange >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                            ({data.rewardFactorImpact.overall.thresholds.changes.variance70thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.variance70thChange.toFixed(4)})
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-muted-foreground mb-2">Variance Thresholds</p>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">30th:</span>
+                          <span className="font-mono">
+                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.variance30th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withoutQI.variance30th.toFixed(4)}
+                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance30thChange >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                              ({data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance30thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance30thChange.toFixed(4)})
+                            </span>
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">70th:</span>
+                          <span className="font-mono">
+                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.variance70th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withoutQI.variance70th.toFixed(4)}
+                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance70thChange >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                              ({data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance70thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance70thChange.toFixed(4)})
+                            </span>
                           </span>
                         </div>
                       </div>
@@ -855,38 +997,106 @@ export function OperationsImpactAnalysis() {
               )}
 
               {/* Official Threshold Comparison */}
-              {data.rewardFactorImpact.overall.thresholds.officialComparison && (
-                <div className="border-t border-border pt-4">
-                  <p className="text-xs font-medium text-muted-foreground mb-3">Comparison with Official CMS 2026 Thresholds</p>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Comparing our calculated thresholds against the official CMS published values to validate calculations.
-                  </p>
-                  <div className="grid gap-2 md:grid-cols-4">
-                    <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-                      <p className="text-xs text-muted-foreground">Mean 65th Diff</p>
-                      <p className={`text-sm font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.percentDifferences.mean65th) < 5 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                        {data.rewardFactorImpact.overall.thresholds.officialComparison.percentDifferences.mean65th.toFixed(2)}%
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-                      <p className="text-xs text-muted-foreground">Mean 85th Diff</p>
-                      <p className={`text-sm font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.percentDifferences.mean85th) < 5 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                        {data.rewardFactorImpact.overall.thresholds.officialComparison.percentDifferences.mean85th.toFixed(2)}%
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-                      <p className="text-xs text-muted-foreground">Variance 30th Diff</p>
-                      <p className={`text-sm font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.percentDifferences.variance30th) < 10 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                        {data.rewardFactorImpact.overall.thresholds.officialComparison.percentDifferences.variance30th.toFixed(2)}%
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-                      <p className="text-xs text-muted-foreground">Variance 70th Diff</p>
-                      <p className={`text-sm font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.percentDifferences.variance70th) < 10 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                        {data.rewardFactorImpact.overall.thresholds.officialComparison.percentDifferences.variance70th.toFixed(2)}%
-                      </p>
+              {data.rewardFactorImpact.overall.thresholds.officialComparison?.withQI && (
+                <div className="border-t border-border pt-4 space-y-4">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Comparison with Official CMS 2026 Thresholds</p>
+                    <p className="text-xs text-muted-foreground">
+                      Comparing calculated thresholds ({data.rewardFactorImpact.overall.summary.totalContractsWithQI} contracts) against official CMS published values.
+                    </p>
+                  </div>
+                  
+                  {/* With QI Comparison */}
+                  <div>
+                    <p className="text-[10px] font-medium text-muted-foreground mb-2">
+                      With QI Measures (vs CMS: improvementMeasures={String(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.matchedScenario?.improvementMeasuresIncluded ?? true)}, newMeasures={String(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.matchedScenario?.newMeasuresIncluded ?? true)})
+                    </p>
+                    <div className="grid gap-2 md:grid-cols-4">
+                      <div className="rounded-lg border border-border bg-muted/30 p-2 text-center">
+                        <p className="text-[10px] text-muted-foreground">Mean 65th</p>
+                        <p className="text-[9px] text-muted-foreground/70">
+                          {(data.rewardFactorImpact.overall.thresholds.current.withQI.mean65th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.official.mean65th.toFixed(4)}
+                        </p>
+                        <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean65th) < 2 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean65th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean65th.toFixed(2)}%
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-border bg-muted/30 p-2 text-center">
+                        <p className="text-[10px] text-muted-foreground">Mean 85th</p>
+                        <p className="text-[9px] text-muted-foreground/70">
+                          {(data.rewardFactorImpact.overall.thresholds.current.withQI.mean85th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.official.mean85th.toFixed(4)}
+                        </p>
+                        <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean85th) < 2 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean85th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean85th.toFixed(2)}%
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-border bg-muted/30 p-2 text-center">
+                        <p className="text-[10px] text-muted-foreground">Variance 30th</p>
+                        <p className="text-[9px] text-muted-foreground/70">
+                          {(data.rewardFactorImpact.overall.thresholds.current.withQI.variance30th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.official.variance30th.toFixed(4)}
+                        </p>
+                        <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance30th) < 5 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance30th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance30th.toFixed(2)}%
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-border bg-muted/30 p-2 text-center">
+                        <p className="text-[10px] text-muted-foreground">Variance 70th</p>
+                        <p className="text-[9px] text-muted-foreground/70">
+                          {(data.rewardFactorImpact.overall.thresholds.current.withQI.variance70th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.official.variance70th.toFixed(4)}
+                        </p>
+                        <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance70th) < 5 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance70th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance70th.toFixed(2)}%
+                        </p>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Without QI Comparison */}
+                  {data.rewardFactorImpact.overall.thresholds.officialComparison?.withoutQI && (
+                    <div>
+                      <p className="text-[10px] font-medium text-blue-400 mb-2">
+                        Without QI Measures (vs CMS: improvementMeasures={String(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.matchedScenario?.improvementMeasuresIncluded ?? false)}, newMeasures={String(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.matchedScenario?.newMeasuresIncluded ?? true)})
+                      </p>
+                      <div className="grid gap-2 md:grid-cols-4">
+                        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-2 text-center">
+                          <p className="text-[10px] text-muted-foreground">Mean 65th</p>
+                          <p className="text-[9px] text-muted-foreground/70">
+                            {(data.rewardFactorImpact.overall.thresholds.current.withoutQI.mean65th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.official.mean65th.toFixed(4)}
+                          </p>
+                          <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean65th) < 2 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean65th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean65th.toFixed(2)}%
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-2 text-center">
+                          <p className="text-[10px] text-muted-foreground">Mean 85th</p>
+                          <p className="text-[9px] text-muted-foreground/70">
+                            {(data.rewardFactorImpact.overall.thresholds.current.withoutQI.mean85th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.official.mean85th.toFixed(4)}
+                          </p>
+                          <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean85th) < 2 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean85th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean85th.toFixed(2)}%
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-2 text-center">
+                          <p className="text-[10px] text-muted-foreground">Variance 30th</p>
+                          <p className="text-[9px] text-muted-foreground/70">
+                            {(data.rewardFactorImpact.overall.thresholds.current.withoutQI.variance30th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.official.variance30th.toFixed(4)}
+                          </p>
+                          <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance30th) < 5 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance30th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance30th.toFixed(2)}%
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-2 text-center">
+                          <p className="text-[10px] text-muted-foreground">Variance 70th</p>
+                          <p className="text-[9px] text-muted-foreground/70">
+                            {(data.rewardFactorImpact.overall.thresholds.current.withoutQI.variance70th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.official.variance70th.toFixed(4)}
+                          </p>
+                          <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance70th) < 5 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance70th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance70th.toFixed(2)}%
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1025,6 +1235,9 @@ export function OperationsImpactAnalysis() {
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
                       <SortHeader label="r-Factor Δ" sortKeyValue="rFactorChange" tooltip="Change in Reward Factor due to measure removal (current → projected)" />
                     </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">
+                      <SortHeader label="Hold Harmless" sortKeyValue="holdHarmless" tooltip="Quality Improvement Hold Harmless: Contract protected from QI measure impact when rating without QI ≥ 4.0★ but with QI < 4.0★" />
+                    </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground" title="Measures removed / Total measures for this contract. The total varies because not all plans report every measure.">
                       <span className="flex items-center gap-1 justify-end">
                         Removed
@@ -1105,6 +1318,21 @@ export function OperationsImpactAnalysis() {
                               {contract.rewardFactor.currentRFactor.toFixed(1)} → {contract.rewardFactor.projectedRFactor.toFixed(1)}
                             </span>
                           </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center text-xs">
+                        {contract.holdHarmless?.applied ? (
+                          <span 
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-blue-500/10 text-blue-400 font-medium cursor-help"
+                            title={`Protected: Without QI measures = ${contract.holdHarmless.ratingWithoutQI?.toFixed(2)}★, With QI = ${contract.holdHarmless.ratingWithQI?.toFixed(2)}★. Excluded: ${contract.holdHarmless.excludedMeasures.join(', ')}`}
+                          >
+                            <Shield className="h-3 w-3" />
+                            Yes
+                          </span>
+                        ) : contract.holdHarmless ? (
+                          <span className="text-muted-foreground text-[10px]">No</span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}

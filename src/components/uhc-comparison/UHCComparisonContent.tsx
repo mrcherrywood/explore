@@ -837,7 +837,7 @@ export function UHCComparisonContent() {
                     Performance Change: {yoyData.olderYear} → {yoyData.newerYear}
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Change in high-star (4-5★) percentage for each measure. Positive = more contracts achieved 4-5 stars.
+                    Change in 4+ stars percentage for each measure. Positive = more contracts achieved 4-5 stars.
                   </p>
                 </div>
               </div>
@@ -888,10 +888,10 @@ export function UHCComparisonContent() {
                     </div>
                   </div>
 
-                  {/* High Star Change Summary */}
+                  {/* 4+ Stars Change Summary */}
                   <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
-                      <p className="text-xs text-muted-foreground mb-1">UHC High Star Change</p>
+                      <p className="text-xs text-muted-foreground mb-1">UHC 4+ Stars Change</p>
                       <div className="flex items-center gap-2">
                         {comparison.uhcHighStarChange > 0 ? (
                           <ArrowUp className="h-5 w-5 text-green-500" />
@@ -913,7 +913,7 @@ export function UHCComparisonContent() {
                       </p>
                     </div>
                     <div className="rounded-xl border border-border bg-muted p-4">
-                      <p className="text-xs text-muted-foreground mb-1">Market High Star Change</p>
+                      <p className="text-xs text-muted-foreground mb-1">Market 4+ Stars Change</p>
                       <div className="flex items-center gap-2">
                         {comparison.marketHighStarChange > 0 ? (
                           <ArrowUp className="h-5 w-5 text-green-500" />

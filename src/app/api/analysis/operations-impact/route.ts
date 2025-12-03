@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import {
-  analyzeRewardFactorImpact,
+  calculateContractStats,
+  computePercentileThresholds,
+  calculateRewardFactor,
+  filterMeasures,
+  compareThresholds,
   compareWithOfficial,
   type ContractMeasure,
 } from '@/lib/reward-factor';
@@ -44,8 +48,18 @@ const CMS_REMOVED_MEASURES: Record<string, number> = {
 
 const CMS_REMOVED_MEASURE_CODES = new Set(Object.keys(CMS_REMOVED_MEASURES));
 
+// Quality Improvement Measures subject to Hold Harmless provision
+// If a contract would be ≥4 stars WITHOUT QI measures but including them drops below 4,
+// then QI measures are excluded from the calculation
+const QUALITY_IMPROVEMENT_MEASURES = new Set(['C27', 'D04']);
+const HOLD_HARMLESS_THRESHOLD = 4.0;
+
 function isMeasureBeingRemoved(code: string): boolean {
   return CMS_REMOVED_MEASURE_CODES.has(code.trim().toUpperCase());
+}
+
+function isQualityImprovementMeasure(code: string): boolean {
+  return QUALITY_IMPROVEMENT_MEASURES.has(code.trim().toUpperCase());
 }
 
 function getMeasureRemovalYear(code: string): number | null {
@@ -93,6 +107,13 @@ type ContractAnalysis = {
   operationsMeasuresExcluded: number;
   totalMeasuresUsed: number;
   totalMeasuresWithoutOps: number;
+  // Hold harmless provision for quality improvement measures
+  holdHarmless?: {
+    applied: boolean;
+    ratingWithQI: number | null;
+    ratingWithoutQI: number | null;
+    excludedMeasures: string[];
+  };
   // Reward factor impact fields (added later)
   rewardFactor?: {
     currentRFactor: number;
@@ -418,7 +439,50 @@ export async function GET(request: Request) {
       const currentPartC = cmsRatings?.partC ?? (currentPartCWeight > 0 ? currentPartCWeighted / currentPartCWeight : null);
       const currentPartD = cmsRatings?.partD ?? (currentPartDWeight > 0 ? currentPartDWeighted / currentPartDWeight : null);
 
-      const projectedOverall = projectedOverallWeight > 0 ? projectedOverallWeighted / projectedOverallWeight : null;
+      // Calculate projected rating WITH quality improvement measures
+      const projectedWithQI = projectedOverallWeight > 0 ? projectedOverallWeighted / projectedOverallWeight : null;
+      
+      // Calculate projected rating WITHOUT quality improvement measures (for hold harmless check)
+      let projectedWithoutQIWeighted = 0;
+      let projectedWithoutQIWeight = 0;
+      const qiMeasuresPresent: string[] = [];
+      
+      for (const metric of contractMetrics) {
+        const measureInfo = measureMap.get(metric.code);
+        if (!measureInfo) continue;
+        
+        // Skip removed measures AND quality improvement measures
+        if (measureInfo.isBeingRemoved) continue;
+        
+        if (isQualityImprovementMeasure(metric.code)) {
+          qiMeasuresPresent.push(metric.code);
+          continue;
+        }
+        
+        projectedWithoutQIWeighted += metric.starRating * measureInfo.weight;
+        projectedWithoutQIWeight += measureInfo.weight;
+      }
+      
+      const projectedWithoutQI = projectedWithoutQIWeight > 0 ? projectedWithoutQIWeighted / projectedWithoutQIWeight : null;
+      
+      // Apply Hold Harmless provision:
+      // If rating WITHOUT QI measures >= 4.0 AND rating WITH QI measures < 4.0,
+      // then exclude QI measures (use the higher rating)
+      let holdHarmlessApplied = false;
+      let projectedOverall = projectedWithQI;
+      
+      if (
+        qiMeasuresPresent.length > 0 &&
+        projectedWithoutQI !== null &&
+        projectedWithQI !== null &&
+        projectedWithoutQI >= HOLD_HARMLESS_THRESHOLD &&
+        projectedWithQI < HOLD_HARMLESS_THRESHOLD
+      ) {
+        // Hold harmless applies - use rating without QI measures
+        holdHarmlessApplied = true;
+        projectedOverall = projectedWithoutQI;
+      }
+      
       const projectedPartC = projectedPartCWeight > 0 ? projectedPartCWeighted / projectedPartCWeight : null;
       const projectedPartD = projectedPartDWeight > 0 ? projectedPartDWeighted / projectedPartDWeight : null;
 
@@ -467,6 +531,13 @@ export async function GET(request: Request) {
         operationsMeasuresExcluded,
         totalMeasuresUsed,
         totalMeasuresWithoutOps,
+        // Hold harmless provision data
+        holdHarmless: qiMeasuresPresent.length > 0 ? {
+          applied: holdHarmlessApplied,
+          ratingWithQI: projectedWithQI,
+          ratingWithoutQI: projectedWithoutQI,
+          excludedMeasures: holdHarmlessApplied ? qiMeasuresPresent : [],
+        } : undefined,
       });
     }
 
@@ -510,8 +581,185 @@ export async function GET(request: Request) {
       }
     }
 
+    // Build hold harmless lookup from contractAnalyses
+    const holdHarmlessMap = new Map<string, boolean>();
+    for (const analysis of contractAnalyses) {
+      holdHarmlessMap.set(analysis.contractId, analysis.holdHarmless?.applied ?? false);
+    }
+
+    // ==========================================
+    // REWARD FACTOR CALCULATION WITH HOLD HARMLESS
+    // ==========================================
+    // We need separate thresholds for:
+    // 1. Contracts WITH QI measures (no hold harmless)
+    // 2. Contracts WITHOUT QI measures (hold harmless applies)
+    // 
+    // For projected scenarios, we calculate thresholds after removing ops measures
+    // but still maintaining the QI measure split based on hold harmless status.
+
+    const analyzeRewardFactorWithHoldHarmless = (
+      contractsData: Map<string, ContractMeasure[]>,
+      removedCodes: Set<string>,
+      ratingType: 'overall_mapd' | 'part_c' | 'part_d_mapd',
+      filterCategory: 'Part C' | 'Part D' | null
+    ) => {
+      // ==========================================
+      // THRESHOLD CALCULATION
+      // ==========================================
+      // Thresholds are computed from ALL contracts in each scenario:
+      // - WITH QI: All contracts with their QI measures included
+      // - WITHOUT QI: All contracts with their QI measures excluded
+      // The hold harmless status determines which threshold SET a contract uses,
+      // but ALL contracts contribute to computing both threshold sets.
+      
+      // Current stats - ALL contracts with QI included
+      const currentStatsWithQI = [];
+      // Current stats - ALL contracts with QI excluded
+      const currentStatsWithoutQI = [];
+      // Projected stats - ALL contracts after ops removal, with QI included
+      const projectedStatsWithQI = [];
+      // Projected stats - ALL contracts after ops removal, with QI excluded
+      const projectedStatsWithoutQI = [];
+      
+      for (const [contractId, measures] of contractsData) {
+        // Filter by category if needed
+        const categoryMeasures = filterCategory 
+          ? measures.filter(m => m.category === filterCategory)
+          : measures;
+        
+        // ---- CURRENT SCENARIO ----
+        // WITH QI: Calculate stats including QI measures
+        const currentStats = calculateContractStats(contractId, categoryMeasures, null);
+        if (currentStats.measureCount > 1) {
+          currentStatsWithQI.push(currentStats);
+        }
+        
+        // WITHOUT QI: Calculate stats excluding QI measures
+        const currentMeasuresWithoutQI = categoryMeasures.filter(m => !isQualityImprovementMeasure(m.code));
+        const currentStatsNoQI = calculateContractStats(contractId, currentMeasuresWithoutQI, null);
+        if (currentStatsNoQI.measureCount > 1) {
+          currentStatsWithoutQI.push(currentStatsNoQI);
+        }
+        
+        // ---- PROJECTED SCENARIO (after ops measure removal) ----
+        const projectedMeasuresBase = filterMeasures(categoryMeasures, removedCodes);
+        
+        // WITH QI: After ops removal, still including QI measures
+        const projectedStatsWithQIMeasures = calculateContractStats(contractId, projectedMeasuresBase, null);
+        if (projectedStatsWithQIMeasures.measureCount > 1) {
+          projectedStatsWithQI.push(projectedStatsWithQIMeasures);
+        }
+        
+        // WITHOUT QI: After ops removal, also excluding QI measures
+        const projectedMeasuresNoQI = projectedMeasuresBase.filter(m => !isQualityImprovementMeasure(m.code));
+        const projectedStatsNoQIMeasures = calculateContractStats(contractId, projectedMeasuresNoQI, null);
+        if (projectedStatsNoQIMeasures.measureCount > 1) {
+          projectedStatsWithoutQI.push(projectedStatsNoQIMeasures);
+        }
+      }
+      
+      // Compute thresholds from ALL contracts in each scenario
+      const currentThresholdsWithQI = computePercentileThresholds(currentStatsWithQI);
+      const currentThresholdsWithoutQI = computePercentileThresholds(currentStatsWithoutQI);
+      const projectedThresholdsWithQI = computePercentileThresholds(projectedStatsWithQI);
+      const projectedThresholdsWithoutQI = computePercentileThresholds(projectedStatsWithoutQI);
+      
+      // ==========================================
+      // REWARD FACTOR CALCULATION PER CONTRACT
+      // ==========================================
+      // Each contract uses the threshold set based on their hold harmless eligibility
+      
+      const contractResults: Array<{
+        contractId: string;
+        hasHoldHarmless: boolean;
+        current: ReturnType<typeof calculateRewardFactor>;
+        projected: ReturnType<typeof calculateRewardFactor>;
+        rFactorChange: number;
+      }> = [];
+      
+      // Create lookup maps for stats
+      const currentStatsWithQIMap = new Map(currentStatsWithQI.map(s => [s.contractId, s]));
+      const currentStatsWithoutQIMap = new Map(currentStatsWithoutQI.map(s => [s.contractId, s]));
+      const projectedStatsWithQIMap = new Map(projectedStatsWithQI.map(s => [s.contractId, s]));
+      const projectedStatsWithoutQIMap = new Map(projectedStatsWithoutQI.map(s => [s.contractId, s]));
+      
+      // Track how many contracts use each threshold set
+      let contractsUsingWithQI = 0;
+      let contractsUsingWithoutQI = 0;
+      
+      for (const [contractId] of contractsData) {
+        const hasHoldHarmless = holdHarmlessMap.get(contractId) ?? false;
+        
+        // Current: use WITH QI stats and thresholds (official CMS methodology includes QI for everyone in current)
+        const currentStats = currentStatsWithQIMap.get(contractId);
+        if (!currentStats) continue;
+        
+        const currentResult = calculateRewardFactor(
+          currentStats,
+          currentThresholdsWithQI, // Current always uses WITH QI thresholds
+          ratingType
+        );
+        
+        // Projected: use appropriate stats and thresholds based on hold harmless status
+        let projectedResult;
+        if (hasHoldHarmless) {
+          // Contract has hold harmless - use stats WITHOUT QI and thresholds WITHOUT QI
+          const projectedStats = projectedStatsWithoutQIMap.get(contractId);
+          if (!projectedStats) continue;
+          projectedResult = calculateRewardFactor(
+            projectedStats,
+            projectedThresholdsWithoutQI, // Use WITHOUT QI thresholds
+            ratingType
+          );
+          contractsUsingWithoutQI++;
+        } else {
+          // Contract doesn't have hold harmless - use stats WITH QI and thresholds WITH QI
+          const projectedStats = projectedStatsWithQIMap.get(contractId);
+          if (!projectedStats) continue;
+          projectedResult = calculateRewardFactor(
+            projectedStats,
+            projectedThresholdsWithQI, // Use WITH QI thresholds
+            ratingType
+          );
+          contractsUsingWithQI++;
+        }
+        
+        contractResults.push({
+          contractId,
+          hasHoldHarmless,
+          current: currentResult,
+          projected: projectedResult,
+          rFactorChange: projectedResult.rFactor - currentResult.rFactor,
+        });
+      }
+      
+      return {
+        currentThresholds: {
+          withQI: currentThresholdsWithQI,
+          withoutQI: currentThresholdsWithoutQI,
+        },
+        projectedThresholds: {
+          withQI: projectedThresholdsWithQI,
+          withoutQI: projectedThresholdsWithoutQI,
+        },
+        thresholdChanges: {
+          withQI: compareThresholds(currentThresholdsWithQI, projectedThresholdsWithQI),
+          withoutQI: compareThresholds(currentThresholdsWithoutQI, projectedThresholdsWithoutQI),
+        },
+        contractResults,
+        stats: {
+          // Total contracts contributing to each threshold calculation
+          totalContractsWithQI: projectedStatsWithQI.length,
+          totalContractsWithoutQI: projectedStatsWithoutQI.length,
+          // Contracts using each threshold set based on hold harmless
+          contractsUsingWithQIThresholds: contractsUsingWithQI,
+          contractsUsingWithoutQIThresholds: contractsUsingWithoutQI,
+        },
+      };
+    };
+
     // Analyze reward factor impact for overall ratings
-    const overallRewardFactorImpact = analyzeRewardFactorImpact(
+    const overallRewardFactorImpact = analyzeRewardFactorWithHoldHarmless(
       contractMeasuresData,
       CMS_REMOVED_MEASURE_CODES,
       'overall_mapd',
@@ -519,7 +767,7 @@ export async function GET(request: Request) {
     );
 
     // Analyze reward factor impact for Part C
-    const partCRewardFactorImpact = analyzeRewardFactorImpact(
+    const partCRewardFactorImpact = analyzeRewardFactorWithHoldHarmless(
       contractMeasuresData,
       CMS_REMOVED_MEASURE_CODES,
       'part_c',
@@ -527,47 +775,136 @@ export async function GET(request: Request) {
     );
 
     // Analyze reward factor impact for Part D
-    const partDRewardFactorImpact = analyzeRewardFactorImpact(
+    const partDRewardFactorImpact = analyzeRewardFactorWithHoldHarmless(
       contractMeasuresData,
       CMS_REMOVED_MEASURE_CODES,
       'part_d_mapd',
       'Part D'
     );
 
-    // Summarize reward factor impact
+    // Summarize reward factor impact (now with hold harmless scenarios)
     const summarizeRewardFactorImpact = (
-      impact: ReturnType<typeof analyzeRewardFactorImpact>,
+      impact: ReturnType<typeof analyzeRewardFactorWithHoldHarmless>,
       ratingType: 'overall_mapd' | 'part_c' | 'part_d_mapd'
     ) => {
       const gains = impact.contractResults.filter(c => c.rFactorChange > 0);
       const losses = impact.contractResults.filter(c => c.rFactorChange < 0);
       const unchanged = impact.contractResults.filter(c => c.rFactorChange === 0);
       
+      // Separate by hold harmless status
+      const holdHarmlessContracts = impact.contractResults.filter(c => c.hasHoldHarmless);
+      const nonHoldHarmlessContracts = impact.contractResults.filter(c => !c.hasHoldHarmless);
+      
       const avgChange = impact.contractResults.length > 0
         ? impact.contractResults.reduce((sum, c) => sum + c.rFactorChange, 0) / impact.contractResults.length
         : 0;
 
       // Compare current thresholds with official CMS thresholds
-      const officialComparison = compareWithOfficial(
-        impact.currentThresholds,
+      // CMS publishes thresholds for 4 scenarios based on improvement_measures and new_measures flags.
+      // Try both new_measures scenarios to find best match (database may not include all "new" measures)
+      const officialComparisonWithQI_newT = compareWithOfficial(
+        impact.currentThresholds.withQI,
         ratingType,
         true, // improvement measures included
         true  // new measures included
       );
+      const officialComparisonWithQI_newF = compareWithOfficial(
+        impact.currentThresholds.withQI,
+        ratingType,
+        true, // improvement measures included
+        false // new measures NOT included
+      );
+      
+      // Use the scenario that produces lower average variance difference (better match)
+      const avgVarDiffNewT = officialComparisonWithQI_newT 
+        ? (Math.abs(officialComparisonWithQI_newT.percentDifferences.variance30th) + 
+           Math.abs(officialComparisonWithQI_newT.percentDifferences.variance70th)) / 2
+        : Infinity;
+      const avgVarDiffNewF = officialComparisonWithQI_newF
+        ? (Math.abs(officialComparisonWithQI_newF.percentDifferences.variance30th) + 
+           Math.abs(officialComparisonWithQI_newF.percentDifferences.variance70th)) / 2
+        : Infinity;
+      
+      const officialComparisonWithQI = avgVarDiffNewF < avgVarDiffNewT 
+        ? officialComparisonWithQI_newF 
+        : officialComparisonWithQI_newT;
+      
+      // Compare WITHOUT QI thresholds
+      const officialComparisonWithoutQI_newT = compareWithOfficial(
+        impact.currentThresholds.withoutQI,
+        ratingType,
+        false, // improvement measures NOT included
+        true   // new measures included
+      );
+      const officialComparisonWithoutQI_newF = compareWithOfficial(
+        impact.currentThresholds.withoutQI,
+        ratingType,
+        false, // improvement measures NOT included
+        false  // new measures NOT included
+      );
+      
+      // Use the scenario that produces lower average variance difference
+      const avgVarDiffNoQI_newT = officialComparisonWithoutQI_newT
+        ? (Math.abs(officialComparisonWithoutQI_newT.percentDifferences.variance30th) + 
+           Math.abs(officialComparisonWithoutQI_newT.percentDifferences.variance70th)) / 2
+        : Infinity;
+      const avgVarDiffNoQI_newF = officialComparisonWithoutQI_newF
+        ? (Math.abs(officialComparisonWithoutQI_newF.percentDifferences.variance30th) + 
+           Math.abs(officialComparisonWithoutQI_newF.percentDifferences.variance70th)) / 2
+        : Infinity;
+      
+      const officialComparisonWithoutQI = avgVarDiffNoQI_newF < avgVarDiffNoQI_newT
+        ? officialComparisonWithoutQI_newF
+        : officialComparisonWithoutQI_newT;
 
       return {
         thresholds: {
-          current: impact.currentThresholds,
-          projected: impact.projectedThresholds,
-          changes: impact.thresholdChanges,
-          officialComparison: officialComparison ?? undefined,
+          current: {
+            withQI: impact.currentThresholds.withQI,
+            withoutQI: impact.currentThresholds.withoutQI,
+          },
+          projected: {
+            withQI: impact.projectedThresholds.withQI,
+            withoutQI: impact.projectedThresholds.withoutQI,
+          },
+          changes: {
+            withQI: impact.thresholdChanges.withQI,
+            withoutQI: impact.thresholdChanges.withoutQI,
+          },
+          officialComparison: {
+            withQI: officialComparisonWithQI ? {
+              ...officialComparisonWithQI,
+              matchedScenario: {
+                improvementMeasuresIncluded: true,
+                newMeasuresIncluded: avgVarDiffNewF < avgVarDiffNewT ? false : true,
+              },
+            } : undefined,
+            withoutQI: officialComparisonWithoutQI ? {
+              ...officialComparisonWithoutQI,
+              matchedScenario: {
+                improvementMeasuresIncluded: false,
+                newMeasuresIncluded: avgVarDiffNoQI_newF < avgVarDiffNoQI_newT ? false : true,
+              },
+            } : undefined,
+          },
         },
         summary: {
           totalContracts: impact.contractResults.length,
+          // Total contracts contributing to threshold calculation (ALL contracts)
+          totalContractsWithQI: impact.stats.totalContractsWithQI,
+          totalContractsWithoutQI: impact.stats.totalContractsWithoutQI,
+          // Contracts USING each threshold set (based on hold harmless eligibility)
+          contractsUsingWithQIThresholds: impact.stats.contractsUsingWithQIThresholds,
+          contractsUsingWithoutQIThresholds: impact.stats.contractsUsingWithoutQIThresholds,
           contractsGainingRFactor: gains.length,
           contractsLosingRFactor: losses.length,
           contractsUnchanged: unchanged.length,
           avgRFactorChange: avgChange,
+          // Hold harmless specific stats
+          holdHarmlessGaining: holdHarmlessContracts.filter(c => c.rFactorChange > 0).length,
+          holdHarmlessLosing: holdHarmlessContracts.filter(c => c.rFactorChange < 0).length,
+          nonHoldHarmlessGaining: nonHoldHarmlessContracts.filter(c => c.rFactorChange > 0).length,
+          nonHoldHarmlessLosing: nonHoldHarmlessContracts.filter(c => c.rFactorChange < 0).length,
         },
         distribution: {
           gainsBy0_4: gains.filter(c => c.rFactorChange >= 0.4).length,
@@ -585,6 +922,7 @@ export async function GET(request: Request) {
           .slice(0, 10)
           .map(c => ({
             contractId: c.contractId,
+            hasHoldHarmless: c.hasHoldHarmless,
             currentRFactor: c.current.rFactor,
             projectedRFactor: c.projected.rFactor,
             change: c.rFactorChange,
@@ -598,6 +936,7 @@ export async function GET(request: Request) {
           .slice(0, 10)
           .map(c => ({
             contractId: c.contractId,
+            hasHoldHarmless: c.hasHoldHarmless,
             currentRFactor: c.current.rFactor,
             projectedRFactor: c.projected.rFactor,
             change: c.rFactorChange,
@@ -710,6 +1049,10 @@ export async function GET(request: Request) {
     const bracketLosers = validAnalyses.filter(c => c.starBracketChange < 0).length;
     const finalBracketGainers = validAnalyses.filter(c => c.finalStarBracketChange > 0).length;
     const finalBracketLosers = validAnalyses.filter(c => c.finalStarBracketChange < 0).length;
+    
+    // Hold harmless statistics
+    const contractsWithHoldHarmless = validAnalyses.filter(c => c.holdHarmless?.applied).length;
+    const contractsEligibleForHoldHarmless = validAnalyses.filter(c => c.holdHarmless !== undefined).length;
 
     // Star bracket transition distribution (e.g., "4.0★ → 3.5★")
     const bracketTransitions = new Map<string, { count: number; direction: 'gain' | 'loss' | 'unchanged' }>();
@@ -813,6 +1156,16 @@ export async function GET(request: Request) {
         count: removedMeasures.length,
         totalWeight: totalRemovedWeight,
       },
+      // Quality improvement measures subject to hold harmless
+      qualityImprovementMeasures: {
+        codes: Array.from(QUALITY_IMPROVEMENT_MEASURES),
+        threshold: HOLD_HARMLESS_THRESHOLD,
+      },
+      holdHarmlessSummary: {
+        contractsWithHoldHarmless,
+        contractsEligibleForHoldHarmless,
+        description: `If a contract's projected rating would be ≥${HOLD_HARMLESS_THRESHOLD} stars without quality improvement measures, but including them would drop the rating below ${HOLD_HARMLESS_THRESHOLD} stars, then QI measures are excluded.`,
+      },
       summary: {
         totalContracts,
         avgOverallChange,
@@ -829,6 +1182,7 @@ export async function GET(request: Request) {
         bracketChangeDistribution,
         bracketTransitions: bracketTransitionArray,
         totalParentOrgs: parentOrganizations.length,
+        contractsWithHoldHarmless,
       },
       contracts: contractAnalyses,
       parentOrganizations,
