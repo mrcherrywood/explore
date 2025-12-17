@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Mail, Lock, Loader2 } from 'lucide-react';
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { login } from '@/lib/auth/actions';
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
   const [formError, setFormError] = useState<string | null>(error);
@@ -110,9 +110,17 @@ export default function LoginPage() {
   );
 }
 
-
-
-
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
+  );
+}
 
 
 
