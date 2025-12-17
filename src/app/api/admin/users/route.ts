@@ -1,6 +1,16 @@
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
+interface UserApproval {
+  user_id: string;
+  email: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requested_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  notes: string | null;
+}
+
 // List all pending users (admin only)
 export async function GET() {
   try {
@@ -12,11 +22,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: currentUserApproval } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: currentUserApproval } = await (supabase as any)
       .from('user_approvals')
       .select('status')
       .eq('user_id', user.id)
-      .single();
+      .single() as { data: { status: string } | null };
 
     if (!currentUserApproval || currentUserApproval.status !== 'approved') {
       return NextResponse.json({ error: 'Forbidden - admin access required' }, { status: 403 });
@@ -24,10 +35,11 @@ export async function GET() {
 
     // Use service role to get all pending approvals
     const serviceClient = createServiceRoleClient();
-    const { data: pendingUsers, error } = await serviceClient
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: pendingUsers, error } = await (serviceClient as any)
       .from('user_approvals')
       .select('*')
-      .order('requested_at', { ascending: false });
+      .order('requested_at', { ascending: false }) as { data: UserApproval[] | null; error: Error | null };
 
     if (error) {
       console.error('Error fetching pending users:', error);
@@ -52,11 +64,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: currentUserApproval } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: currentUserApproval } = await (supabase as any)
       .from('user_approvals')
       .select('status')
       .eq('user_id', user.id)
-      .single();
+      .single() as { data: { status: string } | null };
 
     if (!currentUserApproval || currentUserApproval.status !== 'approved') {
       return NextResponse.json({ error: 'Forbidden - admin access required' }, { status: 403 });
@@ -71,7 +84,8 @@ export async function PATCH(request: Request) {
 
     // Use service role to update approval
     const serviceClient = createServiceRoleClient();
-    const { data, error } = await serviceClient
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (serviceClient as any)
       .from('user_approvals')
       .update({
         status,
@@ -81,7 +95,7 @@ export async function PATCH(request: Request) {
       })
       .eq('user_id', userId)
       .select()
-      .single();
+      .single() as { data: UserApproval | null; error: Error | null };
 
     if (error) {
       console.error('Error updating user approval:', error);
