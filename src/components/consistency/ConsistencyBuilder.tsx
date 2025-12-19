@@ -46,12 +46,12 @@ export function ConsistencyBuilder() {
   const [selectedDomain, setSelectedDomain] = useState<string>("all");
   const [selectedLeaderboardTransition, setSelectedLeaderboardTransition] = useState<string | null>(null);
 
-  // Get available year transitions for the leaderboard
+  // Get available year transitions for the leaderboard (most recent first)
   const yearTransitions = useMemo(() => {
     if (!data || data.years.length < 2) return [];
     const transitions: string[] = [];
-    for (let i = 0; i < data.years.length - 1; i++) {
-      transitions.push(`${data.years[i]}-${data.years[i + 1]}`);
+    for (let i = data.years.length - 1; i > 0; i--) {
+      transitions.push(`${data.years[i - 1]}-${data.years[i]}`);
     }
     return transitions;
   }, [data]);
@@ -118,8 +118,8 @@ export function ConsistencyBuilder() {
   // Set default leaderboard transition when data loads
   useEffect(() => {
     if (yearTransitions.length > 0 && !selectedLeaderboardTransition) {
-      // Default to the most recent transition
-      setSelectedLeaderboardTransition(yearTransitions[yearTransitions.length - 1]);
+      // Default to the most recent transition (now first in the list)
+      setSelectedLeaderboardTransition(yearTransitions[0]);
     }
   }, [yearTransitions, selectedLeaderboardTransition]);
 
@@ -239,47 +239,6 @@ export function ConsistencyBuilder() {
             <div className="grid gap-6 lg:grid-cols-2">
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <TrendingUp className="h-5 w-5 text-orange-500" />
-                  <h3 className="text-lg font-semibold">Most Volatile</h3>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">Highest year-over-year rating changes</p>
-                <div className="space-y-2">
-                  {volatilityRankings.mostVolatile.map((measure, idx) => (
-                    <div
-                      key={measure.code}
-                      className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                    >
-                      <div className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
-                        idx === 0 ? "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" :
-                        idx === 1 ? "bg-orange-50 text-orange-600 dark:bg-orange-950 dark:text-orange-400" :
-                        "bg-muted text-muted-foreground"
-                      }`}>
-                        {idx + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{measure.name}</p>
-                        {measure.domain && (
-                          <p className="text-xs text-muted-foreground truncate">{measure.domain}</p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-orange-600 dark:text-orange-400">
-                          {measure.volatilityRate.toFixed(1)}%
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {measure.totalChanged.toLocaleString()} / {measure.totalContracts.toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  {volatilityRankings.mostVolatile.length === 0 && (
-                    <p className="text-sm text-muted-foreground py-4 text-center">No data available</p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 mb-3">
                   <Shield className="h-5 w-5 text-green-500" />
                   <h3 className="text-lg font-semibold">Most Consistent</h3>
                 </div>
@@ -314,6 +273,47 @@ export function ConsistencyBuilder() {
                     </div>
                   ))}
                   {volatilityRankings.leastVolatile.length === 0 && (
+                    <p className="text-sm text-muted-foreground py-4 text-center">No data available</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp className="h-5 w-5 text-orange-500" />
+                  <h3 className="text-lg font-semibold">Most Volatile</h3>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">Highest year-over-year rating changes</p>
+                <div className="space-y-2">
+                  {volatilityRankings.mostVolatile.map((measure, idx) => (
+                    <div
+                      key={measure.code}
+                      className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                    >
+                      <div className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
+                        idx === 0 ? "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" :
+                        idx === 1 ? "bg-orange-50 text-orange-600 dark:bg-orange-950 dark:text-orange-400" :
+                        "bg-muted text-muted-foreground"
+                      }`}>
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{measure.name}</p>
+                        {measure.domain && (
+                          <p className="text-xs text-muted-foreground truncate">{measure.domain}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-orange-600 dark:text-orange-400">
+                          {measure.volatilityRate.toFixed(1)}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {measure.totalChanged.toLocaleString()} / {measure.totalContracts.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {volatilityRankings.mostVolatile.length === 0 && (
                     <p className="text-sm text-muted-foreground py-4 text-center">No data available</p>
                   )}
                 </div>
@@ -353,11 +353,17 @@ export function ConsistencyBuilder() {
                 onChange={(e) => setSelectedMeasure(e.target.value)}
                 className="w-full appearance-none rounded-md border border-input bg-background bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23666%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_8px_center] bg-no-repeat px-3 py-2 pr-10 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {measures.map((measure) => (
-                  <option key={measure.code} value={measure.code}>
-                    {measure.name}
-                  </option>
-                ))}
+                {measures.map((measure) => {
+                  // Check if this measure name is duplicated (e.g., same name for Part C and Part D)
+                  const isDuplicateName = measures.filter(m => m.name === measure.name).length > 1;
+                  // Extract part (C or D) from the measure code format "C|MeasureName" or just "C01"
+                  const part = measure.code.includes("|") ? measure.code.charAt(0) : measure.code.charAt(0);
+                  return (
+                    <option key={measure.code} value={measure.code}>
+                      {isDuplicateName ? `${measure.name} (Part ${part})` : measure.name}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -396,7 +402,7 @@ export function ConsistencyBuilder() {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {currentData[0].yearTransitions.map((transition, idx) => {
+              {[...currentData[0].yearTransitions].reverse().map((transition, idx) => {
                 const maintainedPct = calculatePercentage(transition.maintained, transition.totalContracts);
                 const gainedOnePct = calculatePercentage(transition.gainedOne, transition.totalContracts);
                 const lostOnePct = calculatePercentage(transition.lostOne, transition.totalContracts);

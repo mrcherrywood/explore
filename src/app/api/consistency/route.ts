@@ -71,11 +71,23 @@ export async function GET() {
 
     if (measuresError) throw new Error(measuresError.message);
 
-    // Build measure metadata map (use latest year data)
-    const measureMetadata = new Map<string, MeasureMetadata>();
+    // Build measure metadata map keyed by code+year (since codes are reused across years for different measures)
+    const measureMetadataByCodeYear = new Map<string, MeasureMetadata>();
     (measuresData || []).forEach((m: { code: string; name: string | null; domain: string | null; year: number }) => {
-      if (!measureMetadata.has(m.code)) {
-        measureMetadata.set(m.code, { code: m.code, name: m.name, domain: m.domain });
+      const key = `${m.code}|${m.year}`;
+      measureMetadataByCodeYear.set(key, { code: m.code, name: m.name, domain: m.domain });
+    });
+
+    // Build a map of measure name + part (C/D) -> canonical identifier
+    // Since measure codes change across years (e.g., C28 in 2023 = "Call Center", C28 in 2024 = "Plan Makes Timely Decisions")
+    // we need to use the measure NAME as the canonical identifier, not the code
+    const namePartToCanonicalName = new Map<string, { name: string; domain: string | null }>();
+    (measuresData || []).forEach((m: { code: string; name: string | null; domain: string | null; year: number }) => {
+      if (!m.name) return;
+      const part = m.code.charAt(0);
+      const key = `${part}|${m.name}`;
+      if (!namePartToCanonicalName.has(key)) {
+        namePartToCanonicalName.set(key, { name: m.name, domain: m.domain });
       }
     });
 
@@ -98,29 +110,40 @@ export async function GET() {
     const metricsArray = (metricsData ?? []) as Array<{ contract_id: string; metric_code: string; star_rating: string; year: number }>;
     console.log(`Fetched ${metricsArray.length} metrics with star ratings`);
 
-    // Build a map of contract + measure + year -> star rating
-    type MetricKey = string; // format: "contractId|measureCode|year"
+    // Build a map of contract + measure NAME + year -> star rating
+    // We use measure NAME (not code) because codes are reused across years for different measures
+    type MetricKey = string; // format: "contractId|part|measureName|year"
     const metricRatings = new Map<MetricKey, number>();
-    const measureCodes = new Set<string>();
+    const measureNames = new Set<string>(); // format: "part|measureName"
 
     metricsArray.forEach((m) => {
       const starValue = parseFloat(m.star_rating);
       if (Number.isFinite(starValue) && starValue >= 1 && starValue <= 5) {
-        const key = `${m.contract_id}|${m.metric_code}|${m.year}`;
+        // Look up the measure name for this code+year combination
+        const metadataKey = `${m.metric_code}|${m.year}`;
+        const metadata = measureMetadataByCodeYear.get(metadataKey);
+        if (!metadata?.name) return;
+        
+        const part = m.metric_code.charAt(0);
+        const measureKey = `${part}|${metadata.name}`;
+        const key = `${m.contract_id}|${measureKey}|${m.year}`;
         metricRatings.set(key, Math.round(starValue));
-        measureCodes.add(m.metric_code);
+        measureNames.add(measureKey);
       }
     });
 
-    console.log(`Found ${measureCodes.size} unique measures with star ratings`);
+    console.log(`Found ${measureNames.size} unique measures with star ratings`);
 
     // For each measure and star rating, track year-over-year transitions
     const consistencyResults: ConsistencyData[] = [];
 
-    measureCodes.forEach((measureCode) => {
-      const metadata = measureMetadata.get(measureCode);
-      const measureName = metadata?.name || measureCode;
-      const domain = metadata?.domain || null;
+    measureNames.forEach((measureKey) => {
+      const canonicalData = namePartToCanonicalName.get(measureKey);
+      const measureName = canonicalData?.name || measureKey;
+      const domain = canonicalData?.domain || null;
+      // Use the measureKey (part|name) as the internal measureCode
+      // Extract just the part (C or D) for cleaner display when there are duplicates
+      const measureCode = measureKey;
 
       // For each star rating (1-5)
       for (let starRating = 1; starRating <= 5; starRating++) {
@@ -135,8 +158,12 @@ export async function GET() {
           const contractsWithRating: string[] = [];
           
           metricRatings.forEach((rating, key) => {
-            const [contractId, code, year] = key.split("|");
-            if (code === measureCode && parseInt(year) === fromYear && rating === starRating) {
+            // Key format: "contractId|part|measureName|year"
+            const parts = key.split("|");
+            const contractId = parts[0];
+            const keyMeasure = `${parts[1]}|${parts[2]}`;
+            const year = parseInt(parts[3]);
+            if (keyMeasure === measureKey && year === fromYear && rating === starRating) {
               contractsWithRating.push(contractId);
             }
           });
@@ -154,7 +181,7 @@ export async function GET() {
           let noDataNextYear = 0;
 
           contractsWithRating.forEach((contractId) => {
-            const nextYearKey = `${contractId}|${measureCode}|${toYear}`;
+            const nextYearKey = `${contractId}|${measureKey}|${toYear}`;
             const nextYearRating = metricRatings.get(nextYearKey);
 
             if (nextYearRating === undefined) {
@@ -213,7 +240,7 @@ export async function GET() {
 
     return NextResponse.json({
       years: allYears,
-      measureCount: measureCodes.size,
+      measureCount: measureNames.size,
       consistencyData: consistencyResults,
       summary: {
         totalTransitions,
