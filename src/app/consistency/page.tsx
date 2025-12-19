@@ -27,6 +27,15 @@ export default function ConsistencyPage() {
           </header>
 
           <main className="flex flex-1 flex-col gap-6 px-10 pb-10 pt-8">
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p>
+                This page analyzes how consistently Medicare Advantage contracts maintain their star ratings year-over-year for each measure. 
+                Select a domain, measure, and star rating to see how many contracts kept, gained, or lost stars between consecutive years.
+              </p>
+              <p>
+                Use this analysis to identify which measures tend to be more volatile and which contracts demonstrate stable performance over time.
+              </p>
+            </div>
             <ConsistencyBuilder />
           </main>
         </div>
