@@ -33,7 +33,9 @@ export default function ConsistencyPage() {
                 Select a domain, measure, and star rating to see how many contracts kept, gained, or lost stars between consecutive years.
               </p>
               <p>
-                Use this analysis to identify which measures tend to be more volatile and which contracts demonstrate stable performance over time.
+                The <strong>Measure Volatility Leaderboard</strong> ranks measures by how often their star ratings change. 
+                Consistency rate = contracts that maintained the same rating ÷ total contracts with data in both years. 
+                Volatility rate = contracts that changed rating ÷ total contracts.
               </p>
             </div>
             <ConsistencyBuilder />
