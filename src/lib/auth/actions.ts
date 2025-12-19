@@ -10,6 +10,15 @@ export type AuthResult = {
 };
 
 export async function login(formData: FormData): Promise<AuthResult> {
+  // Debug: Check if env vars are available
+  const hasUrl = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const hasKey = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  if (!hasUrl || !hasKey) {
+    console.error('[Auth] Missing env vars:', { hasUrl, hasKey });
+    return { error: 'Server configuration error. Please contact support.' };
+  }
+
   const supabase = createClient();
 
   const email = formData.get('email') as string;
@@ -25,7 +34,11 @@ export async function login(formData: FormData): Promise<AuthResult> {
   });
 
   if (error) {
-    console.error('[Auth] Login error:', error.message, error.status, error.name);
+    console.error('[Auth] Login error:', error.message, error.status, error.name, error.code);
+    // Provide more specific error messages
+    if (error.message.includes('Invalid API key')) {
+      return { error: 'Server configuration error. Please contact support.' };
+    }
     return { error: error.message };
   }
 
