@@ -11,7 +11,8 @@ import {
   Pill,
   TrendingDown, 
   TrendingUp, 
-  TriangleAlert 
+  TriangleAlert,
+  Users
 } from "lucide-react";
 
 type ContractMeasureAnalysis = {
@@ -36,6 +37,7 @@ type ContractMeasureAnalysis = {
 type ContractAnalysis = {
   contractId: string;
   parentOrganization: string | null;
+  enrollment: number | null;
   riskMeasures: ContractMeasureAnalysis[];
   opportunityMeasures: ContractMeasureAnalysis[];
   totalRiskCount: number;
@@ -46,6 +48,7 @@ type RiskOpportunitySummary = {
   year: number;
   uhcContractCount: number;
   totalMeasuresAnalyzed: number;
+  totalUHCEnrollment: number;
   byContract: ContractAnalysis[];
   totalRiskMeasures: number;
   totalOpportunityMeasures: number;
@@ -65,6 +68,24 @@ const STAR_COLORS: Record<number, string> = {
   4: "#84cc16",
   5: "#22c55e",
 };
+
+// Format enrollment number with commas and abbreviations for large numbers
+function formatEnrollment(enrollment: number | null): string {
+  if (enrollment === null) return "N/A";
+  if (enrollment >= 1_000_000) {
+    return `${(enrollment / 1_000_000).toFixed(1)}M`;
+  }
+  if (enrollment >= 1_000) {
+    return `${(enrollment / 1_000).toFixed(0)}K`;
+  }
+  return enrollment.toLocaleString();
+}
+
+// Format full enrollment with commas
+function formatEnrollmentFull(enrollment: number | null): string {
+  if (enrollment === null) return "N/A";
+  return enrollment.toLocaleString();
+}
 
 export function RiskOpportunityAnalysis() {
   const [data, setData] = useState<RiskOpportunitySummary | null>(null);
@@ -277,13 +298,20 @@ export function RiskOpportunityAnalysis() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4">
               <p className="text-xs text-muted-foreground">UHC Contracts Analyzed</p>
               <p className="mt-2 text-2xl font-semibold text-primary">
                 {data.uhcContractCount}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">For {data.year}</p>
+            </div>
+            <div className="rounded-2xl border border-blue-500/40 bg-blue-500/5 p-4">
+              <p className="text-xs text-muted-foreground">Total UHC Enrollment</p>
+              <p className="mt-2 text-2xl font-semibold text-blue-400">
+                {formatEnrollment(data.totalUHCEnrollment)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{formatEnrollmentFull(data.totalUHCEnrollment)} members</p>
             </div>
             <div className="rounded-2xl border border-border bg-muted p-4">
               <p className="text-xs text-muted-foreground">Measures with Cut Points</p>
@@ -452,7 +480,15 @@ export function RiskOpportunityAnalysis() {
                       <ChevronRight className="h-5 w-5 text-muted-foreground" />
                     )}
                     <div>
-                      <p className="font-semibold text-foreground">{contract.contractId}</p>
+                      <div className="flex items-center gap-3">
+                        <p className="font-semibold text-foreground">{contract.contractId}</p>
+                        {contract.enrollment !== null && (
+                          <div className="flex items-center gap-1 text-xs text-blue-400">
+                            <Users className="h-3.5 w-3.5" />
+                            <span className="font-medium">{formatEnrollment(contract.enrollment)}</span>
+                          </div>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {contract.parentOrganization || "Unknown Organization"}
                       </p>

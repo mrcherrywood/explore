@@ -121,10 +121,13 @@ type RiskOpportunitySummary = {
   year: number;
   uhcContractCount: number;
   totalMeasuresAnalyzed: number;
+  // Total UHC enrollment across all contracts
+  totalUHCEnrollment: number;
   // By contract: how many risk/opportunity measures each contract has
   byContract: {
     contractId: string;
     parentOrganization: string | null;
+    enrollment: number | null;
     riskMeasures: ContractMeasureAnalysis[];
     opportunityMeasures: ContractMeasureAnalysis[];
     totalRiskCount: number;
@@ -211,6 +214,57 @@ export async function GET() {
     });
 
     console.log(`Found ${uhcContracts.size} UHC contracts out of ${allRatedContractIds.size} total`);
+
+    // Get enrollment data for contracts
+    // First get the latest enrollment period
+    const enrollmentPeriodQuery = `
+      SELECT report_year, report_month
+      FROM ma_plan_enrollment
+      ORDER BY report_year DESC, report_month DESC
+      LIMIT 1
+    `;
+    
+    const { data: periodResult, error: periodError } = await (
+      supabase.rpc as unknown as <T>(
+        fn: string,
+        args: Record<string, unknown>
+      ) => Promise<{ data: T | null; error: Error | null }>
+    )("exec_raw_sql", { query: enrollmentPeriodQuery });
+
+    if (periodError) throw new Error(periodError.message);
+    
+    const enrollmentPeriod = ((periodResult ?? []) as { report_year: number; report_month: number }[])[0];
+    
+    // Fetch enrollment by contract
+    const contractEnrollment = new Map<string, number>();
+    
+    if (enrollmentPeriod) {
+      type EnrollmentRow = { contract_id: string; total_enrollment: number };
+      const enrollmentQuery = `
+        SELECT contract_id, SUM(enrollment) as total_enrollment
+        FROM ma_plan_enrollment
+        WHERE report_year = ${enrollmentPeriod.report_year}
+          AND report_month = ${enrollmentPeriod.report_month}
+          AND enrollment IS NOT NULL
+        GROUP BY contract_id
+      `;
+      
+      const { data: enrollmentResult, error: enrollmentError } = await (
+        supabase.rpc as unknown as <T>(
+          fn: string,
+          args: Record<string, unknown>
+        ) => Promise<{ data: T | null; error: Error | null }>
+      )("exec_raw_sql", { query: enrollmentQuery });
+
+      if (enrollmentError) throw new Error(enrollmentError.message);
+      
+      ((enrollmentResult ?? []) as EnrollmentRow[]).forEach((row) => {
+        const contractId = row.contract_id.trim().toUpperCase();
+        contractEnrollment.set(contractId, row.total_enrollment);
+      });
+      
+      console.log(`Loaded enrollment data for ${contractEnrollment.size} contracts`);
+    }
 
     // Get measure metadata
     type MeasureRow = { code: string; name: string | null; domain: string | null };
@@ -433,18 +487,23 @@ export async function GET() {
       .map(([contractId, data]) => ({
         contractId,
         parentOrganization: data.parentOrganization,
+        enrollment: contractEnrollment.get(contractId) ?? null,
         riskMeasures: data.riskMeasures.sort((a, b) => (a.riskPoints ?? 999) - (b.riskPoints ?? 999)),
         opportunityMeasures: data.opportunityMeasures.sort((a, b) => (a.opportunityPoints ?? 999) - (b.opportunityPoints ?? 999)),
         totalRiskCount: data.riskMeasures.length,
         totalOpportunityCount: data.opportunityMeasures.length,
       }))
-      // Sort by total risk + opportunity count descending
-      .sort((a, b) => (b.totalRiskCount + b.totalOpportunityCount) - (a.totalRiskCount + a.totalOpportunityCount));
+      // Sort by enrollment descending (largest contracts first)
+      .sort((a, b) => (b.enrollment ?? 0) - (a.enrollment ?? 0));
+    
+    // Calculate total UHC enrollment
+    const totalUHCEnrollment = byContract.reduce((sum, c) => sum + (c.enrollment ?? 0), 0);
 
     const response: RiskOpportunitySummary = {
       year: latestYear,
       uhcContractCount: uhcContracts.size,
       totalMeasuresAnalyzed: measureCutPoints.length,
+      totalUHCEnrollment,
       byContract,
       totalRiskMeasures,
       totalOpportunityMeasures,
