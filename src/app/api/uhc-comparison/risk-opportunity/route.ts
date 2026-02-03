@@ -58,14 +58,36 @@ type ContractMeasureAnalysis = {
   upperCutPoint: number | null;
   // Measure type flags for highlighting
   isHEDIS: boolean;
+  isHOS: boolean;
   isPharmacy: boolean;
 };
 
-// Helper function to determine if a measure is HEDIS
-function isHEDISMeasure(domain: string | null): boolean {
+// HOS (Health Outcomes Survey) measure codes - these are survey-based, NOT HEDIS
+const HOS_MEASURE_CODES = new Set([
+  'C04', // Improving or Maintaining Physical Health
+  'C05', // Improving or Maintaining Mental Health
+  'C06', // Monitoring Physical Activity
+]);
+
+// Helper function to determine if a measure is HEDIS (clinical quality)
+// Excludes HOS measures which are survey-based
+function isHEDISMeasure(domain: string | null, measureCode: string): boolean {
   if (!domain) return false;
+  
+  // Exclude HOS measures - they are survey-based, not clinical HEDIS
+  const normalizedCode = measureCode.toUpperCase().trim();
+  if (HOS_MEASURE_CODES.has(normalizedCode)) {
+    return false;
+  }
+  
   const normalizedDomain = domain.toLowerCase().trim();
   return normalizedDomain === 'hedis' || normalizedDomain.includes('hedis');
+}
+
+// Helper function to determine if a measure is HOS (Health Outcomes Survey)
+function isHOSMeasure(measureCode: string): boolean {
+  const normalizedCode = measureCode.toUpperCase().trim();
+  return HOS_MEASURE_CODES.has(normalizedCode);
 }
 
 // Helper function to determine if a measure is a Pharmacy measure
@@ -390,7 +412,8 @@ export async function GET() {
           opportunityPoints,
           lowerCutPoint: lowerCutPoint !== null ? Math.round(lowerCutPoint * 10) / 10 : null,
           upperCutPoint: upperCutPoint !== null ? Math.round(upperCutPoint * 10) / 10 : null,
-          isHEDIS: isHEDISMeasure(domain),
+          isHEDIS: isHEDISMeasure(domain, metric.metric_code),
+          isHOS: isHOSMeasure(metric.metric_code),
           isPharmacy: isPharmacyMeasure(domain, metric.metric_code),
         };
         

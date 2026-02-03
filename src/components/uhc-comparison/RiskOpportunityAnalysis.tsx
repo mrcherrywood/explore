@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { 
+  Activity,
   AlertTriangle, 
   ChevronDown, 
   ChevronRight, 
@@ -28,6 +29,7 @@ type ContractMeasureAnalysis = {
   lowerCutPoint: number | null;
   upperCutPoint: number | null;
   isHEDIS: boolean;
+  isHOS: boolean;
   isPharmacy: boolean;
 };
 
@@ -103,27 +105,31 @@ export function RiskOpportunityAnalysis() {
     return Array.from(domainSet).sort();
   }, [data]);
 
-  // Calculate HEDIS and Pharmacy stats
+  // Calculate HEDIS, HOS, and Pharmacy stats
   const measureTypeStats = useMemo(() => {
-    if (!data) return { hedisRisk: 0, hedisOpp: 0, pharmacyRisk: 0, pharmacyOpp: 0 };
+    if (!data) return { hedisRisk: 0, hedisOpp: 0, hosRisk: 0, hosOpp: 0, pharmacyRisk: 0, pharmacyOpp: 0 };
     
     let hedisRisk = 0;
     let hedisOpp = 0;
+    let hosRisk = 0;
+    let hosOpp = 0;
     let pharmacyRisk = 0;
     let pharmacyOpp = 0;
     
     data.byContract.forEach((c) => {
       c.riskMeasures.forEach((m) => {
         if (m.isHEDIS) hedisRisk++;
+        if (m.isHOS) hosRisk++;
         if (m.isPharmacy) pharmacyRisk++;
       });
       c.opportunityMeasures.forEach((m) => {
         if (m.isHEDIS) hedisOpp++;
+        if (m.isHOS) hosOpp++;
         if (m.isPharmacy) pharmacyOpp++;
       });
     });
     
-    return { hedisRisk, hedisOpp, pharmacyRisk, pharmacyOpp };
+    return { hedisRisk, hedisOpp, hosRisk, hosOpp, pharmacyRisk, pharmacyOpp };
   }, [data]);
 
   const filteredData = useMemo(() => {
@@ -151,6 +157,7 @@ export function RiskOpportunityAnalysis() {
       measureName: string;
       domain: string | null;
       isHEDIS: boolean;
+      isHOS: boolean;
       isPharmacy: boolean;
       riskContracts: ContractMeasureAnalysis[];
       opportunityContracts: ContractMeasureAnalysis[];
@@ -166,6 +173,7 @@ export function RiskOpportunityAnalysis() {
             measureName: m.measureName,
             domain: m.domain,
             isHEDIS: m.isHEDIS,
+            isHOS: m.isHOS,
             isPharmacy: m.isPharmacy,
             riskContracts: [],
             opportunityContracts: [],
@@ -183,6 +191,7 @@ export function RiskOpportunityAnalysis() {
             measureName: m.measureName,
             domain: m.domain,
             isHEDIS: m.isHEDIS,
+            isHOS: m.isHOS,
             isPharmacy: m.isPharmacy,
             riskContracts: [],
             opportunityContracts: [],
@@ -305,49 +314,64 @@ export function RiskOpportunityAnalysis() {
             </div>
           </div>
 
-          {/* HEDIS & Pharmacy Breakdown */}
+          {/* HEDIS, HOS & Pharmacy Breakdown */}
           {(measureTypeStats.hedisRisk > 0 || measureTypeStats.hedisOpp > 0 || 
+            measureTypeStats.hosRisk > 0 || measureTypeStats.hosOpp > 0 ||
             measureTypeStats.pharmacyRisk > 0 || measureTypeStats.pharmacyOpp > 0) && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {/* HEDIS */}
               <div className="rounded-2xl border border-pink-500/40 bg-pink-500/5 p-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-2">
                   <Heart className="h-4 w-4 text-pink-400" />
-                  <p className="text-xs text-muted-foreground">HEDIS Risk</p>
+                  <p className="text-sm font-medium text-pink-400">HEDIS</p>
                 </div>
-                <p className="mt-2 text-2xl font-semibold text-pink-400">
-                  {measureTypeStats.hedisRisk}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">Clinical quality measures at risk</p>
-              </div>
-              <div className="rounded-2xl border border-pink-500/40 bg-pink-500/5 p-4">
-                <div className="flex items-center gap-2">
-                  <Heart className="h-4 w-4 text-pink-400" />
-                  <p className="text-xs text-muted-foreground">HEDIS Opportunity</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Risk</p>
+                    <p className="text-xl font-semibold text-pink-400">{measureTypeStats.hedisRisk}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Opportunity</p>
+                    <p className="text-xl font-semibold text-pink-400">{measureTypeStats.hedisOpp}</p>
+                  </div>
                 </div>
-                <p className="mt-2 text-2xl font-semibold text-pink-400">
-                  {measureTypeStats.hedisOpp}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">Clinical quality upside</p>
+                <p className="mt-2 text-xs text-muted-foreground">Clinical quality measures</p>
               </div>
+              {/* HOS */}
+              <div className="rounded-2xl border border-cyan-500/40 bg-cyan-500/5 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity className="h-4 w-4 text-cyan-400" />
+                  <p className="text-sm font-medium text-cyan-400">HOS</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Risk</p>
+                    <p className="text-xl font-semibold text-cyan-400">{measureTypeStats.hosRisk}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Opportunity</p>
+                    <p className="text-xl font-semibold text-cyan-400">{measureTypeStats.hosOpp}</p>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">Health Outcomes Survey</p>
+              </div>
+              {/* Pharmacy */}
               <div className="rounded-2xl border border-purple-500/40 bg-purple-500/5 p-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-2">
                   <Pill className="h-4 w-4 text-purple-400" />
-                  <p className="text-xs text-muted-foreground">Pharmacy Risk</p>
+                  <p className="text-sm font-medium text-purple-400">Pharmacy</p>
                 </div>
-                <p className="mt-2 text-2xl font-semibold text-purple-400">
-                  {measureTypeStats.pharmacyRisk}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">Medication measures at risk</p>
-              </div>
-              <div className="rounded-2xl border border-purple-500/40 bg-purple-500/5 p-4">
-                <div className="flex items-center gap-2">
-                  <Pill className="h-4 w-4 text-purple-400" />
-                  <p className="text-xs text-muted-foreground">Pharmacy Opportunity</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Risk</p>
+                    <p className="text-xl font-semibold text-purple-400">{measureTypeStats.pharmacyRisk}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Opportunity</p>
+                    <p className="text-xl font-semibold text-purple-400">{measureTypeStats.pharmacyOpp}</p>
+                  </div>
                 </div>
-                <p className="mt-2 text-2xl font-semibold text-purple-400">
-                  {measureTypeStats.pharmacyOpp}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">Medication measures upside</p>
+                <p className="mt-2 text-xs text-muted-foreground">Medication adherence</p>
               </div>
             </div>
           )}
@@ -469,9 +493,11 @@ export function RiskOpportunityAnalysis() {
                                 className={`rounded-lg border p-3 ${
                                   m.isHEDIS 
                                     ? "border-pink-500/30 bg-gradient-to-r from-red-500/5 to-pink-500/10" 
-                                    : m.isPharmacy 
-                                      ? "border-purple-500/30 bg-gradient-to-r from-red-500/5 to-purple-500/10"
-                                      : "border-red-500/20 bg-red-500/5"
+                                    : m.isHOS
+                                      ? "border-cyan-500/30 bg-gradient-to-r from-red-500/5 to-cyan-500/10"
+                                      : m.isPharmacy 
+                                        ? "border-purple-500/30 bg-gradient-to-r from-red-500/5 to-purple-500/10"
+                                        : "border-red-500/20 bg-red-500/5"
                                 }`}
                               >
                                 <div className="flex items-start justify-between gap-2">
@@ -484,6 +510,12 @@ export function RiskOpportunityAnalysis() {
                                         <span className="inline-flex items-center gap-1 rounded-full border border-pink-500/50 bg-pink-500/20 px-2 py-0.5 text-[10px] font-semibold text-pink-400">
                                           <Heart className="h-2.5 w-2.5" />
                                           HEDIS
+                                        </span>
+                                      )}
+                                      {m.isHOS && (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/50 bg-cyan-500/20 px-2 py-0.5 text-[10px] font-semibold text-cyan-400">
+                                          <Activity className="h-2.5 w-2.5" />
+                                          HOS
                                         </span>
                                       )}
                                       {m.isPharmacy && (
@@ -544,9 +576,11 @@ export function RiskOpportunityAnalysis() {
                                 className={`rounded-lg border p-3 ${
                                   m.isHEDIS 
                                     ? "border-pink-500/30 bg-gradient-to-r from-green-500/5 to-pink-500/10" 
-                                    : m.isPharmacy 
-                                      ? "border-purple-500/30 bg-gradient-to-r from-green-500/5 to-purple-500/10"
-                                      : "border-green-500/20 bg-green-500/5"
+                                    : m.isHOS
+                                      ? "border-cyan-500/30 bg-gradient-to-r from-green-500/5 to-cyan-500/10"
+                                      : m.isPharmacy 
+                                        ? "border-purple-500/30 bg-gradient-to-r from-green-500/5 to-purple-500/10"
+                                        : "border-green-500/20 bg-green-500/5"
                                 }`}
                               >
                                 <div className="flex items-start justify-between gap-2">
@@ -559,6 +593,12 @@ export function RiskOpportunityAnalysis() {
                                         <span className="inline-flex items-center gap-1 rounded-full border border-pink-500/50 bg-pink-500/20 px-2 py-0.5 text-[10px] font-semibold text-pink-400">
                                           <Heart className="h-2.5 w-2.5" />
                                           HEDIS
+                                        </span>
+                                      )}
+                                      {m.isHOS && (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/50 bg-cyan-500/20 px-2 py-0.5 text-[10px] font-semibold text-cyan-400">
+                                          <Activity className="h-2.5 w-2.5" />
+                                          HOS
                                         </span>
                                       )}
                                       {m.isPharmacy && (
@@ -624,9 +664,11 @@ export function RiskOpportunityAnalysis() {
                 className={`rounded-2xl border bg-card p-6 ${
                   measure.isHEDIS 
                     ? "border-pink-500/30" 
-                    : measure.isPharmacy 
-                      ? "border-purple-500/30"
-                      : "border-border"
+                    : measure.isHOS
+                      ? "border-cyan-500/30"
+                      : measure.isPharmacy 
+                        ? "border-purple-500/30"
+                        : "border-border"
                 }`}
               >
                 <div className="flex items-start justify-between gap-4 mb-4">
@@ -639,6 +681,12 @@ export function RiskOpportunityAnalysis() {
                         <span className="inline-flex items-center gap-1 rounded-full border border-pink-500/50 bg-pink-500/20 px-2 py-0.5 text-xs font-semibold text-pink-400">
                           <Heart className="h-3 w-3" />
                           HEDIS
+                        </span>
+                      )}
+                      {measure.isHOS && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/50 bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-400">
+                          <Activity className="h-3 w-3" />
+                          HOS
                         </span>
                       )}
                       {measure.isPharmacy && (
