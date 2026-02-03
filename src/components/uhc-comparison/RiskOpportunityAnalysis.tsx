@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { 
   Activity,
   AlertTriangle, 
@@ -153,6 +153,18 @@ export function RiskOpportunityAnalysis() {
     return { hedisRisk, hedisOpp, hosRisk, hosOpp, pharmacyRisk, pharmacyOpp };
   }, [data]);
 
+  // Filter function that handles special cases like excluding HOS from HEDIS
+  const matchesDomainFilter = useCallback((m: ContractMeasureAnalysis, domain: string): boolean => {
+    if (domain === "all") return true;
+    
+    // When filtering for HEDIS, exclude HOS measures
+    if (domain.toLowerCase() === "hedis") {
+      return m.domain?.toLowerCase() === "hedis" && !m.isHOS;
+    }
+    
+    return m.domain === domain;
+  }, []);
+
   const filteredData = useMemo(() => {
     if (!data) return null;
     if (filterDomain === "all") return data;
@@ -161,13 +173,13 @@ export function RiskOpportunityAnalysis() {
       ...data,
       byContract: data.byContract.map((c) => ({
         ...c,
-        riskMeasures: c.riskMeasures.filter((m) => m.domain === filterDomain),
-        opportunityMeasures: c.opportunityMeasures.filter((m) => m.domain === filterDomain),
-        totalRiskCount: c.riskMeasures.filter((m) => m.domain === filterDomain).length,
-        totalOpportunityCount: c.opportunityMeasures.filter((m) => m.domain === filterDomain).length,
+        riskMeasures: c.riskMeasures.filter((m) => matchesDomainFilter(m, filterDomain)),
+        opportunityMeasures: c.opportunityMeasures.filter((m) => matchesDomainFilter(m, filterDomain)),
+        totalRiskCount: c.riskMeasures.filter((m) => matchesDomainFilter(m, filterDomain)).length,
+        totalOpportunityCount: c.opportunityMeasures.filter((m) => matchesDomainFilter(m, filterDomain)).length,
       })).filter((c) => c.totalRiskCount > 0 || c.totalOpportunityCount > 0),
     };
-  }, [data, filterDomain]);
+  }, [data, filterDomain, matchesDomainFilter]);
 
   // Group by measure for "by-measure" view
   const byMeasureData = useMemo(() => {
@@ -186,7 +198,7 @@ export function RiskOpportunityAnalysis() {
 
     data.byContract.forEach((contract) => {
       contract.riskMeasures.forEach((m) => {
-        if (filterDomain !== "all" && m.domain !== filterDomain) return;
+        if (!matchesDomainFilter(m, filterDomain)) return;
         
         if (!measureMap.has(m.measureCode)) {
           measureMap.set(m.measureCode, {
@@ -204,7 +216,7 @@ export function RiskOpportunityAnalysis() {
       });
 
       contract.opportunityMeasures.forEach((m) => {
-        if (filterDomain !== "all" && m.domain !== filterDomain) return;
+        if (!matchesDomainFilter(m, filterDomain)) return;
         
         if (!measureMap.has(m.measureCode)) {
           measureMap.set(m.measureCode, {
@@ -227,7 +239,7 @@ export function RiskOpportunityAnalysis() {
         (b.riskContracts.length + b.opportunityContracts.length) - 
         (a.riskContracts.length + a.opportunityContracts.length)
       );
-  }, [data, filterDomain]);
+  }, [data, filterDomain, matchesDomainFilter]);
 
   const toggleContract = (contractId: string) => {
     setExpandedContracts((prev) => {
