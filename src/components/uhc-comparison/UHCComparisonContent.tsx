@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Check, ChevronDown, Loader2, Minus, TrendingUp, TriangleAlert, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronDown, Loader2, Minus, TrendingUp, TriangleAlert, X } from "lucide-react";
+import { RiskOpportunityAnalysis } from "./RiskOpportunityAnalysis";
 
 type StarDistribution = {
   "1": number;
@@ -56,7 +57,7 @@ type UHCComparisonResponse = {
   uhcParentOrganizations: string[];
 };
 
-type ViewMode = "single-year" | "yoy-change";
+type ViewMode = "single-year" | "yoy-change" | "risk-opportunity";
 
 const slugifyLabel = (value: string) =>
   value
@@ -395,19 +396,19 @@ export function UHCComparisonContent() {
             </div>
 
             {/* View Mode Toggle */}
-            {data.years.length >= 2 && (
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 p-1">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("single-year")}
-                  className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-                    viewMode === "single-year"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Single Year
-                </button>
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setViewMode("single-year")}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                  viewMode === "single-year"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Single Year
+              </button>
+              {data.years.length >= 2 && (
                 <button
                   type="button"
                   onClick={() => setViewMode("yoy-change")}
@@ -418,66 +419,80 @@ export function UHCComparisonContent() {
                   }`}
                 >
                   <TrendingUp className="h-4 w-4" />
-                  Year-over-Year Change
+                  Year-over-Year
                 </button>
-              </div>
-            )}
+              )}
+              <button
+                type="button"
+                onClick={() => setViewMode("risk-opportunity")}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
+                  viewMode === "risk-opportunity"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <AlertTriangle className="h-4 w-4" />
+                Risk & Opportunity
+              </button>
+            </div>
 
-            {/* Year & Domain Selectors */}
-            <div className="flex flex-wrap gap-4">
-              {/* Year Selector - Only show in single-year mode */}
-              {viewMode === "single-year" && (
+            {/* Year & Domain Selectors - Hide for risk-opportunity (has its own filters) */}
+            {viewMode !== "risk-opportunity" && (
+              <div className="flex flex-wrap gap-4">
+                {/* Year Selector - Only show in single-year mode */}
+                {viewMode === "single-year" && (
+                  <div className="relative">
+                    <label className="block text-xs text-muted-foreground mb-1.5">Year</label>
+                    <div className="relative">
+                      <select
+                        value={selectedYear ?? ""}
+                        onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                        className="appearance-none rounded-lg border border-border bg-background px-4 py-2 pr-10 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      >
+                        {data.years.map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Domain Filter */}
                 <div className="relative">
-                  <label className="block text-xs text-muted-foreground mb-1.5">Year</label>
+                  <label className="block text-xs text-muted-foreground mb-1.5">Domain</label>
                   <div className="relative">
                     <select
-                      value={selectedYear ?? ""}
-                      onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                      value={selectedDomain}
+                      onChange={(e) => setSelectedDomain(e.target.value)}
                       className="appearance-none rounded-lg border border-border bg-background px-4 py-2 pr-10 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                     >
-                      {data.years.map((year) => (
-                        <option key={year} value={year}>
-                          {year}
+                      <option value="all">All Domains</option>
+                      {domains.map((domain) => (
+                        <option key={domain} value={domain}>
+                          {domain}
                         </option>
                       ))}
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   </div>
                 </div>
-              )}
 
-              {/* Domain Filter */}
-              <div className="relative">
-                <label className="block text-xs text-muted-foreground mb-1.5">Domain</label>
-                <div className="relative">
-                  <select
-                    value={selectedDomain}
-                    onChange={(e) => setSelectedDomain(e.target.value)}
-                    className="appearance-none rounded-lg border border-border bg-background px-4 py-2 pr-10 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  >
-                    <option value="all">All Domains</option>
-                    {domains.map((domain) => (
-                      <option key={domain} value={domain}>
-                        {domain}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                {/* Search */}
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-xs text-muted-foreground mb-1.5">Search Measures</label>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by name or code..."
+                    className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
                 </div>
               </div>
-
-              {/* Search */}
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-xs text-muted-foreground mb-1.5">Search Measures</label>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name or code..."
-                  className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-              </div>
-            </div>
+            )}
 
             {/* Stats Cards - Single Year View */}
             {viewMode === "single-year" && (
@@ -550,6 +565,11 @@ export function UHCComparisonContent() {
             )}
           </div>
         </div>
+
+        {/* Risk & Opportunity Analysis View */}
+        {viewMode === "risk-opportunity" && (
+          <RiskOpportunityAnalysis />
+        )}
 
         {/* Single Year: Measure Comparisons */}
         {viewMode === "single-year" && filteredMeasures.length > 0 && (
