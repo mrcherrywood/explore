@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { Loader2, TrendingUp, TrendingDown, Minus, Search, ChevronDown, ChevronUp, Info, Shield } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Minus, Search, ChevronDown, ChevronUp, ChevronRight, Info, Shield } from "lucide-react";
 
 type DomainSummary = {
   domain: string;
@@ -221,7 +221,7 @@ type AnalysisData = {
   };
 };
 
-type SortKey = "contractId" | "organizationMarketingName" | "currentOverallRating" | "projectedOverallRating" | "finalProjectedOverall" | "overallChange" | "finalOverallChange" | "starBracketChange" | "finalStarBracketChange" | "rFactorChange" | "holdHarmless";
+type SortKey = "contractId" | "organizationMarketingName" | "currentOverallRating" | "projectedOverallRating" | "finalProjectedOverall" | "rawProjectedMean" | "overallChange" | "finalOverallChange" | "starBracketChange" | "finalStarBracketChange" | "rFactorChange" | "holdHarmless";
 type OrgSortKey = "parentOrganization" | "contractCount" | "avgCurrentRating" | "avgProjectedRating" | "avgFinalProjectedRating" | "avgOverallChange" | "avgFinalOverallChange" | "contractsGaining" | "contractsLosing";
 type SortDirection = "asc" | "desc";
 type ViewMode = "contracts" | "organizations";
@@ -240,6 +240,7 @@ export function OperationsImpactAnalysis() {
   const [contractsPage, setContractsPage] = useState(1);
   const [orgsPage, setOrgsPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+  const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
 
   // Reset page when search changes
   useEffect(() => {
@@ -331,6 +332,10 @@ export function OperationsImpactAnalysis() {
         case "finalProjectedOverall":
           aVal = a.finalProjectedOverall;
           bVal = b.finalProjectedOverall;
+          break;
+        case "rawProjectedMean":
+          aVal = a.rewardFactor?.projectedMean ?? null;
+          bVal = b.rewardFactor?.projectedMean ?? null;
           break;
         case "overallChange":
           aVal = a.overallChange;
@@ -471,6 +476,25 @@ export function OperationsImpactAnalysis() {
     if (change > 0.01) return <TrendingUp className="h-4 w-4" />;
     if (change < -0.01) return <TrendingDown className="h-4 w-4" />;
     return <Minus className="h-4 w-4" />;
+  };
+
+  const toggleOrgExpanded = (orgName: string) => {
+    setExpandedOrgs(prev => {
+      const next = new Set(prev);
+      if (next.has(orgName)) {
+        next.delete(orgName);
+      } else {
+        next.add(orgName);
+      }
+      return next;
+    });
+  };
+
+  const getContractsForOrg = (orgName: string): ContractAnalysis[] => {
+    if (!data) return [];
+    return data.contracts.filter(c => 
+      (c.parentOrganization?.trim() || 'Unknown') === orgName
+    );
   };
 
   const SortHeader = ({ label, sortKeyValue, tooltip }: { label: string; sortKeyValue: SortKey; tooltip?: string }) => (
@@ -1231,6 +1255,9 @@ export function OperationsImpactAnalysis() {
                       <SortHeader label="Final Projected" sortKeyValue="finalProjectedOverall" tooltip="Projected rating after removing measures AND applying new Reward Factor" />
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
+                      <SortHeader label="Raw Score" sortKeyValue="rawProjectedMean" tooltip="Raw weighted mean of star ratings (unrounded, before reward factor). This is the exact calculated score from weighting all non-removed measures." />
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
                       <SortHeader label="Final Change" sortKeyValue="finalOverallChange" tooltip="Difference between final projected (with Reward Factor) and current rating (positive = improvement)" />
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">
@@ -1286,6 +1313,12 @@ export function OperationsImpactAnalysis() {
                             </span>
                           )}
                         </div>
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">
+                        {contract.rewardFactor?.projectedMean !== undefined 
+                          ? contract.rewardFactor.projectedMean.toFixed(4) 
+                          : "—"
+                        }
                       </td>
                       <td className={`px-4 py-3 text-right font-medium ${getChangeColor(contract.finalOverallChange ?? contract.overallChange)}`}>
                         <span className="flex items-center justify-end gap-1">
@@ -1522,43 +1555,107 @@ export function OperationsImpactAnalysis() {
                 <tbody>
                   {filteredAndSortedOrgs
                     .slice((orgsPage - 1) * pageSize, orgsPage * pageSize)
-                    .map((org, idx) => (
-                    <tr
-                      key={org.parentOrganization}
-                      className={`border-b border-border/50 transition-colors hover:bg-muted/30 ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
-                    >
-                      <td className="px-4 py-3">
-                        <p className="max-w-[300px] truncate text-foreground">{org.parentOrganization}</p>
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-foreground">
-                        {org.contractCount}
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-foreground">
-                        {formatRating(org.avgCurrentRating)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-foreground">
-                        {formatRating(org.avgFinalProjectedRating ?? org.avgProjectedRating)}
-                      </td>
-                      <td className={`px-4 py-3 text-right font-medium ${getChangeColor(org.avgFinalOverallChange ?? org.avgOverallChange)}`}>
-                        <span className="flex items-center justify-end gap-1">
-                          {getChangeIcon(org.avgFinalOverallChange ?? org.avgOverallChange)}
-                          {formatChange(org.avgFinalOverallChange ?? org.avgOverallChange)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-emerald-500">{org.contractsGaining}</span>
-                        {org.finalBracketGainers > 0 && (
-                          <span className="ml-1 text-xs text-muted-foreground">({org.finalBracketGainers}★)</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-rose-500">{org.contractsLosing}</span>
-                        {org.finalBracketLosers > 0 && (
-                          <span className="ml-1 text-xs text-muted-foreground">({org.finalBracketLosers}★)</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                    .map((org, idx) => {
+                      const isExpanded = expandedOrgs.has(org.parentOrganization);
+                      const orgContracts = isExpanded ? getContractsForOrg(org.parentOrganization) : [];
+                      return (
+                        <React.Fragment key={org.parentOrganization}>
+                          <tr
+                            className={`border-b border-border/50 transition-colors hover:bg-muted/30 cursor-pointer ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
+                            onClick={() => toggleOrgExpanded(org.parentOrganization)}
+                          >
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4" />
+                                  )}
+                                </span>
+                                <p className="max-w-[280px] truncate text-foreground">{org.parentOrganization}</p>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium text-foreground">
+                              {org.contractCount}
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium text-foreground">
+                              {formatRating(org.avgCurrentRating)}
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium text-foreground">
+                              {formatRating(org.avgFinalProjectedRating ?? org.avgProjectedRating)}
+                            </td>
+                            <td className={`px-4 py-3 text-right font-medium ${getChangeColor(org.avgFinalOverallChange ?? org.avgOverallChange)}`}>
+                              <span className="flex items-center justify-end gap-1">
+                                {getChangeIcon(org.avgFinalOverallChange ?? org.avgOverallChange)}
+                                {formatChange(org.avgFinalOverallChange ?? org.avgOverallChange)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="text-emerald-500">{org.contractsGaining}</span>
+                              {org.finalBracketGainers > 0 && (
+                                <span className="ml-1 text-xs text-muted-foreground">({org.finalBracketGainers}★)</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="text-rose-500">{org.contractsLosing}</span>
+                              {org.finalBracketLosers > 0 && (
+                                <span className="ml-1 text-xs text-muted-foreground">({org.finalBracketLosers}★)</span>
+                              )}
+                            </td>
+                          </tr>
+                          {isExpanded && orgContracts.map((contract) => (
+                            <tr
+                              key={contract.contractId}
+                              className="border-b border-border/30 bg-muted/20"
+                            >
+                              <td className="px-4 py-2 pl-10">
+                                <div className="flex items-center gap-2">
+                                  <Link 
+                                    href={`/summary?contractId=${contract.contractId}&year=2026`}
+                                    className="font-mono text-xs text-primary hover:underline"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {contract.contractId}
+                                  </Link>
+                                  <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                    {contract.organizationMarketingName || contract.contractName || "—"}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-2 text-right text-xs text-muted-foreground">
+                                —
+                              </td>
+                              <td className="px-4 py-2 text-right text-xs text-foreground">
+                                {formatRating(contract.currentOverallRating)}
+                              </td>
+                              <td className="px-4 py-2 text-right text-xs text-foreground">
+                                {formatRating(contract.finalProjectedOverall ?? contract.projectedOverallRating)}
+                              </td>
+                              <td className={`px-4 py-2 text-right text-xs ${getChangeColor(contract.finalOverallChange ?? contract.overallChange)}`}>
+                                <span className="flex items-center justify-end gap-1">
+                                  {formatChange(contract.finalOverallChange ?? contract.overallChange)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 text-center text-xs">
+                                {(contract.finalOverallChange ?? contract.overallChange ?? 0) > 0.01 ? (
+                                  <span className="text-emerald-500">✓</span>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-center text-xs">
+                                {(contract.finalOverallChange ?? contract.overallChange ?? 0) < -0.01 ? (
+                                  <span className="text-rose-500">✓</span>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>
