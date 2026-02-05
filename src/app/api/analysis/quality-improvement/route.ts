@@ -463,7 +463,7 @@ function buildInsights(measures: MeasureSummary[]): string[] {
     const recentTransition = measure.transitions[measure.transitions.length - 1];
     if (recentTransition) {
       const stayFive = recentTransition.stayRates.find((row) => row.rating === 5);
-      if (stayFive?.stayRate !== null && stayFive.sample > 0) {
+      if (stayFive && stayFive.stayRate !== null && stayFive.sample > 0) {
         insights.push(
           `Just ${stayFive.stayRate}% of ${measure.shortLabel} contracts kept a 5★ Quality Improvement score from ${recentTransition.fromYear} to ${recentTransition.toYear}.`
         );
