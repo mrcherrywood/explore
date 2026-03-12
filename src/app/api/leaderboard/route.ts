@@ -815,7 +815,6 @@ async function buildContractMetricSections(
   const measureAggregates = new Map<string, Map<string, MetricAggregate>>();
   const measureLabels = new Map<string, string>();
   const measureDirections = new Map<string, "higher" | "lower">();
-  const domainDirections = new Map<string, { inverseCount: number; totalCount: number }>();
   const groupedMeasureEntries = new Map<string, Array<{ orgId: string; year: number; value: number; metricType: "stars" | "rate"; weight: number }>>();
   const measureYears = new Map<string, { dataYear: number; priorYear: number | null }>();
 
@@ -884,13 +883,6 @@ async function buildContractMetricSections(
     if (!measureDirections.has(measureKey)) {
       measureDirections.set(measureKey, isInverse ? "lower" : "higher");
     }
-
-    const stats = domainDirections.get(domain) ?? { inverseCount: 0, totalCount: 0 };
-    stats.totalCount += 1;
-    if (isInverse) {
-      stats.inverseCount += 1;
-    }
-    domainDirections.set(domain, stats);
   }
 
   for (const [mKey, entries] of groupedMeasureEntries.entries()) {
@@ -923,8 +915,6 @@ async function buildContractMetricSections(
   for (const [domain, aggregates] of sortedDomains) {
     const { snapshots, metricType } = snapshotsFromAggregates(aggregates);
     if (!snapshots.size) continue;
-    const stats = domainDirections.get(domain);
-    const direction = stats && stats.totalCount > 0 && stats.inverseCount >= stats.totalCount / 2 ? "lower" : "higher";
     sections.push(
       buildSection(
         "contract",
@@ -936,7 +926,7 @@ async function buildContractMetricSections(
         topLimit,
         metricsDataYear,
         metricsPriorYear,
-        direction
+        "higher"
       )
     );
   }
@@ -1047,7 +1037,6 @@ async function buildOrganizationMetricSections(
   const measureAggregates = new Map<string, Map<string, MetricAggregate>>();
   const measureLabels = new Map<string, string>();
   const measureDirections = new Map<string, "higher" | "lower">();
-  const domainDirections = new Map<string, { inverseCount: number; totalCount: number }>();
   const groupedMeasureEntries = new Map<string, Array<{ orgId: string; year: number; value: number; metricType: "stars" | "rate"; weight: number }>>();
   const groupedDomainEntries = new Map<string, Array<{ orgId: string; year: number; value: number; metricType: "stars" | "rate"; weight: number }>>();
   const measureYears = new Map<string, { dataYear: number; priorYear: number | null }>();
@@ -1117,13 +1106,6 @@ async function buildOrganizationMetricSections(
     if (!measureDirections.has(measureKey)) {
       measureDirections.set(measureKey, isInverse ? "lower" : "higher");
     }
-
-    const stats = domainDirections.get(domain) ?? { inverseCount: 0, totalCount: 0 };
-    stats.totalCount += 1;
-    if (isInverse) {
-      stats.inverseCount += 1;
-    }
-    domainDirections.set(domain, stats);
   }
 
   // Accumulate per-domain using the metric type with the most valid YOY pairs
@@ -1213,8 +1195,6 @@ async function buildOrganizationMetricSections(
   for (const [domain, aggregates] of sortedDomains) {
     const { snapshots, metricType } = snapshotsFromAggregates(aggregates);
     if (!snapshots.size) continue;
-    const stats = domainDirections.get(domain);
-    const direction = stats && stats.totalCount > 0 && stats.inverseCount >= stats.totalCount / 2 ? "lower" : "higher";
     sections.push(
       buildSection(
         "organization",
@@ -1226,7 +1206,7 @@ async function buildOrganizationMetricSections(
         topLimit,
         orgMetricsDataYear,
         orgMetricsPriorYear,
-        direction
+        "higher"
       )
     );
   }
