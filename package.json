@@ -7,6 +7,7 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
+    "test:percentile-analysis": "tsx --test src/lib/percentile-analysis/*.test.ts",
     "migrate": "tsx scripts/run-migration.ts",
     "import:metrics": "tsx scripts/import-ma-metrics.ts",
     "import:summary": "tsx scripts/import-summary-ratings.ts",
@@ -47,6 +48,7 @@
     "tailwind-merge": "^3.3.1",
     "typeorm": "^0.3.27",
     "uuid": "^13.0.0",
+    "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {

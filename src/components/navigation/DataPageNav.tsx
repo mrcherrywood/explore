@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, FileText, Calendar, Sparkle, Trophy, Users, Globe2, AlertTriangle, Scale, Shield, ActivitySquare, TrendingDown, HeartPulse, PanelLeftOpen, PanelLeftClose } from "lucide-react";
+import { BarChart3, FileText, Calendar, Sparkle, Trophy, Users, Globe2, AlertTriangle, Scale, Shield, ActivitySquare, TrendingDown, HeartPulse, PanelLeftOpen, PanelLeftClose, Percent } from "lucide-react";
 import { NavIcon } from "./NavIcon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/auth";
@@ -28,6 +28,7 @@ export function DataPageNav() {
         <NavIcon icon={ActivitySquare} label="Consistency" href="/consistency" active={pathname === "/consistency"} expanded={expanded} />
         <NavIcon icon={Globe2} label="Maps" href="/maps/contracts" active={pathname.startsWith("/maps")} expanded={expanded} />
         <NavIcon icon={AlertTriangle} label="Ops Impact" href="/analysis/operations-impact" active={pathname.startsWith("/analysis/operations-impact")} expanded={expanded} />
+        <NavIcon icon={Percent} label="Percentiles" href="/analysis/percentile-analysis" active={pathname.startsWith("/analysis/percentile-analysis")} expanded={expanded} />
         <NavIcon icon={TrendingDown} label="QI Trends" href="/analysis/quality-improvement" active={pathname.startsWith("/analysis/quality-improvement")} expanded={expanded} />
         <NavIcon icon={HeartPulse} label="Conditions" href="/condition-groups" active={pathname === "/condition-groups"} expanded={expanded} />
         <NavIcon icon={Scale} label="UHC vs Mkt" href="/uhc-comparison" active={pathname === "/uhc-comparison"} expanded={expanded} />
