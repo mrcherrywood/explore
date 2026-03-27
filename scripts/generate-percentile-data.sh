@@ -7,7 +7,11 @@ if [ -z "$VERCEL" ]; then
   exit 0
 fi
 
-pip3 install --quiet numpy pandas scipy openpyxl
+if command -v uv >/dev/null 2>&1; then
+  uv pip install --system --quiet numpy pandas scipy openpyxl
+else
+  pip3 install --quiet --break-system-packages numpy pandas scipy openpyxl
+fi
 
 cd "$(dirname "$0")/percentile-analysis"
 mkdir -p .generated-json .generated-workbooks
