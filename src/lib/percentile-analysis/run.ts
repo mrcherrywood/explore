@@ -21,7 +21,9 @@ const SCRIPT_DIRECTORY = path.join(WORKSPACE_ROOT, "scripts", "percentile-analys
 const DATA_DIRECTORY = path.join(SCRIPT_DIRECTORY, "data");
 const CONTRACT_SCRIPT = path.join(SCRIPT_DIRECTORY, "contract_percentiles.py");
 const CUTPOINT_SCRIPT = path.join(SCRIPT_DIRECTORY, "cutpoint_percentiles.py");
-const GENERATED_JSON_DIRECTORY = path.join(SCRIPT_DIRECTORY, ".generated-json");
+const GENERATED_JSON_DIRECTORY = process.env.VERCEL
+  ? path.join(os.tmpdir(), "percentile-analysis-generated-json")
+  : path.join(SCRIPT_DIRECTORY, ".generated-json");
 
 export const SUPPORTED_MEASURE_YEARS = [2024, 2025, 2026] as const;
 

@@ -1,6 +1,7 @@
 import { access, mkdir, readFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { spawn } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 
 import * as XLSX from "xlsx";
@@ -18,7 +19,9 @@ const WORKBOOK_DIRECTORIES = [
   path.join(process.cwd(), "data"),
   path.join(process.cwd(), "scripts", "percentile-analysis", "data"),
 ] as const;
-const GENERATED_WORKBOOK_DIRECTORY = path.join(SCRIPT_DIRECTORY, ".generated-workbooks");
+const GENERATED_WORKBOOK_DIRECTORY = process.env.VERCEL
+  ? path.join(os.tmpdir(), "percentile-analysis-generated-workbooks")
+  : path.join(SCRIPT_DIRECTORY, ".generated-workbooks");
 
 const METHOD_OPTIONS: WorkbookViewerResponse["methods"] = [
   {
