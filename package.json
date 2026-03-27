@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "NODE_OPTIONS='--dns-result-order=ipv4first' next dev --turbopack",
+    "prebuild": "sh scripts/generate-percentile-data.sh",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
