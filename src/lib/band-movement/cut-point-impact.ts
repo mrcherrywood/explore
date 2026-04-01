@@ -51,6 +51,15 @@ export type LinearFit = {
   n: number;
 };
 
+export type ProjectionConfidence = "reasonable" | "low" | "suppressed";
+
+export type ProjectionWarning = {
+  code: "weak_correlation" | "extreme_delta" | "contradicts_trend" | "insufficient_data";
+  message: string;
+};
+
+export type ProjectionMethod = "blended" | "regression_only" | "forecast_only";
+
 export type CutPointImpactSummary = {
   thresholdKey: ThresholdKey;
   thresholdLabel: string;
@@ -60,6 +69,11 @@ export type CutPointImpactSummary = {
   latestCutPoint: number | null;
   latestAvgScoreChange: number | null;
   projectedNextCutPoint: number | null;
+  projectedDelta: number | null;
+  projectionConfidence: ProjectionConfidence;
+  projectionWarnings: ProjectionWarning[];
+  projectionMethod: ProjectionMethod | null;
+  regressionOnlyProjection: number | null;
   forecastCutPoints: { year: number; value: number }[];
 };
 
@@ -193,6 +207,76 @@ function lookupForecastCutPoints(
   return results;
 }
 
+function assessProjection(
+  projectedDelta: number,
+  fit: LinearFit,
+  historicalCutPoints: HistoricalCutPointYear[],
+  thresholdKey: ThresholdKey
+): { confidence: ProjectionConfidence; warnings: ProjectionWarning[]; cappedDelta: number } {
+  const warnings: ProjectionWarning[] = [];
+
+  const historicalValues = historicalCutPoints.map((h) => h.thresholds[thresholdKey]);
+  const historicalDeltas: number[] = [];
+  for (let i = 1; i < historicalValues.length; i++) {
+    historicalDeltas.push(historicalValues[i] - historicalValues[i - 1]);
+  }
+
+  const recentDeltas = historicalDeltas.slice(-5);
+  const recentMaxDelta = recentDeltas.length > 0
+    ? Math.max(...recentDeltas.map(Math.abs))
+    : 3;
+  const deltaCap = Math.max(recentMaxDelta * 1.5, 3);
+
+  let cappedDelta = projectedDelta;
+  if (Math.abs(projectedDelta) > deltaCap) {
+    cappedDelta = Math.sign(projectedDelta) * deltaCap;
+    warnings.push({
+      code: "extreme_delta",
+      message: `Projected change (${projectedDelta > 0 ? "+" : ""}${projectedDelta.toFixed(1)}) exceeded recent range; capped to ${cappedDelta > 0 ? "+" : ""}${cappedDelta.toFixed(1)}`,
+    });
+  }
+
+  if (fit.n <= 2) {
+    warnings.push({
+      code: "insufficient_data",
+      message: `Only ${fit.n} data points — r is always ±1.00 with 2 points, not a real signal`,
+    });
+  }
+
+  if (Math.abs(fit.r) < 0.5 && fit.n > 2) {
+    warnings.push({
+      code: "weak_correlation",
+      message: `Weak correlation (r=${fit.r.toFixed(2)}) — score movement explains little of the cut point variation`,
+    });
+  }
+
+  if (historicalDeltas.length >= 3) {
+    const lastDeltas = historicalDeltas.slice(-3);
+    const avgRecentDirection = lastDeltas.reduce((a, b) => a + b, 0) / lastDeltas.length;
+
+    if (avgRecentDirection > 0.3 && cappedDelta < -0.5) {
+      warnings.push({
+        code: "contradicts_trend",
+        message: `Cut points have been rising historically, but model projects a decline`,
+      });
+    } else if (avgRecentDirection < -0.3 && cappedDelta > 0.5) {
+      warnings.push({
+        code: "contradicts_trend",
+        message: `Cut points have been falling historically, but model projects an increase`,
+      });
+    }
+  }
+
+  let confidence: ProjectionConfidence = "reasonable";
+  if (warnings.length >= 2) {
+    confidence = "suppressed";
+  } else if (warnings.length > 0 || fit.n <= 3) {
+    confidence = "low";
+  }
+
+  return { confidence, warnings, cappedDelta };
+}
+
 export function analyzeCutPointImpact(
   measureNorm: string
 ): CutPointImpactResponse | null {
@@ -266,15 +350,58 @@ export function analyzeCutPointImpact(
     const latestAvgScoreChange = lastPoint?.avgScoreChange ?? null;
 
     let projectedNextCutPoint: number | null = null;
-    if (fit && latestCutPoint !== null && latestAvgScoreChange !== null) {
-      const projectedDelta = fit.slope * latestAvgScoreChange + fit.intercept;
-      projectedNextCutPoint = Number((latestCutPoint + projectedDelta).toFixed(2));
-    }
+    let projectedDelta: number | null = null;
+    let projectionConfidence: ProjectionConfidence = "suppressed";
+    let projectionWarnings: ProjectionWarning[] = [];
+    let projectionMethod: ProjectionMethod | null = null;
+    let regressionOnlyProjection: number | null = null;
 
     const forecastCutPointsForThreshold = forecasts.map((f) => ({
       year: f.year,
       value: f.thresholds[thresholdKey],
     }));
+    const workbookForecast = forecastCutPointsForThreshold[0]?.value ?? null;
+
+    if (fit && latestCutPoint !== null && latestAvgScoreChange !== null) {
+      const rawDelta = fit.slope * latestAvgScoreChange + fit.intercept;
+      const assessment = assessProjection(rawDelta, fit, historicalCutPoints, thresholdKey);
+      projectionWarnings = assessment.warnings;
+
+      const regressionValue = Number((latestCutPoint + assessment.cappedDelta).toFixed(2));
+      regressionOnlyProjection = regressionValue;
+
+      if (workbookForecast !== null) {
+        const WORKBOOK_WEIGHT = 0.7;
+        const REGRESSION_WEIGHT = 0.3;
+        const blended = workbookForecast * WORKBOOK_WEIGHT + regressionValue * REGRESSION_WEIGHT;
+        projectedNextCutPoint = Number(blended.toFixed(2));
+        projectedDelta = Number((projectedNextCutPoint - latestCutPoint).toFixed(2));
+        projectionMethod = "blended";
+        projectionConfidence = assessment.confidence === "suppressed" ? "low" : assessment.confidence;
+      } else if (assessment.confidence !== "suppressed") {
+        projectedNextCutPoint = regressionValue;
+        projectedDelta = Number(assessment.cappedDelta.toFixed(2));
+        projectionMethod = "regression_only";
+        projectionConfidence = assessment.confidence;
+      } else {
+        projectedDelta = Number(rawDelta.toFixed(2));
+        projectionConfidence = "suppressed";
+        projectionMethod = "regression_only";
+      }
+    } else if (workbookForecast !== null && latestCutPoint !== null) {
+      projectedNextCutPoint = workbookForecast;
+      projectedDelta = Number((workbookForecast - latestCutPoint).toFixed(2));
+      projectionMethod = "forecast_only";
+      projectionConfidence = "low";
+    }
+
+    if (projectedNextCutPoint !== null && projectedNextCutPoint > 100) {
+      projectedNextCutPoint = 100;
+      projectedDelta = latestCutPoint !== null ? Number((100 - latestCutPoint).toFixed(2)) : projectedDelta;
+    }
+    if (regressionOnlyProjection !== null && regressionOnlyProjection > 100) {
+      regressionOnlyProjection = 100;
+    }
 
     const thresholdLabel = `${starLevel}★`;
 
@@ -287,6 +414,11 @@ export function analyzeCutPointImpact(
       latestCutPoint,
       latestAvgScoreChange,
       projectedNextCutPoint,
+      projectedDelta,
+      projectionConfidence,
+      projectionWarnings,
+      projectionMethod,
+      regressionOnlyProjection,
       forecastCutPoints: forecastCutPointsForThreshold,
     });
   }

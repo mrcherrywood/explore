@@ -39,6 +39,10 @@ type LinearFit = {
   n: number;
 };
 
+type ProjectionConfidence = "reasonable" | "low" | "suppressed";
+type ProjectionWarning = { code: string; message: string };
+type ProjectionMethod = "blended" | "regression_only" | "forecast_only";
+
 type CutPointImpactSummary = {
   thresholdKey: ThresholdKey;
   thresholdLabel: string;
@@ -48,6 +52,11 @@ type CutPointImpactSummary = {
   latestCutPoint: number | null;
   latestAvgScoreChange: number | null;
   projectedNextCutPoint: number | null;
+  projectedDelta: number | null;
+  projectionConfidence: ProjectionConfidence;
+  projectionWarnings: ProjectionWarning[];
+  projectionMethod: ProjectionMethod | null;
+  regressionOnlyProjection: number | null;
   forecastCutPoints: { year: number; value: number }[];
 };
 
@@ -144,7 +153,7 @@ export function CutPointImpactAnalysis({ measure, displayName }: Props) {
     );
   }
 
-  const hasProjections = data.perBand.some((b) => b.projectedNextCutPoint !== null);
+  const hasProjections = data.perBand.some((b) => b.projectedNextCutPoint !== null || b.projectionConfidence === "suppressed");
 
   return (
     <div className="space-y-6">
@@ -302,8 +311,20 @@ function CaveatsBanner({ transitionCount }: { transitionCount: number }) {
 }
 
 function ProjectionCards({ perBand, displayName, projectionYear }: { perBand: CutPointImpactSummary[]; displayName: string; projectionYear: number }) {
-  const withProjections = perBand.filter((b) => b.projectedNextCutPoint !== null);
-  if (withProjections.length === 0) return null;
+  const showable = perBand.filter((b) => b.projectedNextCutPoint !== null || b.projectionConfidence === "suppressed");
+  if (showable.length === 0) return null;
+
+  const confidenceBorder: Record<ProjectionConfidence, string> = {
+    reasonable: "border-border",
+    low: "border-border",
+    suppressed: "border-rose-500/30",
+  };
+
+  const confidenceLabel: Record<ProjectionConfidence, { text: string; color: string }> = {
+    reasonable: { text: "", color: "" },
+    low: { text: "", color: "" },
+    suppressed: { text: "Suppressed", color: "text-rose-500" },
+  };
 
   return (
     <section className="space-y-3">
@@ -312,32 +333,66 @@ function ProjectionCards({ perBand, displayName, projectionYear }: { perBand: Cu
         <span className="ml-2 text-xs font-normal text-muted-foreground">{displayName}</span>
       </h3>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {withProjections.map((band) => {
+        {showable.map((band) => {
           const forecast = band.forecastCutPoints[0];
+          const isSuppressed = band.projectionConfidence === "suppressed";
+          const badge = confidenceLabel[band.projectionConfidence];
+
           return (
-            <div key={band.thresholdKey} className="rounded-2xl border border-border bg-muted/40 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                {band.thresholdLabel} Threshold — {projectionYear}
-              </p>
-              <p className="mt-2 text-2xl font-semibold text-foreground">
-                {band.projectedNextCutPoint?.toFixed(2)}
-              </p>
+            <div key={band.thresholdKey} className={`rounded-2xl border bg-muted/40 p-4 ${confidenceBorder[band.projectionConfidence]}`}>
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  {band.thresholdLabel} Threshold — {projectionYear}
+                </p>
+                {badge.text && (
+                  <span className={`text-[10px] font-semibold uppercase tracking-wider ${badge.color}`}>
+                    {badge.text}
+                  </span>
+                )}
+              </div>
+
+              {isSuppressed ? (
+                <p className="mt-2 text-lg text-muted-foreground line-through decoration-rose-500/50">
+                  {band.latestCutPoint != null && band.projectedDelta != null
+                    ? (band.latestCutPoint + band.projectedDelta).toFixed(2)
+                    : "—"}
+                </p>
+              ) : (
+                <p className="mt-2 text-2xl font-semibold text-foreground">
+                  {band.projectedNextCutPoint?.toFixed(2)}
+                </p>
+              )}
+
               <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                 <p>
                   Current ({projectionYear - 1}): {band.latestCutPoint?.toFixed(2)}
-                  <span className="ml-1">
-                    (Δ {fmtDelta(band.projectedNextCutPoint != null && band.latestCutPoint != null
-                      ? Number((band.projectedNextCutPoint - band.latestCutPoint).toFixed(2))
-                      : null)})
-                  </span>
+                  {!isSuppressed && band.projectedDelta != null && (
+                    <span className="ml-1">(Δ {fmtDelta(band.projectedDelta)})</span>
+                  )}
                 </p>
-                {forecast && (
-                  <p>
-                    Workbook forecast ({forecast.year}): {forecast.value.toFixed(2)}
+                {!isSuppressed && band.projectionMethod === "blended" && forecast && (
+                  <p className="text-[11px]">
+                    Forecast: {forecast.value.toFixed(2)} · Regression: {band.regressionOnlyProjection?.toFixed(2)}
                   </p>
                 )}
-                {band.fit && (
+                {!isSuppressed && band.projectionMethod === "regression_only" && band.fit && (
                   <p>Based on avg score change of {fmtDelta(band.latestAvgScoreChange)} pts (r={fmtR(band.fit.r)})</p>
+                )}
+                {!isSuppressed && band.projectionMethod === "forecast_only" && forecast && (
+                  <p>Based on workbook forecast (no regression adjustment)</p>
+                )}
+                {isSuppressed && forecast && (
+                  <p>Workbook forecast ({forecast.year}): {forecast.value.toFixed(2)}</p>
+                )}
+                {band.projectionWarnings.length > 0 && (
+                  <div className="mt-1.5 space-y-0.5">
+                    {band.projectionWarnings.map((w) => (
+                      <p key={w.code} className="flex items-start gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                        {w.message}
+                      </p>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
