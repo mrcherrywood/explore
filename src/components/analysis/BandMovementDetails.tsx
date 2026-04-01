@@ -88,7 +88,7 @@ export function BandMovementDetails({ allBands, cutPoints, scoreStats, contracts
                 </tr>
               </thead>
               <tbody>
-                {allBands.filter((b) => b.cohortSize > 0).map((b) => (
+                {[...allBands].filter((b) => b.cohortSize > 0).reverse().map((b) => (
                   <tr key={b.star} className={`border-b border-border/50 ${b.star === star ? "bg-primary/5" : ""}`}>
                     <td className="px-3 py-2 font-semibold">{b.star}{"★"}</td>
                     <td className="px-3 py-2 text-right">{b.cohortSize}</td>
@@ -122,7 +122,7 @@ export function BandMovementDetails({ allBands, cutPoints, scoreStats, contracts
                 </tr>
               </thead>
               <tbody>
-                {(["twoStar", "threeStar", "fourStar", "fiveStar"] as const).map((key) => {
+                {(["fiveStar", "fourStar", "threeStar", "twoStar"] as const).map((key) => {
                   const labels = { twoStar: "2★", threeStar: "3★", fourStar: "4★", fiveStar: "5★" };
                   const delta = cutPoints.delta[key];
                   return (

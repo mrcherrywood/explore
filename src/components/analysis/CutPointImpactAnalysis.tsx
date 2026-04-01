@@ -495,7 +495,7 @@ function HistoricalTrendChart({
                 return (
                   <div className="rounded-xl border border-border bg-card px-3 py-2 text-xs shadow-md">
                     <p className="font-medium">{yr}{isProjection ? " (projected)" : ""}</p>
-                    {THRESHOLD_META.map((t) => {
+                    {[...THRESHOLD_META].reverse().map((t) => {
                       const actual = payload.find((p) => p.dataKey === t.key);
                       const proj = payload.find((p) => p.dataKey === `${t.key}Proj`);
                       const entry = actual?.value != null ? actual : proj;
@@ -586,7 +586,7 @@ function CorrelationTable({ perBand }: { perBand: CutPointImpactSummary[] }) {
             </tr>
           </thead>
           <tbody>
-            {perBand.map((band) => (
+            {[...perBand].reverse().map((band) => (
               <tr key={band.thresholdKey} className="border-b border-border/50">
                 <td className="px-3 py-2 font-medium" style={{ color: STAR_COLORS[String(band.starLevel)] }}>
                   {band.thresholdLabel}
@@ -644,7 +644,7 @@ function ScatterPlots({ perBand, displayName }: { perBand: CutPointImpactSummary
         </div>
       </div>
       <div className="grid gap-6 md:grid-cols-2">
-        {bandsWithData.map((band) => {
+        {[...bandsWithData].reverse().map((band) => {
           const points = band.dataPoints
             .filter((d) => d.avgScoreChange !== null)
             .map((d) => ({

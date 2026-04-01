@@ -27,7 +27,7 @@ export function BandMovementHistorical({ history, star, displayMeasure }: Props)
     cohort: t.movement.cohortSize,
   }));
 
-  const cutPointKeys = ["twoStar", "threeStar", "fourStar", "fiveStar"] as const;
+  const cutPointKeys = ["fiveStar", "fourStar", "threeStar", "twoStar"] as const;
   const cutPointLabels: Record<string, string> = { twoStar: "2★", threeStar: "3★", fourStar: "4★", fiveStar: "5★" };
   const hasCutPoints = history.some((t) => t.cutPoints !== null);
 
