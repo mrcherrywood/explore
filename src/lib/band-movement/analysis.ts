@@ -177,6 +177,14 @@ function isMeasureKey(key: string): boolean {
   return /^[CD]\d+:/.test(key);
 }
 
+function normalizeMeasureKey(key: string): string {
+  const code = extractMeasureCode(key);
+  const norm = normalizeMeasureName(extractMeasureName(key));
+  if (!code) return norm;
+  const part = code.startsWith("D") ? " partd" : " partc";
+  return norm + part;
+}
+
 function loadYearData(year: number): YearData {
   const starsPath = path.join(DATA_DIR, String(year), `measure_stars_${year}.json`);
   const dataPath = path.join(DATA_DIR, String(year), `measure_data_${year}.json`);
@@ -208,8 +216,7 @@ function loadYearData(year: number): YearData {
     for (const key of measureKeys) {
       const star = parseStarValue(row[key] ?? "");
       if (star !== null) {
-        const norm = normalizeMeasureName(extractMeasureName(key));
-        contractStars.set(norm, star);
+        contractStars.set(normalizeMeasureKey(key), star);
       }
     }
     stars.set(contractId, contractStars);
@@ -229,8 +236,7 @@ function loadYearData(year: number): YearData {
     if (rawRow) {
       const dataKeys = Object.keys(rawRow).filter(isMeasureKey);
       for (const key of dataKeys) {
-        const norm = normalizeMeasureName(extractMeasureName(key));
-        contractScores.set(norm, parseScoreValue(rawRow[key] ?? ""));
+        contractScores.set(normalizeMeasureKey(key), parseScoreValue(rawRow[key] ?? ""));
       }
     }
     scores.set(contractId, contractScores);
@@ -246,7 +252,7 @@ function buildUnifiedMeasures(yearDataMap: Map<number, YearData>): UnifiedMeasur
     for (const key of yd.measureKeys) {
       const code = extractMeasureCode(key);
       const rawName = extractMeasureName(key);
-      const norm = normalizeMeasureName(rawName);
+      const norm = normalizeMeasureKey(key);
       if (!norm || !code) continue;
 
       let entry = byNorm.get(norm);
@@ -256,9 +262,21 @@ function buildUnifiedMeasures(yearDataMap: Map<number, YearData>): UnifiedMeasur
       }
       entry.codesByYear[year] = code;
       entry.keysByYear[year] = key;
-      if (rawName.length > entry.displayName.length) {
+      if (rawName.length >= entry.displayName.length) {
         entry.displayName = rawName;
       }
+    }
+  }
+
+  for (const [norm, entry] of byNorm) {
+    const baseName = normalizeMeasureName(entry.displayName);
+    const hasPart = norm.endsWith(" partc") || norm.endsWith(" partd");
+    if (!hasPart) continue;
+    const otherSuffix = norm.endsWith(" partc") ? " partd" : " partc";
+    const otherKey = baseName + otherSuffix;
+    if (byNorm.has(otherKey)) {
+      const partLabel = norm.endsWith(" partd") ? " (Part D)" : " (Part C)";
+      entry.displayName = entry.displayName + partLabel;
     }
   }
 
@@ -319,9 +337,48 @@ function pct(count: number, total: number): number {
   return Number(((count / total) * 100).toFixed(1));
 }
 
+export type HistoricalTransition = {
+  fromYear: number;
+  toYear: number;
+  movement: BandMovementStats;
+  cutPoints: CutPointComparison | null;
+  scoreStats: { from: ScoreStats; to: ScoreStats } | null;
+};
+
+export type HistoricalBandMovementResponse = {
+  status: "ready";
+  measures: UnifiedMeasure[];
+  transitions: number[];
+  selectedMeasure: string;
+  selectedStar: StarRating;
+  history: HistoricalTransition[];
+};
+
 export function getAvailableOptions(): { measures: UnifiedMeasure[]; transitions: number[] } {
   const { measures } = ensureData();
   return { measures, transitions: [...TRANSITION_FROM_YEARS] };
+}
+
+export function analyzeHistoricalBandMovement(
+  measureNorm: string,
+  star: StarRating
+): Omit<HistoricalBandMovementResponse, "status" | "measures" | "transitions"> {
+  const history: HistoricalTransition[] = [];
+
+  for (const fromYear of TRANSITION_FROM_YEARS) {
+    const result = analyzeBandMovement(measureNorm, star, fromYear);
+    if (result.movement) {
+      history.push({
+        fromYear,
+        toYear: fromYear + 1,
+        movement: result.movement,
+        cutPoints: result.cutPoints,
+        scoreStats: result.scoreStats,
+      });
+    }
+  }
+
+  return { selectedMeasure: measureNorm, selectedStar: star, history };
 }
 
 export function analyzeBandMovement(

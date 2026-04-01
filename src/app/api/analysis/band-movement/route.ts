@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   analyzeBandMovement,
+  analyzeHistoricalBandMovement,
   getAvailableOptions,
   type BandMovementResponse,
+  type HistoricalBandMovementResponse,
 } from "@/lib/band-movement/analysis";
 
 export const runtime = "nodejs";
@@ -29,11 +31,11 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const measure = searchParams.get("measure");
     const star = parseStarParam(searchParams.get("star"));
-    const fromYear = parseYearParam(searchParams.get("fromYear"));
+    const fromYearRaw = searchParams.get("fromYear");
 
     const { measures, transitions } = getAvailableOptions();
 
-    if (!measure || star === null || fromYear === null) {
+    if (!measure || star === null || !fromYearRaw) {
       const response: BandMovementResponse = {
         status: "options",
         measures,
@@ -53,9 +55,23 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    if (!transitions.includes(fromYear)) {
+    if (fromYearRaw === "all") {
+      const result = analyzeHistoricalBandMovement(measure, star);
+      const response: HistoricalBandMovementResponse = {
+        status: "ready",
+        measures,
+        transitions,
+        ...result,
+      };
+      return NextResponse.json(response, {
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+
+    const fromYear = parseYearParam(fromYearRaw);
+    if (fromYear === null || !transitions.includes(fromYear)) {
       return NextResponse.json(
-        { error: `fromYear must be one of: ${transitions.join(", ")}` },
+        { error: `fromYear must be "all" or one of: ${transitions.join(", ")}` },
         { status: 400 }
       );
     }

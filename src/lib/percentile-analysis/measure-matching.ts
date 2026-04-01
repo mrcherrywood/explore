@@ -23,7 +23,7 @@ const MANUAL_CP_TO_NORM: Record<string, string> = {
   "Statin Use with Diabetes (Part D)": "statin use in persons with diabetes (supd)",
   "SNP Care Management": "special needs plan (snp) care management",
   "Members Choosing to Leave": "members choosing to leave the plan",
-  "Controlling Blood Pressure": "controlling",
+  "Controlling Blood Pressure": "controlling high blood pressure",
   "Transitions of Care (Average)": "transitions of care",
   "Follow-up after Emergency Department Visit for Patients with Multiple Chronic Conditions (FMC)":
     "follow-up after emergency department visit",
@@ -46,8 +46,12 @@ type RawCutPointRow = {
   Weight?: number | string | null;
 };
 
+const NORM_ALIASES: Record<string, string> = {
+  "controlling blood pressure": "controlling high blood pressure",
+};
+
 export function normalizeMeasureName(value: string) {
-  return value
+  const norm = value
     .replace(/^[CD]\d+:\s*/i, "")
     .replace(/[^\x20-\x7e]/g, " ")
     .replace(/\bpart\s+([a-z])\b/gi, "part$1")
@@ -55,6 +59,7 @@ export function normalizeMeasureName(value: string) {
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
+  return NORM_ALIASES[norm] ?? norm;
 }
 
 export function isInvertedMeasure(name: string) {
