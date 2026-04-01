@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
       "./scripts/percentile-analysis/data/**",
       "./data/**",
     ],
+    "/api/analysis/band-movement": ["./data/**"],
   },
   experimental: {
     serverActions: {

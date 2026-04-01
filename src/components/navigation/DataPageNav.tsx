@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, FileText, Calendar, Sparkle, Trophy, Users, Globe2, AlertTriangle, Scale, Shield, ActivitySquare, TrendingDown, HeartPulse, PanelLeftOpen, PanelLeftClose, Percent } from "lucide-react";
+import { BarChart3, FileText, Calendar, Sparkle, Trophy, Users, Globe2, AlertTriangle, Scale, Shield, ActivitySquare, TrendingDown, HeartPulse, PanelLeftOpen, PanelLeftClose, Percent, ArrowUpDown } from "lucide-react";
 import { NavIcon } from "./NavIcon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/auth";
@@ -30,6 +30,7 @@ export function DataPageNav() {
         <NavIcon icon={AlertTriangle} label="Ops Impact" href="/analysis/operations-impact" active={pathname.startsWith("/analysis/operations-impact")} expanded={expanded} />
         <NavIcon icon={Percent} label="Percentiles" href="/analysis/percentile-analysis" active={pathname.startsWith("/analysis/percentile-analysis")} expanded={expanded} />
         <NavIcon icon={TrendingDown} label="QI Trends" href="/analysis/quality-improvement" active={pathname.startsWith("/analysis/quality-improvement")} expanded={expanded} />
+        <NavIcon icon={ArrowUpDown} label="Band Movement" href="/analysis/band-movement" active={pathname.startsWith("/analysis/band-movement")} expanded={expanded} />
         <NavIcon icon={HeartPulse} label="Conditions" href="/condition-groups" active={pathname === "/condition-groups"} expanded={expanded} />
         <NavIcon icon={Scale} label="UHC vs Mkt" href="/uhc-comparison" active={pathname === "/uhc-comparison"} expanded={expanded} />
         {showAiAssistant ? <NavIcon icon={Sparkle} label="AI Chat" href="/chat" active={pathname === "/chat"} expanded={expanded} /> : null}
