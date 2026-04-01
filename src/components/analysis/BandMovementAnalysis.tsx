@@ -107,7 +107,10 @@ export function BandMovementAnalysis() {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to load");
       const payload = await res.json();
       if (!effectiveM && payload.measures?.length > 0) {
-        setMeasure(payload.measures[0].normalizedName);
+        const firstMeasure = payload.measures[0].normalizedName;
+        setMeasure(firstMeasure);
+        fetchData(firstMeasure, effectiveS, effectiveY);
+        return;
       }
       if (effectiveY === "all") {
         setHistoricalData(payload as HistoricalBandMovementResponse);
