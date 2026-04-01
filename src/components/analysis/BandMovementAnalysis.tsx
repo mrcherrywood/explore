@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowUpDown, ChevronDown } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, LineChart, Line, Legend } from "recharts";
 import { BandMovementDetails } from "./BandMovementDetails";
 import { BandMovementHistorical } from "./BandMovementHistorical";
+import { CutPointImpactAnalysis } from "./CutPointImpactAnalysis";
 
 type StarRating = 1 | 2 | 3 | 4 | 5;
 
@@ -74,7 +75,7 @@ export type HistoricalBandMovementResponse = {
   history: HistoricalTransition[];
 };
 
-type YearSelection = number | "all";
+type YearSelection = number | "all" | "impact";
 
 const STAR_COLORS: Record<string, string> = {
   "1": "#ef4444", "2": "#f97316", "3": "#eab308", "4": "#22c55e", "5": "#3b82f6",
@@ -93,13 +94,17 @@ export function BandMovementAnalysis() {
   const [fromYear, setFromYear] = useState<YearSelection>(2025);
 
   const fetchData = useCallback(async (m?: string, s?: StarRating, y?: YearSelection) => {
+    const effectiveY = y ?? fromYear;
+    if (effectiveY === "impact") {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
       const effectiveM = m ?? measure;
       const effectiveS = s ?? star;
-      const effectiveY = y ?? fromYear;
       if (effectiveM) params.set("measure", effectiveM);
       if (effectiveS) params.set("star", String(effectiveS));
       params.set("fromYear", String(effectiveY));
@@ -144,6 +149,7 @@ export function BandMovementAnalysis() {
   })) ?? [];
 
   const isHistorical = fromYear === "all";
+  const isImpact = fromYear === "impact";
 
   return (
     <div className="space-y-6">
@@ -161,30 +167,36 @@ export function BandMovementAnalysis() {
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           </div>
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Star Band</label>
-          <div className="flex gap-1">
-            {([1, 2, 3, 4, 5] as StarRating[]).map((s) => (
-              <button key={s} onClick={() => handleStarChange(s)}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${s === star ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
-                {s}{"★"}
-              </button>
-            ))}
+        {!isImpact && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Star Band</label>
+            <div className="flex gap-1">
+              {([1, 2, 3, 4, 5] as StarRating[]).map((s) => (
+                <button key={s} onClick={() => handleStarChange(s)}
+                  className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${s === star ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+                  {s}{"★"}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Transition</label>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             <button onClick={() => handleYearChange("all")}
               className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${isHistorical ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
               All Years
             </button>
             {transitions.map((y) => (
               <button key={y} onClick={() => handleYearChange(y)}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${!isHistorical && y === fromYear ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+                className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${!isHistorical && !isImpact && y === fromYear ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
                 {y}→{y + 1}
               </button>
             ))}
+            <button onClick={() => handleYearChange("impact")}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${isImpact ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+              Cut Point Impact
+            </button>
           </div>
         </div>
       </section>
@@ -198,7 +210,7 @@ export function BandMovementAnalysis() {
       )}
 
       {/* Single-year view */}
-      {!isLoading && !error && !isHistorical && singleData?.status === "ready" && singleData.movement && (
+      {!isLoading && !error && !isHistorical && !isImpact && singleData?.status === "ready" && singleData.movement && (
         <>
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <SummaryCard label="Cohort Size" value={String(singleData.movement.cohortSize)} helper={`Contracts with ${star}★ in ${fromYear} that also reported in ${(fromYear as number) + 1}`} />
@@ -254,6 +266,11 @@ export function BandMovementAnalysis() {
       {/* Historical view */}
       {!isLoading && !error && isHistorical && historicalData?.status === "ready" && historicalData.history.length > 0 && (
         <BandMovementHistorical history={historicalData.history} star={star} displayMeasure={displayMeasure} />
+      )}
+
+      {/* Cut Point Impact view */}
+      {!isLoading && !error && isImpact && measure && (
+        <CutPointImpactAnalysis measure={measure} displayName={displayMeasure} />
       )}
     </div>
   );

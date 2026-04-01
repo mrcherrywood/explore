@@ -27,7 +27,7 @@ type ContractMovementRow = {
   toStar: StarRating; toScore: number | null; starChange: number;
 };
 
-type SortKey = "contractName" | "orgName" | "fromScore" | "toScore" | "starChange";
+type SortKey = "contractName" | "orgName" | "fromScore" | "toScore" | "scoreChange" | "starChange";
 
 type Props = {
   allBands: AllBandRow[];
@@ -49,8 +49,16 @@ export function BandMovementDetails({ allBands, cutPoints, scoreStats, contracts
     else { setSortKey(key); setSortAsc(key === "contractName" || key === "orgName"); }
   };
 
+  const getSortValue = (row: ContractMovementRow, key: SortKey): string | number | null => {
+    if (key === "scoreChange") {
+      return row.fromScore != null && row.toScore != null ? row.toScore - row.fromScore : null;
+    }
+    return row[key];
+  };
+
   const sorted = [...contracts].sort((a, b) => {
-    const av = a[sortKey]; const bv = b[sortKey];
+    const av = getSortValue(a, sortKey);
+    const bv = getSortValue(b, sortKey);
     if (av === null && bv === null) return 0;
     if (av === null) return 1; if (bv === null) return -1;
     const cmp = typeof av === "string" ? av.localeCompare(bv as string) : (av as number) - (bv as number);
@@ -184,7 +192,8 @@ export function BandMovementDetails({ allBands, cutPoints, scoreStats, contracts
                   <th className="px-3 py-2 text-right">{fromYear} Star</th>
                   <ThSortable label={`${toYear} Score`} active={sortKey === "toScore"} asc={sortAsc} onClick={() => toggleSort("toScore")} align="right" />
                   <th className="px-3 py-2 text-right">{toYear} Star</th>
-                  <ThSortable label="Change" active={sortKey === "starChange"} asc={sortAsc} onClick={() => toggleSort("starChange")} align="right" />
+                  <ThSortable label="Δ Score" active={sortKey === "scoreChange"} asc={sortAsc} onClick={() => toggleSort("scoreChange")} align="right" />
+                  <ThSortable label="Δ Star" active={sortKey === "starChange"} asc={sortAsc} onClick={() => toggleSort("starChange")} align="right" />
                 </tr>
               </thead>
               <tbody>
@@ -197,6 +206,16 @@ export function BandMovementDetails({ allBands, cutPoints, scoreStats, contracts
                     <td className="px-3 py-2 text-right font-semibold">{c.fromStar}{"★"}</td>
                     <td className="px-3 py-2 text-right">{c.toScore ?? "\u2014"}</td>
                     <td className="px-3 py-2 text-right font-semibold">{c.toStar}★</td>
+                    {(() => {
+                      const scoreChange = c.fromScore != null && c.toScore != null ? c.toScore - c.fromScore : null;
+                      return (
+                        <td className={`px-3 py-2 text-right font-semibold ${
+                          scoreChange != null ? (scoreChange > 0 ? "text-emerald-500" : scoreChange < 0 ? "text-rose-500" : "text-muted-foreground") : "text-muted-foreground"
+                        }`}>
+                          {scoreChange != null ? `${scoreChange > 0 ? "+" : ""}${scoreChange}` : "\u2014"}
+                        </td>
+                      );
+                    })()}
                     <td className={`px-3 py-2 text-right font-semibold ${c.starChange > 0 ? "text-emerald-500" : c.starChange < 0 ? "text-rose-500" : "text-muted-foreground"}`}>
                       {`${c.starChange > 0 ? "+" : ""}${c.starChange}`}
                     </td>

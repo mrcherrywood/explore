@@ -7,6 +7,7 @@ import {
   type BandMovementResponse,
   type HistoricalBandMovementResponse,
 } from "@/lib/band-movement/analysis";
+import { analyzeCutPointImpact } from "@/lib/band-movement/cut-point-impact";
 
 export const runtime = "nodejs";
 
@@ -29,11 +30,31 @@ function parseYearParam(value: string | null): number | null {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
+    const view = searchParams.get("view");
     const measure = searchParams.get("measure");
     const star = parseStarParam(searchParams.get("star"));
     const fromYearRaw = searchParams.get("fromYear");
 
     const { measures, transitions } = getAvailableOptions();
+
+    if (view === "cut-point-impact") {
+      if (!measure) {
+        return NextResponse.json(
+          { error: "measure parameter is required for cut-point-impact view" },
+          { status: 400 }
+        );
+      }
+      const result = analyzeCutPointImpact(measure);
+      if (!result) {
+        return NextResponse.json(
+          { error: `Measure not found: ${measure}` },
+          { status: 404 }
+        );
+      }
+      return NextResponse.json(result, {
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
 
     if (!measure || star === null || !fromYearRaw) {
       const response: BandMovementResponse = {
