@@ -12,7 +12,7 @@ DEPS="--with numpy --with pandas --with scipy --with openpyxl"
 cd "$(dirname "$0")/percentile-analysis"
 mkdir -p .generated-json .generated-workbooks
 
-for method in percentrank_inc percentileofscore; do
+for method in percentrank_inc percentileofscore percentrank_inc_corrected kde_percentile; do
   uv run $DEPS python3 contract_percentiles.py \
     --output ".generated-json/contract-percentiles-${method}.json" \
     --format json \

@@ -27,6 +27,16 @@ const METHOD_OPTIONS: WorkbookViewerResponse["methods"] = [
     description: "Matches Excel PERCENTRANK.INC and is the industry-standard approach.",
   },
   {
+    id: "percentrank_inc_corrected",
+    label: "Corrected (Mid-Rank)",
+    description: "Continuity-corrected PERCENTRANK.INC — reduces bias from integer-rounded scores by using mid-rank for tied values.",
+  },
+  {
+    id: "kde_percentile",
+    label: "KDE Smoothed",
+    description: "Kernel Density Estimation — fits a smooth density to the score distribution for more granular percentile values.",
+  },
+  {
     id: "percentileofscore",
     label: "Percentile of Score",
     description: "SciPy-style method that counts values at or below the score.",
@@ -279,7 +289,8 @@ export async function getWorkbookViewerData(
   method?: string | null
 ): Promise<WorkbookViewerResponse> {
   const activeWorkbookId: WorkbookId = workbookId === "cutpoint" ? "cutpoint" : "contract";
-  const activeMethod: PercentileMethod = method === "percentileofscore" ? "percentileofscore" : "percentrank_inc";
+  const VALID_METHODS: PercentileMethod[] = ["percentrank_inc", "percentileofscore", "percentrank_inc_corrected", "kde_percentile"];
+  const activeMethod: PercentileMethod = VALID_METHODS.includes(method as PercentileMethod) ? (method as PercentileMethod) : "percentrank_inc";
   const loadedWorkbooks = await Promise.all(
     (Object.keys(WORKBOOK_CONFIG) as WorkbookId[]).map((id) => loadWorkbook(id, activeMethod))
   );

@@ -10,11 +10,12 @@
 - Measures get whole star ratings only (1, 2, 3, 4, 5); never display half stars at the measure level
 - Exclude "dropped" contracts (those that exited the market) from year-over-year analyses; they are not meaningful for performance tracking
 - Summary card order should be Declined → Held → Improved (left to right); "Improved" belongs on the right
+- Display star thresholds in descending order (5-star on top) in tooltips, tables, and charts
 
 ## Learned Workspace Facts
 
 - Next.js app deployed on Vercel; Python scripts in `scripts/percentile-analysis/` generate JSON and XLSX outputs
-- Percentile analysis supports two methods: Percentile Rank (PERCENTRANK.INC/Excel standard) and Percentile of Score (scipy percentileofscore)
+- Percentile analysis supports four methods: Percentile Rank, Percentile of Score, Corrected Mid-Rank, and KDE Smoothed; the latter two compensate for integer-score discretization and ties
 - CMS Star Ratings data spans 2022-2026 measures with cut points from 2016-2028; 2027/2028 cut points are user forecasts
 - Python deps (numpy, pandas, scipy, openpyxl) installed during Vercel prebuild via `scripts/generate-percentile-data.sh` using `uv run --with`; Python is unavailable at Vercel runtime
 - Vercel runtime filesystem is read-only; only `/tmp` is writable; generated files bundled via `outputFileTracingIncludes` in next.config.ts
@@ -26,3 +27,5 @@
 - Measure codes change between years (e.g., C04 renamed in 2026); cross-year matching must use normalized measure names, not code prefixes
 - Band movement analysis at `/analysis/band-movement` tracks contract performance migration between star rating bands year-over-year; Cut Point Impact tab correlates cohort score movement with cut point changes and projects future cut points
 - CMS implemented Tukey outlier deletion methodology starting 2024, significantly changing cut point calculations; pre-2024 and post-2024 cut points are not directly comparable
+- 41 of 43 CMS measures have integer-only scores with heavy ties (up to 26% of contracts sharing one value); only complaint-related measures have decimals
+- Cut point projections for 5-star thresholds must be capped at 100 (maximum possible score)

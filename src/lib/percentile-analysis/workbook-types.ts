@@ -1,5 +1,5 @@
 export type WorkbookId = "contract" | "cutpoint";
-export type PercentileMethod = "percentrank_inc" | "percentileofscore";
+export type PercentileMethod = "percentrank_inc" | "percentileofscore" | "percentrank_inc_corrected" | "kde_percentile";
 
 export type WorkbookDefinition = {
   id: WorkbookId;

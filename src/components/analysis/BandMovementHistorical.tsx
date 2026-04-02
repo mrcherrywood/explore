@@ -93,9 +93,9 @@ export function BandMovementHistorical({ history, star, displayMeasure }: Props)
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-                  <th className="px-3 py-2 text-left">Threshold</th>
+                  <th className="px-3 py-2 text-left" title="Star rating level (2★–5★)">Threshold</th>
                   {history.map((t) => (
-                    <th key={t.fromYear} className="px-3 py-2 text-right" colSpan={2}>
+                    <th key={t.fromYear} className="px-3 py-2 text-right" colSpan={2} title={`Cut point values and change for the ${t.fromYear} to ${t.toYear} transition`}>
                       {t.fromYear}→{t.toYear}
                     </th>
                   ))}
@@ -104,8 +104,8 @@ export function BandMovementHistorical({ history, star, displayMeasure }: Props)
                   <th className="px-3 py-1" />
                   {history.map((t) => (
                     <React.Fragment key={t.fromYear}>
-                      <th className="px-3 py-1 text-right font-normal">Value</th>
-                      <th className="px-3 py-1 text-right font-normal">Δ</th>
+                      <th className="px-3 py-1 text-right font-normal" title={`Cut point score in ${t.toYear}`}>Value</th>
+                      <th className="px-3 py-1 text-right font-normal" title="Year-over-year change in cut point (positive = harder, negative = easier)">Δ</th>
                     </React.Fragment>
                   ))}
                 </tr>
@@ -149,9 +149,9 @@ export function BandMovementHistorical({ history, star, displayMeasure }: Props)
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="px-3 py-2 text-left">Category</th>
+                <th className="px-3 py-2 text-left" title="Movement category: improved (moved up), held (stayed), or declined (moved down)">Category</th>
                 {history.map((t) => (
-                  <th key={t.fromYear} className="px-3 py-2 text-right">{t.fromYear}→{t.toYear}</th>
+                  <th key={t.fromYear} className="px-3 py-2 text-right" title={`Average score change (points) and count for the ${t.fromYear} to ${t.toYear} transition`}>{t.fromYear}→{t.toYear}</th>
                 ))}
               </tr>
             </thead>

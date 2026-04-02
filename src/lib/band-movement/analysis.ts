@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import {
+  isInvertedMeasure,
   loadMeasureCutPoints,
   matchCutPointToMeasureName,
   normalizeMeasureName,
@@ -34,6 +35,9 @@ export type ContractMovementRow = ContractRecord & {
   toStar: StarRating;
   toScore: number | null;
   starChange: number;
+  fractionalFrom: number | null;
+  fractionalTo: number | null;
+  fractionalChange: number | null;
 };
 
 export type MovementBucket = {
@@ -48,6 +52,24 @@ export type ScoreChangeGroup = {
   medianScoreChange: number | null;
 };
 
+/** Cohort slice by numeric score in the from-year (within the star band). */
+export type PerFromScoreRow = {
+  fromScore: number;
+  cohortSize: number;
+  avgScoreChange: number | null;
+};
+
+export type WithinBandDensity = {
+  nearLowerThreshold: number;
+  nearLowerPct: number;
+  middle: number;
+  middlePct: number;
+  nearUpperThreshold: number;
+  nearUpperPct: number;
+  lowerThreshold: number | null;
+  upperThreshold: number | null;
+};
+
 export type BandMovementStats = {
   cohortSize: number;
   improved: number;
@@ -60,6 +82,10 @@ export type BandMovementStats = {
   improvedScores: ScoreChangeGroup;
   heldScores: ScoreChangeGroup;
   declinedScores: ScoreChangeGroup;
+  withinBandDensity: WithinBandDensity | null;
+  avgFractionalFrom: number | null;
+  avgFractionalTo: number | null;
+  avgFractionalChange: number | null;
 };
 
 export type CutPointYearData = {
@@ -305,6 +331,34 @@ function ensureData() {
   return dataCache;
 }
 
+/** Group raw scores to 0.1 resolution so near-integers collapse to one bucket. */
+export function scoreBucketKey(score: number): number {
+  return Math.round(score * 10) / 10;
+}
+
+export function aggregateScoreChangesByFromScore(contracts: ContractMovementRow[]): PerFromScoreRow[] {
+  const map = new Map<number, number[]>();
+  for (const c of contracts) {
+    if (c.fromScore === null || c.toScore === null) continue;
+    const key = scoreBucketKey(c.fromScore);
+    const delta = c.toScore - c.fromScore;
+    const arr = map.get(key);
+    if (arr) arr.push(delta);
+    else map.set(key, [delta]);
+  }
+  const rows: PerFromScoreRow[] = [];
+  for (const [fromScore, deltas] of map) {
+    const sum = deltas.reduce((a, b) => a + b, 0);
+    rows.push({
+      fromScore,
+      cohortSize: deltas.length,
+      avgScoreChange: Number((sum / deltas.length).toFixed(2)),
+    });
+  }
+  rows.sort((a, b) => a.fromScore - b.fromScore);
+  return rows;
+}
+
 function buildScoreChangeGroup(deltas: number[]): ScoreChangeGroup {
   if (deltas.length === 0) return { count: 0, avgScoreChange: null, medianScoreChange: null };
   const sorted = [...deltas].sort((a, b) => a - b);
@@ -343,6 +397,8 @@ export type HistoricalTransition = {
   movement: BandMovementStats;
   cutPoints: CutPointComparison | null;
   scoreStats: { from: ScoreStats; to: ScoreStats } | null;
+  /** Avg score change by from-year numeric score (within this star band). */
+  perFromScore: PerFromScoreRow[];
 };
 
 export type HistoricalBandMovementResponse = {
@@ -374,11 +430,108 @@ export function analyzeHistoricalBandMovement(
         movement: result.movement,
         cutPoints: result.cutPoints,
         scoreStats: result.scoreStats,
+        perFromScore: aggregateScoreChangesByFromScore(result.contracts),
       });
     }
   }
 
   return { selectedMeasure: measureNorm, selectedStar: star, history };
+}
+
+function computeFractionalPosition(
+  score: number,
+  star: StarRating,
+  cutPoint: MeasureCutPoint,
+  inverted: boolean
+): number {
+  const t = cutPoint.thresholds;
+  let lower: number;
+  let upper: number;
+
+  if (inverted) {
+    switch (star) {
+      case 5: lower = 0; upper = t.fiveStar; break;
+      case 4: lower = t.fiveStar; upper = t.fourStar; break;
+      case 3: lower = t.fourStar; upper = t.threeStar; break;
+      case 2: lower = t.threeStar; upper = t.twoStar; break;
+      default: lower = t.twoStar; upper = t.twoStar * 2; break;
+    }
+    if (upper <= lower) return star;
+    const ratio = Math.max(0, Math.min(1, (upper - score) / (upper - lower)));
+    return Number((star - 1 + ratio).toFixed(2));
+  }
+
+  switch (star) {
+    case 1: lower = 0; upper = t.twoStar; break;
+    case 2: lower = t.twoStar; upper = t.threeStar; break;
+    case 3: lower = t.threeStar; upper = t.fourStar; break;
+    case 4: lower = t.fourStar; upper = t.fiveStar; break;
+    default: lower = t.fiveStar; upper = t.fiveStar + (t.fiveStar - t.fourStar); break;
+  }
+  if (upper <= lower) return star;
+  const ratio = Math.max(0, Math.min(1, (score - lower) / (upper - lower)));
+  return Number((star - 1 + ratio).toFixed(2));
+}
+
+function computeWithinBandDensity(
+  scores: number[],
+  star: StarRating,
+  cutPoint: MeasureCutPoint,
+  inverted: boolean
+): WithinBandDensity | null {
+  if (scores.length === 0) return null;
+  const t = cutPoint.thresholds;
+
+  let lower: number | null;
+  let upper: number | null;
+
+  if (inverted) {
+    switch (star) {
+      case 5: lower = null; upper = t.fiveStar; break;
+      case 4: lower = t.fiveStar; upper = t.fourStar; break;
+      case 3: lower = t.fourStar; upper = t.threeStar; break;
+      case 2: lower = t.threeStar; upper = t.twoStar; break;
+      default: lower = t.twoStar; upper = null; break;
+    }
+  } else {
+    switch (star) {
+      case 1: lower = null; upper = t.twoStar; break;
+      case 2: lower = t.twoStar; upper = t.threeStar; break;
+      case 3: lower = t.threeStar; upper = t.fourStar; break;
+      case 4: lower = t.fourStar; upper = t.fiveStar; break;
+      default: lower = t.fiveStar; upper = null; break;
+    }
+  }
+
+  if (lower === null || upper === null) {
+    return { nearLowerThreshold: 0, nearLowerPct: 0, middle: scores.length, middlePct: 100, nearUpperThreshold: 0, nearUpperPct: 0, lowerThreshold: lower, upperThreshold: upper };
+  }
+
+  const range = Math.abs(upper - lower);
+  if (range === 0) return null;
+  const margin = Math.max(range * 0.25, 1);
+
+  const lowBound = Math.min(lower, upper);
+  const highBound = Math.max(lower, upper);
+
+  let nearLower = 0;
+  let nearUpper = 0;
+  for (const s of scores) {
+    if (Math.abs(s - lowBound) <= margin) nearLower++;
+    else if (Math.abs(s - highBound) <= margin) nearUpper++;
+  }
+  const middle = scores.length - nearLower - nearUpper;
+
+  return {
+    nearLowerThreshold: nearLower,
+    nearLowerPct: Number(((nearLower / scores.length) * 100).toFixed(1)),
+    middle,
+    middlePct: Number(((middle / scores.length) * 100).toFixed(1)),
+    nearUpperThreshold: nearUpper,
+    nearUpperPct: Number(((nearUpper / scores.length) * 100).toFixed(1)),
+    lowerThreshold: lowBound,
+    upperThreshold: highBound,
+  };
 }
 
 export function analyzeBandMovement(
@@ -418,6 +571,17 @@ export function analyzeBandMovement(
   const heldDeltas: number[] = [];
   const declinedDeltas: number[] = [];
 
+  const codePrefix = (measure.codesByYear[fromYear] ?? measure.codesByYear[toYear] ?? "C")[0] as string;
+  const fromCutPointsList = cutPointsByYear.get(fromYear) ?? [];
+  const toCutPointsList = cutPointsByYear.get(toYear) ?? [];
+  const fromMatch = matchCutPointToMeasureName(measure.displayName, codePrefix, fromCutPointsList);
+  const toMatch = matchCutPointToMeasureName(measure.displayName, codePrefix, toCutPointsList);
+  const inverted = isInvertedMeasure(measure.displayName);
+
+  const fractionalFromValues: number[] = [];
+  const fractionalToValues: number[] = [];
+  const fractionalChanges: number[] = [];
+
   for (const contractId of cohortIds) {
     const record = fromData.contracts.get(contractId) ?? toData.contracts.get(contractId);
     if (!record) continue;
@@ -431,10 +595,17 @@ export function analyzeBandMovement(
     const starChange = toStar - star;
     const scoreDelta = fromScore !== null && toScore !== null ? toScore - fromScore : null;
 
-    contracts.push({ ...record, fromStar: star, fromScore, toStar, toScore, starChange });
+    const fractionalFrom = fromScore !== null && fromMatch ? computeFractionalPosition(fromScore, star, fromMatch, inverted) : null;
+    const fractionalTo = toScore !== null && toMatch ? computeFractionalPosition(toScore, toStar, toMatch, inverted) : null;
+    const fractionalChange = fractionalFrom !== null && fractionalTo !== null ? Number((fractionalTo - fractionalFrom).toFixed(2)) : null;
+
+    contracts.push({ ...record, fromStar: star, fromScore, toStar, toScore, starChange, fractionalFrom, fractionalTo, fractionalChange });
 
     if (fromScore !== null) fromScores.push(fromScore);
     if (toScore !== null) toScores.push(toScore);
+    if (fractionalFrom !== null) fractionalFromValues.push(fractionalFrom);
+    if (fractionalTo !== null) fractionalToValues.push(fractionalTo);
+    if (fractionalChange !== null) fractionalChanges.push(fractionalChange);
 
     if (toStar > star) {
       improved++;
@@ -454,6 +625,10 @@ export function analyzeBandMovement(
     (s): MovementBucket => ({ toStar: s, count: toBuckets.get(s) ?? 0, pct: pct(toBuckets.get(s) ?? 0, cohortSize) })
   );
 
+  const withinBandDensity = fromMatch ? computeWithinBandDensity(fromScores, star, fromMatch, inverted) : null;
+
+  const avgFractional = (vals: number[]) => vals.length > 0 ? Number((vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(2)) : null;
+
   const movement: BandMovementStats = {
     cohortSize,
     improved,
@@ -466,6 +641,10 @@ export function analyzeBandMovement(
     improvedScores: buildScoreChangeGroup(improvedDeltas),
     heldScores: buildScoreChangeGroup(heldDeltas),
     declinedScores: buildScoreChangeGroup(declinedDeltas),
+    withinBandDensity,
+    avgFractionalFrom: avgFractional(fractionalFromValues),
+    avgFractionalTo: avgFractional(fractionalToValues),
+    avgFractionalChange: avgFractional(fractionalChanges),
   };
 
   const fromStats = computeStats(fromScores);
@@ -475,17 +654,11 @@ export function analyzeBandMovement(
     to: { year: toYear, mean: toStats?.mean ?? null, median: toStats?.median ?? null, min: toStats?.min ?? null, max: toStats?.max ?? null, count: toScores.length },
   };
 
-  const codePrefix = (measure.codesByYear[fromYear] ?? measure.codesByYear[toYear] ?? "C")[0] as string;
-  const fromCutPoints = cutPointsByYear.get(fromYear) ?? [];
-  const toCutPoints = cutPointsByYear.get(toYear) ?? [];
-  const fromMatch = matchCutPointToMeasureName(measure.displayName, codePrefix, fromCutPoints);
-  const toMatch = matchCutPointToMeasureName(measure.displayName, codePrefix, toCutPoints);
-
   let cutPoints: CutPointComparison | null = null;
   if (fromMatch && toMatch) {
     cutPoints = {
-      fromYear: { year: fromYear, ...fromMatch.thresholds },
-      toYear: { year: toYear, ...toMatch.thresholds },
+      fromYear: { year: fromYear, twoStar: fromMatch.thresholds.twoStar, threeStar: fromMatch.thresholds.threeStar, fourStar: fromMatch.thresholds.fourStar, fiveStar: fromMatch.thresholds.fiveStar },
+      toYear: { year: toYear, twoStar: toMatch.thresholds.twoStar, threeStar: toMatch.thresholds.threeStar, fourStar: toMatch.thresholds.fourStar, fiveStar: toMatch.thresholds.fiveStar },
       delta: {
         twoStar: Number((toMatch.thresholds.twoStar - fromMatch.thresholds.twoStar).toFixed(2)),
         threeStar: Number((toMatch.thresholds.threeStar - fromMatch.thresholds.threeStar).toFixed(2)),

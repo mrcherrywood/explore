@@ -123,6 +123,55 @@ def percentrank_inc_inverted(arr: np.ndarray, x: float) -> float:
     return round(above / (n - 1) * 100, 1)
 
 
+def percentrank_corrected(arr: np.ndarray, x: float) -> float:
+    """Mid-rank continuity-corrected PERCENTRANK.INC.
+    Uses (count_below + 0.5 * count_equal) / (n - 1) * 100.
+    Reduces bias from integer-rounded scores where many contracts share the same value.
+    """
+    n = len(arr)
+    if n <= 1:
+        return np.nan
+    below = np.sum(arr < x)
+    equal = np.sum(arr == x)
+    return round(min(100.0, max(0.0, (below + 0.5 * equal) / (n - 1) * 100)), 1)
+
+
+def percentrank_corrected_inverted(arr: np.ndarray, x: float) -> float:
+    """Mid-rank continuity-corrected PERCENTRANK.INC for inverted measures."""
+    n = len(arr)
+    if n <= 1:
+        return np.nan
+    above = np.sum(arr > x)
+    equal = np.sum(arr == x)
+    return round(min(100.0, max(0.0, (above + 0.5 * equal) / (n - 1) * 100)), 1)
+
+
+def kde_percentile(arr: np.ndarray, x: float) -> float:
+    """KDE-based percentile using Gaussian kernel density estimation.
+    Fits a smooth density to the discrete score distribution and derives
+    the percentile from the smooth CDF. Bandwidth uses Silverman's rule
+    with a floor of 0.5 to handle integer-rounded data.
+    """
+    from scipy.stats import gaussian_kde, norm
+
+    n = len(arr)
+    if n <= 1:
+        return np.nan
+
+    std = np.std(arr, ddof=1)
+    iqr = np.subtract(*np.percentile(arr, [75, 25]))
+    silverman = 0.9 * min(std, iqr / 1.34) * n ** (-0.2) if iqr > 0 else 0.9 * std * n ** (-0.2)
+    bw = max(silverman, 0.5) if silverman > 0 else 0.5
+
+    cdf_val = np.mean(norm.cdf((x - arr) / bw))
+    return round(float(cdf_val) * 100, 1)
+
+
+def kde_percentile_inverted(arr: np.ndarray, x: float) -> float:
+    """KDE-based percentile for inverted measures (lower = better)."""
+    return round(100.0 - kde_percentile(arr, x), 1)
+
+
 def percentileofscore_normal(arr: np.ndarray, x: float) -> float:
     """scipy-style percentile: (count of values <= x) / n * 100.
     Alternative method — counts values at or below.
@@ -139,6 +188,9 @@ def percentileofscore_inverted(arr: np.ndarray, x: float) -> float:
     return round(stats.percentileofscore(-arr, -x, kind="rank"), 1)
 
 
+ALL_METHODS = ["percentrank_inc", "percentileofscore", "percentrank_inc_corrected", "kde_percentile"]
+
+
 def calc_percentile(arr: np.ndarray, x: float, inverted: bool = False, method: str = "percentrank_inc") -> float:
     """Calculate percentile using the specified method.
 
@@ -146,18 +198,19 @@ def calc_percentile(arr: np.ndarray, x: float, inverted: bool = False, method: s
         arr: Array of all valid scores for the measure
         x: The score to find the percentile for
         inverted: True if lower score = better performance
-        method: "percentrank_inc" (Excel, default) or "percentileofscore" (scipy)
+        method: One of "percentrank_inc", "percentileofscore",
+                "percentrank_inc_corrected", or "kde_percentile"
 
     Returns:
         Percentile as a percentage (0-100)
     """
     if method == "percentrank_inc":
-        if inverted:
-            return percentrank_inc_inverted(arr, x)
-        return percentrank_inc(arr, x)
+        return percentrank_inc_inverted(arr, x) if inverted else percentrank_inc(arr, x)
     elif method == "percentileofscore":
-        if inverted:
-            return percentileofscore_inverted(arr, x)
-        return percentileofscore_normal(arr, x)
+        return percentileofscore_inverted(arr, x) if inverted else percentileofscore_normal(arr, x)
+    elif method == "percentrank_inc_corrected":
+        return percentrank_corrected_inverted(arr, x) if inverted else percentrank_corrected(arr, x)
+    elif method == "kde_percentile":
+        return kde_percentile_inverted(arr, x) if inverted else kde_percentile(arr, x)
     else:
-        raise ValueError(f"Unknown method: {method}. Use 'percentrank_inc' or 'percentileofscore'.")
+        raise ValueError(f"Unknown method: {method}. Use one of: {', '.join(ALL_METHODS)}")

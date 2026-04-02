@@ -23,6 +23,17 @@ import type { PercentileMethod } from "@/lib/percentile-analysis/workbook-types"
 
 const CUT_POINTS_WORKBOOK_PATH = path.join(process.cwd(), "data", "Stars 2016-2028 Cut Points 12.2025_with_weights.xlsx");
 const LOOKUP_RADII = [0, 2.5, 5, 7.5, 10, 15, 20] as const;
+
+const METHOD_DESCRIPTIONS: Record<PercentileMethod, string> = {
+  percentrank_inc:
+    "Percentile Rank (PERCENTRANK.INC): counts values strictly below the score, divided by (n − 1). Industry standard but assigns identical percentiles to all contracts sharing the same integer score.",
+  percentrank_inc_corrected:
+    "Corrected Mid-Rank: uses (count below + ½ × count equal) ÷ (n − 1). Places tied contracts at the midpoint of their rank range, reducing bias from CMS integer-rounded scores.",
+  kde_percentile:
+    "KDE Smoothed: fits a Gaussian kernel density to the score distribution (bandwidth ≥ 0.5) and derives percentiles from the smooth CDF. Produces more granular values for integer-heavy data.",
+  percentileofscore:
+    "Percentile of Score (scipy): counts values at or below the score, divided by n. Uses rank-based averaging for ties.",
+};
 const MIN_LOOKUP_SAMPLE = 15;
 
 type MeasureDatasetEntry = {
@@ -140,6 +151,36 @@ function getDistributionValue(distribution: MeasureLikelihoodDistribution, targe
   }
 }
 
+function gaussianCdf(z: number): number {
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429;
+  const sign = z < 0 ? -1 : 1;
+  const x = Math.abs(z) / Math.SQRT2;
+  const t = 1.0 / (1.0 + 0.3275911 * x);
+  const y = 1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  return 0.5 * (1 + sign * y);
+}
+
+function kdePercentile(scores: number[], x: number): number | null {
+  const n = scores.length;
+  if (n <= 1) return null;
+  const mean = scores.reduce((s, v) => s + v, 0) / n;
+  const variance = scores.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1);
+  const std = Math.sqrt(variance);
+  const sorted = [...scores].sort((a, b) => a - b);
+  const q1 = sorted[Math.floor(n * 0.25)]!;
+  const q3 = sorted[Math.floor(n * 0.75)]!;
+  const iqr = q3 - q1;
+  const silverman = iqr > 0
+    ? 0.9 * Math.min(std, iqr / 1.34) * n ** (-0.2)
+    : 0.9 * std * n ** (-0.2);
+  const bw = Math.max(silverman > 0 ? silverman : 0.5, 0.5);
+  let cdfSum = 0;
+  for (const xi of scores) {
+    cdfSum += gaussianCdf((x - xi) / bw);
+  }
+  return roundToOne((cdfSum / n) * 100);
+}
+
 function calcThresholdPercentile(
   scores: number[],
   threshold: number,
@@ -152,6 +193,19 @@ function calcThresholdPercentile(
     if (scores.length <= 1) return null;
     const matchCount = inverted ? scores.filter((score) => score > threshold).length : scores.filter((score) => score < threshold).length;
     return roundToOne((matchCount / (scores.length - 1)) * 100);
+  }
+
+  if (method === "percentrank_inc_corrected") {
+    if (scores.length <= 1) return null;
+    const below = inverted ? scores.filter((s) => s > threshold).length : scores.filter((s) => s < threshold).length;
+    const equal = scores.filter((s) => s === threshold).length;
+    return roundToOne(Math.min(100, Math.max(0, ((below + 0.5 * equal) / (scores.length - 1)) * 100)));
+  }
+
+  if (method === "kde_percentile") {
+    const raw = kdePercentile(scores, threshold);
+    if (raw === null) return null;
+    return inverted ? roundToOne(100 - raw) : raw;
   }
 
   const left = inverted
@@ -345,6 +399,7 @@ export async function getMeasureLikelihoodTableData(params: {
         },
       ],
       assumptions: [
+        `Method: ${METHOD_DESCRIPTIONS[method]}`,
         "Each cell is the empirical chance of hitting the selected exact star level at that percentile.",
         "Likelihoods use the smallest percentile window that yields at least 15 observations, up to a +/-20 percentile-point band.",
         "Measure stars are derived from year-specific CMS cut points, keyed by stable measure names.",
@@ -464,6 +519,7 @@ export async function getMeasureStarPercentileData(params: {
           : null,
       year2026Result: yearlyResults.find((result) => result.year === 2026) ?? null,
       assumptions: [
+        `Method: ${METHOD_DESCRIPTIONS[method]}`,
         "Percentile equivalents are calculated from the selected star cut point for each year.",
         "Historical summary uses sample-size and recency weighting: 2024 (1x), 2025 (2x), 2026 (3x).",
         "Only stars 2 through 5 are shown because they map directly to explicit CMS cut points.",
@@ -545,6 +601,7 @@ export async function getMeasureLikelihoodData(params: {
         ...yearlySeries,
       ],
       assumptions: [
+        `Method: ${METHOD_DESCRIPTIONS[method]}`,
         "Likelihoods are empirical and based on historical contract observations for the selected measure.",
         "Each lookup uses the smallest percentile window that yields at least 15 observations, up to a +/-20 percentile-point band.",
         "Measure stars are derived from CMS cut points for that year, using whole-star outcomes only.",

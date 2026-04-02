@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from config import (
-    FILES, CONTRACT_PREFIXES, MANUAL_CP_TO_NORM, is_inverted, normalize, calc_percentile,
+    FILES, CONTRACT_PREFIXES, MANUAL_CP_TO_NORM, ALL_METHODS, is_inverted, normalize, calc_percentile,
 )
 
 
@@ -37,7 +37,7 @@ def parse_args():
                         help="Path to the cut points Excel file (default: ./data/Stars...xlsx)")
     parser.add_argument("--output", required=True, help="Output file path (.xlsx or .json)")
     parser.add_argument("--format", choices=["xlsx", "json"], default=None, help="Output format (auto-detected if omitted)")
-    parser.add_argument("--method", choices=["percentrank_inc", "percentileofscore"], default="percentrank_inc",
+    parser.add_argument("--method", choices=ALL_METHODS, default="percentrank_inc",
                         help="Percentile calculation method (default: percentrank_inc)")
     parser.add_argument("--years", nargs="+", type=int, default=None, help="Specific years to process (default: all)")
     return parser.parse_args()

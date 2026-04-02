@@ -21,6 +21,10 @@ type BandMovementStats = {
   improvedScores: ScoreChangeGroup;
   heldScores: ScoreChangeGroup;
   declinedScores: ScoreChangeGroup;
+  withinBandDensity?: { nearLowerThreshold: number; nearLowerPct: number; middle: number; middlePct: number; nearUpperThreshold: number; nearUpperPct: number; lowerThreshold: number | null; upperThreshold: number | null } | null;
+  avgFractionalFrom?: number | null;
+  avgFractionalTo?: number | null;
+  avgFractionalChange?: number | null;
 };
 
 type ScoreStats = { year: number; mean: number | null; median: number | null; min: number | null; max: number | null; count: number };
@@ -42,6 +46,7 @@ type ContractMovementRow = {
   contractId: string; contractName: string; orgName: string; parentOrg: string;
   fromStar: StarRating; fromScore: number | null;
   toStar: StarRating; toScore: number | null; starChange: number;
+  fractionalFrom: number | null; fractionalTo: number | null; fractionalChange: number | null;
 };
 
 type UnifiedMeasure = { normalizedName: string; displayName: string; codesByYear: Record<number, string>; keysByYear: Record<number, string> };
@@ -64,6 +69,7 @@ export type HistoricalTransition = {
   movement: BandMovementStats;
   cutPoints: CutPointComparison | null;
   scoreStats: { from: ScoreStats; to: ScoreStats } | null;
+  perFromScore?: { fromScore: number; cohortSize: number; avgScoreChange: number | null }[];
 };
 
 export type HistoricalBandMovementResponse = {
@@ -213,7 +219,7 @@ export function BandMovementAnalysis() {
       {!isLoading && !error && !isHistorical && !isImpact && singleData?.status === "ready" && singleData.movement && (
         <>
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <SummaryCard label="Cohort Size" value={String(singleData.movement.cohortSize)} helper={`Contracts with ${star}★ in ${fromYear} that also reported in ${(fromYear as number) + 1}`} />
+            <SummaryCard label="Cohort Size" value={String(singleData.movement.cohortSize)} helper={`Contracts with ${star}★ in ${fromYear} that also reported in ${(fromYear as number) + 1}${singleData.movement.avgFractionalFrom != null ? ` · avg position ${singleData.movement.avgFractionalFrom.toFixed(2)}` : ""}`} />
             <SummaryCard label="Declined" value={`${singleData.movement.declinedPct}%`}
               helper={`${singleData.movement.declined} contracts` + (singleData.movement.declinedScores.avgScoreChange !== null ? ` · avg ${singleData.movement.declinedScores.avgScoreChange} pts` : "")}
               accent="text-rose-500" />
@@ -259,6 +265,7 @@ export function BandMovementAnalysis() {
             fromYear={fromYear as number}
             toYear={(fromYear as number) + 1}
             star={star}
+            movement={singleData.movement}
           />
         </>
       )}

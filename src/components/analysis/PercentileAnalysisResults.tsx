@@ -38,6 +38,36 @@ function cellDisplay(value: string | number | null) {
   return String(value);
 }
 
+const HEADER_TOOLTIPS: Record<string, string> = {
+  "Contract ID": "CMS contract ID (H = MA, R = MA regional)",
+  "Contract Name": "Contract name as reported by CMS",
+  "Organization Name": "Parent organization marketing name",
+  "Organization Type": "CMS organization type classification",
+  "Measure Code": "CMS measure identifier code",
+  "Measure Name": "Descriptive name of the CMS quality measure",
+  "Domain": "CMS Star Ratings domain the measure belongs to",
+  "Weight": "CMS weighting factor applied to the measure",
+  "Score": "Raw measure score (integer, CMS-rounded)",
+  "Star": "Derived star rating based on CMS cut points",
+  "Percentile": "Percentile rank of the score within the contract population",
+  "Sample Size": "Number of contracts with valid scores for this measure",
+  "Cut Point": "CMS threshold score required to achieve a given star level",
+  "2★ Cut Point": "Minimum score needed for a 2-star rating",
+  "3★ Cut Point": "Minimum score needed for a 3-star rating",
+  "4★ Cut Point": "Minimum score needed for a 4-star rating",
+  "5★ Cut Point": "Minimum score needed for a 5-star rating",
+};
+
+function getHeaderTooltip(value: string | number | null): string | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const text = String(value).trim();
+  if (HEADER_TOOLTIPS[text]) return HEADER_TOOLTIPS[text];
+  for (const [key, tooltip] of Object.entries(HEADER_TOOLTIPS)) {
+    if (text.toLowerCase().includes(key.toLowerCase())) return tooltip;
+  }
+  return undefined;
+}
+
 function buildMergeMaps(merges: WorkbookMergeRange[]) {
   const topLeftMap = new Map<string, { colSpan: number; rowSpan: number }>();
   const coveredCells = new Set<string>();
@@ -450,6 +480,18 @@ export function PercentileAnalysisResults() {
                       <td className="px-4 py-4 font-mono text-muted-foreground">(count at or below) / n × 100</td>
                       <td className="px-4 py-4 text-muted-foreground">SciPy-style alternative. Includes the score itself and all ties in the count.</td>
                     </tr>
+                    <tr className="align-top">
+                      <td className="px-4 py-4 font-mono text-foreground">percentrank_inc_corrected</td>
+                      <td className="px-4 py-4 text-foreground">Corrected (Mid-Rank)</td>
+                      <td className="px-4 py-4 font-mono text-muted-foreground">(count below + ½ × count equal) / (n − 1) × 100</td>
+                      <td className="px-4 py-4 text-muted-foreground">Compensates for ties caused by CMS integer rounding. Places tied contracts at the midpoint of their shared rank range.</td>
+                    </tr>
+                    <tr className="align-top">
+                      <td className="px-4 py-4 font-mono text-foreground">kde_percentile</td>
+                      <td className="px-4 py-4 text-foreground">KDE Smoothed</td>
+                      <td className="px-4 py-4 font-mono text-muted-foreground">CDF of Gaussian kernel density (bandwidth ≥ 0.5) × 100</td>
+                      <td className="px-4 py-4 text-muted-foreground">Fits a smooth probability density to discrete scores, producing more granular percentiles for integer-heavy data.</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -462,20 +504,61 @@ export function PercentileAnalysisResults() {
                       <th className="px-4 py-3 font-medium">Aspect</th>
                       <th className="px-4 py-3 font-medium">Percentile Rank</th>
                       <th className="px-4 py-3 font-medium">Percentile of Score</th>
+                      <th className="px-4 py-3 font-medium">Corrected (Mid-Rank)</th>
+                      <th className="px-4 py-3 font-medium">KDE Smoothed</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {[
-                      { aspect: "Comparison operator", rank: "Strictly less than (<)", score: "Less than or equal (≤)" },
-                      { aspect: "Denominator", rank: "n − 1 (Excel inclusive convention)", score: "n (full sample size)" },
-                      { aspect: "Tie handling", rank: "Ties at your score are excluded from the count", score: "Ties at your score are included in the count" },
-                      { aspect: "Output range", rank: "0 – 100 (min score = 0, max score = 100)", score: "Always > 0 (even the worst score counts itself)" },
-                      { aspect: "Origin", rank: "Excel PERCENTRANK.INC", score: "SciPy stats.percentileofscore (kind=\"rank\")" },
+                      {
+                        aspect: "Comparison operator",
+                        rank: "Strictly less than (<)",
+                        score: "Less than or equal (≤)",
+                        corrected: "Below + half of equal",
+                        kde: "Cumulative area under smooth density",
+                      },
+                      {
+                        aspect: "Denominator",
+                        rank: "n − 1 (Excel inclusive convention)",
+                        score: "n (full sample size)",
+                        corrected: "n − 1 (same as Percentile Rank)",
+                        kde: "Integral of kernel density (0 to 1)",
+                      },
+                      {
+                        aspect: "Tie handling",
+                        rank: "Ties excluded from count",
+                        score: "Ties included in count",
+                        corrected: "Ties split: each tied value placed at midpoint of shared rank range",
+                        kde: "Ties smoothed away by Gaussian kernels; each integer maps to a unique percentile",
+                      },
+                      {
+                        aspect: "Integer-data suitability",
+                        rank: "Many contracts share identical percentiles",
+                        score: "Many contracts share identical percentiles",
+                        corrected: "Reduces but doesn't eliminate tied percentiles",
+                        kde: "Produces fully continuous percentiles even for integer scores",
+                      },
+                      {
+                        aspect: "Output range",
+                        rank: "0 – 100",
+                        score: "Always > 0",
+                        corrected: "0 – 100 (clamped)",
+                        kde: "0 – 100 (from CDF)",
+                      },
+                      {
+                        aspect: "Origin",
+                        rank: "Excel PERCENTRANK.INC",
+                        score: "SciPy percentileofscore (kind=\"rank\")",
+                        corrected: "Classical mid-rank / continuity correction",
+                        kde: "Gaussian kernel density estimation (scipy / custom JS)",
+                      },
                     ].map((row) => (
                       <tr key={row.aspect} className="align-top">
                         <td className="px-4 py-4 font-medium text-foreground">{row.aspect}</td>
                         <td className="px-4 py-4 text-muted-foreground">{row.rank}</td>
                         <td className="px-4 py-4 text-muted-foreground">{row.score}</td>
+                        <td className="px-4 py-4 text-muted-foreground">{row.corrected}</td>
+                        <td className="px-4 py-4 text-muted-foreground">{row.kde}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -484,20 +567,46 @@ export function PercentileAnalysisResults() {
 
               <div className="rounded-2xl border border-border bg-background/50 px-5 py-4">
                 <p className="text-sm font-medium text-foreground">Example: 5 contracts with scores [70, 75, 80, 85, 90] — contract scoring 80</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm">
                     <span className="font-medium text-foreground">Percentile Rank:</span>{" "}
-                    <span className="text-muted-foreground">2 values below 80 ÷ (5 − 1) = </span>
+                    <span className="text-muted-foreground">2 below ÷ (5 − 1) = </span>
                     <span className="font-mono font-semibold text-foreground">50.0</span>
                   </div>
                   <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm">
                     <span className="font-medium text-foreground">Percentile of Score:</span>{" "}
-                    <span className="text-muted-foreground">3 values ≤ 80 ÷ 5 = </span>
+                    <span className="text-muted-foreground">3 ≤ 80 ÷ 5 = </span>
                     <span className="font-mono font-semibold text-foreground">60.0</span>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm">
+                    <span className="font-medium text-foreground">Corrected (Mid-Rank):</span>{" "}
+                    <span className="text-muted-foreground">(2 + 0.5×1) ÷ 4 = </span>
+                    <span className="font-mono font-semibold text-foreground">62.5</span>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm">
+                    <span className="font-medium text-foreground">KDE Smoothed:</span>{" "}
+                    <span className="text-muted-foreground">CDF at 80 ≈ </span>
+                    <span className="font-mono font-semibold text-foreground">50.0</span>
                   </div>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                  Percentile Rank tends to produce lower values because it excludes ties and uses a smaller denominator. The gap is most noticeable with many ties or small sample sizes; for large datasets with mostly unique scores the two methods converge.
+                  With unique scores these methods converge. The differences become significant when CMS integer rounding creates large groups of ties — Corrected (Mid-Rank) splits tied ranks evenly, while KDE Smoothed fits a continuous density curve so every contract gets a distinct percentile.
+                </p>
+              </div>
+
+              <h4 className="text-sm font-semibold text-foreground">Why integer scores matter</h4>
+              <div className="rounded-2xl border border-border bg-background/50 px-5 py-4 text-sm text-muted-foreground leading-6">
+                <p>
+                  CMS rounds all measure scores to whole numbers before publication. With only ~500 contracts scoring across a limited integer range,
+                  large clusters of contracts share the same score and receive identical percentile ranks under standard methods.
+                  This creates &quot;staircase&quot; percentile distributions with wide flat steps, making it difficult to differentiate contracts
+                  within the same score group or track fine-grained movement over time.
+                </p>
+                <p className="mt-3">
+                  <strong className="text-foreground">Corrected (Mid-Rank)</strong> partially addresses this by placing tied contracts at the midpoint of
+                  their shared rank range rather than the bottom. <strong className="text-foreground">KDE Smoothed</strong> goes further by fitting a
+                  continuous probability density to the discrete data, producing unique percentile values even when underlying scores are identical
+                  integers. Both methods are statistically valid compensations for discretization bias.
                 </p>
               </div>
             </div>
@@ -744,6 +853,7 @@ export function PercentileAnalysisResults() {
                             rowSpan={span?.rowSpan}
                             className={getCellClassName(rowIndex, colIndex, value, data.sheet.workbookId, fill, true)}
                             style={style}
+                            title={getHeaderTooltip(value)}
                           >
                             {cellDisplay(value)}
                           </th>

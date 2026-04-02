@@ -597,11 +597,11 @@ export function OperationsImpactAnalysis() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Code</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Measure Name</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Domain</th>
-                    <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Removal Year</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Weight</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground" title="CMS measure identifier code">Code</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground" title="Descriptive name of the measure being removed">Measure Name</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground" title="CMS Star Ratings domain the measure belongs to">Domain</th>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground" title="Year in which CMS will remove this measure from Star Ratings">Removal Year</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground" title="CMS weighting factor currently applied to this measure">Weight</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -757,10 +757,10 @@ export function OperationsImpactAnalysis() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="px-2 py-1.5 text-left text-muted-foreground font-medium">Mean Category</th>
-                        <th className="px-2 py-1.5 text-center text-muted-foreground font-medium">Low Variance<br/><span className="font-normal">(≤30th %ile)</span></th>
-                        <th className="px-2 py-1.5 text-center text-muted-foreground font-medium">Medium Variance<br/><span className="font-normal">(30th-70th %ile)</span></th>
-                        <th className="px-2 py-1.5 text-center text-muted-foreground font-medium">High Variance<br/><span className="font-normal">(≥70th %ile)</span></th>
+                        <th className="px-2 py-1.5 text-left text-muted-foreground font-medium" title="Contract's performance category based on mean measure percentile">Mean Category</th>
+                        <th className="px-2 py-1.5 text-center text-muted-foreground font-medium" title="Reward factor when within-contract measure variance is at or below the 30th percentile">Low Variance<br/><span className="font-normal">(≤30th %ile)</span></th>
+                        <th className="px-2 py-1.5 text-center text-muted-foreground font-medium" title="Reward factor when within-contract measure variance is between the 30th and 70th percentiles">Medium Variance<br/><span className="font-normal">(30th-70th %ile)</span></th>
+                        <th className="px-2 py-1.5 text-center text-muted-foreground font-medium" title="Reward factor when within-contract measure variance is at or above the 70th percentile">High Variance<br/><span className="font-normal">(≥70th %ile)</span></th>
                       </tr>
                     </thead>
                     <tbody>

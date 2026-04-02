@@ -9,7 +9,9 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const method: PercentileMethod = searchParams.get("method") === "percentileofscore" ? "percentileofscore" : "percentrank_inc";
+    const rawMethod = searchParams.get("method");
+    const VALID_METHODS: PercentileMethod[] = ["percentrank_inc", "percentileofscore", "percentrank_inc_corrected", "kde_percentile"];
+    const method: PercentileMethod = VALID_METHODS.includes(rawMethod as PercentileMethod) ? (rawMethod as PercentileMethod) : "percentrank_inc";
 
     if (searchParams.get("view") === "measure-likelihood-table") {
       const payload = await getMeasureLikelihoodTableData({

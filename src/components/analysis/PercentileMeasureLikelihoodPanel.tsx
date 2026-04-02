@@ -17,6 +17,8 @@ function formatPercent(value: number) {
 
 const METHOD_OPTIONS: { id: PercentileMethod; label: string }[] = [
   { id: "percentrank_inc", label: "Percentile Rank" },
+  { id: "percentrank_inc_corrected", label: "Corrected (Mid-Rank)" },
+  { id: "kde_percentile", label: "KDE Smoothed" },
   { id: "percentileofscore", label: "Percentile of Score" },
 ];
 
@@ -219,10 +221,10 @@ export function PercentileMeasureLikelihoodPanel() {
               <table className="min-w-full text-sm">
                 <thead className="bg-muted/30 text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium">Year</th>
-                    <th className="px-4 py-3 text-left font-medium">Cut point score</th>
-                    <th className="px-4 py-3 text-left font-medium">Associated percentile</th>
-                    <th className="px-4 py-3 text-left font-medium">Sample size</th>
+                    <th className="px-4 py-3 text-left font-medium" title="CMS Star Ratings measurement year">Year</th>
+                    <th className="px-4 py-3 text-left font-medium" title="CMS cut point score required for the selected star level in that year">Cut point score</th>
+                    <th className="px-4 py-3 text-left font-medium" title="Percentile equivalent of the cut point score within the contract population (using the selected method)">Associated percentile</th>
+                    <th className="px-4 py-3 text-left font-medium" title="Number of contracts with valid scores used in the percentile calculation">Sample size</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, TrendingUp, Info, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   ScatterChart,
   Scatter,
@@ -18,6 +19,12 @@ import {
 type StarRating = 1 | 2 | 3 | 4 | 5;
 type ThresholdKey = "twoStar" | "threeStar" | "fourStar" | "fiveStar";
 
+type PerFromScoreRow = {
+  fromScore: number;
+  cohortSize: number;
+  avgScoreChange: number | null;
+};
+
 type CutPointImpactRow = {
   fromYear: number;
   toYear: number;
@@ -29,6 +36,7 @@ type CutPointImpactRow = {
   cutPointTo: number;
   distributionMeanFrom: number | null;
   distributionMeanTo: number | null;
+  perFromScore: PerFromScoreRow[];
 };
 
 type LinearFit = {
@@ -106,6 +114,26 @@ function fmtDelta(v: number | null | undefined): string {
 function fmtR(r: number | null | undefined): string {
   if (r == null) return "—";
   return r.toFixed(2);
+}
+
+function formatFromScoreLabel(s: number): string {
+  const r = Math.round(s * 10) / 10;
+  if (Number.isInteger(r)) return String(r);
+  return r.toFixed(1);
+}
+
+function collectFromScoresForBand(band: CutPointImpactSummary): number[] {
+  const set = new Set<number>();
+  for (const dp of band.dataPoints) {
+    for (const row of dp.perFromScore ?? []) {
+      set.add(row.fromScore);
+    }
+  }
+  return [...set].sort((a, b) => b - a);
+}
+
+function lookupPerFromScore(dp: CutPointImpactRow | undefined, score: number): PerFromScoreRow | undefined {
+  return dp?.perFromScore?.find((r) => r.fromScore === score);
 }
 
 export function CutPointImpactAnalysis({ measure, displayName }: Props) {
@@ -241,6 +269,16 @@ function CaveatsBanner({ transitionCount }: { transitionCount: number }) {
                 <li><strong>Δ Cut Pt</strong> — how many points the CMS cut point for
                   that threshold moved (green = decreased, red = increased).</li>
               </ul>
+            </div>
+
+            <div>
+              <p className="font-semibold text-foreground">Score-level detail (expand rows)</p>
+              <p className="mt-1">
+                Each star band can be expanded to show average score change for contracts
+                grouped by their numeric score in the starting year (for example every
+                observed value in the 4★ band). Only contracts with a score in both years
+                are included; similar raw scores are rounded to one decimal for grouping.
+              </p>
             </div>
 
             <div>
@@ -553,32 +591,45 @@ function HistoricalTrendChart({
 }
 
 function CorrelationTable({ perBand }: { perBand: CutPointImpactSummary[] }) {
+  const [openBands, setOpenBands] = useState<Set<string>>(() => new Set());
+
+  const toggleBand = (key: string) => {
+    setOpenBands((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   const allTransitions = perBand.flatMap((b) => b.dataPoints);
   const transitionLabels = [...new Set(allTransitions.map((d) => `${d.fromYear}→${d.toYear}`))].sort();
+  const colSpan = 1 + transitionLabels.length * 2 + 2;
 
   return (
     <section className="rounded-2xl border border-border bg-card p-6">
       <h3 className="mb-1 text-base font-semibold text-foreground">Score Movement vs Cut Point Change</h3>
       <p className="mb-4 text-xs text-muted-foreground">
-        Per-band cohort avg score change paired with the corresponding cut point delta
+        Per-band cohort avg score change paired with the corresponding cut point delta.
+        Use the chevron on a row to see average change by starting score within that band.
       </p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="px-3 py-2 text-left">Threshold</th>
+              <th className="px-3 py-2 text-left" title="Star rating threshold (2★–5★)">Threshold</th>
               {transitionLabels.map((label) => (
-                <th key={label} className="px-3 py-2 text-right" colSpan={2}>{label}</th>
+                <th key={label} className="px-3 py-2 text-right" colSpan={2} title={`Score movement and cut point change for the ${label} transition`}>{label}</th>
               ))}
-              <th className="px-3 py-2 text-right">Slope</th>
-              <th className="px-3 py-2 text-right">r</th>
+              <th className="px-3 py-2 text-right" title="Linear regression slope: predicted score change per 1-point cut point change. Negative slope means rising cut points correlate with declining scores.">Slope</th>
+              <th className="px-3 py-2 text-right" title="Pearson correlation coefficient between score changes and cut point changes. Values near ±1 indicate strong linear relationship.">r</th>
             </tr>
             <tr className="border-b border-border text-xs text-muted-foreground">
               <th className="px-3 py-1" />
               {transitionLabels.map((label) => (
                 <Fragment key={label}>
-                  <th className="px-3 py-1 text-right font-normal">Avg Δ Score</th>
-                  <th className="px-3 py-1 text-right font-normal">Δ Cut Pt</th>
+                  <th className="px-3 py-1 text-right font-normal" title="Average score change for contracts in this band (count in parentheses)">Avg Δ Score</th>
+                  <th className="px-3 py-1 text-right font-normal" title="Change in CMS cut point for this threshold (positive = harder to achieve)">Δ Cut Pt</th>
                 </Fragment>
               ))}
               <th className="px-3 py-1" />
@@ -586,35 +637,108 @@ function CorrelationTable({ perBand }: { perBand: CutPointImpactSummary[] }) {
             </tr>
           </thead>
           <tbody>
-            {[...perBand].reverse().map((band) => (
-              <tr key={band.thresholdKey} className="border-b border-border/50">
-                <td className="px-3 py-2 font-medium" style={{ color: STAR_COLORS[String(band.starLevel)] }}>
-                  {band.thresholdLabel}
-                </td>
-                {transitionLabels.map((label) => {
-                  const dp = band.dataPoints.find((d) => `${d.fromYear}→${d.toYear}` === label);
-                  return (
-                    <Fragment key={label}>
-                      <td className="px-3 py-2 text-right">
-                        {dp ? fmtDelta(dp.avgScoreChange) : "—"}
-                        {dp?.cohortSize != null && <span className="ml-1 text-xs text-muted-foreground">({dp.cohortSize})</span>}
+            {[...perBand].reverse().map((band) => {
+              const fromScores = collectFromScoresForBand(band);
+              const hasScoreDetail = fromScores.length > 0;
+              const isOpen = openBands.has(band.thresholdKey);
+
+              return (
+                <Fragment key={band.thresholdKey}>
+                  <tr className="border-b border-border/50">
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-1.5">
+                        {hasScoreDetail ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleBand(band.thresholdKey)}
+                            className="inline-flex shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            aria-expanded={isOpen}
+                            aria-label={isOpen ? `Hide score breakdown for ${band.thresholdLabel}` : `Show score breakdown for ${band.thresholdLabel}`}
+                          >
+                            <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+                          </button>
+                        ) : (
+                          <span className="inline-block w-6 shrink-0" aria-hidden />
+                        )}
+                        <span className="font-medium" style={{ color: STAR_COLORS[String(band.starLevel)] }}>
+                          {band.thresholdLabel}
+                        </span>
+                      </div>
+                    </td>
+                    {transitionLabels.map((label) => {
+                      const dp = band.dataPoints.find((d) => `${d.fromYear}→${d.toYear}` === label);
+                      return (
+                        <Fragment key={label}>
+                          <td className="px-3 py-2 text-right">
+                            {dp ? fmtDelta(dp.avgScoreChange) : "—"}
+                            {dp?.cohortSize != null && <span className="ml-1 text-xs text-muted-foreground">({dp.cohortSize})</span>}
+                          </td>
+                          <td className={`px-3 py-2 text-right font-semibold ${
+                            dp ? (dp.cutPointDelta > 0 ? "text-rose-500" : dp.cutPointDelta < 0 ? "text-emerald-500" : "text-muted-foreground") : ""
+                          }`}>
+                            {dp ? fmtDelta(dp.cutPointDelta) : "—"}
+                          </td>
+                        </Fragment>
+                      );
+                    })}
+                    <td className="px-3 py-2 text-right font-mono text-xs">
+                      {band.fit ? band.fit.slope.toFixed(2) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-xs">
+                      {band.fit ? fmtR(band.fit.r) : "—"}
+                    </td>
+                  </tr>
+                  {isOpen && hasScoreDetail && (
+                    <tr className="border-b border-border/50 bg-muted/25">
+                      <td colSpan={colSpan} className="px-3 py-3 align-top">
+                        <p className="mb-2 text-xs text-muted-foreground">
+                          Average score change by starting score (contracts in this band in the from-year). Δ Cut Pt is the same as the row above for each period.
+                        </p>
+                        <div className="overflow-x-auto rounded-lg border border-border/80 bg-card">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-border bg-[#c7d7e8]/80 text-[11px] font-medium uppercase tracking-wide text-foreground dark:bg-muted/50">
+                                <th className="px-3 py-2 text-left">From score</th>
+                                {transitionLabels.map((label) => (
+                                  <th key={label} className="px-3 py-2 text-right" title={`Average score change for this score bucket (${label})`}>
+                                    {label}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {fromScores.map((score) => (
+                                <tr key={score} className="border-b border-border/40 last:border-0">
+                                  <td className="px-3 py-1.5 font-mono tabular-nums" style={{ color: STAR_COLORS[String(band.starLevel)] }}>
+                                    {formatFromScoreLabel(score)}
+                                  </td>
+                                  {transitionLabels.map((label) => {
+                                    const dp = band.dataPoints.find((d) => `${d.fromYear}→${d.toYear}` === label);
+                                    const sub = lookupPerFromScore(dp, score);
+                                    return (
+                                      <td key={label} className="px-3 py-1.5 text-right tabular-nums">
+                                        {sub ? (
+                                          <>
+                                            {fmtDelta(sub.avgScoreChange)}
+                                            <span className="ml-1 text-muted-foreground">({sub.cohortSize})</span>
+                                          </>
+                                        ) : (
+                                          <span className="text-muted-foreground">—</span>
+                                        )}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </td>
-                      <td className={`px-3 py-2 text-right font-semibold ${
-                        dp ? (dp.cutPointDelta > 0 ? "text-rose-500" : dp.cutPointDelta < 0 ? "text-emerald-500" : "text-muted-foreground") : ""
-                      }`}>
-                        {dp ? fmtDelta(dp.cutPointDelta) : "—"}
-                      </td>
-                    </Fragment>
-                  );
-                })}
-                <td className="px-3 py-2 text-right font-mono text-xs">
-                  {band.fit ? band.fit.slope.toFixed(2) : "—"}
-                </td>
-                <td className="px-3 py-2 text-right font-mono text-xs">
-                  {band.fit ? fmtR(band.fit.r) : "—"}
-                </td>
-              </tr>
-            ))}
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

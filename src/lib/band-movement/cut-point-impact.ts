@@ -9,8 +9,11 @@ import {
   analyzeHistoricalBandMovement,
   getAvailableOptions,
   type HistoricalTransition,
+  type PerFromScoreRow,
   type UnifiedMeasure,
 } from "./analysis";
+
+export type { PerFromScoreRow };
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const CUT_POINTS_PATH = path.join(
@@ -41,6 +44,8 @@ export type CutPointImpactRow = {
   cutPointTo: number;
   distributionMeanFrom: number | null;
   distributionMeanTo: number | null;
+  /** Avg score change by from-year score (within this star band). */
+  perFromScore: PerFromScoreRow[];
 };
 
 export type LinearFit = {
@@ -336,6 +341,7 @@ export function analyzeCutPointImpact(
         cutPointTo: t.cutPoints.toYear[thresholdKey],
         distributionMeanFrom: t.scoreStats?.from.mean ?? null,
         distributionMeanTo: t.scoreStats?.to.mean ?? null,
+        perFromScore: t.perFromScore,
       });
     }
 
