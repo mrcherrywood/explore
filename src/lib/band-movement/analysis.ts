@@ -66,8 +66,8 @@ export type WithinBandDensity = {
   middlePct: number;
   nearUpperThreshold: number;
   nearUpperPct: number;
-  lowerThreshold: number | null;
-  upperThreshold: number | null;
+  lowerThreshold: number;
+  upperThreshold: number;
 };
 
 export type BandMovementStats = {
@@ -458,7 +458,7 @@ function computeFractionalPosition(
     }
     if (upper <= lower) return star;
     const ratio = Math.max(0, Math.min(1, (upper - score) / (upper - lower)));
-    return Number((star - 1 + ratio).toFixed(2));
+    return Number((star + ratio).toFixed(2));
   }
 
   switch (star) {
@@ -470,10 +470,15 @@ function computeFractionalPosition(
   }
   if (upper <= lower) return star;
   const ratio = Math.max(0, Math.min(1, (score - lower) / (upper - lower)));
-  return Number((star - 1 + ratio).toFixed(2));
+  return Number((star + ratio).toFixed(2));
 }
 
-function computeWithinBandDensity(
+/** Max CMS-style measure score used as an upper bound for 5★ (normal) and 1★ (inverted) density bands. */
+const SCORE_SCALE_MAX = 100;
+/** Min measure score used as a lower bound for 5★ (inverted) and 1★ (normal) density bands. */
+const SCORE_SCALE_MIN = 0;
+
+export function computeWithinBandDensity(
   scores: number[],
   star: StarRating,
   cutPoint: MeasureCutPoint,
@@ -482,29 +487,25 @@ function computeWithinBandDensity(
   if (scores.length === 0) return null;
   const t = cutPoint.thresholds;
 
-  let lower: number | null;
-  let upper: number | null;
+  let lower: number;
+  let upper: number;
 
   if (inverted) {
     switch (star) {
-      case 5: lower = null; upper = t.fiveStar; break;
+      case 5: lower = SCORE_SCALE_MIN; upper = t.fiveStar; break;
       case 4: lower = t.fiveStar; upper = t.fourStar; break;
       case 3: lower = t.fourStar; upper = t.threeStar; break;
       case 2: lower = t.threeStar; upper = t.twoStar; break;
-      default: lower = t.twoStar; upper = null; break;
+      default: lower = t.twoStar; upper = SCORE_SCALE_MAX; break;
     }
   } else {
     switch (star) {
-      case 1: lower = null; upper = t.twoStar; break;
+      case 1: lower = SCORE_SCALE_MIN; upper = t.twoStar; break;
       case 2: lower = t.twoStar; upper = t.threeStar; break;
       case 3: lower = t.threeStar; upper = t.fourStar; break;
       case 4: lower = t.fourStar; upper = t.fiveStar; break;
-      default: lower = t.fiveStar; upper = null; break;
+      default: lower = t.fiveStar; upper = SCORE_SCALE_MAX; break;
     }
-  }
-
-  if (lower === null || upper === null) {
-    return { nearLowerThreshold: 0, nearLowerPct: 0, middle: scores.length, middlePct: 100, nearUpperThreshold: 0, nearUpperPct: 0, lowerThreshold: lower, upperThreshold: upper };
   }
 
   const range = Math.abs(upper - lower);

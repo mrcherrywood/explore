@@ -32,7 +32,7 @@ type WithinBandDensity = {
   nearLowerThreshold: number; nearLowerPct: number;
   middle: number; middlePct: number;
   nearUpperThreshold: number; nearUpperPct: number;
-  lowerThreshold: number | null; upperThreshold: number | null;
+  lowerThreshold: number; upperThreshold: number;
 };
 
 type BandMovementStatsPartial = {
@@ -59,6 +59,22 @@ export function BandMovementDetails({ allBands, cutPoints, scoreStats, contracts
   const [sortKey, setSortKey] = useState<SortKey>("starChange");
   const [sortAsc, setSortAsc] = useState(false);
   const [showAll, setShowAll] = useState(false);
+
+  const fractionalByCategory = (() => {
+    const avg = (vals: number[]) => vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+    const buckets = { declined: [] as number[], held: [] as number[], improved: [] as number[] };
+    for (const c of contracts) {
+      if (c.fractionalTo == null) continue;
+      if (c.starChange > 0) buckets.improved.push(c.fractionalTo);
+      else if (c.starChange < 0) buckets.declined.push(c.fractionalTo);
+      else buckets.held.push(c.fractionalTo);
+    }
+    return {
+      declined: { avg: avg(buckets.declined), count: buckets.declined.length },
+      held: { avg: avg(buckets.held), count: buckets.held.length },
+      improved: { avg: avg(buckets.improved), count: buckets.improved.length },
+    };
+  })();
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc);
@@ -193,7 +209,7 @@ export function BandMovementDetails({ allBands, cutPoints, scoreStats, contracts
       {(movement?.withinBandDensity || movement?.avgFractionalFrom != null) && (
         <>
         <div className="grid gap-6 lg:grid-cols-2">
-          {movement.withinBandDensity && movement.withinBandDensity.lowerThreshold != null && movement.withinBandDensity.upperThreshold != null && (
+          {movement.withinBandDensity && (
             <section className="rounded-2xl border border-border bg-card p-6">
               <h3 className="mb-1 text-base font-semibold text-foreground">Within-Band Score Density</h3>
               <p className="mb-4 text-xs text-muted-foreground">
@@ -229,6 +245,23 @@ export function BandMovementDetails({ allBands, cutPoints, scoreStats, contracts
                     <td className="px-3 py-2 font-medium">Avg position ({toYear})</td>
                     <td className="px-3 py-2 text-right font-semibold">{movement.avgFractionalTo?.toFixed(2) ?? "\u2014"}</td>
                   </tr>
+                  {([
+                    { key: "declined" as const, label: "Declined", color: "text-rose-500" },
+                    { key: "held" as const, label: "Held", color: "text-muted-foreground" },
+                    { key: "improved" as const, label: "Improved", color: "text-emerald-500" },
+                  ] as const).map(({ key, label, color }) => {
+                    const cat = fractionalByCategory[key];
+                    if (cat.count === 0) return null;
+                    return (
+                      <tr key={key} className="border-b border-border/30">
+                        <td className="py-1.5 pl-7 pr-3 text-xs text-muted-foreground">
+                          <span className={color}>{"└ "}{label}</span>
+                          <span className="ml-1 text-muted-foreground/60">({cat.count})</span>
+                        </td>
+                        <td className="px-3 py-1.5 text-right text-xs font-medium">{cat.avg?.toFixed(2) ?? "\u2014"}</td>
+                      </tr>
+                    );
+                  })}
                   <tr className="border-b border-border/50">
                     <td className="px-3 py-2 font-medium">Avg fractional change</td>
                     <td className={`px-3 py-2 text-right font-semibold ${
@@ -247,12 +280,16 @@ export function BandMovementDetails({ allBands, cutPoints, scoreStats, contracts
 
         <div className="rounded-xl border border-border bg-muted/20 p-4 text-xs leading-5 text-muted-foreground">
           <span className="font-semibold text-foreground">Methodology: </span>
-          <strong>Within-Band Density</strong> divides the score range between the lower and upper CMS cut points for a star band into three
+          <strong>Within-Band Density</strong> divides the score range between the two edges of a star band into three
           equal zones (near-lower, middle, near-upper) and counts how many contracts fall in each, revealing whether a cohort clusters near
-          a threshold or sits safely in the middle.{" "}
+          a threshold or sits safely in the middle. Inner bands use two CMS cut points; the top and bottom bands use one CMS cut point plus
+          the measure score scale endpoint (0 or 100), depending on direction, so the same zone logic applies.{" "}
           <strong>Fractional Band Position</strong> converts integer star ratings into continuous values by interpolating each contract&apos;s
           score between its band&apos;s lower and upper cut points (e.g., 3.7★ means 70% through the 3★ band). This compensates for
           CMS integer rounding and enables tracking of sub-star drift that whole-number ratings hide.
+          Because the &quot;to&quot; position reflects each contract&apos;s actual destination band, the average can fall outside the
+          selected starting band when contracts move — for example, a 5★ cohort whose average to-position is 4.6 indicates
+          that enough contracts declined to 4★ to pull the mean below 5.
         </div>
         </>
       )}

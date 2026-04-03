@@ -21,7 +21,7 @@ type BandMovementStats = {
   improvedScores: ScoreChangeGroup;
   heldScores: ScoreChangeGroup;
   declinedScores: ScoreChangeGroup;
-  withinBandDensity?: { nearLowerThreshold: number; nearLowerPct: number; middle: number; middlePct: number; nearUpperThreshold: number; nearUpperPct: number; lowerThreshold: number | null; upperThreshold: number | null } | null;
+  withinBandDensity?: { nearLowerThreshold: number; nearLowerPct: number; middle: number; middlePct: number; nearUpperThreshold: number; nearUpperPct: number; lowerThreshold: number; upperThreshold: number } | null;
   avgFractionalFrom?: number | null;
   avgFractionalTo?: number | null;
   avgFractionalChange?: number | null;
