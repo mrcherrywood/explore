@@ -10,7 +10,7 @@
 - Measures get whole star ratings only (1, 2, 3, 4, 5); never display half stars at the measure level
 - Exclude "dropped" contracts (those that exited the market) from year-over-year analyses; they are not meaningful for performance tracking
 - Summary card order should be Declined → Held → Improved (left to right); "Improved" belongs on the right
-- Display star thresholds in descending order (5-star on top) in tooltips, tables, and charts
+- Display star thresholds in descending order (5-star on top) in tooltips, tables, and charts; in within-band score drilldowns, list higher starting scores first
 
 ## Learned Workspace Facts
 
@@ -25,7 +25,7 @@
 - Cut points with forecasts live at `data/Stars 2016-2028 Cut Points 12.2025_with_weights.xlsx`
 - The xlsx npm package parses Excel workbooks server-side in Node.js
 - Measure codes change between years (e.g., C04 renamed in 2026); cross-year matching must use normalized measure names, not code prefixes
-- Band movement analysis at `/analysis/band-movement` tracks contract performance migration between star rating bands year-over-year; Cut Point Impact tab correlates cohort score movement with cut point changes and projects future cut points
+- Band movement analysis at `/analysis/band-movement` tracks contract performance migration between star rating bands year-over-year; Cut Point Impact correlates cohort score change and cut-point change for the same year-to-year step (not a one-year-lagged cut-point move) and projects future cut points
 - CMS implemented Tukey outlier deletion methodology starting 2024, significantly changing cut point calculations; pre-2024 and post-2024 cut points are not directly comparable
 - 41 of 43 CMS measures have integer-only scores with heavy ties (up to 26% of contracts sharing one value); only complaint-related measures have decimals
 - Cut point projections for 5-star thresholds must be capped at 100 (maximum possible score)
