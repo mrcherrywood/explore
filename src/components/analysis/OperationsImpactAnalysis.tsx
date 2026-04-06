@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
 import { Loader2, TrendingUp, TrendingDown, Minus, Search, ChevronDown, ChevronUp, ChevronRight, Info, Shield } from "lucide-react";
+import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 
 type DomainSummary = {
   domain: string;
@@ -234,6 +235,8 @@ export function OperationsImpactAnalysis() {
   const [sortKey, setSortKey] = useState<SortKey>("finalOverallChange");
   const [orgSortKey, setOrgSortKey] = useState<OrgSortKey>("avgFinalOverallChange");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const contractsTableRef = useRef<HTMLTableElement>(null);
+  const orgsTableRef = useRef<HTMLTableElement>(null);
   const [showDomainsInfo, setShowDomainsInfo] = useState(false);
   const [showRewardFactorInfo, setShowRewardFactorInfo] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("contracts");
@@ -1224,22 +1227,28 @@ export function OperationsImpactAnalysis() {
               Parent Orgs ({data.summary.totalParentOrgs})
             </button>
           </div>
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder={viewMode === "contracts" ? "Search contracts..." : "Search organizations..."}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-48 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+          <div className="flex items-center gap-3">
+            <ExportCsvButton
+              tableRef={viewMode === "contracts" ? contractsTableRef : orgsTableRef}
+              fileName={viewMode === "contracts" ? "operations-impact-contracts" : "operations-impact-organizations"}
             />
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder={viewMode === "contracts" ? "Search contracts..." : "Search organizations..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-48 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+              />
+            </div>
           </div>
         </div>
 
         {viewMode === "contracts" ? (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table ref={contractsTableRef} className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
@@ -1458,7 +1467,7 @@ export function OperationsImpactAnalysis() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table ref={orgsTableRef} className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">

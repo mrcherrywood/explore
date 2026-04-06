@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 
 type StarRating = 1 | 2 | 3 | 4 | 5;
 
@@ -59,6 +60,8 @@ export function BandMovementDetails({ allBands, cutPoints, scoreStats, contracts
   const [sortKey, setSortKey] = useState<SortKey>("starChange");
   const [sortAsc, setSortAsc] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const allBandsTableRef = useRef<HTMLTableElement>(null);
+  const contractsTableRef = useRef<HTMLTableElement>(null);
 
   const fractionalByCategory = (() => {
     const avg = (vals: number[]) => vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
@@ -106,10 +109,15 @@ export function BandMovementDetails({ allBands, cutPoints, scoreStats, contracts
       {/* All-bands overview */}
       {allBands.some((b) => b.cohortSize > 0) && (
         <section className="rounded-2xl border border-border bg-card p-6">
-          <h3 className="mb-1 text-base font-semibold text-foreground">All Star Bands &middot; {fromYear} &rarr; {toYear}</h3>
-          <p className="mb-4 text-xs text-muted-foreground">How every star band moved for the same measure and year transition</p>
+          <div className="mb-4 flex items-start justify-between">
+            <div>
+              <h3 className="mb-1 text-base font-semibold text-foreground">All Star Bands &middot; {fromYear} &rarr; {toYear}</h3>
+              <p className="text-xs text-muted-foreground">How every star band moved for the same measure and year transition</p>
+            </div>
+            <ExportCsvButton tableRef={allBandsTableRef} fileName={`band-movement-all-bands_${fromYear}-${toYear}`} />
+          </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table ref={allBandsTableRef} className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-3 py-2 text-left" title="Star rating band (1–5★)">Band</th>
@@ -297,11 +305,27 @@ export function BandMovementDetails({ allBands, cutPoints, scoreStats, contracts
       {/* Contract detail table */}
       {contracts.length > 0 && (
         <section className="rounded-2xl border border-border bg-card p-6">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex items-start justify-between">
             <div>
               <h3 className="text-base font-semibold text-foreground">Contract Details</h3>
               <p className="text-xs text-muted-foreground">{contracts.length} contracts in the {star}{"★"} band</p>
             </div>
+            <ExportCsvButton
+              fileName={`band-movement-contracts_${star}star_${fromYear}-${toYear}`}
+              getData={() => ({
+                headers: ["ID", "Contract", "Organization", `${fromYear} Score`, `${fromYear} Star`, `${toYear} Score`, `${toYear} Star`, "Δ Score", "Δ Star", "Δ Fractional"],
+                rows: sorted.map((c) => {
+                  const scoreChange = c.fromScore != null && c.toScore != null ? String(c.toScore - c.fromScore) : "";
+                  return [
+                    c.contractId, c.contractName, c.orgName,
+                    c.fromScore != null ? String(c.fromScore) : "", String(c.fromStar),
+                    c.toScore != null ? String(c.toScore) : "", String(c.toStar),
+                    scoreChange, String(c.starChange),
+                    c.fractionalChange != null ? c.fractionalChange.toFixed(2) : "",
+                  ];
+                }),
+              })}
+            />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

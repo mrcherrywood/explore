@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Loader2, TriangleAlert, X } from "lucide-react";
 import { ChartRenderer, ChartSpec } from "@/components/chart/ChartRenderer";
 import { EnrollmentLevelId, formatEnrollment } from "@/lib/peer/enrollment-levels";
 import { isInverseMeasure } from "@/lib/metrics/inverse-measures";
+import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 
 type Selection = {
   comparisonType: "contract" | "organization";
@@ -75,6 +76,8 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
   const [error, setError] = useState<string | null>(null);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const peerTableRef = useRef<HTMLTableElement>(null);
+  const orgTableRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -580,14 +583,17 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
 
         {!isOrgComparison && (
           <div id="peer-contract-table" className="rounded-3xl border border-border bg-card">
-            <div className="border-b border-border px-6 py-4">
-              <h3 className="text-lg font-semibold text-foreground">Peer Contract Details</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Enrollment totals represent the latest CMS reporting period. Highlighted row is the selected contract.
-              </p>
+            <div className="flex items-start justify-between border-b border-border px-6 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Peer Contract Details</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Enrollment totals represent the latest CMS reporting period. Highlighted row is the selected contract.
+                </p>
+              </div>
+              <ExportCsvButton tableRef={peerTableRef} fileName={`peer-contracts_${selection.contractId}`} />
             </div>
             <div className="max-h-[540px] overflow-auto">
-              <table className="w-full text-left text-sm">
+              <table ref={peerTableRef} className="w-full text-left text-sm">
                 <thead className="sticky top-0 bg-card/95 backdrop-blur">
                 <tr className="text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="px-6 py-3">Contract</th>
@@ -640,14 +646,17 @@ export function PeerComparisonResults({ selection }: { selection: Selection }) {
 
         {isOrgComparison && (
           <div id="peer-org-table" className="rounded-3xl border border-border bg-card">
-            <div className="border-b border-border px-6 py-4">
-              <h3 className="text-lg font-semibold text-foreground">Organization Details</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Average ratings across all contracts for each organization. Highlighted row is the selected organization.
-              </p>
+            <div className="flex items-start justify-between border-b border-border px-6 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Organization Details</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Average ratings across all contracts for each organization. Highlighted row is the selected organization.
+                </p>
+              </div>
+              <ExportCsvButton tableRef={orgTableRef} fileName={`peer-organizations_${selection.parentOrganization.replace(/\s+/g, "-")}`} />
             </div>
             <div className="max-h-[540px] overflow-auto">
-              <table className="w-full text-left text-sm">
+              <table ref={orgTableRef} className="w-full text-left text-sm">
                 <thead className="sticky top-0 bg-card/95 backdrop-blur">
                 <tr className="text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="px-6 py-3">Organization</th>

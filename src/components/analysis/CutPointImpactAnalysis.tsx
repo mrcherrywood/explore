@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState, Fragment } from "react";
+import { useCallback, useEffect, useRef, useState, Fragment } from "react";
 import { AlertTriangle, TrendingUp, Info, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 import {
   ScatterChart,
   Scatter,
@@ -266,6 +267,9 @@ function CaveatsBanner({ transitionCount }: { transitionCount: number }) {
                 <li><strong>Avg Δ Score</strong> — the weighted average score change across all
                   contracts in that star band (improved + held + declined), with the
                   cohort size in parentheses.</li>
+                <li><strong>Med Δ Score</strong> — the median of individual contract score
+                  changes across the cohort. Less sensitive to outliers than the
+                  average; shows the &ldquo;typical&rdquo; contract experience.</li>
                 <li><strong>Δ Cut Pt</strong> — how many points the CMS cut point for
                   that threshold moved (green = decreased, red = increased).</li>
               </ul>
@@ -592,6 +596,7 @@ function HistoricalTrendChart({
 
 function CorrelationTable({ perBand }: { perBand: CutPointImpactSummary[] }) {
   const [openBands, setOpenBands] = useState<Set<string>>(() => new Set());
+  const tableRef = useRef<HTMLTableElement>(null);
 
   const toggleBand = (key: string) => {
     setOpenBands((prev) => {
@@ -604,22 +609,27 @@ function CorrelationTable({ perBand }: { perBand: CutPointImpactSummary[] }) {
 
   const allTransitions = perBand.flatMap((b) => b.dataPoints);
   const transitionLabels = [...new Set(allTransitions.map((d) => `${d.fromYear}→${d.toYear}`))].sort();
-  const noteColSpan = 1 + transitionLabels.length * 2 + 2;
+  const noteColSpan = 1 + transitionLabels.length * 3 + 2;
 
   return (
     <section className="rounded-2xl border border-border bg-card p-6">
-      <h3 className="mb-1 text-base font-semibold text-foreground">Score Movement vs Cut Point Change</h3>
-      <p className="mb-4 text-xs text-muted-foreground">
-        Per-band cohort avg score change paired with the corresponding cut point delta.
-        Use the chevron on a row to see average change by starting score within that band.
-      </p>
+      <div className="mb-4 flex items-start justify-between">
+        <div>
+          <h3 className="mb-1 text-base font-semibold text-foreground">Score Movement vs Cut Point Change</h3>
+          <p className="text-xs text-muted-foreground">
+            Per-band cohort avg &amp; median score change paired with the corresponding cut point delta.
+            Use the chevron on a row to see average change by starting score within that band.
+          </p>
+        </div>
+        <ExportCsvButton tableRef={tableRef} fileName="cut-point-impact-correlation" />
+      </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table ref={tableRef} className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
+            <tr className="text-xs uppercase tracking-wider text-muted-foreground">
               <th className="px-3 py-2 text-left" title="Star rating threshold (2★–5★)">Threshold</th>
               {transitionLabels.map((label) => (
-                <th key={label} className="px-3 py-2 text-right" colSpan={2} title={`Score movement and cut point change for the ${label} transition`}>{label}</th>
+                <th key={label} className="border-b border-muted-foreground/40 px-3 py-2 text-center" colSpan={3} title={`Score movement and cut point change for the ${label} transition`}>{label}</th>
               ))}
               <th className="px-3 py-2 text-right" title="Linear regression slope: predicted score change per 1-point cut point change. Negative slope means rising cut points correlate with declining scores.">Slope</th>
               <th className="px-3 py-2 text-right" title="Pearson correlation coefficient between score changes and cut point changes. Values near ±1 indicate strong linear relationship.">r</th>
@@ -629,6 +639,7 @@ function CorrelationTable({ perBand }: { perBand: CutPointImpactSummary[] }) {
               {transitionLabels.map((label) => (
                 <Fragment key={label}>
                   <th className="px-3 py-1 text-right font-normal" title="Average score change for contracts in this band (count in parentheses)">Avg Δ Score</th>
+                  <th className="px-3 py-1 text-right font-normal" title="Median score change for contracts in this band">Med Δ Score</th>
                   <th className="px-3 py-1 text-right font-normal" title="Change in CMS cut point for this threshold (positive = harder to achieve)">Δ Cut Pt</th>
                 </Fragment>
               ))}
@@ -672,6 +683,9 @@ function CorrelationTable({ perBand }: { perBand: CutPointImpactSummary[] }) {
                           <td className="px-3 py-2 text-right">
                             {dp ? fmtDelta(dp.avgScoreChange) : "—"}
                             {dp?.cohortSize != null && <span className="ml-1 text-xs text-muted-foreground">({dp.cohortSize})</span>}
+                          </td>
+                          <td className="px-3 py-2 text-right text-muted-foreground">
+                            {dp ? fmtDelta(dp.medianScoreChange) : "—"}
                           </td>
                           <td className={`px-3 py-2 text-right font-semibold ${
                             dp ? (dp.cutPointDelta > 0 ? "text-rose-500" : dp.cutPointDelta < 0 ? "text-emerald-500" : "text-muted-foreground") : ""
@@ -724,6 +738,7 @@ function CorrelationTable({ perBand }: { perBand: CutPointImpactSummary[] }) {
                                     <span className="text-muted-foreground">—</span>
                                   )}
                                 </td>
+                                <td className="px-3 py-2 text-right text-sm text-muted-foreground">—</td>
                                 <td
                                   className={`px-3 py-2 text-right text-sm font-semibold tabular-nums ${
                                     dp

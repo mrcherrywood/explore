@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useRef } from "react";
 import { TrendingUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import type { HistoricalTransition } from "./BandMovementAnalysis";
+import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 
 type StarRating = 1 | 2 | 3 | 4 | 5;
 
@@ -19,6 +20,9 @@ function fmtDelta(v: number | null): string {
 }
 
 export function BandMovementHistorical({ history, star, displayMeasure }: Props) {
+  const cutPointTableRef = useRef<HTMLTableElement>(null);
+  const scoreChangeTableRef = useRef<HTMLTableElement>(null);
+
   const trendData = history.map((t) => ({
     label: `${t.fromYear}→${t.toYear}`,
     improved: t.movement.improvedPct,
@@ -87,10 +91,15 @@ export function BandMovementHistorical({ history, star, displayMeasure }: Props)
       {/* Cut point trend table */}
       {hasCutPoints && (
         <section className="rounded-2xl border border-border bg-card p-6">
-          <h3 className="mb-1 text-base font-semibold text-foreground">Cut Point Trend</h3>
-          <p className="mb-4 text-xs text-muted-foreground">How cut points evolved across transitions</p>
+          <div className="mb-4 flex items-start justify-between">
+            <div>
+              <h3 className="mb-1 text-base font-semibold text-foreground">Cut Point Trend</h3>
+              <p className="text-xs text-muted-foreground">How cut points evolved across transitions</p>
+            </div>
+            <ExportCsvButton tableRef={cutPointTableRef} fileName={`cut-point-trend_${star}star`} />
+          </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table ref={cutPointTableRef} className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-3 py-2 text-left" title="Star rating level (2★–5★)">Threshold</th>
@@ -143,10 +152,15 @@ export function BandMovementHistorical({ history, star, displayMeasure }: Props)
 
       {/* Score change trend table */}
       <section className="rounded-2xl border border-border bg-card p-6">
-        <h3 className="mb-1 text-base font-semibold text-foreground">Score Change Trend</h3>
-        <p className="mb-4 text-xs text-muted-foreground">Average score change (pts) for contracts that improved, held, or declined</p>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h3 className="mb-1 text-base font-semibold text-foreground">Score Change Trend</h3>
+            <p className="text-xs text-muted-foreground">Average score change (pts) for contracts that improved, held, or declined</p>
+          </div>
+          <ExportCsvButton tableRef={scoreChangeTableRef} fileName={`score-change-trend_${star}star`} />
+        </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table ref={scoreChangeTableRef} className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="px-3 py-2 text-left" title="Movement category: improved (moved up), held (stayed), or declined (moved down)">Category</th>

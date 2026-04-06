@@ -397,6 +397,8 @@ export type HistoricalTransition = {
   movement: BandMovementStats;
   cutPoints: CutPointComparison | null;
   scoreStats: { from: ScoreStats; to: ScoreStats } | null;
+  /** Median of individual contract score deltas across the entire cohort. */
+  medianScoreChange: number | null;
   /** Avg score change by from-year numeric score (within this star band). */
   perFromScore: PerFromScoreRow[];
 };
@@ -424,12 +426,24 @@ export function analyzeHistoricalBandMovement(
   for (const fromYear of TRANSITION_FROM_YEARS) {
     const result = analyzeBandMovement(measureNorm, star, fromYear);
     if (result.movement) {
+      const deltas = result.contracts
+        .filter((c) => c.fromScore != null && c.toScore != null)
+        .map((c) => c.toScore! - c.fromScore!);
+      const sorted = [...deltas].sort((a, b) => a - b);
+      let medianScoreChange: number | null = null;
+      if (sorted.length > 0) {
+        const mid = Math.floor(sorted.length / 2);
+        const raw = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+        medianScoreChange = Number(raw.toFixed(2));
+      }
+
       history.push({
         fromYear,
         toYear: fromYear + 1,
         movement: result.movement,
         cutPoints: result.cutPoints,
         scoreStats: result.scoreStats,
+        medianScoreChange,
         perFromScore: aggregateScoreChangesByFromScore(result.contracts),
       });
     }

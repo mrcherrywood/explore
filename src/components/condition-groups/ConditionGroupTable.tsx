@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 
 type MeasureDetail = {
   code: string;
@@ -113,9 +114,41 @@ export function ConditionGroupTable({
 
   return (
     <section className="rounded-3xl border border-border bg-card p-8">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: group.groupColor }} />
-        <h3 className="text-lg font-semibold text-foreground">{group.groupLabel}</h3>
+      <div className="mb-4 flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: group.groupColor }} />
+          <h3 className="text-lg font-semibold text-foreground">{group.groupLabel}</h3>
+        </div>
+        <ExportCsvButton
+          fileName={`condition-group_${group.groupLabel.replace(/\s+/g, "-")}`}
+          getData={() => {
+            const hdrs = ["Measure Code", "Measure Name", "Weight"];
+            for (const y of visibleYears) {
+              hdrs.push(`${y} Stars`, `${y} Rate %`);
+              if (stateComparison) hdrs.push(`${y} State Stars`, `${y} State Rate`);
+              if (nationalComparison) hdrs.push(`${y} Natl Stars`, `${y} Natl Rate`);
+            }
+            const findMatch = (g: GroupDetail | undefined, m: MeasureDetail) =>
+              g?.measures.find((x) => x.code === m.code || x.name.toLowerCase() === m.name.toLowerCase());
+            const csvRows = sortedMeasures.map((m) => {
+              const row = [m.code, m.name, String(m.weight)];
+              for (const y of visibleYears) {
+                const yd = m.yearData[y.toString()];
+                row.push(yd?.avgStar != null ? yd.avgStar.toFixed(1) : "", yd?.avgRate != null ? yd.avgRate.toFixed(1) : "");
+                if (stateComparison) {
+                  const syd = findMatch(stateGroup, m)?.yearData[y.toString()];
+                  row.push(syd?.avgStar != null ? syd.avgStar.toFixed(1) : "", syd?.avgRate != null ? syd.avgRate.toFixed(1) : "");
+                }
+                if (nationalComparison) {
+                  const nyd = findMatch(nationalGroup, m)?.yearData[y.toString()];
+                  row.push(nyd?.avgStar != null ? nyd.avgStar.toFixed(1) : "", nyd?.avgRate != null ? nyd.avgRate.toFixed(1) : "");
+                }
+              }
+              return row;
+            });
+            return { headers: hdrs, rows: csvRows };
+          }}
+        />
       </div>
 
       <div className="mb-6 flex items-center gap-4 flex-wrap">

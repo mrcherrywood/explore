@@ -21,11 +21,12 @@
 - Vercel runtime filesystem is read-only; only `/tmp` is writable; generated files bundled via `outputFileTracingIncludes` in next.config.ts
 - Contract data uses H and R prefixes (Medicare Advantage); both must be included in percentile calculations
 - Dev server runs on localhost:3001
-- Percentile analysis tests run via `npm run test:percentile-analysis`
+- Percentile analysis tests run via `npm run test:percentile-analysis`; band movement tests via `npm run test:band-movement`
 - Cut points with forecasts live at `data/Stars 2016-2028 Cut Points 12.2025_with_weights.xlsx`
 - The xlsx npm package parses Excel workbooks server-side in Node.js
 - Measure codes change between years (e.g., C04 renamed in 2026); cross-year matching must use normalized measure names, not code prefixes
-- Band movement analysis at `/analysis/band-movement` tracks contract performance migration between star rating bands year-over-year; Cut Point Impact correlates cohort score change and cut-point change for the same year-to-year step (not a one-year-lagged cut-point move) and projects future cut points
+- Band movement analysis at `/analysis/band-movement` tracks contract performance migration between star rating bands year-over-year; fractional band position uses `star + ratio` so the integer part equals the star band label; edge bands (1★/5★) use score scale endpoints (0/100) as synthetic boundaries for within-band density
+- Cut Point Impact correlates cohort score change and cut-point change for the same year-to-year step (not a one-year-lagged cut-point move), projects future cut points, and reports both mean and true per-contract median score deltas
 - CMS implemented Tukey outlier deletion methodology starting 2024, significantly changing cut point calculations; pre-2024 and post-2024 cut points are not directly comparable
 - 41 of 43 CMS measures have integer-only scores with heavy ties (up to 26% of contracts sharing one value); only complaint-related measures have decimals
 - Cut point projections for 5-star thresholds must be capped at 100 (maximum possible score)

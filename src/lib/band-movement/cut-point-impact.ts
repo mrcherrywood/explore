@@ -325,10 +325,7 @@ export function analyzeCutPointImpact(
       }
 
       const avgScoreChange = totalCount > 0 ? Number((weightedSum / totalCount).toFixed(2)) : null;
-      const medianScoreChange =
-        t.scoreStats?.from.median != null && t.scoreStats?.to.median != null
-          ? Number((t.scoreStats.to.median - t.scoreStats.from.median).toFixed(2))
-          : null;
+      const medianScoreChange = t.medianScoreChange;
 
       dataPoints.push({
         fromYear: t.fromYear,

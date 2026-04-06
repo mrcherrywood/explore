@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Loader2, TriangleAlert, X } from "lucide-react";
 import { ChartRenderer, ChartSpec } from "@/components/chart/ChartRenderer";
+import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 
 const slugifyLabel = (value: string) =>
   value
@@ -285,9 +286,25 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
               {selection.comparisonType === "organization" && fourStarStats && (
                 <div className="mt-6 space-y-4">
                   <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                      Membership in Four-Star-or-Better Contracts
-                    </p>
+                    <div className="flex items-start justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                        Membership in Four-Star-or-Better Contracts
+                      </p>
+                      <ExportCsvButton
+                        fileName={`four-star-membership_${selection.parentOrganization.replace(/\s+/g, "-")}`}
+                        getData={() => ({
+                          headers: ["Year", "Contracts", "Rated", "Four-Star+", "% of Contracts", "% of Rated"],
+                          rows: fourStarStats!.rows.map((row) => [
+                            String(row.year),
+                            String(row.totalMembers),
+                            String(row.ratedMembers),
+                            String(row.fourStarCount),
+                            typeof row.percentageOfTotal === "number" ? row.percentageOfTotal.toFixed(1) : "",
+                            typeof row.percentageOfRated === "number" ? row.percentageOfRated.toFixed(1) : "",
+                          ]),
+                        })}
+                      />
+                    </div>
                     <div className="mt-3 text-xs text-muted-foreground">
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-border text-left text-xs">
