@@ -1,0 +1,35 @@
+code,measureName,direction,contracts,workbookContracts,outliersRemoved,ourExactPct,workbookExactPct,exactDiffPts,ourWithin1Pct,workbookWithin1Pct,predictionAgreementPct,workbookTwoStar,workbookThreeStar,workbookFourStar,workbookFiveStar,ourTwoStar,ourThreeStar,ourFourStar,ourFiveStar,deltaTwoStar,deltaThreeStar,deltaFourStar,deltaFiveStar
+C01,Breast Cancer Screening,Higher is Better,499,499,3,78.8,81.8,-3,100,100,83.4,61,68.8,75.4,82,61.4,69.3,76.2,82.5,0.4,0.5,0.8,0.5
+C02,Colorectal Cancer Screening,Higher is Better,544,544,5,76.7,63.4,13.2,100,100,86.8,52.7,65.3,72,80.1,52.7,63.3,71.6,78.2,0,-2,-0.4,-1.9
+C03,Annual Flu Vaccine,Higher is Better,497,497,0,71.4,78.3,-6.8,100,100,91.5,54.2,62.1,68.6,75.4,54.1,61.6,69.4,75.7,-0.1,-0.5,0.8,0.3
+C04,Improving or Maintaining Physical Health,Higher is Better,295,295,0,90.2,92.2,-2,100,100,98,65.1,68.9,71.7,74.9,64.8,68.5,71.5,74.9,-0.3,-0.4,-0.2,0
+C05,Improving or Maintaining Mental Health,Higher is Better,294,294,0,87.1,87.1,0,100,100,100,81,83,85.1,88,81,83,85.2,88,0,0,0.1,0
+C06,Monitoring Physical Activity,Higher is Better,504,504,0,89.3,90.7,-1.4,100,100,98.6,40.7,47.8,53.3,59,40.5,47.7,53.2,59.2,-0.2,-0.1,-0.1,0.2
+C07,Special Needs Plan (SNP) Care Management,Higher is Better,325,325,0,98.2,95.7,2.5,100,100,97.5,41.1,57.8,71.6,87.1,41.1,58.6,72.4,87.6,0,0.8,0.8,0.5
+C08,Care for Older Adults – Medication Review,Higher is Better,331,331,9,87,76.4,10.6,100,100,89.4,80.6,88.3,93.5,98.2,80.6,88.5,93.3,98,0,0.2,-0.2,-0.2
+C09,Care for Older Adults – Pain Assessment,Higher is Better,331,331,11,70.4,71,-0.6,99.7,99.7,99.4,84.9,91.2,95.2,98.8,85.3,91.4,95.4,98.6,0.4,0.2,0.2,-0.2
+C10,Osteoporosis Management in Women who had a Fracture,Higher is Better,318,318,0,89,97.8,-8.8,100,100,88.1,31.9,41,52,67.6,32.2,42.4,52.2,67.8,0.3,1.4,0.2,0.2
+C11,Diabetes Care – Eye Exam,Higher is Better,549,549,1,93.4,98.7,-5.3,100,100,94.7,59.1,71.3,79.2,86,61.3,71.7,79.3,86.2,2.2,0.4,0.1,0.2
+C12,Diabetes Care – Blood Sugar Controlled,Higher is Better,554,554,19,69.1,80.5,-11.4,95.7,97.8,86.5,77.6,81.9,86.3,90.6,78.3,82.3,86.9,91.1,0.7,0.4,0.6,0.5
+C13,Kidney Health Evaluation for Patients with Diabetes,Higher is Better,551,551,6,51.2,52.6,-1.5,100,100,98.5,44.9,57.3,66.2,77.6,46.3,57.8,66.2,77.6,1.4,0.5,0,0
+C14,Controlling High Blood Pressure,Higher is Better,526,526,1,85.2,89,-3.8,100,100,93.5,63.8,74.2,80.2,85.6,66.7,75.1,80.1,85.4,2.9,0.9,-0.1,-0.2
+C15,Reducing the Risk of Falling,Higher is Better,457,457,0,88.2,83.8,4.4,100,100,89.1,52.1,56.8,62.5,72.4,51.5,57.2,63,71.5,-0.6,0.4,0.5,-0.9
+C16,Improving Bladder Control,Higher is Better,388,388,1,99.2,99.2,0,100,100,100,40.5,44.4,49,53,40.7,44.5,49,53,0.2,0.1,0,0
+C17,Medication Reconciliation Post-Discharge,Higher is Better,526,526,0,97.3,97,0.4,100,100,98.1,43.8,62.6,73.4,86.8,39.3,61.2,73.4,87.7,-4.5,-1.4,0,0.9
+C18,Plan All-Cause Readmissions,Lower is Better,474,474,0,72.6,72.6,0,100,100,100,12.2,10.2,8.7,6.2,12.1,10.1,8.9,6.5,-0.1,-0.1,0.2,0.3
+C19,Statin Therapy for Patients with Cardiovascular Disease,Higher is Better,471,471,3,66,66,0,100,100,100,81.9,85.7,89,92.6,81.9,85.9,88.7,92.6,0,0.2,-0.3,0
+C20,Transitions of Care,Higher is Better,524,524,0,92.4,95.8,-3.4,100,100,96.6,43.9,56.2,67.5,78.5,43.4,56.6,67,79.6,-0.5,0.4,-0.5,1.1
+C21,Follow-up after Emergency Department Visit for People with Multiple High-Risk Chronic Conditions,Higher is Better,533,533,2,89.7,87.2,2.4,100,100,90.4,49.3,58,65.4,77.5,49.7,58.5,67.4,79,0.4,0.5,2,1.5
+C28,Complaints about the Health Plan,Lower is Better,531,531,14,73.1,61.4,11.7,96.8,97.2,87.9,0.5770000000000001,0.364,0.217,0.094,0.55,0.36,0.23,0.11,-0.03,0,0.01,0.02
+C29,Members Choosing to Leave the Plan (Part C),Lower is Better,525,525,0,94.3,91.8,2.5,100,100,94.5,38.1,26.9,18.1,8.1,37,25.3,17,8,-1.1,-1.6,-1.1,-0.1
+C31,Plan Makes Timely Decisions about Appeals,Higher is Better,432,432,23,75.7,75.7,0,90,90,100,95.9,97.9,99,100,96,98,99,100,0.1,0.1,0,0
+C32,Reviewing Appeals Decisions,Higher is Better,432,432,8,92.8,92.8,0,100,100,100,90.3,95.1,97.1,99.1,90.7,95.2,97.6,99.6,0.4,0.1,0.5,0.5
+C33,Call Center – Foreign Language Interpreter and TTY Availability (Part C),Higher is Better,627,627,24,86.6,86.6,0,93,93,100,91,94,97,100,91,94,97,100,0,0,0,0
+D01,Call Center – Foreign Language Interpreter and TTY Availability (Part D),Higher is Better,624,624,21,84.8,84.8,0,95,95,100,90.2,94,97,100,90.1,94,97,100,-0.1,0,0,0
+D02,Complaints about the Drug Plan,Lower is Better,526,526,14,68.4,65.4,3,97.7,97.3,95.1,0.563,0.394,0.224,0.099,0.58,0.38,0.22,0.1,0.02,-0.01,0,0
+D03,Members Choosing to Leave the Plan (Part D),Lower is Better,520,520,0,98.1,95.8,2.3,100,100,97.7,38.5,26.2,17.6,8.7,38.7,27.4,17.9,8.4,0.2,1.2,0.3,-0.3
+D08,Medication Adherence for Diabetes Medications,Higher is Better,584,584,0,77.9,77.9,0,100,100,100,83.9,86.8,88.9,92,83.9,87,89,91.9,0,0.2,0.1,-0.1
+D09,Medication Adherence for Hypertension (RAS antagonists),Higher is Better,594,594,6,86.7,86,0.7,100,100,99.3,84.2,88.1,90.1,92.6,83.7,88.1,90.5,92.8,-0.5,0,0.4,0.2
+D10,Medication Adherence for Cholesterol (Statins),Higher is Better,597,597,3,71,80.2,-9.2,100,100,89.1,83.6,87.9,90.1,93,82.9,86.7,90.1,93,-0.7,-1.2,0,0
+D11,MTM Program Completion Rate for CMR,Higher is Better,557,557,13,56.9,65,-8.1,99.6,100,91.6,81.6,87.9,92,96.7,82.6,87.5,92.1,96.7,1,-0.4,0.1,0
+D12,Statin Use in Persons with Diabetes (SUPD),Higher is Better,567,567,0,90.7,89.1,1.6,100,100,98.4,81.8,85.7,88.7,92.7,80.9,85.7,88.4,92.1,-0.9,0,-0.3,-0.6

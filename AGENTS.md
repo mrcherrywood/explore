@@ -16,7 +16,7 @@
 
 - Next.js app deployed on Vercel; Python scripts in `scripts/percentile-analysis/` generate JSON and XLSX outputs
 - Percentile analysis supports four methods: Percentile Rank, Percentile of Score, Corrected Mid-Rank, and KDE Smoothed; the latter two compensate for integer-score discretization and ties
-- CMS Star Ratings data spans 2022-2026 measures with cut points from 2016-2028; 2027/2028 cut points are user forecasts
+- CMS Star Ratings data spans 2022-2026 measures with cut points from 2016-2028; 2027/2028 cut points are user forecasts; official clustering/Tukey methodology is documented in the workspace CMS tech notes PDF (`2026_tech_notes_508_compliant_01122026-1 (1).pdf`); when mimicking CMS cut-point clustering, exclude CAHPS measures (different methodology)
 - Python deps (numpy, pandas, scipy, openpyxl) installed during Vercel prebuild via `scripts/generate-percentile-data.sh` using `uv run --with`; Python is unavailable at Vercel runtime
 - Vercel runtime filesystem is read-only; only `/tmp` is writable; generated files bundled via `outputFileTracingIncludes` in next.config.ts
 - Contract data uses H and R prefixes (Medicare Advantage); both must be included in percentile calculations
@@ -25,8 +25,8 @@
 - Cut points with forecasts live at `data/Stars 2016-2028 Cut Points 12.2025_with_weights.xlsx`
 - The xlsx npm package parses Excel workbooks server-side in Node.js
 - Measure codes change between years (e.g., C04 renamed in 2026); cross-year matching must use normalized measure names, not code prefixes
-- Band movement analysis at `/analysis/band-movement` tracks contract performance migration between star rating bands year-over-year; fractional band position uses `star + ratio` so the integer part equals the star band label; edge bands (1★/5★) use score scale endpoints (0/100) as synthetic boundaries for within-band density
+- Band movement analysis at `/analysis/band-movement` tracks contract performance migration between star rating bands year-over-year; fractional band position uses `star + ratio` so the integer part equals the star band label; edge bands (1★/5★) use score scale endpoints (0/100) as synthetic boundaries for within-band density; do not show median score-change metrics on this page (Cut Point Impact is where median movement belongs)
 - Cut Point Impact correlates cohort score change and cut-point change for the same year-to-year step (not a one-year-lagged cut-point move), projects future cut points, and reports both mean and true per-contract median score deltas
 - CMS implemented Tukey outlier deletion methodology starting 2024, significantly changing cut point calculations; pre-2024 and post-2024 cut points are not directly comparable
-- 41 of 43 CMS measures have integer-only scores with heavy ties (up to 26% of contracts sharing one value); only complaint-related measures have decimals
+- 41 of 43 CMS measures have integer-only scores with heavy ties (up to 26% of contracts sharing one value); only complaint-related measures have decimals; publicly released contract scores are whole numbers (internal CMS decimals are not available), which limits exact cut-point backtests against published cut points
 - Cut point projections for 5-star thresholds must be capped at 100 (maximum possible score)

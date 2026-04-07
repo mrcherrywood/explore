@@ -6,11 +6,12 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Cartes
 import { BandMovementDetails } from "./BandMovementDetails";
 import { BandMovementHistorical } from "./BandMovementHistorical";
 import { CutPointImpactAnalysis } from "./CutPointImpactAnalysis";
+import { CutPointMethodologyAnalysis } from "./CutPointMethodologyAnalysis";
 
 type StarRating = 1 | 2 | 3 | 4 | 5;
 
 type MovementBucket = { toStar: StarRating; count: number; pct: number };
-type ScoreChangeGroup = { count: number; avgScoreChange: number | null; medianScoreChange: number | null };
+type ScoreChangeGroup = { count: number; avgScoreChange: number | null };
 
 type BandMovementStats = {
   cohortSize: number;
@@ -81,7 +82,7 @@ export type HistoricalBandMovementResponse = {
   history: HistoricalTransition[];
 };
 
-type YearSelection = number | "all" | "impact";
+type YearSelection = number | "all" | "impact" | "methodology";
 
 const STAR_COLORS: Record<string, string> = {
   "1": "#ef4444", "2": "#f97316", "3": "#eab308", "4": "#22c55e", "5": "#3b82f6",
@@ -101,7 +102,7 @@ export function BandMovementAnalysis() {
 
   const fetchData = useCallback(async (m?: string, s?: StarRating, y?: YearSelection) => {
     const effectiveY = y ?? fromYear;
-    if (effectiveY === "impact") {
+    if (effectiveY === "impact" || effectiveY === "methodology") {
       setIsLoading(false);
       return;
     }
@@ -156,6 +157,7 @@ export function BandMovementAnalysis() {
 
   const isHistorical = fromYear === "all";
   const isImpact = fromYear === "impact";
+  const isMethodology = fromYear === "methodology";
 
   return (
     <div className="space-y-6">
@@ -173,7 +175,7 @@ export function BandMovementAnalysis() {
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           </div>
         </div>
-        {!isImpact && (
+        {!isImpact && !isMethodology && (
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Star Band</label>
             <div className="flex gap-1">
@@ -195,13 +197,17 @@ export function BandMovementAnalysis() {
             </button>
             {transitions.map((y) => (
               <button key={y} onClick={() => handleYearChange(y)}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${!isHistorical && !isImpact && y === fromYear ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+                className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${!isHistorical && !isImpact && !isMethodology && y === fromYear ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
                 {y}→{y + 1}
               </button>
             ))}
             <button onClick={() => handleYearChange("impact")}
               className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${isImpact ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
               Cut Point Impact
+            </button>
+            <button onClick={() => handleYearChange("methodology")}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${isMethodology ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+              CMS Backtest
             </button>
           </div>
         </div>
@@ -216,7 +222,7 @@ export function BandMovementAnalysis() {
       )}
 
       {/* Single-year view */}
-      {!isLoading && !error && !isHistorical && !isImpact && singleData?.status === "ready" && singleData.movement && (
+      {!isLoading && !error && !isHistorical && !isImpact && !isMethodology && singleData?.status === "ready" && singleData.movement && (
         <>
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <SummaryCard label="Cohort Size" value={String(singleData.movement.cohortSize)} helper={`Contracts with ${star}★ in ${fromYear} that also reported in ${(fromYear as number) + 1}${singleData.movement.avgFractionalFrom != null ? ` · avg position ${singleData.movement.avgFractionalFrom.toFixed(2)}` : ""}`} />
@@ -278,6 +284,11 @@ export function BandMovementAnalysis() {
       {/* Cut Point Impact view */}
       {!isLoading && !error && isImpact && measure && (
         <CutPointImpactAnalysis measure={measure} displayName={displayMeasure} />
+      )}
+
+      {/* CMS methodology backtest view */}
+      {!isLoading && !error && isMethodology && measure && (
+        <CutPointMethodologyAnalysis measure={measure} displayName={displayMeasure} />
       )}
     </div>
   );

@@ -7,6 +7,7 @@ import {
   type BandMovementResponse,
   type HistoricalBandMovementResponse,
 } from "@/lib/band-movement/analysis";
+import { analyzeCutPointMethodologyBacktest } from "@/lib/band-movement/cut-point-methodology";
 import { analyzeCutPointImpact } from "@/lib/band-movement/cut-point-impact";
 
 export const runtime = "nodejs";
@@ -52,6 +53,22 @@ export async function GET(req: NextRequest) {
         );
       }
       return NextResponse.json(result, {
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+
+    if (view === "methodology-backtest") {
+      if (!measure) {
+        return NextResponse.json(
+          { error: "measure parameter is required for methodology-backtest view" },
+          { status: 400 }
+        );
+      }
+
+      const result = analyzeCutPointMethodologyBacktest(measure);
+      const status = result.status === "unsupported" ? 400 : 200;
+      return NextResponse.json(result, {
+        status,
         headers: { "Cache-Control": "no-store" },
       });
     }

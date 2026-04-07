@@ -38,7 +38,6 @@ export type CutPointImpactRow = {
   toYear: number;
   cohortSize: number;
   avgScoreChange: number | null;
-  medianScoreChange: number | null;
   cutPointDelta: number;
   cutPointFrom: number;
   cutPointTo: number;
@@ -325,14 +324,12 @@ export function analyzeCutPointImpact(
       }
 
       const avgScoreChange = totalCount > 0 ? Number((weightedSum / totalCount).toFixed(2)) : null;
-      const medianScoreChange = t.medianScoreChange;
 
       dataPoints.push({
         fromYear: t.fromYear,
         toYear: t.toYear,
         cohortSize: t.movement.cohortSize,
         avgScoreChange,
-        medianScoreChange,
         cutPointDelta: t.cutPoints.delta[thresholdKey],
         cutPointFrom: t.cutPoints.fromYear[thresholdKey],
         cutPointTo: t.cutPoints.toYear[thresholdKey],

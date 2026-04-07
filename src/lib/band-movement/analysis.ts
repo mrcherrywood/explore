@@ -29,6 +29,11 @@ export type ContractMeasureYear = {
   measureKey: string;
 };
 
+export type MeasureScoreSample = {
+  contractId: string;
+  score: number;
+};
+
 export type ContractMovementRow = ContractRecord & {
   fromStar: StarRating;
   fromScore: number | null;
@@ -49,7 +54,6 @@ export type MovementBucket = {
 export type ScoreChangeGroup = {
   count: number;
   avgScoreChange: number | null;
-  medianScoreChange: number | null;
 };
 
 /** Cohort slice by numeric score in the from-year (within the star band). */
@@ -331,6 +335,31 @@ function ensureData() {
   return dataCache;
 }
 
+export function getAvailableMeasureYears(): number[] {
+  return [...AVAILABLE_YEARS];
+}
+
+export function getMeasureByNormalizedName(measureNorm: string): UnifiedMeasure | null {
+  const { measures } = ensureData();
+  return measures.find((measure) => measure.normalizedName === measureNorm) ?? null;
+}
+
+export function getMeasureYearScoreSamples(measureNorm: string, year: number): MeasureScoreSample[] {
+  const { years } = ensureData();
+  const yearData = years.get(year);
+  if (!yearData) return [];
+
+  const samples: MeasureScoreSample[] = [];
+  for (const [contractId, scores] of yearData.scores) {
+    const score = scores.get(measureNorm);
+    if (score !== null && score !== undefined) {
+      samples.push({ contractId, score });
+    }
+  }
+
+  return samples;
+}
+
 /** Group raw scores to 0.1 resolution so near-integers collapse to one bucket. */
 export function scoreBucketKey(score: number): number {
   return Math.round(score * 10) / 10;
@@ -360,15 +389,11 @@ export function aggregateScoreChangesByFromScore(contracts: ContractMovementRow[
 }
 
 function buildScoreChangeGroup(deltas: number[]): ScoreChangeGroup {
-  if (deltas.length === 0) return { count: 0, avgScoreChange: null, medianScoreChange: null };
-  const sorted = [...deltas].sort((a, b) => a - b);
-  const sum = sorted.reduce((s, v) => s + v, 0);
-  const mid = Math.floor(sorted.length / 2);
-  const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  if (deltas.length === 0) return { count: 0, avgScoreChange: null };
+  const sum = deltas.reduce((s, v) => s + v, 0);
   return {
     count: deltas.length,
     avgScoreChange: Number((sum / deltas.length).toFixed(2)),
-    medianScoreChange: Number(median.toFixed(2)),
   };
 }
 
@@ -397,8 +422,6 @@ export type HistoricalTransition = {
   movement: BandMovementStats;
   cutPoints: CutPointComparison | null;
   scoreStats: { from: ScoreStats; to: ScoreStats } | null;
-  /** Median of individual contract score deltas across the entire cohort. */
-  medianScoreChange: number | null;
   /** Avg score change by from-year numeric score (within this star band). */
   perFromScore: PerFromScoreRow[];
 };
@@ -426,24 +449,12 @@ export function analyzeHistoricalBandMovement(
   for (const fromYear of TRANSITION_FROM_YEARS) {
     const result = analyzeBandMovement(measureNorm, star, fromYear);
     if (result.movement) {
-      const deltas = result.contracts
-        .filter((c) => c.fromScore != null && c.toScore != null)
-        .map((c) => c.toScore! - c.fromScore!);
-      const sorted = [...deltas].sort((a, b) => a - b);
-      let medianScoreChange: number | null = null;
-      if (sorted.length > 0) {
-        const mid = Math.floor(sorted.length / 2);
-        const raw = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-        medianScoreChange = Number(raw.toFixed(2));
-      }
-
       history.push({
         fromYear,
         toYear: fromYear + 1,
         movement: result.movement,
         cutPoints: result.cutPoints,
         scoreStats: result.scoreStats,
-        medianScoreChange,
         perFromScore: aggregateScoreChangesByFromScore(result.contracts),
       });
     }
