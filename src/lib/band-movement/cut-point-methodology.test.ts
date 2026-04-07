@@ -5,6 +5,7 @@ import {
   applyGuardrails,
   assignResampleFolds,
   clusterScoresWard,
+  computeCahpsPercentileThresholds,
   computeTukeyFences,
   deriveThresholdsFromClusters,
 } from "./cut-point-methodology";
@@ -65,6 +66,25 @@ test("deriveThresholdsFromClusters flips boundaries for inverted measures", () =
     fourStar: 52,
     fiveStar: 12,
   });
+});
+
+test("computeCahpsPercentileThresholds returns rounded P15/P30/P60/P80", () => {
+  const scores = Array.from({ length: 100 }, (_, i) => i + 1);
+  const thresholds = computeCahpsPercentileThresholds(scores);
+
+  assert.equal(thresholds.twoStar, Math.round(15.85));
+  assert.equal(thresholds.threeStar, Math.round(30.7));
+  assert.equal(thresholds.fourStar, Math.round(60.4));
+  assert.equal(thresholds.fiveStar, Math.round(80.2));
+});
+
+test("computeCahpsPercentileThresholds produces monotonically increasing values", () => {
+  const scores = [70, 72, 74, 75, 76, 78, 80, 82, 84, 85, 86, 88, 90, 92, 94, 95, 96, 98, 99, 100];
+  const thresholds = computeCahpsPercentileThresholds(scores);
+
+  assert.equal(thresholds.twoStar <= thresholds.threeStar, true, "2★ <= 3★");
+  assert.equal(thresholds.threeStar <= thresholds.fourStar, true, "3★ <= 4★");
+  assert.equal(thresholds.fourStar <= thresholds.fiveStar, true, "4★ <= 5★");
 });
 
 test("applyGuardrails caps threshold movement to five points on 0-100 scales", () => {

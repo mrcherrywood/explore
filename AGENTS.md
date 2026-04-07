@@ -16,7 +16,8 @@
 
 - Next.js app deployed on Vercel; Python scripts in `scripts/percentile-analysis/` generate JSON and XLSX outputs
 - Percentile analysis supports four methods: Percentile Rank, Percentile of Score, Corrected Mid-Rank, and KDE Smoothed; the latter two compensate for integer-score discretization and ties
-- CMS Star Ratings data spans 2022-2026 measures with cut points from 2016-2028; 2027/2028 cut points are user forecasts; official clustering/Tukey methodology is documented in the workspace CMS tech notes PDF (`2026_tech_notes_508_compliant_01122026-1 (1).pdf`); when mimicking CMS cut-point clustering, exclude CAHPS measures (different methodology)
+- CMS Star Ratings data spans 2022-2026 measures with cut points from 2016-2028; 2027/2028 cut points are user forecasts; official clustering/Tukey methodology is documented in the workspace CMS tech notes PDF (`2026_tech_notes_508_compliant_01122026-1 (1).pdf`); the cut-point methodology backtest supports both non-CAHPS (clustering/resampling) and CAHPS (percentile-based P15/P30/P60/P80) measures; only Quality Improvement measures remain excluded
+- CAHPS measures (including Annual Flu Vaccine/C03) use a percentile-based relative distribution method for star assignment, not clustering; public CMS data lacks standard errors and reliability estimates, so only the base group percentile thresholds can be replicated
 - Python deps (numpy, pandas, scipy, openpyxl) installed during Vercel prebuild via `scripts/generate-percentile-data.sh` using `uv run --with`; Python is unavailable at Vercel runtime
 - Vercel runtime filesystem is read-only; only `/tmp` is writable; generated files bundled via `outputFileTracingIncludes` in next.config.ts
 - Contract data uses H and R prefixes (Medicare Advantage); both must be included in percentile calculations

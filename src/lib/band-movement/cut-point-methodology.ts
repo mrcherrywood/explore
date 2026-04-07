@@ -28,6 +28,7 @@ const THRESHOLD_LABELS: Record<ThresholdKey, string> = {
   fiveStar: "5★ Threshold",
 };
 const CAHPS_MEASURE_NAMES = new Set([
+  "annual flu vaccine",
   "getting needed care",
   "getting appointments and care quickly",
   "customer service",
@@ -37,6 +38,7 @@ const CAHPS_MEASURE_NAMES = new Set([
   "getting needed prescription drugs",
   "rating of drug plan",
 ]);
+const CAHPS_PERCENTILES = { twoStar: 0.15, threeStar: 0.30, fourStar: 0.60, fiveStar: 0.80 } as const;
 
 type ThresholdKey = typeof THRESHOLD_KEYS[number];
 type ThresholdValues = Record<ThresholdKey, number>;
@@ -79,6 +81,7 @@ export type MethodologyBacktestReadyResponse = {
     worstYear: number | null;
   };
   methodology: {
+    method: "clustering" | "cahps-percentile";
     foldCount: number;
     seed: number;
     tukeyStartsIn: number;
@@ -342,47 +345,79 @@ function lookupOfficialCutPoint(
   return matchCutPointToMeasureName(measure.displayName, codePrefix, cutPoints);
 }
 
-export function analyzeCutPointMethodologyBacktest(measureNorm: string): MethodologyBacktestResponse {
-  const measure = getMeasureByNormalizedName(measureNorm);
-  if (!measure) {
-    return { status: "unsupported", measure: measureNorm, displayName: measureNorm, reason: "Measure not found." };
-  }
+export function computeCahpsPercentileThresholds(scores: number[]): ThresholdValues {
+  const sorted = [...scores].sort((a, b) => a - b);
+  return {
+    twoStar: Math.round(quantile(sorted, CAHPS_PERCENTILES.twoStar)),
+    threeStar: Math.round(quantile(sorted, CAHPS_PERCENTILES.threeStar)),
+    fourStar: Math.round(quantile(sorted, CAHPS_PERCENTILES.fourStar)),
+    fiveStar: Math.round(quantile(sorted, CAHPS_PERCENTILES.fiveStar)),
+  };
+}
 
-  if (isCahpsMeasure(measure.displayName)) {
-    return { status: "unsupported", measure: measureNorm, displayName: measure.displayName, reason: "CAHPS measures use a different CMS methodology and are excluded from this backtest." };
-  }
+function buildYearResult(
+  year: number,
+  rawSamples: MeasureScoreSample[],
+  sampleSize: number,
+  outliersRemoved: number,
+  tukeyApplied: boolean,
+  guardrailsApplied: boolean,
+  guardrailCap: number | null,
+  resampleRuns: number,
+  finalThresholds: ThresholdValues,
+  official: MeasureCutPoint,
+  notes: string[],
+): MethodologyBacktestYear {
+  const thresholdComparisons = THRESHOLD_KEYS.map((key) => {
+    const actual = official.thresholds[key];
+    const simulated = finalThresholds[key];
+    const delta = round2(simulated - actual);
+    return { key, label: THRESHOLD_LABELS[key], actual, simulated, delta, absError: round2(Math.abs(delta)) };
+  });
+  const meanAbsoluteError = round2(
+    thresholdComparisons.reduce((sum, c) => sum + c.absError, 0) / thresholdComparisons.length
+  );
+  return {
+    year,
+    rawSampleSize: rawSamples.length,
+    sampleSize,
+    resampleRuns,
+    outliersRemoved,
+    tukeyApplied,
+    guardrailsApplied,
+    guardrailCap,
+    meanAbsoluteError,
+    maxAbsoluteError: Math.max(...thresholdComparisons.map((c) => c.absError)),
+    thresholdComparisons,
+    notes,
+  };
+}
 
-  if (isQualityImprovementMeasure(measure.displayName)) {
-    return { status: "unsupported", measure: measureNorm, displayName: measure.displayName, reason: "Quality Improvement measures use a special split-clustering methodology and are excluded from this first pass." };
-  }
-
-  const officialCutPointsByYear = ensureOfficialCutPoints();
-  const inverted = isInvertedMeasure(measure.displayName);
+function runClusteringBacktest(
+  measure: UnifiedMeasure,
+  measureNorm: string,
+  inverted: boolean,
+  officialCutPointsByYear: Map<number, MeasureCutPoint[]>,
+): MethodologyBacktestYear[] {
   const results: MethodologyBacktestYear[] = [];
-
   for (const year of getAvailableMeasureYears()) {
     const rawSamples = getMeasureYearScoreSamples(measureNorm, year);
     const official = lookupOfficialCutPoint(measure, year, officialCutPointsByYear);
     if (!official || rawSamples.length < RESAMPLE_FOLD_COUNT) continue;
 
-    const bounds = inferScaleBounds(rawSamples.map((sample) => sample.score));
+    const bounds = inferScaleBounds(rawSamples.map((s) => s.score));
     const tukeyApplied = year >= TUKEY_START_YEAR;
-    const filtered = tukeyApplied ? applyTukeyFilter(rawSamples, bounds) : {
-      samples: rawSamples,
-      outliersRemoved: 0,
-      fences: { lower: bounds.min, upper: bounds.max },
-    };
+    const filtered = tukeyApplied
+      ? applyTukeyFilter(rawSamples, bounds)
+      : { samples: rawSamples, outliersRemoved: 0, fences: { lower: bounds.min, upper: bounds.max } };
     if (filtered.samples.length < 5) continue;
 
     const foldAssignments = assignResampleFolds(filtered.samples);
     const resampledThresholds: ThresholdValues[] = [];
     for (let fold = 0; fold < RESAMPLE_FOLD_COUNT; fold += 1) {
-      const trainingScores = foldAssignments
-        .filter((sample) => sample.fold !== fold)
-        .map((sample) => sample.score);
+      const trainingScores = foldAssignments.filter((s) => s.fold !== fold).map((s) => s.score);
       if (trainingScores.length < 5) continue;
-      const clusters = clusterScoresWard(trainingScores, 5);
-      resampledThresholds.push(deriveThresholdsFromClusters(clusters, inverted));
+      resampledThresholds.push(deriveThresholdsFromClusters(clusterScoresWard(trainingScores, 5), inverted));
     }
     if (resampledThresholds.length === 0) continue;
 
@@ -391,58 +426,65 @@ export function analyzeCutPointMethodologyBacktest(measureNorm: string): Methodo
     const guarded = applyGuardrails(
       averaged,
       priorOfficial
-        ? {
-            twoStar: priorOfficial.thresholds.twoStar,
-            threeStar: priorOfficial.thresholds.threeStar,
-            fourStar: priorOfficial.thresholds.fourStar,
-            fiveStar: priorOfficial.thresholds.fiveStar,
-          }
+        ? { twoStar: priorOfficial.thresholds.twoStar, threeStar: priorOfficial.thresholds.threeStar, fourStar: priorOfficial.thresholds.fourStar, fiveStar: priorOfficial.thresholds.fiveStar }
         : null,
       bounds,
       Math.max(0, filtered.fences.upper - filtered.fences.lower),
-      inverted
+      inverted,
     );
     const finalThresholds = enforceThresholdOrder(guarded.thresholds, bounds, inverted);
 
-    const thresholdComparisons = THRESHOLD_KEYS.map((key) => {
-      const actual = official.thresholds[key];
-      const simulated = finalThresholds[key];
-      const delta = round2(simulated - actual);
-      return {
-        key,
-        label: THRESHOLD_LABELS[key],
-        actual,
-        simulated,
-        delta,
-        absError: round2(Math.abs(delta)),
-      };
-    });
-    const meanAbsoluteError = round2(
-      thresholdComparisons.reduce((sum, comparison) => sum + comparison.absError, 0) / thresholdComparisons.length
-    );
-
-    results.push({
-      year,
-      rawSampleSize: rawSamples.length,
-      sampleSize: filtered.samples.length,
-      resampleRuns: resampledThresholds.length,
-      outliersRemoved: filtered.outliersRemoved,
-      tukeyApplied,
-      guardrailsApplied: Boolean(priorOfficial),
-      guardrailCap: guarded.cap,
-      meanAbsoluteError,
-      maxAbsoluteError: Math.max(...thresholdComparisons.map((comparison) => comparison.absError)),
-      thresholdComparisons,
-      notes: [
-        tukeyApplied
-          ? `Tukey outer-fence deletion applied before clustering (${round2(filtered.fences.lower)} to ${round2(filtered.fences.upper)} kept).`
-          : "Pre-2024 backtests skip Tukey deletion because CMS had not adopted it yet.",
-        priorOfficial
-          ? `Guardrails limited each threshold to ${guarded.cap} points around the prior-year official cut point.`
-          : "No prior-year official cut point was available, so guardrails were not applied.",
-      ],
-    });
+    results.push(buildYearResult(year, rawSamples, filtered.samples.length, filtered.outliersRemoved, tukeyApplied, Boolean(priorOfficial), guarded.cap, resampledThresholds.length, finalThresholds, official, [
+      tukeyApplied
+        ? `Tukey outer-fence deletion applied before clustering (${round2(filtered.fences.lower)} to ${round2(filtered.fences.upper)} kept).`
+        : "Pre-2024 backtests skip Tukey deletion because CMS had not adopted it yet.",
+      priorOfficial
+        ? `Guardrails limited each threshold to ${guarded.cap} points around the prior-year official cut point.`
+        : "No prior-year official cut point was available, so guardrails were not applied.",
+    ]));
   }
+  return results;
+}
+
+function runCahpsBacktest(
+  measure: UnifiedMeasure,
+  measureNorm: string,
+  officialCutPointsByYear: Map<number, MeasureCutPoint[]>,
+): MethodologyBacktestYear[] {
+  const results: MethodologyBacktestYear[] = [];
+  for (const year of getAvailableMeasureYears()) {
+    const rawSamples = getMeasureYearScoreSamples(measureNorm, year);
+    const official = lookupOfficialCutPoint(measure, year, officialCutPointsByYear);
+    if (!official || rawSamples.length < 10) continue;
+
+    const scores = rawSamples.map((s) => s.score);
+    const thresholds = computeCahpsPercentileThresholds(scores);
+
+    results.push(buildYearResult(year, rawSamples, rawSamples.length, 0, false, false, null, 0, thresholds, official, [
+      `CAHPS percentile-based thresholds: P15=${thresholds.twoStar}, P30=${thresholds.threeStar}, P60=${thresholds.fourStar}, P80=${thresholds.fiveStar}.`,
+      "Simplified: significance testing and reliability adjustments omitted (requires standard errors not available in public data).",
+    ]));
+  }
+  return results;
+}
+
+export function analyzeCutPointMethodologyBacktest(measureNorm: string): MethodologyBacktestResponse {
+  const measure = getMeasureByNormalizedName(measureNorm);
+  if (!measure) {
+    return { status: "unsupported", measure: measureNorm, displayName: measureNorm, reason: "Measure not found." };
+  }
+
+  if (isQualityImprovementMeasure(measure.displayName)) {
+    return { status: "unsupported", measure: measureNorm, displayName: measure.displayName, reason: "Quality Improvement measures use a special split-clustering methodology and are excluded from this first pass." };
+  }
+
+  const officialCutPointsByYear = ensureOfficialCutPoints();
+  const cahps = isCahpsMeasure(measure.displayName);
+  const inverted = isInvertedMeasure(measure.displayName);
+
+  const results = cahps
+    ? runCahpsBacktest(measure, measureNorm, officialCutPointsByYear)
+    : runClusteringBacktest(measure, measureNorm, inverted, officialCutPointsByYear);
 
   if (results.length === 0) {
     return {
@@ -462,21 +504,22 @@ export function analyzeCutPointMethodologyBacktest(measureNorm: string): Methodo
     measure: measureNorm,
     displayName: measure.displayName,
     inverted,
-    supportedYears: sortedResults.map((result) => result.year),
+    supportedYears: sortedResults.map((r) => r.year),
     years: sortedResults,
     summary: {
       comparedYears: sortedResults.length,
       avgMeanAbsoluteError: round2(
-        sortedResults.reduce((sum, result) => sum + result.meanAbsoluteError, 0) / sortedResults.length
+        sortedResults.reduce((sum, r) => sum + r.meanAbsoluteError, 0) / sortedResults.length
       ),
       bestYear,
       worstYear,
     },
     methodology: {
+      method: cahps ? "cahps-percentile" : "clustering",
       foldCount: RESAMPLE_FOLD_COUNT,
       seed: RESAMPLE_SEED,
       tukeyStartsIn: TUKEY_START_YEAR,
-      exclusions: ["CAHPS measures", "Quality Improvement measures"],
+      exclusions: ["Quality Improvement measures"],
     },
   };
 }
