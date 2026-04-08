@@ -171,8 +171,8 @@ export function RosterAccuracyCurve({ measure, displayName }: Props) {
               dataKey="avgMae"
               stroke="var(--color-primary)"
               strokeWidth={2}
-              dot={(props: DotProps) => (
-                <CurveDot {...props} clientSize={data.clientRosterSize} marketSize={data.fullMarketAvgSize} />
+              dot={({ cx, cy, payload }: { cx?: number; cy?: number; payload?: { rosterSize: number } }) => (
+                <CurveDot key={payload?.rosterSize} cx={cx} cy={cy} payload={payload} clientSize={data.clientRosterSize} marketSize={data.fullMarketAvgSize} />
               )}
               activeDot={{ r: 5 }}
             />
