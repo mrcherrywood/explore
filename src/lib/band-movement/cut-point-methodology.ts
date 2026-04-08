@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
+
+import * as XLSX from "xlsx";
 
 import {
   getAvailableMeasureYears,
@@ -17,6 +20,7 @@ import type { MeasureCutPoint } from "@/lib/percentile-analysis/measure-likeliho
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const CUT_POINTS_PATH = path.join(DATA_DIR, "Stars 2016-2028 Cut Points 12.2025_with_weights.xlsx");
+const CLIENT_CONTRACTS_PATH = path.join(DATA_DIR, "client-contracts.xlsx");
 const RESAMPLE_FOLD_COUNT = 10;
 const RESAMPLE_SEED = 8675309;
 const TUKEY_START_YEAR = 2024;
@@ -120,12 +124,24 @@ type TukeyFilterResult = {
 };
 
 let officialCutPointsCache: Map<number, MeasureCutPoint[]> | null = null;
+let clientContractIdsCache: Set<string> | null = null;
 
 function round2(value: number): number {
   return Number(value.toFixed(2));
 }
 
-function ensureOfficialCutPoints(): Map<number, MeasureCutPoint[]> {
+export function loadClientContractIds(): Set<string> {
+  if (clientContractIdsCache) return clientContractIdsCache;
+  const wb = XLSX.read(readFileSync(CLIENT_CONTRACTS_PATH), { type: "buffer" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json<{ Contract: string }>(ws);
+  clientContractIdsCache = new Set(
+    rows.map((r) => (r.Contract ?? "").trim().toUpperCase()).filter(Boolean)
+  );
+  return clientContractIdsCache;
+}
+
+export function ensureOfficialCutPoints(): Map<number, MeasureCutPoint[]> {
   if (!officialCutPointsCache) {
     officialCutPointsCache = loadMeasureCutPoints(CUT_POINTS_PATH, [2022, ...getAvailableMeasureYears()]);
   }
@@ -402,15 +418,24 @@ function buildYearResult(
   };
 }
 
+function filterSamples(
+  samples: MeasureScoreSample[],
+  contractFilter?: Set<string>,
+): MeasureScoreSample[] {
+  if (!contractFilter) return samples;
+  return samples.filter((s) => contractFilter.has(s.contractId));
+}
+
 function runClusteringBacktest(
   measure: UnifiedMeasure,
   measureNorm: string,
   inverted: boolean,
   officialCutPointsByYear: Map<number, MeasureCutPoint[]>,
+  contractFilter?: Set<string>,
 ): MethodologyBacktestYear[] {
   const results: MethodologyBacktestYear[] = [];
   for (const year of getAvailableMeasureYears()) {
-    const rawSamples = getMeasureYearScoreSamples(measureNorm, year);
+    const rawSamples = filterSamples(getMeasureYearScoreSamples(measureNorm, year), contractFilter);
     const official = lookupOfficialCutPoint(measure, year, officialCutPointsByYear);
     if (!official || rawSamples.length < RESAMPLE_FOLD_COUNT) continue;
 
@@ -459,10 +484,11 @@ function runCahpsBacktest(
   measure: UnifiedMeasure,
   measureNorm: string,
   officialCutPointsByYear: Map<number, MeasureCutPoint[]>,
+  contractFilter?: Set<string>,
 ): MethodologyBacktestYear[] {
   const results: MethodologyBacktestYear[] = [];
   for (const year of getAvailableMeasureYears()) {
-    const rawSamples = getMeasureYearScoreSamples(measureNorm, year);
+    const rawSamples = filterSamples(getMeasureYearScoreSamples(measureNorm, year), contractFilter);
     const official = lookupOfficialCutPoint(measure, year, officialCutPointsByYear);
     if (!official || rawSamples.length < 10) continue;
 
@@ -477,7 +503,10 @@ function runCahpsBacktest(
   return results;
 }
 
-export function analyzeCutPointMethodologyBacktest(measureNorm: string): MethodologyBacktestResponse {
+export function analyzeCutPointMethodologyBacktest(
+  measureNorm: string,
+  contractFilter?: Set<string>,
+): MethodologyBacktestResponse {
   const measure = getMeasureByNormalizedName(measureNorm);
   if (!measure) {
     return { status: "unsupported", measure: measureNorm, displayName: measureNorm, reason: "Measure not found." };
@@ -492,8 +521,8 @@ export function analyzeCutPointMethodologyBacktest(measureNorm: string): Methodo
   const inverted = isInvertedMeasure(measure.displayName);
 
   const results = cahps
-    ? runCahpsBacktest(measure, measureNorm, officialCutPointsByYear)
-    : runClusteringBacktest(measure, measureNorm, inverted, officialCutPointsByYear);
+    ? runCahpsBacktest(measure, measureNorm, officialCutPointsByYear, contractFilter)
+    : runClusteringBacktest(measure, measureNorm, inverted, officialCutPointsByYear, contractFilter);
 
   if (results.length === 0) {
     return {

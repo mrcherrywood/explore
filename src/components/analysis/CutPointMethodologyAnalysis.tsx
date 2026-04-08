@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronUp, FlaskConical, HelpCircle, Info } from "lucide-react";
+import { AlertTriangle, FlaskConical, Info, Users } from "lucide-react";
+
+import { BacktestBanner } from "./BacktestMethodologyPanels";
+import { RosterAccuracyCurve } from "./RosterAccuracyCurve";
+import { DecimalUpliftCurve } from "./DecimalUpliftCurve";
 
 type ThresholdComparison = {
   key: "twoStar" | "threeStar" | "fourStar" | "fiveStar";
@@ -94,8 +98,20 @@ function maeColor(mae: number): string {
   return "text-rose-500";
 }
 
+async function fetchBacktest(measure: string, clientOnly: boolean): Promise<ResponsePayload> {
+  const params = new URLSearchParams({ view: "methodology-backtest", measure });
+  if (clientOnly) params.set("clientOnly", "true");
+  const res = await fetch(`/api/analysis/band-movement?${params}`, { cache: "no-store" });
+  const payload = await res.json().catch(() => null);
+  if (!res.ok && payload?.status !== "unsupported") {
+    throw new Error(payload?.error || "Failed to load");
+  }
+  return payload;
+}
+
 export function CutPointMethodologyAnalysis({ measure, displayName }: Props) {
-  const [data, setData] = useState<ResponsePayload | null>(null);
+  const [marketData, setMarketData] = useState<ResponsePayload | null>(null);
+  const [clientData, setClientData] = useState<ResponsePayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
@@ -104,13 +120,12 @@ export function CutPointMethodologyAnalysis({ measure, displayName }: Props) {
     setIsLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ view: "methodology-backtest", measure });
-      const res = await fetch(`/api/analysis/band-movement?${params}`, { cache: "no-store" });
-      const payload = await res.json().catch(() => null);
-      if (!res.ok && payload?.status !== "unsupported") {
-        throw new Error(payload?.error || "Failed to load");
-      }
-      setData(payload);
+      const [market, client] = await Promise.all([
+        fetchBacktest(measure, false),
+        fetchBacktest(measure, true),
+      ]);
+      setMarketData(market);
+      setClientData(client);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load analysis");
     } finally {
@@ -123,19 +138,26 @@ export function CutPointMethodologyAnalysis({ measure, displayName }: Props) {
   }, [measure, fetchData]);
 
   useEffect(() => {
-    if (data?.status === "ready") {
-      setSelectedYear(data.supportedYears[data.supportedYears.length - 1] ?? null);
+    if (marketData?.status === "ready") {
+      setSelectedYear(marketData.supportedYears[marketData.supportedYears.length - 1] ?? null);
     } else {
       setSelectedYear(null);
     }
-  }, [data]);
+  }, [marketData]);
 
-  const activeYear = useMemo(() => {
-    if (data?.status !== "ready") return null;
-    return data.years.find((year) => year.year === selectedYear) ?? data.years[data.years.length - 1] ?? null;
-  }, [data, selectedYear]);
+  const marketYear = useMemo(() => {
+    if (marketData?.status !== "ready") return null;
+    return marketData.years.find((y) => y.year === selectedYear) ?? marketData.years[marketData.years.length - 1] ?? null;
+  }, [marketData, selectedYear]);
 
+  const clientYear = useMemo(() => {
+    if (clientData?.status !== "ready") return null;
+    return clientData.years.find((y) => y.year === selectedYear) ?? null;
+  }, [clientData, selectedYear]);
+
+  const data = marketData;
   const isCahps = data?.status === "ready" && data.methodology.method === "cahps-percentile";
+  const hasClientData = clientData?.status === "ready" && clientYear !== null;
 
   if (isLoading) {
     return <div className="rounded-2xl border border-border bg-card p-8 text-sm text-muted-foreground">Loading CMS cut point backtest...</div>;
@@ -168,7 +190,7 @@ export function CutPointMethodologyAnalysis({ measure, displayName }: Props) {
     );
   }
 
-  if (!activeYear) {
+  if (!marketYear) {
     return <div className="rounded-2xl border border-border bg-card p-8 text-sm text-muted-foreground">No comparable backtest years were available.</div>;
   }
 
@@ -187,7 +209,7 @@ export function CutPointMethodologyAnalysis({ measure, displayName }: Props) {
                   type="button"
                   onClick={() => setSelectedYear(year)}
                   className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                    activeYear.year === year
+                    marketYear.year === year
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground hover:text-foreground"
                   }`}
@@ -205,279 +227,206 @@ export function CutPointMethodologyAnalysis({ measure, displayName }: Props) {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label="Contracts Used" value={String(activeYear.sampleSize)} helper={`${activeYear.rawSampleSize} with valid scores in ${activeYear.year}`} />
-        <SummaryCard
+        <ComparisonCard
+          label="Contracts Used"
+          marketValue={String(marketYear.sampleSize)}
+          clientValue={hasClientData ? String(clientYear.sampleSize) : null}
+          helper={`${marketYear.rawSampleSize} with valid scores in ${marketYear.year}`}
+        />
+        <ComparisonCard
           label="Outliers Removed"
-          value={String(activeYear.outliersRemoved)}
-          helper={isCahps ? "CAHPS uses no outlier deletion" : activeYear.tukeyApplied ? "Removed by Tukey outer fences" : "Tukey not used for this year"}
+          marketValue={String(marketYear.outliersRemoved)}
+          clientValue={hasClientData ? String(clientYear.outliersRemoved) : null}
+          helper={isCahps ? "CAHPS uses no outlier deletion" : marketYear.tukeyApplied ? "Removed by Tukey outer fences" : "Tukey not used for this year"}
           accent="text-amber-500"
         />
-        <SummaryCard label="Mean Abs Error" value={activeYear.meanAbsoluteError.toFixed(2)} helper="Average gap across 2★-5★ thresholds" accent="text-sky-500" />
-        <SummaryCard
+        <ComparisonCard
+          label="Mean Abs Error"
+          marketValue={marketYear.meanAbsoluteError.toFixed(2)}
+          clientValue={hasClientData ? clientYear.meanAbsoluteError.toFixed(2) : null}
+          helper="Average gap across 2★-5★ thresholds"
+          accent="text-sky-500"
+        />
+        <ComparisonCard
           label="Largest Gap"
-          value={activeYear.maxAbsoluteError.toFixed(2)}
-          helper={isCahps ? "Percentile-based thresholds · no guardrails" : `${activeYear.resampleRuns} resamples · ${activeYear.guardrailsApplied ? `guardrail cap ${activeYear.guardrailCap}` : "no guardrails"}`}
+          marketValue={marketYear.maxAbsoluteError.toFixed(2)}
+          clientValue={hasClientData ? clientYear.maxAbsoluteError.toFixed(2) : null}
+          helper={isCahps ? "Percentile-based thresholds · no guardrails" : `${marketYear.resampleRuns} resamples · ${marketYear.guardrailsApplied ? `guardrail cap ${marketYear.guardrailCap}` : "no guardrails"}`}
           accent="text-emerald-500"
         />
       </section>
 
-      <section className="rounded-2xl border border-border bg-card p-6">
-        <div className="mb-4 flex items-center gap-3">
-          <FlaskConical className="h-5 w-5 text-sky-400" />
-          <div>
-            <h3 className="text-base font-semibold text-foreground">Actual vs Simulated Cut Points</h3>
-            <p className="text-xs text-muted-foreground">{data.displayName} · {activeYear.year}</p>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="px-3 py-2">Threshold</th>
-                <th className="px-3 py-2 text-right">Actual</th>
-                <th className="px-3 py-2 text-right">Simulated</th>
-                <th className="px-3 py-2 text-right">Delta</th>
-                <th className="px-3 py-2 text-right">Abs Error</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...activeYear.thresholdComparisons].reverse().map((comparison) => {
-                const starColor = STAR_COLORS[THRESHOLD_STAR[comparison.key]];
-                return (
-                  <tr key={comparison.key} className="border-b border-border/50">
-                    <td className="px-3 py-3 font-medium" style={{ color: starColor }}>{comparison.label}</td>
-                    <td className="px-3 py-3 text-right tabular-nums">{comparison.actual.toFixed(2)}</td>
-                    <td className="px-3 py-3 text-right tabular-nums">{comparison.simulated.toFixed(2)}</td>
-                    <td className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaColor(comparison.delta)}`}>
-                      {fmtDelta(comparison.delta)}
-                    </td>
-                    <td className={`px-3 py-3 text-right tabular-nums font-semibold ${maeColor(comparison.absError)}`}>{comparison.absError.toFixed(2)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-border bg-card p-6">
-        <div className="mb-4">
-          <h3 className="text-base font-semibold text-foreground">Yearly Error Summary</h3>
-          <p className="text-xs text-muted-foreground">Use this to compare how closely the simulation tracks actual CMS cut points by year.</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="px-3 py-2">Year</th>
-                <th className="px-3 py-2 text-right">Used</th>
-                <th className="px-3 py-2 text-right">Outliers</th>
-                <th className="px-3 py-2 text-right">MAE</th>
-                <th className="px-3 py-2 text-right">Max Gap</th>
-                <th className="px-3 py-2 text-right">Tukey</th>
-                <th className="px-3 py-2 text-right">Guardrails</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...data.years].reverse().map((year) => (
-                <tr key={year.year} className={`border-b border-border/50 ${year.year === activeYear.year ? "bg-muted/30" : ""}`}>
-                  <td className="px-3 py-3 font-medium text-foreground">{year.year}</td>
-                  <td className="px-3 py-3 text-right tabular-nums">{year.sampleSize}</td>
-                  <td className="px-3 py-3 text-right tabular-nums">{year.outliersRemoved}</td>
-                  <td className={`px-3 py-3 text-right tabular-nums font-semibold ${maeColor(year.meanAbsoluteError)}`}>{year.meanAbsoluteError.toFixed(2)}</td>
-                  <td className={`px-3 py-3 text-right tabular-nums font-semibold ${maeColor(year.maxAbsoluteError)}`}>{year.maxAbsoluteError.toFixed(2)}</td>
-                  <td className="px-3 py-3 text-right">{year.tukeyApplied ? "Yes" : "No"}</td>
-                  <td className="px-3 py-3 text-right">{year.guardrailsApplied ? "Yes" : "No"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <ComparisonTable data={data} marketYear={marketYear} clientYear={clientYear} />
+      <YearlySummaryTable data={data} clientData={clientData?.status === "ready" ? clientData : null} activeYear={marketYear.year} />
+      <RosterAccuracyCurve measure={measure} displayName={displayName} />
+      <DecimalUpliftCurve measure={measure} displayName={displayName} />
     </div>
   );
 }
 
-function BacktestBanner({ data, displayName }: { data: ReadyResponse; displayName: string }) {
-  const [showMethodology, setShowMethodology] = useState(false);
-  const isCahps = data.methodology.method === "cahps-percentile";
-
-  return (
-    <div className="space-y-0 rounded-2xl border border-amber-500/30 bg-amber-500/5">
-      <div className="flex gap-3 p-4">
-        <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
-        <div className="flex-1 text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">Research backtest only</p>
-          <p className="mt-1">
-            {isCahps ? (
-              <>
-                This view approximates CMS-style CAHPS cut points for {displayName} using contract-level
-                case-mix adjusted scores and the percentile-based relative distribution method (P15/P30/P60/P80).
-                Standard errors and reliability adjustments are omitted because they are not available in public data.
-              </>
-            ) : (
-              <>
-                This view approximates CMS-style non-CAHPS cut points for {displayName} using contract-level
-                measure scores, 10-fold mean resampling, Ward-style clustering, and year-appropriate Tukey handling.
-                It is designed for validation against official cut points, not for predicting the exact CMS output.
-              </>
-            )}
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowMethodology((current) => !current)}
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:underline dark:text-amber-400"
-          >
-            <HelpCircle className="h-3.5 w-3.5" />
-            How is this calculated?
-            {showMethodology ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </button>
-        </div>
-      </div>
-
-      {showMethodology && (
-        <div className="border-t border-amber-500/20 px-4 pb-5 pt-4 text-sm text-muted-foreground">
-          {isCahps ? <CahpsMethodologySteps data={data} /> : <ClusteringMethodologySteps data={data} />}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CahpsMethodologySteps({ data }: { data: ReadyResponse }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <p className="mb-1.5 font-medium text-foreground">1. Data Collection</p>
-        <ul className="space-y-1 pl-4 list-disc">
-          <li>Loads all H+R (Medicare Advantage) contract-level case-mix adjusted CAHPS scores for the selected measure across available years (2023–2026).</li>
-          <li>CAHPS scores are on a 0–100 scale and reflect patient experience survey responses, adjusted for enrollee demographics.</li>
-          <li>Only contracts with valid numeric scores are included.</li>
-        </ul>
-      </div>
-
-      <div>
-        <p className="mb-1.5 font-medium text-foreground">2. Percentile Distribution (Base Groups)</p>
-        <ul className="space-y-1 pl-4 list-disc">
-          <li>CMS assigns CAHPS stars based on where a contract&apos;s score falls in the national distribution, not via clustering.</li>
-          <li>The distribution is split into five base groups using fixed percentile boundaries:</li>
-          <li className="ml-4">Base group 1: below 15th percentile (potential 1★)</li>
-          <li className="ml-4">Base group 2: 15th–30th percentile (potential 2★)</li>
-          <li className="ml-4">Base group 3: 30th–60th percentile (potential 3★)</li>
-          <li className="ml-4">Base group 4: 60th–80th percentile (potential 4★)</li>
-          <li className="ml-4">Base group 5: at or above 80th percentile (potential 5★)</li>
-          <li>Percentile values are rounded to the nearest integer on the 0–100 scale.</li>
-        </ul>
-      </div>
-
-      <div>
-        <p className="mb-1.5 font-medium text-foreground">3. Significance Testing &amp; Reliability (not applied)</p>
-        <ul className="space-y-1 pl-4 list-disc">
-          <li>The full CMS methodology also tests whether each contract&apos;s score is statistically significantly different from the national average, and checks CAHPS reliability (sampling variance vs. between-contract variance).</li>
-          <li>These adjustments can shift a contract&apos;s final star up or down from its base group assignment.</li>
-          <li>This backtest <strong>omits</strong> significance testing and reliability because the required standard errors and reliability estimates are not available in public data.</li>
-        </ul>
-      </div>
-
-      <div>
-        <p className="mb-1.5 font-medium text-foreground">4. No Guardrails</p>
-        <ul className="space-y-1 pl-4 list-disc">
-          <li>CMS does not apply guardrails to CAHPS measures — percentile thresholds float freely each year based on the score distribution.</li>
-        </ul>
-      </div>
-
-      <div>
-        <p className="mb-1.5 font-medium text-foreground">5. Evaluation</p>
-        <ul className="space-y-1 pl-4 list-disc">
-          <li>The four percentile-based thresholds (2★–5★) are compared to the actual published CMS cut points.</li>
-          <li>Mean Absolute Error (MAE) = average of the four |simulated − actual| differences.</li>
-          <li>Largest Gap = the single threshold with the highest absolute error.</li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-function ClusteringMethodologySteps({ data }: { data: ReadyResponse }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <p className="mb-1.5 font-medium text-foreground">1. Data Collection</p>
-        <ul className="space-y-1 pl-4 list-disc">
-          <li>Loads all H+R (Medicare Advantage) contract-level scores for the selected measure across available years (2023–2026).</li>
-          <li>Only contracts with valid numeric scores are included; contracts missing the measure are excluded.</li>
-          <li>Excludes {data.methodology.exclusions.join(" and ")} — these use different CMS methodologies.</li>
-        </ul>
-      </div>
-
-      <div>
-        <p className="mb-1.5 font-medium text-foreground">2. Outlier Deletion (Tukey)</p>
-        <ul className="space-y-1 pl-4 list-disc">
-          <li>Starting in {data.methodology.tukeyStartsIn}, CMS adopted Tukey outer-fence deletion. Pre-{data.methodology.tukeyStartsIn} years skip this step.</li>
-          <li>Computes Q1 and Q3 from all scores, then IQR = Q3 − Q1.</li>
-          <li>Outer fences: lower = Q1 − 3 × IQR, upper = Q3 + 3 × IQR (capped to the 0–100 scale bounds).</li>
-          <li>Any contract score outside the fences is removed before clustering.</li>
-        </ul>
-      </div>
-
-      <div>
-        <p className="mb-1.5 font-medium text-foreground">3. Mean Resampling ({data.methodology.foldCount}-Fold)</p>
-        <ul className="space-y-1 pl-4 list-disc">
-          <li>Contracts are deterministically shuffled (seed {data.methodology.seed}, Fisher–Yates) and assigned to {data.methodology.foldCount} equal-sized folds.</li>
-          <li>For each fold, the held-out group is removed and clustering runs on the remaining ~90% of contracts.</li>
-          <li>This leave-one-group-out resampling stabilizes thresholds by averaging across {data.methodology.foldCount} independent runs.</li>
-        </ul>
-      </div>
-
-      <div>
-        <p className="mb-1.5 font-medium text-foreground">4. Ward&apos;s Hierarchical Clustering</p>
-        <ul className="space-y-1 pl-4 list-disc">
-          <li>Each resample&apos;s training scores are sorted and initialized as individual clusters.</li>
-          <li>Adjacent clusters are iteratively merged using Ward&apos;s minimum variance criterion, which minimizes the weighted squared distance between cluster means.</li>
-          <li>Merging continues until exactly 5 clusters remain, corresponding to star levels 1–5.</li>
-        </ul>
-      </div>
-
-      <div>
-        <p className="mb-1.5 font-medium text-foreground">5. Threshold Derivation</p>
-        <ul className="space-y-1 pl-4 list-disc">
-          <li>For higher-is-better measures: thresholds are the minimum score of clusters 2–5 (the lower boundary of each higher star band).</li>
-          {data.inverted && (
-            <li>For this inverted measure (lower is better): thresholds are the maximum score of clusters in reverse order, so lower scores earn higher stars.</li>
-          )}
-          <li>The {data.methodology.foldCount} sets of thresholds are averaged to produce a single set of simulated cut points.</li>
-        </ul>
-      </div>
-
-      <div>
-        <p className="mb-1.5 font-medium text-foreground">6. Guardrails</p>
-        <ul className="space-y-1 pl-4 list-disc">
-          <li>When a prior-year official cut point is available, each threshold is capped within ±5 points (on the 0–100 scale) or ±5% of the restricted range for non-percentage scales.</li>
-          <li>This prevents large year-over-year cut point swings, matching the CMS stabilization approach.</li>
-          <li>If no prior-year benchmark exists (e.g. the first available year), guardrails are skipped.</li>
-        </ul>
-      </div>
-
-      <div>
-        <p className="mb-1.5 font-medium text-foreground">7. Evaluation</p>
-        <ul className="space-y-1 pl-4 list-disc">
-          <li>Final simulated thresholds are forced into monotonic order and clamped to scale bounds.</li>
-          <li>Each of the four thresholds (2★–5★) is compared to the actual published CMS cut point.</li>
-          <li>Mean Absolute Error (MAE) = average of the four |simulated − actual| differences.</li>
-          <li>Largest Gap = the single threshold with the highest absolute error.</li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-function SummaryCard({ label, value, helper, accent }: { label: string; value: string; helper: string; accent?: string }) {
+function ComparisonCard({ label, marketValue, clientValue, helper, accent }: {
+  label: string;
+  marketValue: string;
+  clientValue: string | null;
+  helper: string;
+  accent?: string;
+}) {
   return (
     <div className="rounded-2xl border border-border bg-muted/40 p-4">
       <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
-      <p className={`mt-2 text-3xl font-semibold ${accent ?? "text-foreground"}`}>{value}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
+      <div className="mt-2 flex items-baseline gap-3">
+        <p className={`text-3xl font-semibold ${accent ?? "text-foreground"}`}>{marketValue}</p>
+        {clientValue !== null && (
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xs text-muted-foreground">vs</span>
+            <span className={`text-xl font-semibold text-violet-500`}>{clientValue}</span>
+          </div>
+        )}
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {clientValue !== null ? (
+          <><span className={accent ?? "text-foreground"}>Full Market</span> vs <span className="text-violet-500">Client Only</span> · {helper}</>
+        ) : helper}
+      </p>
     </div>
+  );
+}
+
+function ComparisonTable({ data, marketYear, clientYear }: {
+  data: ReadyResponse;
+  marketYear: BacktestYear;
+  clientYear: BacktestYear | null;
+}) {
+  const clientMap = new Map(clientYear?.thresholdComparisons.map((c) => [c.key, c]));
+
+  return (
+    <section className="rounded-2xl border border-border bg-card p-6">
+      <div className="mb-4 flex items-center gap-3">
+        <FlaskConical className="h-5 w-5 text-sky-400" />
+        <div>
+          <h3 className="text-base font-semibold text-foreground">Actual vs Simulated Cut Points</h3>
+          <p className="text-xs text-muted-foreground">{data.displayName} · {marketYear.year}</p>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <th className="px-3 py-2">Threshold</th>
+              <th className="px-3 py-2 text-right">Actual</th>
+              <th className="px-3 py-2 text-right">Full Market</th>
+              <th className="px-3 py-2 text-right">Delta</th>
+              {clientYear && (
+                <>
+                  <th className="px-3 py-2 text-right text-violet-500">Client Only</th>
+                  <th className="px-3 py-2 text-right text-violet-500">Delta</th>
+                  <th className="px-3 py-2 text-right">Diff</th>
+                </>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {[...marketYear.thresholdComparisons].reverse().map((comparison) => {
+              const starColor = STAR_COLORS[THRESHOLD_STAR[comparison.key]];
+              const clientComp = clientMap.get(comparison.key);
+              const diff = clientComp ? clientComp.simulated - comparison.simulated : null;
+              return (
+                <tr key={comparison.key} className="border-b border-border/50">
+                  <td className="px-3 py-3 font-medium" style={{ color: starColor }}>{comparison.label}</td>
+                  <td className="px-3 py-3 text-right tabular-nums">{comparison.actual.toFixed(2)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums">{comparison.simulated.toFixed(2)}</td>
+                  <td className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaColor(comparison.delta)}`}>
+                    {fmtDelta(comparison.delta)}
+                  </td>
+                  {clientComp && (
+                    <>
+                      <td className="px-3 py-3 text-right tabular-nums text-violet-500 font-medium">{clientComp.simulated.toFixed(2)}</td>
+                      <td className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaColor(clientComp.delta)}`}>
+                        {fmtDelta(clientComp.delta)}
+                      </td>
+                      <td className={`px-3 py-3 text-right font-semibold tabular-nums ${diff !== null && diff > 0 ? "text-rose-400" : diff !== null && diff < 0 ? "text-emerald-400" : "text-muted-foreground"}`}>
+                        {diff !== null ? fmtDelta(diff) : "—"}
+                      </td>
+                    </>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {clientYear && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          <Users className="mr-1 inline h-3.5 w-3.5 text-violet-400" />
+          Client population: {clientYear.sampleSize} contracts (vs {marketYear.sampleSize} full market).
+          &quot;Diff&quot; = client simulated minus full market simulated.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function YearlySummaryTable({ data, clientData, activeYear }: {
+  data: ReadyResponse;
+  clientData: ReadyResponse | null;
+  activeYear: number;
+}) {
+  const clientYearMap = new Map(clientData?.years.map((y) => [y.year, y]));
+
+  return (
+    <section className="rounded-2xl border border-border bg-card p-6">
+      <div className="mb-4">
+        <h3 className="text-base font-semibold text-foreground">Yearly Error Summary</h3>
+        <p className="text-xs text-muted-foreground">
+          {clientData
+            ? "Full Market vs Client Only — how closely each population tracks actual CMS cut points."
+            : "Use this to compare how closely the simulation tracks actual CMS cut points by year."}
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <th className="px-3 py-2">Year</th>
+              <th className="px-3 py-2 text-right">Market N</th>
+              {clientData && <th className="px-3 py-2 text-right text-violet-500">Client N</th>}
+              <th className="px-3 py-2 text-right">Market MAE</th>
+              {clientData && <th className="px-3 py-2 text-right text-violet-500">Client MAE</th>}
+              <th className="px-3 py-2 text-right">Market Max</th>
+              {clientData && <th className="px-3 py-2 text-right text-violet-500">Client Max</th>}
+              <th className="px-3 py-2 text-right">Tukey</th>
+              <th className="px-3 py-2 text-right">Guardrails</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...data.years].reverse().map((year) => {
+              const cy = clientYearMap.get(year.year);
+              return (
+                <tr key={year.year} className={`border-b border-border/50 ${year.year === activeYear ? "bg-muted/30" : ""}`}>
+                  <td className="px-3 py-3 font-medium text-foreground">{year.year}</td>
+                  <td className="px-3 py-3 text-right tabular-nums">{year.sampleSize}</td>
+                  {clientData && <td className="px-3 py-3 text-right tabular-nums text-violet-500">{cy?.sampleSize ?? "—"}</td>}
+                  <td className={`px-3 py-3 text-right tabular-nums font-semibold ${maeColor(year.meanAbsoluteError)}`}>{year.meanAbsoluteError.toFixed(2)}</td>
+                  {clientData && (
+                    <td className={`px-3 py-3 text-right tabular-nums font-semibold ${cy ? maeColor(cy.meanAbsoluteError) : ""}`}>
+                      {cy?.meanAbsoluteError.toFixed(2) ?? "—"}
+                    </td>
+                  )}
+                  <td className={`px-3 py-3 text-right tabular-nums font-semibold ${maeColor(year.maxAbsoluteError)}`}>{year.maxAbsoluteError.toFixed(2)}</td>
+                  {clientData && (
+                    <td className={`px-3 py-3 text-right tabular-nums font-semibold ${cy ? maeColor(cy.maxAbsoluteError) : ""}`}>
+                      {cy?.maxAbsoluteError.toFixed(2) ?? "—"}
+                    </td>
+                  )}
+                  <td className="px-3 py-3 text-right">{year.tukeyApplied ? "Yes" : "No"}</td>
+                  <td className="px-3 py-3 text-right">{year.guardrailsApplied ? "Yes" : "No"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

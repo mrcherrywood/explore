@@ -7,8 +7,10 @@ import {
   type BandMovementResponse,
   type HistoricalBandMovementResponse,
 } from "@/lib/band-movement/analysis";
-import { analyzeCutPointMethodologyBacktest } from "@/lib/band-movement/cut-point-methodology";
+import { analyzeCutPointMethodologyBacktest, ensureOfficialCutPoints, loadClientContractIds } from "@/lib/band-movement/cut-point-methodology";
 import { analyzeCutPointImpact } from "@/lib/band-movement/cut-point-impact";
+import { analyzeRosterAccuracyCurve } from "@/lib/band-movement/roster-accuracy-curve";
+import { analyzeDecimalUpliftCurve } from "@/lib/band-movement/decimal-uplift-curve";
 
 export const runtime = "nodejs";
 
@@ -57,6 +59,36 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    if (view === "decimal-uplift-curve") {
+      if (!measure) {
+        return NextResponse.json(
+          { error: "measure parameter is required for decimal-uplift-curve view" },
+          { status: 400 }
+        );
+      }
+      const result = analyzeDecimalUpliftCurve(measure, ensureOfficialCutPoints());
+      const status = result.status === "unsupported" ? 400 : 200;
+      return NextResponse.json(result, {
+        status,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+
+    if (view === "roster-accuracy-curve") {
+      if (!measure) {
+        return NextResponse.json(
+          { error: "measure parameter is required for roster-accuracy-curve view" },
+          { status: 400 }
+        );
+      }
+      const result = analyzeRosterAccuracyCurve(measure, ensureOfficialCutPoints());
+      const status = result.status === "unsupported" ? 400 : 200;
+      return NextResponse.json(result, {
+        status,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+
     if (view === "methodology-backtest") {
       if (!measure) {
         return NextResponse.json(
@@ -65,7 +97,9 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      const result = analyzeCutPointMethodologyBacktest(measure);
+      const clientOnly = searchParams.get("clientOnly") === "true";
+      const contractFilter = clientOnly ? loadClientContractIds() : undefined;
+      const result = analyzeCutPointMethodologyBacktest(measure, contractFilter);
       const status = result.status === "unsupported" ? 400 : 200;
       return NextResponse.json(result, {
         status,
