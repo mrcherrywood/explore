@@ -174,7 +174,16 @@ export function computeTukeyFences(scores: number[], bounds: ScaleBounds): { low
 }
 
 export function applyTukeyFilter(samples: MeasureScoreSample[], bounds: ScaleBounds): TukeyFilterResult {
-  const fences = computeTukeyFences(samples.map((sample) => sample.score), bounds);
+  const scores = samples.map((sample) => sample.score);
+  const fences = computeTukeyFences(scores, bounds);
+
+  // When IQR = 0 (heavy ties, e.g. >50% of contracts share one score value),
+  // Tukey fences degenerate to a single point and would discard valid data.
+  // Skip filtering in this case — outlier removal is not meaningful.
+  if (fences.lower === fences.upper) {
+    return { samples, outliersRemoved: 0, fences: { lower: bounds.min, upper: bounds.max } };
+  }
+
   const filtered = samples.filter((sample) => sample.score >= fences.lower && sample.score <= fences.upper);
   return {
     samples: filtered,
