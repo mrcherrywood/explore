@@ -81,6 +81,11 @@ const THRESHOLD_STAR: Record<string, string> = {
   fiveStar: "5",
 };
 
+function thresholdAbsError(year: BacktestYear, key: ThresholdComparison["key"]): string {
+  const comp = year.thresholdComparisons.find((t) => t.key === key);
+  return comp ? comp.absError.toFixed(2) : "—";
+}
+
 function fmtDelta(value: number): string {
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}`;
 }
@@ -226,7 +231,7 @@ export function CutPointMethodologyAnalysis({ measure, displayName }: Props) {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <ComparisonCard
           label="Contracts Used"
           marketValue={String(marketYear.sampleSize)}
@@ -244,8 +249,22 @@ export function CutPointMethodologyAnalysis({ measure, displayName }: Props) {
           label="Mean Abs Error"
           marketValue={marketYear.meanAbsoluteError.toFixed(2)}
           clientValue={hasClientData ? clientYear.meanAbsoluteError.toFixed(2) : null}
-          helper="Average gap across 2★-5★ thresholds"
+          helper="Average gap across 2★–5★ thresholds"
           accent="text-sky-500"
+        />
+        <ComparisonCard
+          label="4★ Threshold Error"
+          marketValue={thresholdAbsError(marketYear, "fourStar")}
+          clientValue={hasClientData ? thresholdAbsError(clientYear, "fourStar") : null}
+          helper="Simulated vs actual 4-star cut point"
+          accent="text-green-500"
+        />
+        <ComparisonCard
+          label="5★ Threshold Error"
+          marketValue={thresholdAbsError(marketYear, "fiveStar")}
+          clientValue={hasClientData ? thresholdAbsError(clientYear, "fiveStar") : null}
+          helper="Simulated vs actual 5-star cut point"
+          accent="text-blue-500"
         />
         <ComparisonCard
           label="Largest Gap"
