@@ -102,22 +102,30 @@ export function calculateContractStats(
 }
 
 /**
- * Calculate percentile value from a sorted array
- * Uses linear interpolation for percentiles between exact positions
+ * Calculate percentile value from a sorted array.
+ *
+ * method "inc" = PERCENTILE.INC / Excel default: index = p * (n - 1)
+ * method "exc" = PERCENTILE.EXC:              index = p * (n + 1) - 1
  */
-export function calculatePercentile(sortedValues: number[], percentile: number): number {
-  if (sortedValues.length === 0) return 0;
-  if (sortedValues.length === 1) return sortedValues[0];
+export function calculatePercentile(
+  sortedValues: number[],
+  percentile: number,
+  method: "inc" | "exc" = "inc",
+): number {
+  const n = sortedValues.length;
+  if (n === 0) return 0;
+  if (n === 1) return sortedValues[0];
 
-  const index = (percentile / 100) * (sortedValues.length - 1);
-  const lower = Math.floor(index);
-  const upper = Math.ceil(index);
-  const fraction = index - lower;
+  const p = percentile / 100;
+  const index = method === "exc"
+    ? p * (n + 1) - 1
+    : p * (n - 1);
 
-  if (lower === upper) {
-    return sortedValues[lower];
-  }
+  const lower = Math.max(0, Math.floor(index));
+  const upper = Math.min(n - 1, Math.ceil(index));
+  const fraction = index - Math.floor(index);
 
+  if (lower === upper) return sortedValues[lower];
   return sortedValues[lower] + fraction * (sortedValues[upper] - sortedValues[lower]);
 }
 
@@ -125,7 +133,8 @@ export function calculatePercentile(sortedValues: number[], percentile: number):
  * Compute percentile thresholds from a collection of contract stats
  */
 export function computePercentileThresholds(
-  contractStats: ContractRatingStats[]
+  contractStats: ContractRatingStats[],
+  percentileMethod: "inc" | "exc" = "inc",
 ): PercentileThresholds {
   if (contractStats.length === 0) {
     return {
@@ -136,9 +145,8 @@ export function computePercentileThresholds(
     };
   }
 
-  // Extract and sort means and variances
   const means = contractStats
-    .filter(c => c.measureCount > 1) // Need at least 2 measures for meaningful stats
+    .filter(c => c.measureCount > 1)
     .map(c => c.weightedMean)
     .sort((a, b) => a - b);
 
@@ -148,10 +156,10 @@ export function computePercentileThresholds(
     .sort((a, b) => a - b);
 
   return {
-    mean65th: calculatePercentile(means, 65),
-    mean85th: calculatePercentile(means, 85),
-    variance30th: calculatePercentile(variances, 30),
-    variance70th: calculatePercentile(variances, 70),
+    mean65th: calculatePercentile(means, 65, percentileMethod),
+    mean85th: calculatePercentile(means, 85, percentileMethod),
+    variance30th: calculatePercentile(variances, 30, percentileMethod),
+    variance70th: calculatePercentile(variances, 70, percentileMethod),
   };
 }
 
