@@ -1,7 +1,7 @@
 ## Learned User Preferences
 
-- Prefer simple, user-facing labels over technical implementation names (e.g., "Percentile Rank" instead of "percentrank_inc")
-- Avoid Excel-specific or source-format language in UI copy; keep labels accessible to users who don't know the underlying data format
+- Prefer simple, user-facing labels over technical names (e.g., "Percentile Rank" instead of "percentrank_inc"); avoid Excel-specific or source-format language in UI copy
+- Prefer integrating projected/scenario data into existing year dropdowns rather than creating separate standalone analysis sections
 - Use light blue (#c7d7e8) for table header backgrounds instead of dark navy; readability over brand color fidelity
 - Avoid blue-on-blue text combinations in tables; ensure sufficient contrast
 - Keep search/filter controls compact so sort and filter options stay visible without scrolling
@@ -11,23 +11,19 @@
 - Exclude "dropped" contracts (those that exited the market) from year-over-year analyses; they are not meaningful for performance tracking
 - Summary card order should be Declined → Held → Improved (left to right); "Improved" belongs on the right
 - Display star thresholds in descending order (5-star on top) in tooltips, tables, and charts; in within-band score drilldowns, list higher starting scores first
+- Cut point forecast measure detail should surface current month, prior-year same month, prior-year final, and projected year-end together (not redundant duplicate scores); chart legend uses plain year labels without an "Observed" prefix
 
 ## Learned Workspace Facts
 
-- Next.js app deployed on Vercel; Python scripts in `scripts/percentile-analysis/` generate JSON and XLSX outputs
+- Next.js app deployed on Vercel; Python deps installed at prebuild via `scripts/generate-percentile-data.sh` using `uv run --with`; Vercel runtime is read-only (only `/tmp` writable), generated files bundled via `outputFileTracingIncludes`; dev server on localhost:3001
 - Percentile analysis supports four methods: Percentile Rank, Percentile of Score, Corrected Mid-Rank, and KDE Smoothed; the latter two compensate for integer-score discretization and ties
-- CMS Star Ratings data spans 2022-2026 measures with cut points from 2016-2028; 2027/2028 cut points are user forecasts; official clustering/Tukey methodology is documented in the workspace CMS tech notes PDF (`2026_tech_notes_508_compliant_01122026-1 (1).pdf`); the cut-point methodology backtest supports both non-CAHPS (clustering/resampling) and CAHPS (percentile-based P15/P30/P60/P80) measures; only Quality Improvement measures remain excluded
+- CMS Star Ratings data spans 2022-2026 measures with cut points from 2016-2028 (2027/2028 are user forecasts); cut points with forecasts at `data/Stars 2016-2028 Cut Points 12.2025_with_weights.xlsx`; the xlsx npm package parses workbooks server-side
+- Cut-point methodology backtest (CMS Backtest mode under `/analysis/band-movement`) uses Ward clustering, 10-fold mean resampling, Tukey, and guardrails for non-CAHPS; P15/P30/P60/P80 percentile thresholds for CAHPS; only Quality Improvement measures excluded; validated against external research replication (~82% exact match, see `docs/cms-clustering-replication-2026-*`); full batch export of all measures: `npm run export:methodology-backtest` writes timestamped CSV/JSON under `data/exports/` (same Actual vs Simulated logic; “Diff” = client simulated minus full market simulated using `data/client-contracts.xlsx`)
 - CAHPS measures (including Annual Flu Vaccine/C03) use a percentile-based relative distribution method for star assignment, not clustering; public CMS data lacks standard errors and reliability estimates, so only the base group percentile thresholds can be replicated
-- Python deps (numpy, pandas, scipy, openpyxl) installed during Vercel prebuild via `scripts/generate-percentile-data.sh` using `uv run --with`; Python is unavailable at Vercel runtime
-- Vercel runtime filesystem is read-only; only `/tmp` is writable; generated files bundled via `outputFileTracingIncludes` in next.config.ts
-- Contract data uses H and R prefixes (Medicare Advantage); both must be included in percentile calculations
-- Dev server runs on localhost:3001
-- Percentile analysis tests run via `npm run test:percentile-analysis`; band movement tests via `npm run test:band-movement`
-- Cut points with forecasts live at `data/Stars 2016-2028 Cut Points 12.2025_with_weights.xlsx`
-- The xlsx npm package parses Excel workbooks server-side in Node.js
-- Measure codes change between years (e.g., C04 renamed in 2026); cross-year matching must use normalized measure names, not code prefixes
-- Band movement analysis at `/analysis/band-movement` tracks contract performance migration between star rating bands year-over-year; fractional band position uses `star + ratio` so the integer part equals the star band label; edge bands (1★/5★) use score scale endpoints (0/100) as synthetic boundaries for within-band density; do not show median score-change metrics on this page (Cut Point Impact is where median movement belongs)
-- Cut Point Impact correlates cohort score change and cut-point change for the same year-to-year step (not a one-year-lagged cut-point move), projects future cut points, and reports both mean and true per-contract median score deltas
-- CMS implemented Tukey outlier deletion methodology starting 2024, significantly changing cut point calculations; pre-2024 and post-2024 cut points are not directly comparable
-- 41 of 43 CMS measures have integer-only scores with heavy ties (up to 26% of contracts sharing one value); only complaint-related measures have decimals; publicly released contract scores are whole numbers (internal CMS decimals are not available), which limits exact cut-point backtests against published cut points
-- Cut point projections for 5-star thresholds must be capped at 100 (maximum possible score)
+- Contract data uses H and R prefixes (Medicare Advantage); both included in all analyses; client-only backtest filtering supported via `data/client-contracts.xlsx` with `clientOnly=true` API parameter; measure codes change between years (e.g., C04 renamed in 2026), so cross-year matching must use normalized measure names, not code prefixes
+- Band movement analysis at `/analysis/band-movement` tracks contract performance migration between star bands year-over-year; fractional band position uses `star + ratio`; edge bands use score scale endpoints (0/100) as synthetic boundaries
+- Cut Point Impact correlates cohort score change and cut-point change for the same year-to-year step, projects future cut points, and reports both mean and true per-contract median score deltas; median score-change metrics belong on Cut Point Impact, not the main band movement page
+- CMS implemented Tukey outlier deletion starting 2024; pre-2024 and post-2024 cut points are not directly comparable; Tukey filtering is skipped when IQR=0 (degenerate case with >50% ties at one score value); 41 of 43 CMS measures have integer-only scores with heavy ties (up to 26% of contracts sharing one value); publicly released scores are whole numbers, limiting exact backtest accuracy; roster accuracy curve and decimal uplift analyses model the impact of sample size and score precision
+- Reward factor projection at `/analysis/reward-factor-projection` lets users upload projected scores via CSV, converts to stars using cut points, and computes weighted mean/variance percentile thresholds (65th/85th for mean, 30th/70th for variance); backtested against prior-year published thresholds from `data/mean_thresholds.csv` and `data/variance_thresholds.csv`; supports with/without Quality Improvement measures scenarios; the per-contract overview table includes contract name and parent organization from `measure_stars_{year}.json`; projected years 2028/2029 use 2026 data with CMS-announced measure retirements removed (removal definitions in `src/lib/reward-factor/measure-removal-projection.ts`)
+- Tests: `npm run test:percentile-analysis`, `npm run test:band-movement`; cut point projections for 5-star thresholds capped at 100
+- Cut point forecast (`/admin/forecast`; Forecast tab on `/analysis/band-movement` reads approved runs): glidepath treats CAHPS/HOS as prior-year final unless manually overridden; HEDIS/pharmacy use ±2/±1 guardrails anchored to **prior-year final** when available (not last observed), with year-end projection driven by prior-year close adjusted for the current-vs-prior same-month gap when modeled; projections are computed at import and stored—**Re-run Projections** or re-import refreshes values after logic changes

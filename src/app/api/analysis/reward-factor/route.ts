@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { getRewardFactorOverview, getAvailableBacktestYears } from "@/lib/reward-factor/backtest";
+import {
+  getMeasureRemovalForYear,
+  isProjectedYear,
+  getAllAvailableYears,
+} from "@/lib/reward-factor/measure-removal-projection";
 import type { RatingType } from "@/lib/reward-factor/types";
 
 export const dynamic = "force-dynamic";
@@ -13,10 +18,11 @@ export async function GET(request: Request) {
     const year = Number(searchParams.get("year") ?? 2026);
     const ratingType = (searchParams.get("ratingType") ?? "overall_mapd") as RatingType;
 
-    const available = getAvailableBacktestYears();
-    if (!available.includes(year)) {
+    const backtestYears = getAvailableBacktestYears();
+    const allYears = getAllAvailableYears(backtestYears);
+    if (!allYears.includes(year)) {
       return NextResponse.json(
-        { error: `Year ${year} not available. Available: ${available.join(", ")}` },
+        { error: `Year ${year} not available. Available: ${allYears.join(", ")}` },
         { status: 400 },
       );
     }
@@ -27,8 +33,18 @@ export async function GET(request: Request) {
       );
     }
 
-    const result = getRewardFactorOverview(year, ratingType);
-    return NextResponse.json(result);
+    const removal = getMeasureRemovalForYear(year);
+    const result = removal
+      ? getRewardFactorOverview(year, ratingType, removal.removedCodes, removal.sourceYear)
+      : getRewardFactorOverview(year, ratingType);
+
+    return NextResponse.json({
+      ...result,
+      isProjected: isProjectedYear(year),
+      sourceYear: removal?.sourceYear ?? null,
+      removedMeasures: removal?.removedMeasures ?? null,
+      availableYears: allYears,
+    });
   } catch (error) {
     console.error("Reward factor overview error:", error);
     return NextResponse.json(

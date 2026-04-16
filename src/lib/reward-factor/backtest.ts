@@ -374,14 +374,27 @@ export type RewardFactorOverviewResult = {
 /**
  * Compute reward factor for every contract in the population for a given
  * year and rating type, using the "with QI" thresholds.
+ *
+ * When `excludedCodes` is provided, those measures are stripped from every
+ * contract before computing stats/thresholds (used for projected years).
+ * `sourceYear` controls which data file to load (defaults to `year`).
  */
 export function getRewardFactorOverview(
   year: number,
   ratingType: RatingType = "overall_mapd",
+  excludedCodes?: Set<string>,
+  sourceYear?: number,
 ): RewardFactorOverviewResult {
-  const allContracts = loadMeasureStarsFromFile(year);
-  const metadata = loadContractMetadata(year);
-  const population = filterPopulationForRatingType(allContracts, ratingType);
+  const dataYear = sourceYear ?? year;
+  const allContracts = loadMeasureStarsFromFile(dataYear);
+  const metadata = loadContractMetadata(dataYear);
+
+  // Strip excluded measures from every contract before population filtering
+  const effectiveContracts = excludedCodes && excludedCodes.size > 0
+    ? stripMeasures(allContracts, excludedCodes)
+    : allContracts;
+
+  const population = filterPopulationForRatingType(effectiveContracts, ratingType);
 
   const ratingLabel = ratingType === "overall_mapd" ? "Overall (MA-PD)"
     : ratingType === "part_c" ? "Part C"
@@ -456,4 +469,16 @@ export function getRewardFactorOverview(
     rFactorDistribution: rFactorDist,
     populationSize: population.size,
   };
+}
+
+function stripMeasures(
+  contracts: Map<string, ContractMeasure[]>,
+  codes: Set<string>,
+): Map<string, ContractMeasure[]> {
+  const result = new Map<string, ContractMeasure[]>();
+  for (const [id, measures] of contracts) {
+    const filtered = measures.filter((m) => !codes.has(m.code));
+    if (filtered.length > 0) result.set(id, filtered);
+  }
+  return result;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Loader2, Search, ChevronDown, ChevronUp, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Search, ChevronDown, ChevronUp, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 
 type PercentileThresholds = {
@@ -32,6 +32,8 @@ type ContractRow = {
   rFactor: number;
 };
 
+type RemovedMeasure = { code: string; name: string };
+
 type OverviewResponse = {
   year: number;
   ratingType: string;
@@ -41,9 +43,15 @@ type OverviewResponse = {
   contracts: ContractRow[];
   rFactorDistribution: Record<number, number>;
   populationSize: number;
+  isProjected: boolean;
+  sourceYear: number | null;
+  removedMeasures: RemovedMeasure[] | null;
+  availableYears: number[];
 };
 
 function fmt(n: number, digits = 6) { return n.toFixed(digits); }
+
+const DEFAULT_YEARS = [2029, 2028, 2026, 2025, 2024, 2023];
 
 export function RewardFactorOverview() {
   const [year, setYear] = useState(2026);
@@ -53,6 +61,9 @@ export function RewardFactorOverview() {
   const [search, setSearch] = useState("");
   const [sortCol, setSortCol] = useState<keyof ContractRow>("rFactor");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [showRemovedMeasures, setShowRemovedMeasures] = useState(false);
+
+  const availableYears = data?.availableYears ?? DEFAULT_YEARS;
 
   useEffect(() => {
     let cancelled = false;
@@ -137,9 +148,13 @@ export function RewardFactorOverview() {
   if (!data) return null;
 
   const rfWithReward = data.contracts.filter((c) => c.rFactor > 0).length;
+  const rfWithout = data.contracts.length - rfWithReward;
+  const pctWith = data.contracts.length > 0 ? ((rfWithReward / data.contracts.length) * 100).toFixed(1) : "0";
+  const pctWithout = data.contracts.length > 0 ? ((rfWithout / data.contracts.length) * 100).toFixed(1) : "0";
   const dist = data.rFactorDistribution;
   const total = Object.values(dist).reduce((a, b) => a + b, 0);
-  const maxCount = Math.max(...Object.values(dist));
+  const rewardBars = [0.1, 0.2, 0.3, 0.4] as const;
+  const maxCount = Math.max(...rewardBars.map((rf) => dist[rf] ?? 0));
 
   return (
     <div className="flex flex-col gap-6">
@@ -158,17 +173,72 @@ export function RewardFactorOverview() {
             onChange={(e) => setYear(Number(e.target.value))}
             className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
           >
-            {[2026, 2025, 2024, 2023].map((y) => <option key={y} value={y}>{y}</option>)}
+            {availableYears.map((y) => (
+              <option key={y} value={y}>
+                {y}{y >= 2028 ? " (Projected)" : ""}
+              </option>
+            ))}
           </select>
         </div>
       </div>
 
+      {/* Projection banner */}
+      {data.isProjected && data.removedMeasures && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                Projected from {data.sourceYear} contract data
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {data.removedMeasures.length} measures removed per announced CMS retirements.
+                All contract scores are pulled forward from {data.sourceYear} with retired measures excluded.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowRemovedMeasures(!showRemovedMeasures)}
+                className="mt-2 text-xs font-medium text-amber-600 hover:underline dark:text-amber-400"
+              >
+                {showRemovedMeasures ? "Hide" : "Show"} removed measures ({data.removedMeasures.length})
+              </button>
+              {showRemovedMeasures && (
+                <div className="mt-3 rounded-lg border border-border bg-card p-3">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="px-2 py-1 text-left text-muted-foreground">Code</th>
+                        <th className="px-2 py-1 text-left text-muted-foreground">Measure</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.removedMeasures.map((m) => (
+                        <tr key={m.code} className="border-t border-border/50">
+                          <td className="px-2 py-1 font-mono">{m.code}</td>
+                          <td className="px-2 py-1">{m.name}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Summary cards */}
       <div className="grid grid-cols-5 gap-4">
-        {[0, 0.1, 0.2, 0.3, 0.4].map((rf) => {
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Qualifying</p>
+          <p className="mt-1 text-2xl font-semibold">{rfWithReward} <span className="text-sm font-normal text-muted-foreground">/ {data.contracts.length}</span></p>
+          <p className="mt-0.5 text-xs text-emerald-500">{pctWith}% received reward factor</p>
+          <p className="text-xs text-muted-foreground">{pctWithout}% did not</p>
+        </div>
+        {rewardBars.map((rf) => {
           const count = dist[rf] ?? 0;
           const pct = total > 0 ? ((count / total) * 100).toFixed(1) : "0";
-          const colors = rf === 0 ? "border-border" : rf <= 0.2 ? "border-blue-500/30" : "border-emerald-500/30";
+          const colors = rf <= 0.2 ? "border-blue-500/30" : "border-emerald-500/30";
           return (
             <div key={rf} className={`rounded-xl border bg-card p-4 ${colors}`}>
               <p className="text-xs text-muted-foreground">r-Factor {rf.toFixed(1)}</p>
@@ -181,24 +251,29 @@ export function RewardFactorOverview() {
 
       {/* Thresholds */}
       <div className="grid grid-cols-2 gap-4">
-        <ThresholdCard set={data.thresholdsWithQI} />
-        <ThresholdCard set={data.thresholdsWithoutQI} />
+        <ThresholdCard set={data.thresholdsWithQI} isProjected={data.isProjected} />
+        <ThresholdCard set={data.thresholdsWithoutQI} isProjected={data.isProjected} />
       </div>
 
       {/* Distribution chart */}
       <div className="rounded-xl border border-border bg-card p-5">
-        <h3 className="mb-3 text-sm font-semibold">r-Factor Distribution</h3>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">r-Factor Distribution</h3>
+          <p className="text-xs text-muted-foreground">
+            {rfWithReward} of {data.contracts.length} contracts ({pctWith}%) received reward factor
+          </p>
+        </div>
         <div className="flex items-end gap-3">
-          {[0, 0.1, 0.2, 0.3, 0.4].map((rf) => {
+          {rewardBars.map((rf) => {
             const count = dist[rf] ?? 0;
-            const pct = total > 0 ? ((count / total) * 100).toFixed(1) : "0";
+            const rfPct = rfWithReward > 0 ? ((count / rfWithReward) * 100).toFixed(1) : "0";
             const height = maxCount > 0 ? Math.max(4, (count / maxCount) * 120) : 4;
             return (
               <div key={rf} className="flex flex-1 flex-col items-center gap-1">
                 <span className="text-xs font-mono text-muted-foreground">{count}</span>
-                <div className="w-full rounded-t" style={{ height, background: rf === 0 ? "var(--muted)" : `hsl(${120 + rf * 200}, 60%, 50%)` }} />
+                <div className="w-full rounded-t" style={{ height, background: `hsl(${120 + rf * 200}, 60%, 50%)` }} />
                 <span className="text-xs font-semibold">{rf.toFixed(1)}</span>
-                <span className="text-[0.6rem] text-muted-foreground">{pct}%</span>
+                <span className="text-[0.6rem] text-muted-foreground">{rfPct}%</span>
               </div>
             );
           })}
@@ -208,7 +283,21 @@ export function RewardFactorOverview() {
       {/* Contract table */}
       <div className="rounded-xl border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <h3 className="text-sm font-semibold">Per-Contract Reward Factor</h3>
+          <div>
+            <h3 className="text-sm font-semibold">
+              Per-Contract Reward Factor
+              {data.isProjected && (
+                <span className="ml-2 rounded bg-amber-500/10 px-1.5 py-0.5 text-[0.6rem] font-medium text-amber-500">
+                  Projected
+                </span>
+              )}
+            </h3>
+            {data.isProjected && (
+              <p className="mt-0.5 text-[0.6rem] text-muted-foreground">
+                Contracts qualifying for reward factor using {data.sourceYear} scores with retired measures removed
+              </p>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -292,7 +381,7 @@ function AccuracyBadge({ pctDiff }: { pctDiff: number }) {
   return <span className="inline-flex items-center gap-0.5 text-red-500"><XCircle className="h-3 w-3" />{abs.toFixed(1)}%</span>;
 }
 
-function ThresholdCard({ set }: { set: ThresholdSet }) {
+function ThresholdCard({ set, isProjected }: { set: ThresholdSet; isProjected: boolean }) {
   const hasOfficial = set.official !== null;
   const keys = ["mean65th", "mean85th", "variance30th", "variance70th"] as const;
   const labels: Record<string, string> = {
@@ -304,13 +393,22 @@ function ThresholdCard({ set }: { set: ThresholdSet }) {
 
   return (
     <div className="rounded-xl border border-border bg-card p-5">
-      <h3 className="mb-3 text-sm font-semibold">{set.label}</h3>
+      <h3 className="mb-3 text-sm font-semibold">
+        {set.label}
+        {isProjected && (
+          <span className="ml-2 rounded bg-amber-500/10 px-1.5 py-0.5 text-[0.6rem] font-medium text-amber-500">
+            Projected
+          </span>
+        )}
+      </h3>
       <p className="mb-3 text-xs text-muted-foreground">{set.contractCount} contracts</p>
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-border">
             <th className="px-2 py-1 text-left text-muted-foreground">Threshold</th>
-            <th className="px-2 py-1 text-right text-muted-foreground">Computed</th>
+            <th className="px-2 py-1 text-right text-muted-foreground">
+              {isProjected ? "Projected" : "Computed"}
+            </th>
             {hasOfficial && <th className="px-2 py-1 text-right text-muted-foreground">Official</th>}
             {hasOfficial && <th className="px-2 py-1 text-right text-muted-foreground">Accuracy</th>}
           </tr>
