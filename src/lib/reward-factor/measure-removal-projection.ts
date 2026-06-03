@@ -24,8 +24,11 @@ export const MEASURE_REMOVAL_YEARS: MeasureRemovalYear[] = [
     year: 2028,
     label: "Stars 2028 (Projected)",
     sourceYear: 2026,
-    removedCodes: new Set(["C33", "D01", "C19"]),
+    removedCodes: new Set(["C09", "C17", "D11", "C33", "D01", "C19"]),
     removedMeasures: [
+      { code: "C09", name: "Care for Older Adults – Pain Assessment" },
+      { code: "C17", name: "Medication Reconciliation Post-Discharge" },
+      { code: "D11", name: "MTM Program Completion Rate for CMR" },
       { code: "C33", name: "Call Center – Foreign Language Interpreter and TTY Availability (Part C)" },
       { code: "D01", name: "Call Center – Foreign Language Interpreter and TTY Availability (Part D)" },
       { code: "C19", name: "Statin Therapy for Patients with Cardiovascular Disease" },
@@ -36,10 +39,13 @@ export const MEASURE_REMOVAL_YEARS: MeasureRemovalYear[] = [
     label: "Stars 2029 (Projected)",
     sourceYear: 2026,
     removedCodes: new Set([
-      "C33", "D01", "C19",
+      "C09", "C17", "D11", "C33", "D01", "C19",
       "C31", "C32", "C07", "C28", "D02", "D07", "C29", "D03", "C24", "C25",
     ]),
     removedMeasures: [
+      { code: "C09", name: "Care for Older Adults – Pain Assessment" },
+      { code: "C17", name: "Medication Reconciliation Post-Discharge" },
+      { code: "D11", name: "MTM Program Completion Rate for CMR" },
       { code: "C33", name: "Call Center – Foreign Language Interpreter and TTY Availability (Part C)" },
       { code: "D01", name: "Call Center – Foreign Language Interpreter and TTY Availability (Part D)" },
       { code: "C19", name: "Statin Therapy for Patients with Cardiovascular Disease" },

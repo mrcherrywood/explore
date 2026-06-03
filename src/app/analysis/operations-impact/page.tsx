@@ -31,11 +31,12 @@ export default function OperationsImpactPage() {
               <div className="flex items-start gap-3">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
                 <div>
-                  <h2 className="text-sm font-semibold text-amber-400">What-If Analysis: CMS 2028-2029 Measure Removals</h2>
+                  <h2 className="text-sm font-semibold text-amber-400">What-If Analysis: CMS 2027-2029 Measure Removals</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
                     This analysis shows the projected impact on each plan&apos;s overall star rating based on CMS announcements
-                    to remove specific measures from the Stars rating calculation for 2028-2029. Measures include: Appeals decisions,
-                    SNP Care Management, Call Center availability, Complaints, Price Accuracy, Diabetes Eye Exam, Statin Therapy,
+                    to remove specific measures from the Stars rating calculation for 2027-2029. Measures include: Care for Older Adults
+                    Pain Assessment, Medication Reconciliation Post-Discharge, MTM, Appeals decisions,
+                    SNP Care Management, Call Center availability, Complaints, Price Accuracy, Statin Therapy,
                     Disenrollment, Customer Service, and Rating of Health Care Quality. Additionally, this analysis reflects how
                     reward factor thresholds will shift as the measure set changes, affecting which contracts qualify for bonus points.
                   </p>

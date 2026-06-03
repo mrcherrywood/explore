@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, FileText, Calendar, Sparkle, Trophy, Users, Globe2, AlertTriangle, Scale, Shield, ActivitySquare, TrendingDown, HeartPulse, PanelLeftOpen, PanelLeftClose, Percent, ArrowUpDown, Target } from "lucide-react";
+import { BarChart3, FileText, Calendar, Sparkle, Trophy, Users, Globe2, AlertTriangle, Scale, Shield, ActivitySquare, TrendingDown, HeartPulse, PanelLeftOpen, PanelLeftClose, Percent, ArrowUpDown, Target, Gavel } from "lucide-react";
 import { NavIcon } from "./NavIcon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/auth";
@@ -28,6 +28,7 @@ export function DataPageNav() {
         <NavIcon icon={ActivitySquare} label="Consistency" href="/consistency" active={pathname === "/consistency"} expanded={expanded} />
         <NavIcon icon={Globe2} label="Maps" href="/maps/contracts" active={pathname.startsWith("/maps")} expanded={expanded} />
         <NavIcon icon={AlertTriangle} label="Ops Impact" href="/analysis/operations-impact" active={pathname.startsWith("/analysis/operations-impact")} expanded={expanded} />
+        <NavIcon icon={Gavel} label="Clover" href="/analysis/clover-impact" active={pathname.startsWith("/analysis/clover-impact")} expanded={expanded} />
         <NavIcon icon={Percent} label="Percentiles" href="/analysis/percentile-analysis" active={pathname.startsWith("/analysis/percentile-analysis")} expanded={expanded} />
         <NavIcon icon={TrendingDown} label="QI Trends" href="/analysis/quality-improvement" active={pathname.startsWith("/analysis/quality-improvement")} expanded={expanded} />
         <NavIcon icon={ArrowUpDown} label="Band Movement" href="/analysis/band-movement" active={pathname.startsWith("/analysis/band-movement")} expanded={expanded} />
@@ -38,7 +39,7 @@ export function DataPageNav() {
         <NavIcon icon={BarChart3} label="Data" href="/data" active={pathname === "/data"} expanded={expanded} />
       </div>
       <div className={cn("flex shrink-0 flex-col gap-4 pb-6", expanded ? "items-stretch px-3" : "items-center")}>
-        <NavIcon icon={Shield} label="Admin" href="/admin/users" active={pathname.startsWith("/admin")} expanded={expanded} />
+        <NavIcon icon={Shield} label="Admin" href="/admin" active={pathname.startsWith("/admin")} expanded={expanded} />
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}

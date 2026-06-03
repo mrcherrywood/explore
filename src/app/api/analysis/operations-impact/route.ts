@@ -16,6 +16,12 @@ export const dynamic = 'force-dynamic';
 // Based on CMS announcement for 2028-2029 Stars
 // Map of measure code to the year it will be removed
 const CMS_REMOVED_MEASURES: Record<string, number> = {
+  // C: Care for Older Adults – Pain Assessment – 2027 Stars
+  'C09': 2027,
+  // C: Medication Reconciliation Post-Discharge – 2027 Stars
+  'C17': 2027,
+  // D: MTM Program Completion Rate for CMR – 2027 Stars
+  'D11': 2027,
   // C: Plan Makes Timely Decisions about Appeals – 2029 Stars
   'C31': 2029,
   // C: Reviewing Appeals Decisions – 2029 Stars
@@ -32,8 +38,6 @@ const CMS_REMOVED_MEASURES: Record<string, number> = {
   'D02': 2029,
   // D: Medicare Plan Finder Price Accuracy – 2029 Stars
   'D07': 2029,
-  // C: Diabetes Care – Eye Exam – 2029 Stars
-  'C11': 2029,
   // C: Statin Therapy for Patients with Cardiovascular Disease – 2028 Stars
   'C19': 2028,
   // C: Members Choosing to Leave the Plan – 2029 Stars
