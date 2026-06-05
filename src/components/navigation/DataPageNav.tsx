@@ -1,12 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { BarChart3, FileText, Calendar, Sparkle, Trophy, Users, Globe2, AlertTriangle, Scale, Shield, ActivitySquare, TrendingDown, HeartPulse, PanelLeftOpen, PanelLeftClose, Percent, ArrowUpDown, Target, Gavel } from "lucide-react";
+import { useState, type SVGProps } from "react";
+import { BarChart3, FileText, Calendar, Sparkle, Trophy, Users, Globe2, AlertTriangle, Scale, Shield, ActivitySquare, TrendingDown, HeartPulse, PanelLeftOpen, PanelLeftClose, Percent, ArrowUpDown, Target } from "lucide-react";
 import { NavIcon } from "./NavIcon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/auth";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+
+function CloverIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <path d="M12 11.5C9.5 7.8 6.2 7.6 4.8 9.1c-1.4 1.4-.9 4 1.1 5.1 1.8 1 4.2.2 6.1-2.7Z" />
+      <path d="M12 11.5c2.5-3.7 5.8-3.9 7.2-2.4 1.4 1.4.9 4-1.1 5.1-1.8 1-4.2.2-6.1-2.7Z" />
+      <path d="M12 11.5C8.4 9 8.2 5.8 9.6 4.3c1.4-1.4 4-.9 5.1 1.1 1 1.8.2 4.2-2.7 6.1Z" />
+      <path d="M12 11.5c3.6 2.5 3.8 5.7 2.4 7.2-1.4 1.4-4 .9-5.1-1.1-1-1.8-.2-4.2 2.7-6.1Z" />
+      <path d="M12 12c1.2 2.6 3.2 4.9 6 7" />
+    </svg>
+  );
+}
 
 export function DataPageNav() {
   const pathname = usePathname();
@@ -28,7 +40,7 @@ export function DataPageNav() {
         <NavIcon icon={ActivitySquare} label="Consistency" href="/consistency" active={pathname === "/consistency"} expanded={expanded} />
         <NavIcon icon={Globe2} label="Maps" href="/maps/contracts" active={pathname.startsWith("/maps")} expanded={expanded} />
         <NavIcon icon={AlertTriangle} label="Ops Impact" href="/analysis/operations-impact" active={pathname.startsWith("/analysis/operations-impact")} expanded={expanded} />
-        <NavIcon icon={Gavel} label="Clover" href="/analysis/clover-impact" active={pathname.startsWith("/analysis/clover-impact")} expanded={expanded} />
+        <NavIcon icon={CloverIcon} label="Clover" href="/analysis/clover-impact" active={pathname.startsWith("/analysis/clover-impact")} expanded={expanded} />
         <NavIcon icon={Percent} label="Percentiles" href="/analysis/percentile-analysis" active={pathname.startsWith("/analysis/percentile-analysis")} expanded={expanded} />
         <NavIcon icon={TrendingDown} label="QI Trends" href="/analysis/quality-improvement" active={pathname.startsWith("/analysis/quality-improvement")} expanded={expanded} />
         <NavIcon icon={ArrowUpDown} label="Band Movement" href="/analysis/band-movement" active={pathname.startsWith("/analysis/band-movement")} expanded={expanded} />
