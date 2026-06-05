@@ -29,9 +29,24 @@ type ChartDatum = {
   caiValue: number | null;
   rewardFactorContractCount: number;
   scoredContractCount: number;
+  qbpChange: number | null;
+  qbpLabel: string;
+  qbpGainCount: number;
+  qbpLossCount: number;
+  qbpGainers: QbpMovementContract[];
+  qbpLosers: QbpMovementContract[];
+};
+
+type QbpMovementContract = {
+  contractId: string;
+  enrollment: number | null;
 };
 
 const COMPUTED_SCENARIO_IDS = new Set<CloverChartScoreId>(["s26NoQI", "s29Removal", "model1", "model2"]);
+const QBP_SCENARIO_IDS = new Set<CloverChartScoreId>(["s29Removal", "model1", "model2"]);
+const ESTIMATED_BENCHMARK_PMPM = 1200;
+const QUALITY_BONUS_RATE = 0.05;
+const ESTIMATED_ANNUAL_QBP_PER_MEMBER = ESTIMATED_BENCHMARK_PMPM * 12 * QUALITY_BONUS_RATE;
 
 function formatScore(value: number | null): string {
   return value === null ? "-" : value.toFixed(2);
@@ -53,6 +68,14 @@ function formatContribution(value: number | null): string {
   if (value === null) return "-";
   if (Math.abs(value) < 0.005) return "0.00";
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}`;
+}
+
+function formatCurrency(value: number): string {
+  const sign = value < 0 ? "-" : value > 0 ? "+" : "";
+  const absoluteValue = Math.abs(value);
+  if (absoluteValue >= 1_000_000) return `${sign}$${(absoluteValue / 1_000_000).toFixed(1)}M`;
+  if (absoluteValue >= 1_000) return `${sign}$${(absoluteValue / 1_000).toFixed(0)}K`;
+  return `${sign}$${absoluteValue.toLocaleString()}`;
 }
 
 function average(values: Array<number | null>): number | null {
@@ -80,6 +103,33 @@ function getScoreDetail(contract: CloverContractImpact, scoreId: CloverChartScor
     return contract.scenarioDetails[scoreId as CloverComputedScenarioId] ?? null;
   }
   return null;
+}
+
+function roundToHalf(value: number): number {
+  return Math.round(value * 2) / 2;
+}
+
+function getContractQbpChange(contract: CloverContractImpact, scoreId: CloverChartScoreId): number | null {
+  if (!QBP_SCENARIO_IDS.has(scoreId)) return null;
+
+  const score = contract.scores[scoreId];
+  if (score === null) return null;
+
+  const officialEligible = (contract.officialScores.stars2026 ?? 0) >= 4;
+  const scenarioEligible = roundToHalf(score) >= 4;
+  if (officialEligible === scenarioEligible) return 0;
+
+  return (scenarioEligible ? 1 : -1) * (contract.totalEnrollment ?? 0) * ESTIMATED_ANNUAL_QBP_PER_MEMBER;
+}
+
+function formatContractList(contracts: QbpMovementContract[]): string {
+  if (contracts.length === 0) return "none";
+  const visible = contracts.slice(0, 5).map((contract) => {
+    const enrollment = contract.enrollment === null ? "enrollment unavailable" : `${contract.enrollment.toLocaleString()} members`;
+    return `${contract.contractId} (${enrollment})`;
+  });
+  const remaining = contracts.length - visible.length;
+  return remaining > 0 ? `${visible.join(", ")} +${remaining} more` : visible.join(", ");
 }
 
 export function CloverParentOrgChart({ parentOrganization, contracts, chartScores, enrollmentSource, weightMode, onWeightModeChange }: Props) {
@@ -118,6 +168,24 @@ export function CloverParentOrgChart({ parentOrganization, contracts, chartScore
           })));
       const scoredContractCount = parentContracts.filter((contract) => contract.scores[score.id] !== null).length;
       const rewardFactorContractCount = parentContracts.filter((contract) => (getScoreDetail(contract, score.id)?.rewardFactor ?? 0) > 0).length;
+      const qbpChanges = parentContracts
+        .map((contract) => getContractQbpChange(contract, score.id))
+        .filter((change): change is number => change !== null);
+      const qbpChange = qbpChanges.length > 0 ? qbpChanges.reduce((sum, change) => sum + change, 0) : null;
+      const qbpChangedContracts = parentContracts
+        .map((contract) => ({
+          contractId: contract.contractId,
+          enrollment: contract.totalEnrollment,
+          change: getContractQbpChange(contract, score.id),
+        }))
+        .filter((contract): contract is QbpMovementContract & { change: number } => contract.change !== null && contract.change !== 0)
+        .sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+      const qbpGainers = qbpChangedContracts
+        .filter((contract) => contract.change > 0)
+        .map(({ contractId, enrollment }) => ({ contractId, enrollment }));
+      const qbpLosers = qbpChangedContracts
+        .filter((contract) => contract.change < 0)
+        .map(({ contractId, enrollment }) => ({ contractId, enrollment }));
 
       return {
         ...score,
@@ -129,10 +197,26 @@ export function CloverParentOrgChart({ parentOrganization, contracts, chartScore
         caiValue,
         rewardFactorContractCount,
         scoredContractCount,
+        qbpChange,
+        qbpLabel: qbpChange !== null && qbpChange !== 0 ? formatCurrency(qbpChange) : "",
+        qbpGainCount: qbpGainers.length,
+        qbpLossCount: qbpLosers.length,
+        qbpGainers,
+        qbpLosers,
       };
     })
     .filter((score): score is ChartDatum => score.value !== null);
   const rewardFactorEntries = chartData.filter((entry) => (entry.rewardFactor ?? 0) > 0);
+  const model1Entry = chartData.find((entry) => entry.id === "model1");
+  const model2Entry = chartData.find((entry) => entry.id === "model2");
+  const qbpExplainer = model1Entry && model2Entry && model1Entry.qbpChange !== null && model2Entry.qbpChange !== null
+    ? {
+        model1: model1Entry,
+        model2: model2Entry,
+        model1Qbp: model1Entry.qbpChange,
+        model2Qbp: model2Entry.qbpChange,
+      }
+    : null;
 
   const official2026 = weightMode === "equal"
     ? average(parentContracts.map((contract) => contract.officialScores.stars2026))
@@ -242,6 +326,19 @@ export function CloverParentOrgChart({ parentOrganization, contracts, chartScore
                         Parent Enrollment:{" "}
                         <span className="font-mono text-foreground">{formatEnrollmentLabel(entry.totalEnrollment)}</span>
                       </p>
+                      {entry.qbpChange !== null ? (
+                        <p className="mt-1 text-muted-foreground">
+                          Est. Parent QBP Swing: <span className="font-mono text-foreground">{formatCurrency(entry.qbpChange)}</span>
+                        </p>
+                      ) : null}
+                      {entry.qbpChange !== null && (entry.qbpGainCount > 0 || entry.qbpLossCount > 0) ? (
+                        <p className="mt-1 text-muted-foreground">
+                          QBP G/L:{" "}
+                          <span className="font-mono text-foreground">
+                            {entry.qbpGainCount} / {entry.qbpLossCount}
+                          </span>
+                        </p>
+                      ) : null}
                       {weightMode === "enrollment" ? (
                         <p className="mt-1 text-muted-foreground">
                           Weighted Contracts: <span className="font-mono text-foreground">{entry.weightedContractCount}</span>
@@ -265,6 +362,13 @@ export function CloverParentOrgChart({ parentOrganization, contracts, chartScore
                   fill="var(--color-foreground)"
                   fontSize={11}
                   fontWeight={600}
+                />
+                <LabelList
+                  dataKey="qbpLabel"
+                  position="insideTop"
+                  fill="var(--color-background)"
+                  fontSize={10}
+                  fontWeight={700}
                 />
                 {chartData.map((entry) => (
                   <Cell key={entry.id} fill={entry.color} />
@@ -294,6 +398,46 @@ export function CloverParentOrgChart({ parentOrganization, contracts, chartScore
           <span>No reward factor applied to the calculated bars for this parent view.</span>
         )}
       </div>
+
+      {qbpExplainer ? (
+        <div className="mt-3 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3 text-[11px] text-muted-foreground">
+          <span className="font-semibold text-sky-300">QBP note:</span>{" "}
+          For {parentOrganization}, Model 1 has an estimated net QBP swing of{" "}
+          <span className={qbpExplainer.model1Qbp >= 0 ? "font-mono text-emerald-400" : "font-mono text-rose-400"}>
+            {formatCurrency(qbpExplainer.model1Qbp)}
+          </span>{" "}
+          ({qbpExplainer.model1.qbpGainCount} gain / {qbpExplainer.model1.qbpLossCount} lose), while Model 2 has an estimated net QBP swing of{" "}
+          <span className={qbpExplainer.model2Qbp >= 0 ? "font-mono text-emerald-400" : "font-mono text-rose-400"}>
+            {formatCurrency(qbpExplainer.model2Qbp)}
+          </span>{" "}
+          ({qbpExplainer.model2.qbpGainCount} gain / {qbpExplainer.model2.qbpLossCount} lose). The difference comes from which individual
+          contracts round above or below the 4.0 quality-bonus eligibility line under each measure-removal model.
+          <div className="mt-2 grid gap-2 md:grid-cols-2">
+            <div className="rounded-lg border border-border bg-card/40 p-2">
+              <p className="font-semibold text-foreground">Model 1 movement</p>
+              <p className="mt-1">
+                <span className="text-emerald-400">Gain:</span>{" "}
+                <span className="font-mono text-foreground">{formatContractList(qbpExplainer.model1.qbpGainers)}</span>
+              </p>
+              <p className="mt-1">
+                <span className="text-rose-400">Loss:</span>{" "}
+                <span className="font-mono text-foreground">{formatContractList(qbpExplainer.model1.qbpLosers)}</span>
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-card/40 p-2">
+              <p className="font-semibold text-foreground">Model 2 movement</p>
+              <p className="mt-1">
+                <span className="text-emerald-400">Gain:</span>{" "}
+                <span className="font-mono text-foreground">{formatContractList(qbpExplainer.model2.qbpGainers)}</span>
+              </p>
+              <p className="mt-1">
+                <span className="text-rose-400">Loss:</span>{" "}
+                <span className="font-mono text-foreground">{formatContractList(qbpExplainer.model2.qbpLosers)}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
         {chartData.map((entry) => (

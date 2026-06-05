@@ -5,6 +5,7 @@ import { AlertTriangle, ChevronDown, Loader2, Scale } from "lucide-react";
 import { CloverImpactTable } from "./CloverImpactTable";
 import { CloverParentOrgChart, type CloverParentWeightMode } from "./CloverParentOrgChart";
 import { CloverParentOrgTable } from "./CloverParentOrgTable";
+import { CloverQualityBonusPaymentAnalysis } from "./CloverQualityBonusPaymentAnalysis";
 import { CloverScenarioMeasureScores } from "./CloverScenarioMeasureScores";
 import { CloverScenarioChart } from "./CloverScenarioChart";
 import type { CloverContractImpact, CloverImpactResult } from "@/lib/clover-impact/analysis";
@@ -447,6 +448,8 @@ export function CloverImpactAnalysis() {
       )}
 
       <CloverScenarioMeasureScores contract={selectedContract} scenarios={data.computedScenarios} />
+
+      <CloverQualityBonusPaymentAnalysis contracts={data.contracts} />
 
       <section className="rounded-2xl border border-border bg-card p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

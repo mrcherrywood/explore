@@ -19,9 +19,15 @@ type ChartDatum = {
   baseMean: number | null;
   rewardFactor: number | null;
   caiValue: number | null;
+  qbpChange: number | null;
+  qbpLabel: string;
 };
 
 const COMPUTED_SCENARIO_IDS = new Set<CloverChartScoreId>(["s26NoQI", "s29Removal", "model1", "model2"]);
+const QBP_SCENARIO_IDS = new Set<CloverChartScoreId>(["s29Removal", "model1", "model2"]);
+const ESTIMATED_BENCHMARK_PMPM = 1200;
+const QUALITY_BONUS_RATE = 0.05;
+const ESTIMATED_ANNUAL_QBP_PER_MEMBER = ESTIMATED_BENCHMARK_PMPM * 12 * QUALITY_BONUS_RATE;
 
 function formatScore(value: number | null): string {
   return value === null ? "-" : value.toFixed(2);
@@ -41,6 +47,14 @@ function formatContribution(value: number | null): string {
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}`;
 }
 
+function formatCurrency(value: number): string {
+  const sign = value < 0 ? "-" : value > 0 ? "+" : "";
+  const absoluteValue = Math.abs(value);
+  if (absoluteValue >= 1_000_000) return `${sign}$${(absoluteValue / 1_000_000).toFixed(1)}M`;
+  if (absoluteValue >= 1_000) return `${sign}$${(absoluteValue / 1_000).toFixed(0)}K`;
+  return `${sign}$${absoluteValue.toLocaleString()}`;
+}
+
 function getScoreDetail(contract: CloverContractImpact, scoreId: CloverChartScoreId): CloverScenarioDetail | null {
   if (scoreId === "s26WithQI") return contract.calculated2026Detail;
   if (COMPUTED_SCENARIO_IDS.has(scoreId)) {
@@ -49,17 +63,36 @@ function getScoreDetail(contract: CloverContractImpact, scoreId: CloverChartScor
   return null;
 }
 
+function roundToHalf(value: number): number {
+  return Math.round(value * 2) / 2;
+}
+
+function getQbpChange(contract: CloverContractImpact, scoreId: CloverChartScoreId, score: number | null): number | null {
+  if (!QBP_SCENARIO_IDS.has(scoreId) || score === null) return null;
+
+  const officialEligible = (contract.officialScores.stars2026 ?? 0) >= 4;
+  const scenarioEligible = roundToHalf(score) >= 4;
+  if (officialEligible === scenarioEligible) return 0;
+
+  const enrollment = contract.totalEnrollment ?? 0;
+  return (scenarioEligible ? 1 : -1) * enrollment * ESTIMATED_ANNUAL_QBP_PER_MEMBER;
+}
+
 export function CloverScenarioChart({ contract, chartScores }: Props) {
   const chartData: ChartDatum[] = chartScores
     .map((score) => {
       const detail = getScoreDetail(contract, score.id);
+      const value = contract.scores[score.id];
+      const qbpChange = getQbpChange(contract, score.id, value);
       return {
         ...score,
-        value: contract.scores[score.id],
+        value,
         totalEnrollment: contract.totalEnrollment,
         baseMean: detail?.baseMean ?? null,
         rewardFactor: detail?.rewardFactor ?? null,
         caiValue: detail?.caiValue ?? null,
+        qbpChange,
+        qbpLabel: qbpChange !== null && qbpChange !== 0 ? formatCurrency(qbpChange) : "",
       };
     })
     .filter((score): score is ChartDatum => score.value !== null);
@@ -127,6 +160,11 @@ export function CloverScenarioChart({ contract, chartScores }: Props) {
                     <p className="mt-1 text-muted-foreground">
                       Enrollment: <span className="font-mono text-foreground">{formatEnrollment(entry.totalEnrollment)}</span>
                     </p>
+                    {entry.qbpChange !== null ? (
+                      <p className="mt-1 text-muted-foreground">
+                        Est. QBP Swing: <span className="font-mono text-foreground">{formatCurrency(entry.qbpChange)}</span>
+                      </p>
+                    ) : null}
                   </div>
                 );
               }}
@@ -145,6 +183,13 @@ export function CloverScenarioChart({ contract, chartScores }: Props) {
                 fill="var(--color-foreground)"
                 fontSize={11}
                 fontWeight={600}
+              />
+              <LabelList
+                dataKey="qbpLabel"
+                position="insideTop"
+                fill="var(--color-background)"
+                fontSize={10}
+                fontWeight={700}
               />
               {chartData.map((entry) => (
                 <Cell key={entry.id} fill={entry.color} />

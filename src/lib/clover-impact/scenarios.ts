@@ -115,6 +115,16 @@ export const CLOVER_SCENARIO_MEASURE_NOTES = [
       "Stars 2026 uses the official CMS overall rating. S26 With QI and No QI use the recalculation engine to show the unrounded weighted score impact of Quality Improvement measures.",
   },
   {
+    label: "Reward Factor",
+    description:
+      "For each calculated bar, reward factor thresholds are recomputed from the full H+R MA-PD scenario population using PERCENTILE.INC: weighted mean 65th/85th percentiles define relatively high/high performance, and weighted variance 30th/70th percentiles define low/medium/high consistency. Contracts receive +0.1 to +0.4 when they pair high enough mean performance with low or medium variance. With-QI and without-QI thresholds are calculated separately, and the QI hold-harmless rule determines which side is used before CAI is added.",
+  },
+  {
+    label: "Quality Bonus Payment Estimate",
+    description:
+      "QBP impact is a ballpark annual eligibility estimate, not a full CMS payment model. Contracts are treated as QBP eligible when their rounded overall Star rating is 4.0 or higher. For contracts that gain or lose eligibility under Model 1 or Model 2, estimated annual swing equals enrollment x $1,200 benchmark PMPM x 12 months x 5% QBP, or about $720 per member per year. The estimate does not adjust for county benchmarks, bids, rebates, double-bonus counties, or contract-specific payment mechanics.",
+  },
+  {
     label: "Stars 2026 - S29 Removal",
     description:
       "Evaluates removing the CMS-announced 2027, 2028, and 2029 Stars removals while keeping QI measure ratings constant.",
