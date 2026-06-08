@@ -11,7 +11,6 @@ type SortKey =
   | "parentOrganization"
   | "stars2025"
   | "stars2026"
-  | "s26NoQI"
   | "s29Removal"
   | "model1"
   | "model2"
@@ -52,8 +51,6 @@ function getSortValue(contract: CloverContractImpact, key: SortKey): string | nu
       return contract.scores.stars2025;
     case "stars2026":
       return contract.scores.stars2026;
-    case "s26NoQI":
-      return contract.scores.s26NoQI;
     case "s29Removal":
       return contract.scores.s29Removal;
     case "model1":
@@ -148,7 +145,7 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
     }
 
     setSortKey(key);
-    setSortDirection(["model1Change", "model2Change", "s26NoQI", "s29Removal", "model1", "model2"].includes(key) ? "desc" : "asc");
+    setSortDirection(["model1Change", "model2Change", "s29Removal", "model1", "model2"].includes(key) ? "desc" : "asc");
   };
 
   return (
@@ -184,7 +181,6 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
               <th className="px-4 py-3 text-left"><SortHeader label="Parent" tooltip="Organization marketing name and parent organization for the contract." value="parentOrganization" align="left" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="2025" tooltip="Official CMS 2025 overall Stars rating from the summary file, when available." value="stars2025" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="2026" tooltip="Official CMS 2026 overall Stars rating from the summary file." value="stars2026" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="No QI" tooltip="Calculated score after removing the Part C and Part D Quality Improvement measures." value="s26NoQI" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="S29 Removal" tooltip="Calculated score after removing the operations and CAHPS-style measures from the S29 removal scenario." value="s29Removal" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="Model 1" tooltip="Calculated score after removing the ten 1395w-22(e) data-source measures from the Clover scenario." value="model1" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="Model 2" tooltip="Calculated score after removing the full 20-measure Clover scenario set." value="model2" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
@@ -220,7 +216,6 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
                 </td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.stars2025)}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.stars2026)}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.s26NoQI)}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.s29Removal)}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.model1)}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.model2)}</td>
