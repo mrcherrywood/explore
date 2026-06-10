@@ -1,6 +1,8 @@
 "use client";
 
+import { useRef } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ExportImageButton } from "@/components/shared/ExportImageButton";
 import type { CloverContractImpact, CloverImpactResult, CloverScenarioDetail } from "@/lib/clover-impact/analysis";
 import type { CloverChartScoreId, CloverComputedScenarioId } from "@/lib/clover-impact/scenarios";
 
@@ -97,25 +99,35 @@ export function CloverScenarioChart({ contract, chartScores }: Props) {
     })
     .filter((score): score is ChartDatum => score.value !== null);
   const rewardFactorEntries = chartData.filter((entry) => (entry.rewardFactor ?? 0) > 0);
+  const sectionRef = useRef<HTMLElement | null>(null);
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-6">
-      <div className="mb-4 flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-foreground">Historical and Scenario Overall Stars Scores</h3>
-          <p className="text-xs text-muted-foreground">
+    <div className="relative">
+      <div className="absolute right-6 top-6 z-10">
+        <ExportImageButton
+          targetRef={sectionRef}
+          fileName={`clover-scenario-chart-${contract.contractId}`}
+        />
+      </div>
+      <section ref={sectionRef} className="rounded-2xl border border-border bg-card p-6">
+        <div className="export-chart-header mb-4 pr-28">
+          <h3 className="export-chart-header-title text-base font-semibold text-foreground">
+            Historical and Scenario Overall Stars Scores
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             {contract.contractId} - {contract.organizationMarketingName || contract.contractName || "Unknown contract"}
           </p>
+          <div className="export-chart-header-meta mt-2 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+            <span>
+              Official 2026:{" "}
+              <span className="font-mono text-foreground">{formatScore(contract.officialScores.stars2026)}</span>
+            </span>
+            <span>
+              Enrollment:{" "}
+              <span className="font-mono text-foreground">{formatEnrollment(contract.totalEnrollment)}</span>
+            </span>
+          </div>
         </div>
-        <div className="flex flex-col gap-1 text-xs text-muted-foreground md:text-right">
-          <span>
-            Official 2026: <span className="font-mono text-foreground">{formatScore(contract.officialScores.stars2026)}</span>
-          </span>
-          <span>
-            Enrollment: <span className="font-mono text-foreground">{formatEnrollment(contract.totalEnrollment)}</span>
-          </span>
-        </div>
-      </div>
 
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
@@ -199,13 +211,13 @@ export function CloverScenarioChart({ contract, chartScores }: Props) {
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
+      <div className="export-reward-factor-strip mt-4 rounded-xl border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
         {rewardFactorEntries.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="export-reward-factor-list flex flex-wrap gap-2">
             <span className="font-semibold text-foreground">Reward factor applied:</span>
             {rewardFactorEntries.map((entry) => (
-              <span key={entry.id} className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: entry.color }} />
+              <span key={entry.id} className="export-reward-factor-item inline-flex items-center gap-1.5">
+                <span className="export-color-swatch h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: entry.color }} />
                 {entry.label} <span className="font-mono text-foreground">{formatContribution(entry.rewardFactor)}</span>
               </span>
             ))}
@@ -215,14 +227,15 @@ export function CloverScenarioChart({ contract, chartScores }: Props) {
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+      <div data-export-hide className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
         {chartData.map((entry) => (
           <span key={entry.id} className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: entry.color }} />
+            <span className="export-color-swatch h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: entry.color }} />
             {entry.label}
           </span>
         ))}
       </div>
-    </section>
+      </section>
+    </div>
   );
 }

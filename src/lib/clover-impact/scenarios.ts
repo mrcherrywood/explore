@@ -117,7 +117,7 @@ export const CLOVER_SCENARIO_MEASURE_NOTES = [
   {
     label: "Reward Factor",
     description:
-      "For each calculated bar, reward factor thresholds are recomputed from the full H+R MA-PD scenario population using PERCENTILE.INC: weighted mean 65th/85th percentiles define relatively high/high performance, and weighted variance 30th/70th percentiles define low/medium/high consistency. Contracts receive +0.1 to +0.4 when they pair high enough mean performance with low or medium variance. With-QI and without-QI thresholds are calculated separately, and the QI hold-harmless rule determines which side is used before CAI is added.",
+      "For each calculated bar, we first remove that scenario's excluded measures and recalculate each contract's weighted mean and weighted variance using only the remaining measures. Reward factor thresholds are then recomputed from the full H+R MA-PD scenario population using PERCENTILE.INC: remaining-measure weighted mean 65th/85th percentiles define relatively high/high performance, and remaining-measure weighted variance 30th/70th percentiles define low/medium/high consistency. Contracts receive +0.1 to +0.4 when they pair high enough mean performance with low or medium variance. With-QI and without-QI thresholds are calculated separately, and the QI hold-harmless rule determines which side is used before CAI is added.",
   },
   {
     label: "Quality Bonus Payment Estimate",

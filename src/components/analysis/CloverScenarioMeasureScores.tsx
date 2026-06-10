@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 import type { CloverContractImpact, CloverImpactResult } from "@/lib/clover-impact/analysis";
 import type { CloverComputedScenarioId } from "@/lib/clover-impact/scenarios";
 
@@ -24,6 +25,7 @@ function formatMeasureValue(value: string | null | undefined): string {
 
 export function CloverScenarioMeasureScores({ contract, scenarios }: Props) {
   const [activeScenarioId, setActiveScenarioId] = useState<CloverComputedScenarioId>("s29Removal");
+  const tableRef = useRef<HTMLTableElement>(null);
 
   const scenarioOptions = useMemo(
     () => scenarios.filter((scenario) => SCENARIO_IDS.includes(scenario.id)),
@@ -43,21 +45,27 @@ export function CloverScenarioMeasureScores({ contract, scenarios }: Props) {
             {contract.contractId} - measures removed from each scenario&apos;s calculation
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted p-1">
-          {scenarioOptions.map((scenario) => (
-            <button
-              key={scenario.id}
-              type="button"
-              onClick={() => setActiveScenarioId(scenario.id)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                activeScenario?.id === scenario.id
-                  ? "border border-primary/40 bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {scenario.shortLabel}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted p-1">
+            {scenarioOptions.map((scenario) => (
+              <button
+                key={scenario.id}
+                type="button"
+                onClick={() => setActiveScenarioId(scenario.id)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  activeScenario?.id === scenario.id
+                    ? "border border-primary/40 bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {scenario.shortLabel}
+              </button>
+            ))}
+          </div>
+          <ExportCsvButton
+            tableRef={tableRef}
+            fileName={`clover-removed-measures-${contract.contractId}-${activeScenario?.id ?? "scenario"}`}
+          />
         </div>
       </div>
 
@@ -78,7 +86,7 @@ export function CloverScenarioMeasureScores({ contract, scenarios }: Props) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table ref={tableRef} className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/30 text-xs text-muted-foreground">
               <th className="px-4 py-3 text-left" title="CMS measure code">Code</th>

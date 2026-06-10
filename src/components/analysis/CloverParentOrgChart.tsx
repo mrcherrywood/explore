@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ExportImageButton } from "@/components/shared/ExportImageButton";
 import type { CloverContractImpact, CloverImpactResult, CloverScenarioDetail } from "@/lib/clover-impact/analysis";
 import type { CloverChartScoreId, CloverComputedScenarioId } from "@/lib/clover-impact/scenarios";
 
@@ -225,47 +226,59 @@ export function CloverParentOrgChart({ parentOrganization, contracts, chartScore
         weight: contract.totalEnrollment,
       })));
 
+  const sectionRef = useRef<HTMLElement | null>(null);
+
+  const weightModeLabel = weightMode === "equal" ? "Equal Contracts" : "Enrollment Weighted";
+
   return (
-    <section className="rounded-2xl border border-border bg-card p-6">
-      <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-foreground">Parent Organization Scenario Scores</h3>
-          <p className="text-xs text-muted-foreground">
+    <div className="relative">
+      <div className="absolute right-6 top-6 z-10">
+        <ExportImageButton
+          targetRef={sectionRef}
+          fileName={`clover-parent-chart-${parentOrganization.replace(/\s+/g, "-")}`}
+        />
+      </div>
+      <section ref={sectionRef} className="rounded-2xl border border-border bg-card p-6">
+        <div className="export-chart-header mb-4 pr-28">
+          <h3 className="export-chart-header-title text-base font-semibold text-foreground">
+            Parent Organization Scenario Scores
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
             {parentOrganization} - {parentContracts.length} contracts, {formatEnrollmentLabel(totalEnrollment)}
           </p>
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="text-xs text-muted-foreground">
-            Official 2026: <span className="font-mono text-foreground">{formatScore(official2026)}</span>
+          <div className="export-chart-header-meta mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+            <span>
+              Official 2026: <span className="font-mono text-foreground">{formatScore(official2026)}</span>
+            </span>
+            <span className="export-only">Weighting: {weightModeLabel}</span>
+            <div data-export-hide className="flex items-center gap-2 rounded-xl border border-border bg-muted p-1">
+              <button
+                type="button"
+                onClick={() => onWeightModeChange("equal")}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  weightMode === "equal"
+                    ? "border border-primary/40 bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Treat each contract under the parent organization equally."
+              >
+                Equal Contracts
+              </button>
+              <button
+                type="button"
+                onClick={() => onWeightModeChange("enrollment")}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  weightMode === "enrollment"
+                    ? "border border-primary/40 bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title={`Weight each contract by total enrollment${enrollmentSource ? ` from ${enrollmentSource.fileName}` : ""}.`}
+              >
+                Enrollment Weighted
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-muted p-1">
-            <button
-              type="button"
-              onClick={() => onWeightModeChange("equal")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                weightMode === "equal"
-                  ? "border border-primary/40 bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              title="Treat each contract under the parent organization equally."
-            >
-              Equal Contracts
-            </button>
-            <button
-              type="button"
-              onClick={() => onWeightModeChange("enrollment")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                weightMode === "enrollment"
-                  ? "border border-primary/40 bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              title={`Weight each contract by total enrollment${enrollmentSource ? ` from ${enrollmentSource.fileName}` : ""}.`}
-            >
-              Enrollment Weighted
-            </button>
-          </div>
         </div>
-      </div>
 
       {weightMode === "enrollment" && enrollmentContracts.length === 0 ? (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-200">
@@ -379,13 +392,13 @@ export function CloverParentOrgChart({ parentOrganization, contracts, chartScore
         </div>
       )}
 
-      <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
+      <div className="export-reward-factor-strip mt-4 rounded-xl border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
         {rewardFactorEntries.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="export-reward-factor-list flex flex-wrap gap-2">
             <span className="font-semibold text-foreground">Avg reward factor applied:</span>
             {rewardFactorEntries.map((entry) => (
-              <span key={entry.id} className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: entry.color }} />
+              <span key={entry.id} className="export-reward-factor-item inline-flex items-center gap-1.5">
+                <span className="export-color-swatch h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: entry.color }} />
                 {entry.label}{" "}
                 <span className="font-mono text-foreground">{formatContribution(entry.rewardFactor)}</span>
                 <span>
@@ -400,7 +413,7 @@ export function CloverParentOrgChart({ parentOrganization, contracts, chartScore
       </div>
 
       {qbpExplainer ? (
-        <div className="mt-3 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3 text-[11px] text-muted-foreground">
+        <div className="export-qbp-note mt-3 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3 text-[11px] text-muted-foreground">
           <span className="font-semibold text-sky-300">QBP note:</span>{" "}
           For {parentOrganization}, Model 1 has an estimated net QBP swing of{" "}
           <span className={qbpExplainer.model1Qbp >= 0 ? "font-mono text-emerald-400" : "font-mono text-rose-400"}>
@@ -412,8 +425,8 @@ export function CloverParentOrgChart({ parentOrganization, contracts, chartScore
           </span>{" "}
           ({qbpExplainer.model2.qbpGainCount} gain / {qbpExplainer.model2.qbpLossCount} lose). The difference comes from which individual
           contracts round above or below the 4.0 quality-bonus eligibility line under each measure-removal model.
-          <div className="mt-2 grid gap-2 md:grid-cols-2">
-            <div className="rounded-lg border border-border bg-card/40 p-2">
+          <div className="export-qbp-movements mt-2 grid gap-2 md:grid-cols-2">
+            <div className="export-qbp-movement rounded-lg border border-border bg-card/40 p-2">
               <p className="font-semibold text-foreground">Model 1 movement</p>
               <p className="mt-1">
                 <span className="text-emerald-400">Gain:</span>{" "}
@@ -424,7 +437,7 @@ export function CloverParentOrgChart({ parentOrganization, contracts, chartScore
                 <span className="font-mono text-foreground">{formatContractList(qbpExplainer.model1.qbpLosers)}</span>
               </p>
             </div>
-            <div className="rounded-lg border border-border bg-card/40 p-2">
+            <div className="export-qbp-movement rounded-lg border border-border bg-card/40 p-2">
               <p className="font-semibold text-foreground">Model 2 movement</p>
               <p className="mt-1">
                 <span className="text-emerald-400">Gain:</span>{" "}
@@ -439,14 +452,15 @@ export function CloverParentOrgChart({ parentOrganization, contracts, chartScore
         </div>
       ) : null}
 
-      <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+      <div data-export-hide className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
         {chartData.map((entry) => (
           <span key={entry.id} className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: entry.color }} />
+            <span className="export-color-swatch h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: entry.color }} />
             {entry.label}
           </span>
         ))}
       </div>
-    </section>
+      </section>
+    </div>
   );
 }

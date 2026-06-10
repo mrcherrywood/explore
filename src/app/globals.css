@@ -224,7 +224,92 @@ a {
   color: #f8fafc !important;
 }
 
-/* Hide borders during PDF export */
-.pdf-export-mode * {
+/* Hide borders during PDF/image export (var()-based border colors can render
+   as solid boxes in dom-to-image, so neutralize them while capturing). */
+.pdf-export-mode *,
+.export-hide-borders * {
   border-color: transparent !important;
+}
+
+/* Image export layout: block header, hide interactive UI, ensure min width. */
+.export-capture-mode {
+  min-width: 960px !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.export-capture-mode .export-chart-header {
+  display: block !important;
+}
+
+.export-capture-mode .export-chart-header-title {
+  display: block !important;
+  max-width: none !important;
+  white-space: normal !important;
+}
+
+.export-capture-mode .export-chart-header-meta {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.25rem 1.5rem !important;
+  margin-top: 0.5rem !important;
+}
+
+.export-capture-mode .export-chart-header-meta > span {
+  white-space: nowrap !important;
+}
+
+.export-capture-mode [data-export-hide] {
+  display: none !important;
+}
+
+.export-capture-mode .export-only {
+  display: inline !important;
+}
+
+.export-capture-mode .export-reward-factor-strip,
+.export-capture-mode .export-qbp-note,
+.export-capture-mode .export-qbp-movement {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.export-capture-mode .export-reward-factor-list {
+  display: block !important;
+}
+
+.export-capture-mode .export-reward-factor-list > .font-semibold {
+  display: block !important;
+  margin-bottom: 0.35rem !important;
+}
+
+.export-capture-mode .export-reward-factor-item {
+  display: block !important;
+  margin: 0 0 0.35rem !important;
+  white-space: normal !important;
+}
+
+.export-capture-mode .export-color-swatch {
+  display: none !important;
+}
+
+.export-capture-mode .export-qbp-movements {
+  display: block !important;
+}
+
+.export-capture-mode .export-qbp-movement {
+  margin-top: 0.5rem !important;
+  padding: 0 !important;
+}
+
+.export-capture-mode .recharts-cartesian-axis-line {
+  stroke: transparent !important;
+}
+
+.export-only {
+  display: none;
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
+import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
+import type { CsvData } from "@/lib/export/csv";
 import type { CloverContractImpact } from "@/lib/clover-impact/analysis";
 
 type ScenarioId = "model1" | "model2";
@@ -238,20 +240,56 @@ function ImpactCard({ impact }: { impact: ScenarioImpact }) {
 
 export function CloverQualityBonusPaymentAnalysis({ contracts }: { contracts: CloverContractImpact[] }) {
   const impacts = useMemo(() => SCENARIOS.map((scenario) => buildScenarioImpact(contracts, scenario)), [contracts]);
-  const changedRows = useMemo(
-    () => impacts.flatMap((impact) => impact.changedRows.map((row) => ({ ...row, scenarioLabel: impact.label }))).slice(0, 25),
+  const allChangedRows = useMemo(
+    () => impacts.flatMap((impact) => impact.changedRows.map((row) => ({ ...row, scenarioLabel: impact.label }))),
     [impacts],
   );
+  const changedRows = useMemo(() => allChangedRows.slice(0, 25), [allChangedRows]);
+
+  const getCsvData = (): CsvData => ({
+    headers: [
+      "Scenario",
+      "Contract",
+      "Organization",
+      "Parent",
+      "Enrollment",
+      "Official 2026",
+      "Scenario Score",
+      "Rounded",
+      "Est. Annual Swing",
+      "QBP Status",
+    ],
+    rows: allChangedRows.map((row) => [
+      row.scenarioLabel,
+      row.contractId,
+      row.organizationName,
+      row.parentOrganization,
+      row.enrollment === null ? "" : String(row.enrollment),
+      formatRoundedStar(row.officialRating),
+      formatScore(row.scenarioScore),
+      formatRoundedStar(row.scenarioRounded),
+      String(Math.round(row.estimatedAnnualPaymentChange)),
+      getStatusLabel(row.status),
+    ]),
+  });
 
   return (
     <section className="rounded-2xl border border-border bg-card p-6">
-      <div className="mb-4">
-        <h3 className="text-base font-semibold text-foreground">Quality Bonus Payment Eligibility</h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Uses the CMS 4.0+ overall Star threshold as a QBP eligibility proxy. Dollar impact is a ballpark annual estimate:
-          enrollment x ${ESTIMATED_BENCHMARK_PMPM.toLocaleString()} benchmark PMPM x {(QUALITY_BONUS_RATE * 100).toFixed(0)}% QBP.
-          It does not adjust for county benchmarks, bids, rebates, or double-bonus counties.
-        </p>
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">Quality Bonus Payment Eligibility</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Uses the CMS 4.0+ overall Star threshold as a QBP eligibility proxy. Dollar impact is a ballpark annual estimate:
+            enrollment x ${ESTIMATED_BENCHMARK_PMPM.toLocaleString()} benchmark PMPM x {(QUALITY_BONUS_RATE * 100).toFixed(0)}% QBP.
+            It does not adjust for county benchmarks, bids, rebates, or double-bonus counties.
+          </p>
+        </div>
+        <ExportCsvButton
+          fileName="clover-qbp-eligibility-changes"
+          getData={getCsvData}
+          disabled={allChangedRows.length === 0}
+          className="shrink-0"
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
