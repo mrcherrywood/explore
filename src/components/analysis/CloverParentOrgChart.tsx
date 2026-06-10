@@ -398,7 +398,7 @@ export function CloverParentOrgChart({ parentOrganization, contracts, chartScore
             <span className="font-semibold text-foreground">Avg reward factor applied:</span>
             {rewardFactorEntries.map((entry) => (
               <span key={entry.id} className="export-reward-factor-item inline-flex items-center gap-1.5">
-                <span className="export-color-swatch h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: entry.color }} />
+                <span className="export-reward-factor-dot" style={{ color: entry.color }} aria-hidden="true">●</span>
                 {entry.label}{" "}
                 <span className="font-mono text-foreground">{formatContribution(entry.rewardFactor)}</span>
                 <span>

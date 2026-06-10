@@ -279,22 +279,33 @@ a {
 }
 
 .export-capture-mode .export-reward-factor-list {
-  display: block !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.35rem 1rem !important;
 }
 
 .export-capture-mode .export-reward-factor-list > .font-semibold {
-  display: block !important;
-  margin-bottom: 0.35rem !important;
+  display: inline !important;
+  margin-bottom: 0 !important;
 }
 
 .export-capture-mode .export-reward-factor-item {
-  display: block !important;
-  margin: 0 0 0.35rem !important;
-  white-space: normal !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
 }
 
 .export-capture-mode .export-color-swatch {
   display: none !important;
+}
+
+.export-capture-mode .export-reward-factor-dot {
+  display: inline-block !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
 }
 
 .export-capture-mode .export-qbp-movements {
@@ -308,6 +319,14 @@ a {
 
 .export-capture-mode .recharts-cartesian-axis-line {
   stroke: transparent !important;
+}
+
+.export-capture-mode .recharts-label-list text,
+.export-capture-mode .recharts-label,
+.export-capture-mode .recharts-text.recharts-label {
+  fill: #111827 !important;
+  color: #111827 !important;
+  opacity: 1 !important;
 }
 
 .export-only {

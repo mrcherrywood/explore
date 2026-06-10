@@ -217,8 +217,9 @@ export function CloverScenarioChart({ contract, chartScores }: Props) {
             <span className="font-semibold text-foreground">Reward factor applied:</span>
             {rewardFactorEntries.map((entry) => (
               <span key={entry.id} className="export-reward-factor-item inline-flex items-center gap-1.5">
-                <span className="export-color-swatch h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: entry.color }} />
-                {entry.label} <span className="font-mono text-foreground">{formatContribution(entry.rewardFactor)}</span>
+                <span className="export-reward-factor-dot" style={{ color: entry.color }} aria-hidden="true">●</span>
+                {entry.label}{" "}
+                <span className="font-mono text-foreground">{formatContribution(entry.rewardFactor)}</span>
               </span>
             ))}
           </div>
