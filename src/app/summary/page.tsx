@@ -15,6 +15,7 @@ export default async function SummaryPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const yearParam = typeof params.year === "string" ? params.year : undefined;
   const contractIdParam = typeof params.contractId === "string" ? params.contractId : undefined;
+  const parentOrgParam = typeof params.parentOrg === "string" ? params.parentOrg : undefined;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -35,7 +36,7 @@ export default async function SummaryPage({ searchParams }: PageProps) {
           </header>
 
           <main className="flex flex-1 flex-col gap-6 px-10 pb-10 pt-8">
-            <SummaryContent initialYear={yearParam} initialContractId={contractIdParam} />
+            <SummaryContent initialYear={yearParam} initialContractId={contractIdParam} initialParentOrg={parentOrgParam} />
           </main>
         </div>
       </div>

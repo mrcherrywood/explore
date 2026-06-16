@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
-import { Star, TrendingUp, TrendingDown, Building2, MapPin, DollarSign, Users, Info, Search, X } from "lucide-react";
+import { Star, TrendingUp, TrendingDown, Building2, MapPin, DollarSign, Users, Info } from "lucide-react";
 import { ExportPdfButton } from "@/components/shared/ExportPdfButton";
+import { SearchableSelect } from "@/components/summary/SearchableSelect";
+import { ParentOrgSummary, type ParentOrgData } from "@/components/summary/ParentOrgSummary";
 
 type SummaryData = {
   year: number;
@@ -134,20 +136,25 @@ type SummaryData = {
   };
 };
 
+type ViewMode = "contract" | "parentOrg";
+
 type Props = {
   initialYear?: string;
   initialContractId?: string;
+  initialParentOrg?: string;
 };
 
-export function SummaryContent({ initialYear, initialContractId }: Props) {
+export function SummaryContent({ initialYear, initialContractId, initialParentOrg }: Props) {
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState(initialYear || "");
   const [selectedContractId, setSelectedContractId] = useState(initialContractId || "");
-  const [contractSearchQuery, setContractSearchQuery] = useState<string>("");
-  const [isContractDropdownOpen, setIsContractDropdownOpen] = useState<boolean>(false);
-  const contractDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(initialParentOrg ? "parentOrg" : "contract");
+  const [selectedParentOrg, setSelectedParentOrg] = useState(initialParentOrg || "");
+  const [parentData, setParentData] = useState<ParentOrgData & { availableYears: number[]; availableParentOrgs: string[] } | null>(null);
+  const [parentLoading, setParentLoading] = useState(false);
+  const [parentError, setParentError] = useState<string | null>(null);
   const exportContainerRef = useRef<HTMLDivElement | null>(null);
 
   const contractOptions = useMemo(() => {
@@ -158,36 +165,18 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
     }));
   }, [data?.filters.availableContracts]);
 
-  const filteredContractOptions = useMemo(() => {
-    if (!contractSearchQuery.trim()) return contractOptions;
-    const query = contractSearchQuery.toLowerCase();
-    return contractOptions.filter(
-      (option) =>
-        option.value.toLowerCase().includes(query) ||
-        option.label.toLowerCase().includes(query)
-    );
-  }, [contractOptions, contractSearchQuery]);
+  const parentOrgOptions = useMemo(() => {
+    if (!parentData?.availableParentOrgs) return [];
+    return parentData.availableParentOrgs.map((org) => ({ value: org, label: org }));
+  }, [parentData?.availableParentOrgs]);
+
+  const availableYears = useMemo(() => {
+    return data?.filters.availableYears ?? parentData?.availableYears ?? [];
+  }, [data?.filters.availableYears, parentData?.availableYears]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        contractDropdownRef.current &&
-        !contractDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsContractDropdownOpen(false);
-      }
-    };
+    if (viewMode !== "contract") return;
 
-    if (isContractDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isContractDropdownOpen]);
-
-  useEffect(() => {
     async function fetchData() {
       setLoading(true);
       setError(null);
@@ -219,20 +208,174 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
     }
 
     fetchData();
-  }, [selectedYear, selectedContractId]);
+  }, [viewMode, selectedYear, selectedContractId]);
+
+  useEffect(() => {
+    if (viewMode !== "parentOrg") return;
+
+    let cancelled = false;
+    async function fetchParentData() {
+      setParentLoading(true);
+      setParentError(null);
+      try {
+        const params = new URLSearchParams();
+        if (selectedYear) params.set("year", selectedYear);
+        if (selectedParentOrg) params.set("parentOrg", selectedParentOrg);
+
+        const response = await fetch(`/api/summary/parent-org?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch parent organization summary");
+        }
+        const result = await response.json();
+        if (cancelled) return;
+        setParentData(result);
+
+        const resolvedYear = result?.year ? result.year.toString() : "";
+        if (resolvedYear && resolvedYear !== selectedYear) {
+          setSelectedYear(resolvedYear);
+        }
+
+        if (result?.parentOrg && result.parentOrg !== selectedParentOrg) {
+          setSelectedParentOrg(result.parentOrg);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setParentError(err instanceof Error ? err.message : "An error occurred");
+        }
+      } finally {
+        if (!cancelled) {
+          setParentLoading(false);
+        }
+      }
+    }
+
+    fetchParentData();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMode, selectedYear, selectedParentOrg]);
+
+  const filtersCard = (
+    <div className="rounded-3xl border border-border bg-card px-8 py-6">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-muted-foreground">View:</label>
+          <div className="inline-flex rounded-full border border-border bg-muted p-1">
+            {([
+              { key: "contract", label: "Contract" },
+              { key: "parentOrg", label: "Parent Organization" },
+            ] as const).map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => setViewMode(option.key)}
+                className={`rounded-full px-4 py-1.5 text-sm transition ${
+                  viewMode === option.key
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-muted-foreground">Year:</label>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="rounded-full border border-border bg-muted px-4 py-2 text-sm text-foreground"
+          >
+            {availableYears.map((year: number) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </div>
+        {viewMode === "contract" ? (
+          <SearchableSelect
+            label="Contract"
+            value={selectedContractId}
+            options={contractOptions}
+            placeholder="Select contract"
+            searchPlaceholder="Search contracts..."
+            emptyLabel="No contracts found"
+            onChange={setSelectedContractId}
+          />
+        ) : (
+          <SearchableSelect
+            label="Parent Org"
+            value={selectedParentOrg}
+            options={parentOrgOptions}
+            placeholder="Select parent organization"
+            searchPlaceholder="Search parent organizations..."
+            emptyLabel="No organizations found"
+            minWidthClass="min-w-[340px]"
+            onChange={setSelectedParentOrg}
+          />
+        )}
+      </div>
+    </div>
+  );
+
+  if (viewMode === "parentOrg") {
+    return (
+      <div ref={exportContainerRef} className="flex flex-col gap-6">
+        <div className="flex justify-end">
+          <ExportPdfButton
+            targetRef={exportContainerRef}
+            fileName={
+              selectedParentOrg
+                ? `parent-org-summary_${selectedYear}_${selectedParentOrg}`
+                    .replace(/[^a-z0-9_\-]+/gi, "-")
+                    .toLowerCase()
+                : undefined
+            }
+            label="Export PDF"
+          />
+        </div>
+        {filtersCard}
+        {parentLoading || (!parentData && !parentError) ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-muted-foreground">Loading parent organization summary...</div>
+          </div>
+        ) : parentError || !parentData ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-red-400">{parentError || "No data available"}</div>
+          </div>
+        ) : (
+          <ParentOrgSummary
+            data={parentData}
+            onSelectContract={(contractId) => {
+              setSelectedContractId(contractId);
+              setViewMode("contract");
+            }}
+          />
+        )}
+      </div>
+    );
+  }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-muted-foreground">Loading summary data...</div>
+      <div className="flex flex-col gap-6">
+        {filtersCard}
+        <div className="flex items-center justify-center py-20">
+          <div className="text-muted-foreground">Loading summary data...</div>
+        </div>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-red-400">{error || "No data available"}</div>
+      <div className="flex flex-col gap-6">
+        {filtersCard}
+        <div className="flex items-center justify-center py-20">
+          <div className="text-red-400">{error || "No data available"}</div>
+        </div>
       </div>
     );
   }
@@ -243,7 +386,6 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
     domainStars,
     performance,
     planLandscape,
-    filters,
     summaryRating,
     enrollmentSnapshot,
     disenrollment,
@@ -411,92 +553,7 @@ export function SummaryContent({ initialYear, initialContractId }: Props) {
           label="Export PDF"
         />
       </div>
-      {/* Filters */}
-      <div className="rounded-3xl border border-border bg-card px-8 py-6">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-muted-foreground">Year:</label>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="rounded-full border border-border bg-muted px-4 py-2 text-sm text-foreground"
-            >
-              {filters.availableYears.map((year: number) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-2" ref={contractDropdownRef}>
-            <label className="text-sm text-muted-foreground">Contract:</label>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setIsContractDropdownOpen(!isContractDropdownOpen)}
-                className="rounded-full border border-border bg-muted px-4 py-2 text-sm text-foreground hover:bg-muted/80 transition flex items-center gap-2 min-w-[300px]"
-              >
-                <span className="truncate flex-1 text-left">
-                  {selectedContractId
-                    ? contractOptions.find((opt) => opt.value === selectedContractId)?.label || "Select contract"
-                    : "Select contract"}
-                </span>
-                <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              </button>
-              {isContractDropdownOpen && (
-                <div className="absolute z-50 mt-1 w-full min-w-[400px] rounded-xl border border-border bg-card shadow-lg">
-                  <div className="p-2 border-b border-border">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <input
-                        type="text"
-                        placeholder="Search contracts..."
-                        value={contractSearchQuery}
-                        onChange={(e) => setContractSearchQuery(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-muted pl-9 pr-9 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                        autoFocus
-                      />
-                      {contractSearchQuery && (
-                        <button
-                          type="button"
-                          onClick={() => setContractSearchQuery("")}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-muted-foreground/10 rounded"
-                        >
-                          <X className="h-3 w-3 text-muted-foreground" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="max-h-60 overflow-y-auto">
-                    {filteredContractOptions.length > 0 ? (
-                      filteredContractOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => {
-                            setSelectedContractId(option.value);
-                            setIsContractDropdownOpen(false);
-                            setContractSearchQuery("");
-                          }}
-                          className={`w-full px-4 py-2 text-left text-sm hover:bg-muted/40 transition ${
-                            selectedContractId === option.value ? "bg-primary/5 text-primary" : "text-foreground"
-                          }`}
-                        >
-                          {option.label}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-4 py-3 text-sm text-muted-foreground text-center">
-                        No contracts found
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      {filtersCard}
 
       {/* Contract Header */}
       <div className="rounded-3xl border border-border bg-card px-8 py-6">

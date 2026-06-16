@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Cartes
 import { BandMovementDetails } from "./BandMovementDetails";
 import { BandMovementHistorical } from "./BandMovementHistorical";
 import { CutPointImpactAnalysis } from "./CutPointImpactAnalysis";
+import { CutPointForecastAnalysis } from "./CutPointForecastAnalysis";
 import { CutPointMethodologyAnalysis } from "./CutPointMethodologyAnalysis";
 
 type StarRating = 1 | 2 | 3 | 4 | 5;
@@ -82,7 +83,7 @@ export type HistoricalBandMovementResponse = {
   history: HistoricalTransition[];
 };
 
-type YearSelection = number | "all" | "impact" | "methodology";
+type YearSelection = number | "all" | "impact" | "methodology" | "forecast";
 
 const STAR_COLORS: Record<string, string> = {
   "1": "#ef4444", "2": "#f97316", "3": "#eab308", "4": "#22c55e", "5": "#3b82f6",
@@ -102,7 +103,7 @@ export function BandMovementAnalysis() {
 
   const fetchData = useCallback(async (m?: string, s?: StarRating, y?: YearSelection) => {
     const effectiveY = y ?? fromYear;
-    if (effectiveY === "impact" || effectiveY === "methodology") {
+    if (effectiveY === "impact" || effectiveY === "methodology" || effectiveY === "forecast") {
       setIsLoading(false);
       return;
     }
@@ -158,6 +159,7 @@ export function BandMovementAnalysis() {
   const isHistorical = fromYear === "all";
   const isImpact = fromYear === "impact";
   const isMethodology = fromYear === "methodology";
+  const isForecast = fromYear === "forecast";
 
   return (
     <div className="space-y-6">
@@ -175,7 +177,7 @@ export function BandMovementAnalysis() {
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           </div>
         </div>
-        {!isImpact && !isMethodology && (
+        {!isImpact && !isMethodology && !isForecast && (
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Star Band</label>
             <div className="flex gap-1">
@@ -209,6 +211,10 @@ export function BandMovementAnalysis() {
               className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${isMethodology ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
               CMS Backtest
             </button>
+            <button onClick={() => handleYearChange("forecast")}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${isForecast ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+              Forecast
+            </button>
           </div>
         </div>
       </section>
@@ -222,7 +228,7 @@ export function BandMovementAnalysis() {
       )}
 
       {/* Single-year view */}
-      {!isLoading && !error && !isHistorical && !isImpact && !isMethodology && singleData?.status === "ready" && singleData.movement && (
+      {!isLoading && !error && !isHistorical && !isImpact && !isMethodology && !isForecast && singleData?.status === "ready" && singleData.movement && (
         <>
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <SummaryCard label="Cohort Size" value={String(singleData.movement.cohortSize)} helper={`Contracts with ${star}★ in ${fromYear} that also reported in ${(fromYear as number) + 1}${singleData.movement.avgFractionalFrom != null ? ` · avg position ${singleData.movement.avgFractionalFrom.toFixed(2)}` : ""}`} />
@@ -289,6 +295,11 @@ export function BandMovementAnalysis() {
       {/* CMS methodology backtest view */}
       {!isLoading && !error && isMethodology && measure && (
         <CutPointMethodologyAnalysis measure={measure} displayName={displayMeasure} />
+      )}
+
+      {/* Projected cut-point forecast view */}
+      {!isLoading && !error && isForecast && measure && (
+        <CutPointForecastAnalysis measure={measure} displayName={displayMeasure} />
       )}
     </div>
   );

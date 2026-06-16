@@ -48,6 +48,17 @@ type RawCutPointRow = {
 
 const NORM_ALIASES: Record<string, string> = {
   "controlling blood pressure": "controlling high blood pressure",
+  "call center ffi tty": "call center foreign language interpreter and tty availability",
+  "coa medication review": "care for older adults medication review",
+  "coa pain assessment": "care for older adults pain assessment",
+  "glycemic status diabetes gsd": "diabetes care blood sugar controlled",
+  "med adh for cholesterol": "medication adherence for cholesterol statins",
+  "med adh for diabetes meds": "medication adherence for diabetes medications",
+  "med adh for hypertension": "medication adherence for hypertension ras antagonists",
+  "med rec post discharge": "medication reconciliation post discharge",
+  "osteo mgmt in women w fracture": "osteoporosis management in women who had a fracture",
+  "statin therapy patients with cvd": "statin therapy for patients with cardiovascular disease",
+  "statin use with diabetes": "statin use in persons with diabetes supd",
 };
 
 export function normalizeMeasureName(value: string) {

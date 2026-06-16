@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, HelpCircle, Info } from "lucide-react";
 
-type MethodologyInfo = {
+export type MethodologyInfo = {
   method: "clustering" | "cahps-percentile";
   foldCount: number;
   seed: number;
@@ -11,7 +11,7 @@ type MethodologyInfo = {
   exclusions: string[];
 };
 
-type BannerData = {
+export type BannerData = {
   inverted: boolean;
   methodology: MethodologyInfo;
 };
@@ -116,7 +116,7 @@ function CahpsMethodologySteps() {
   );
 }
 
-function ClusteringMethodologySteps({ data }: { data: BannerData }) {
+export function ClusteringMethodologySteps({ data }: { data: BannerData }) {
   return (
     <div className="space-y-4">
       <div>

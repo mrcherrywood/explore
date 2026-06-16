@@ -1,48 +1,58 @@
 /**
- * Run the database migration to add star_rating and rate_percent columns
+ * Apply a SQL migration file against the Postgres database (Supabase) using the
+ * DATABASE_URL connection string.
+ *
+ * Usage:
+ *   npm run migrate -- migrations/014_add_forecast_dataset_type.sql
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import * as dotenv from "dotenv";
+import { Client } from "pg";
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase environment variables');
+dotenv.config({ path: path.join(process.cwd(), ".env.local") });
+
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  console.error("Missing DATABASE_URL in .env.local.");
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-async function runMigration() {
-  console.log('🚀 Running database migration...\n');
-  
-  console.log('Adding star_rating column...');
-  const { error: error1 } = await supabase.rpc('exec_sql', { 
-    sql_query: 'ALTER TABLE ma_metrics ADD COLUMN IF NOT EXISTS star_rating TEXT' 
-  });
-  
-  if (error1) {
-    console.error('❌ Error adding star_rating column:', error1);
-    // Continue anyway in case column already exists
-  } else {
-    console.log('✅ Added star_rating column');
-  }
-  
-  console.log('Adding rate_percent column...');
-  const { error: error2 } = await supabase.rpc('exec_sql', { 
-    sql_query: 'ALTER TABLE ma_metrics ADD COLUMN IF NOT EXISTS rate_percent NUMERIC' 
-  });
-  
-  if (error2) {
-    console.error('❌ Error adding rate_percent column:', error2);
-    // Continue anyway in case column already exists
-  } else {
-    console.log('✅ Added rate_percent column');
-  }
-  
-  console.log('\n✅ Migration completed!');
-  console.log('Note: Data migration will happen during import');
+const migrationArg = process.argv[2];
+if (!migrationArg) {
+  console.error("Usage: npm run migrate -- <path-to-migration.sql>");
+  process.exit(1);
 }
 
-runMigration().catch(console.error);
+async function runMigration() {
+  const migrationPath = path.isAbsolute(migrationArg)
+    ? migrationArg
+    : path.join(process.cwd(), migrationArg);
+  const sql = readFileSync(migrationPath, "utf8");
+
+  const client = new Client({
+    connectionString: databaseUrl,
+    ssl: { rejectUnauthorized: false },
+  });
+
+  console.log(`🚀 Applying ${migrationArg}...\n`);
+  await client.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(sql);
+    await client.query("COMMIT");
+    console.log("✅ Migration applied successfully.");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    await client.end();
+  }
+}
+
+runMigration().catch((error) => {
+  console.error("❌ Migration failed:", error instanceof Error ? error.message : error);
+  process.exit(1);
+});

@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 
 import {
   getAvailableMeasureYears,
+  getAvailableOptions,
   getMeasureByNormalizedName,
   getMeasureYearScoreSamples,
   type MeasureScoreSample,
@@ -41,6 +42,13 @@ const CAHPS_MEASURE_NAMES = new Set([
   "care coordination",
   "getting needed prescription drugs",
   "rating of drug plan",
+]);
+const HOS_MEASURE_NAMES = new Set([
+  "improving or maintaining physical health",
+  "improving or maintaining mental health",
+  "monitoring physical activity",
+  "reducing the risk of falling",
+  "improving bladder control",
 ]);
 const CAHPS_PERCENTILES = { twoStar: 0.15, threeStar: 0.30, fourStar: 0.60, fiveStar: 0.80 } as const;
 
@@ -104,6 +112,80 @@ export type MethodologyBacktestResponse =
   | MethodologyBacktestReadyResponse
   | MethodologyBacktestUnsupportedResponse;
 
+export type MethodologyForecastThreshold = {
+  key: ThresholdKey;
+  label: string;
+  projected: number;
+  comparisonActual: number | null;
+  deltaVsComparison: number | null;
+  absDeltaVsComparison: number | null;
+  rawSimulated: number | null;
+  baselineSimulated: number | null;
+  anchoredMovement: number | null;
+  movementCap: number | null;
+  movementWasCapped: boolean;
+};
+
+export type HistoricalMovementCheck = {
+  key: ThresholdKey;
+  label: string;
+  projectedDelta: number | null;
+  recentDeltas: number[];
+  recentMinDelta: number | null;
+  recentMaxDelta: number | null;
+  recentP90AbsDelta: number | null;
+  recentMaxAbsDelta: number | null;
+  isOutsideRecentRange: boolean;
+  isAboveRecentP90: boolean;
+  message: string | null;
+};
+
+export type HistoricalMovementAudit = {
+  comparisonYear: number | null;
+  historicalYears: number[];
+  checks: HistoricalMovementCheck[];
+  warningCount: number;
+};
+
+export type MethodologyForecastReadyResponse = {
+  status: "ready";
+  measure: string;
+  displayName: string;
+  forecastYear: number;
+  comparisonYear: number | null;
+  inverted: boolean;
+  sampleSize: number;
+  rawSampleSize: number;
+  resampleRuns: number;
+  outliersRemoved: number;
+  tukeyApplied: boolean;
+  guardrailsApplied: boolean;
+  guardrailCap: number | null;
+  thresholds: MethodologyForecastThreshold[];
+  historicalMovement: HistoricalMovementAudit | null;
+  notes: string[];
+  methodology: {
+    method: "clustering" | "cahps-percentile";
+    foldCount: number;
+    seed: number;
+    tukeyStartsIn: number;
+    exclusions: string[];
+  };
+};
+
+export type MethodologyForecastUnavailableResponse = {
+  status: "unavailable";
+  measure: string;
+  displayName: string;
+  forecastYear: number;
+  reason: string;
+};
+
+export type MethodologyForecastResponse =
+  | MethodologyForecastReadyResponse
+  | MethodologyBacktestUnsupportedResponse
+  | MethodologyForecastUnavailableResponse;
+
 type WardCluster = {
   min: number;
   max: number;
@@ -148,8 +230,16 @@ export function ensureOfficialCutPoints(): Map<number, MeasureCutPoint[]> {
   return officialCutPointsCache;
 }
 
-function isCahpsMeasure(displayName: string): boolean {
+export function isCahpsMeasure(displayName: string): boolean {
   return CAHPS_MEASURE_NAMES.has(normalizeMeasureName(displayName));
+}
+
+export function isHosMeasure(displayName: string): boolean {
+  return HOS_MEASURE_NAMES.has(normalizeMeasureName(displayName));
+}
+
+export function isSurveyMeasure(displayName: string): boolean {
+  return isCahpsMeasure(displayName) || isHosMeasure(displayName);
 }
 
 function isQualityImprovementMeasure(displayName: string): boolean {
@@ -360,6 +450,123 @@ export function applyGuardrails(
   };
 }
 
+type ThresholdSimulationReady = {
+  status: "ready";
+  thresholds: ThresholdValues;
+  bounds: ScaleBounds;
+  rawSampleSize: number;
+  sampleSize: number;
+  resampleRuns: number;
+  outliersRemoved: number;
+  tukeyApplied: boolean;
+  fences: { lower: number; upper: number };
+  notes: string[];
+};
+
+type ThresholdSimulationResult =
+  | ThresholdSimulationReady
+  | { status: "unavailable"; reason: string };
+
+function simulateCahpsThresholds(rawSamples: MeasureScoreSample[]): ThresholdSimulationResult {
+  if (rawSamples.length < 10) {
+    return {
+      status: "unavailable",
+      reason: "At least 10 projected contracts are required to simulate CAHPS thresholds.",
+    };
+  }
+
+  const thresholds = computeCahpsPercentileThresholds(rawSamples.map((sample) => sample.score));
+  return {
+    status: "ready",
+    thresholds,
+    bounds: { min: 0, max: 100, isPercentageScale: true },
+    rawSampleSize: rawSamples.length,
+    sampleSize: rawSamples.length,
+    resampleRuns: 0,
+    outliersRemoved: 0,
+    tukeyApplied: false,
+    fences: { lower: 0, upper: 100 },
+    notes: [
+      `CAHPS percentile-based thresholds: P15=${thresholds.twoStar}, P30=${thresholds.threeStar}, P60=${thresholds.fourStar}, P80=${thresholds.fiveStar}.`,
+      "Simplified: significance testing and reliability adjustments omitted (requires standard errors not available in public data).",
+    ],
+  };
+}
+
+function simulateClusteringThresholds(
+  rawSamples: MeasureScoreSample[],
+  methodYear: number,
+  inverted: boolean
+): ThresholdSimulationResult {
+  if (rawSamples.length < RESAMPLE_FOLD_COUNT) {
+    return {
+      status: "unavailable",
+      reason: `At least ${RESAMPLE_FOLD_COUNT} projected contracts are required to simulate clustering thresholds.`,
+    };
+  }
+
+  const bounds = inferScaleBounds(rawSamples.map((sample) => sample.score));
+  const tukeyApplied = methodYear >= TUKEY_START_YEAR;
+  const filtered = tukeyApplied
+    ? applyTukeyFilter(rawSamples, bounds)
+    : { samples: rawSamples, outliersRemoved: 0, fences: { lower: bounds.min, upper: bounds.max } };
+
+  if (filtered.samples.length < 5) {
+    return {
+      status: "unavailable",
+      reason: "Too few projected contracts remained after filtering to simulate thresholds.",
+    };
+  }
+
+  const foldAssignments = assignResampleFolds(filtered.samples);
+  const resampledThresholds: ThresholdValues[] = [];
+  for (let fold = 0; fold < RESAMPLE_FOLD_COUNT; fold += 1) {
+    const trainingScores = foldAssignments
+      .filter((sample) => sample.fold !== fold)
+      .map((sample) => sample.score);
+    if (trainingScores.length < 5) continue;
+    resampledThresholds.push(
+      deriveThresholdsFromClusters(clusterScoresWard(trainingScores, 5), inverted)
+    );
+  }
+
+  if (resampledThresholds.length === 0) {
+    return {
+      status: "unavailable",
+      reason: "The projected score population was too sparse to complete resampling.",
+    };
+  }
+
+  const thresholds = averageThresholds(resampledThresholds);
+  return {
+    status: "ready",
+    thresholds,
+    bounds,
+    rawSampleSize: rawSamples.length,
+    sampleSize: filtered.samples.length,
+    resampleRuns: resampledThresholds.length,
+    outliersRemoved: filtered.outliersRemoved,
+    tukeyApplied,
+    fences: filtered.fences,
+    notes: [
+      tukeyApplied
+        ? `Tukey outer-fence deletion applied before clustering (${round2(filtered.fences.lower)} to ${round2(filtered.fences.upper)} kept).`
+        : "Tukey deletion was skipped because the target year precedes the CMS cutoff.",
+    ],
+  };
+}
+
+function simulateThresholdsForForecast(
+  rawSamples: MeasureScoreSample[],
+  methodYear: number,
+  cahps: boolean,
+  inverted: boolean
+): ThresholdSimulationResult {
+  return cahps
+    ? simulateCahpsThresholds(rawSamples)
+    : simulateClusteringThresholds(rawSamples, methodYear, inverted);
+}
+
 function lookupOfficialCutPoint(
   measure: UnifiedMeasure,
   year: number,
@@ -503,6 +710,385 @@ function runCahpsBacktest(
   return results;
 }
 
+function findLatestOfficialYearAtOrBefore(
+  cutPointsByYear: Map<number, MeasureCutPoint[]>,
+  targetYear: number
+): number | null {
+  const years = [...cutPointsByYear.keys()]
+    .filter((year) => year <= targetYear)
+    .sort((left, right) => right - left);
+  return years[0] ?? null;
+}
+
+type ForecastThresholdMetadata = Partial<Record<ThresholdKey, {
+  rawSimulated: number | null;
+  baselineSimulated: number | null;
+  anchoredMovement: number | null;
+  movementCap: number | null;
+  movementWasCapped: boolean;
+}>>;
+
+function buildForecastThresholds(
+  finalThresholds: ThresholdValues,
+  comparisonOfficial: MeasureCutPoint | null,
+  metadata: ForecastThresholdMetadata = {}
+): MethodologyForecastThreshold[] {
+  return THRESHOLD_KEYS.map((key) => {
+    const projected = finalThresholds[key];
+    const comparisonActual = comparisonOfficial ? comparisonOfficial.thresholds[key] : null;
+    const deltaVsComparison =
+      comparisonActual === null ? null : round2(projected - comparisonActual);
+    const itemMetadata = metadata[key];
+
+    return {
+      key,
+      label: THRESHOLD_LABELS[key],
+      projected,
+      comparisonActual,
+      deltaVsComparison,
+      absDeltaVsComparison:
+        deltaVsComparison === null ? null : round2(Math.abs(deltaVsComparison)),
+      rawSimulated: itemMetadata?.rawSimulated ?? null,
+      baselineSimulated: itemMetadata?.baselineSimulated ?? null,
+      anchoredMovement: itemMetadata?.anchoredMovement ?? null,
+      movementCap: itemMetadata?.movementCap ?? null,
+      movementWasCapped: itemMetadata?.movementWasCapped ?? false,
+    };
+  });
+}
+
+function nearestRank(values: number[], percentile: number): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((left, right) => left - right);
+  const index = Math.min(sorted.length - 1, Math.ceil(percentile * sorted.length) - 1);
+  return sorted[Math.max(0, index)];
+}
+
+function historicalMovementCaps(
+  measure: UnifiedMeasure,
+  cutPointsByYear: Map<number, MeasureCutPoint[]>,
+  comparisonYear: number | null,
+  fallbackCap: number | null
+): Record<ThresholdKey, number> {
+  const historicalRows = [...cutPointsByYear.keys()]
+    .filter((year) => comparisonYear !== null && year <= comparisonYear)
+    .sort((left, right) => left - right)
+    .map((year) => {
+      const cutPoint = lookupOfficialCutPoint(measure, year, cutPointsByYear);
+      return cutPoint
+        ? {
+            year,
+            thresholds: cutPoint.thresholds,
+          }
+        : null;
+    })
+    .filter((row): row is { year: number; thresholds: MeasureCutPoint["thresholds"] } => row !== null);
+
+  return THRESHOLD_KEYS.reduce((acc, key) => {
+    const absDeltas: number[] = [];
+    for (let index = 1; index < historicalRows.length; index += 1) {
+      const previous = historicalRows[index - 1];
+      const current = historicalRows[index];
+      if (current.year !== previous.year + 1) continue;
+      absDeltas.push(Math.abs(current.thresholds[key] - previous.thresholds[key]));
+    }
+    const recentP90AbsDelta = nearestRank(absDeltas, 0.9);
+    acc[key] = round2(Math.max(1, recentP90AbsDelta ?? fallbackCap ?? 5));
+    return acc;
+  }, {} as Record<ThresholdKey, number>);
+}
+
+function buildHistoricalMovementAudit(
+  measure: UnifiedMeasure,
+  cutPointsByYear: Map<number, MeasureCutPoint[]>,
+  comparisonYear: number | null,
+  thresholds: MethodologyForecastThreshold[]
+): HistoricalMovementAudit | null {
+  if (comparisonYear === null) return null;
+
+  const historicalRows = [...cutPointsByYear.keys()]
+    .filter((year) => year <= comparisonYear)
+    .sort((left, right) => left - right)
+    .map((year) => {
+      const cutPoint = lookupOfficialCutPoint(measure, year, cutPointsByYear);
+      return cutPoint
+        ? {
+            year,
+            thresholds: cutPoint.thresholds,
+          }
+        : null;
+    })
+    .filter((row): row is { year: number; thresholds: MeasureCutPoint["thresholds"] } => row !== null);
+
+  if (historicalRows.length < 2) {
+    return {
+      comparisonYear,
+      historicalYears: historicalRows.map((row) => row.year),
+      checks: [],
+      warningCount: 0,
+    };
+  }
+
+  const checks = THRESHOLD_KEYS.map((key) => {
+    const recentDeltas: number[] = [];
+    for (let index = 1; index < historicalRows.length; index += 1) {
+      const previous = historicalRows[index - 1];
+      const current = historicalRows[index];
+      if (current.year !== previous.year + 1) continue;
+      recentDeltas.push(round2(current.thresholds[key] - previous.thresholds[key]));
+    }
+
+    const threshold = thresholds.find((item) => item.key === key);
+    const projectedDelta = threshold?.deltaVsComparison ?? null;
+    const absDeltas = recentDeltas.map((delta) => Math.abs(delta));
+    const recentMinDelta = recentDeltas.length > 0 ? Math.min(...recentDeltas) : null;
+    const recentMaxDelta = recentDeltas.length > 0 ? Math.max(...recentDeltas) : null;
+    const recentP90AbsDelta = nearestRank(absDeltas, 0.9);
+    const recentMaxAbsDelta = absDeltas.length > 0 ? Math.max(...absDeltas) : null;
+    const isOutsideRecentRange =
+      projectedDelta !== null &&
+      recentMinDelta !== null &&
+      recentMaxDelta !== null &&
+      (projectedDelta < recentMinDelta || projectedDelta > recentMaxDelta);
+    const isAboveRecentP90 =
+      projectedDelta !== null &&
+      recentP90AbsDelta !== null &&
+      Math.abs(projectedDelta) > recentP90AbsDelta;
+
+    const message =
+      projectedDelta !== null && (isOutsideRecentRange || isAboveRecentP90)
+        ? `${THRESHOLD_LABELS[key]} movement ${projectedDelta > 0 ? "+" : ""}${projectedDelta.toFixed(2)} is outside recent official movement patterns (${recentMinDelta === null || recentMaxDelta === null ? "no range" : `${recentMinDelta > 0 ? "+" : ""}${recentMinDelta} to ${recentMaxDelta > 0 ? "+" : ""}${recentMaxDelta}`}).`
+        : null;
+
+    return {
+      key,
+      label: THRESHOLD_LABELS[key],
+      projectedDelta,
+      recentDeltas,
+      recentMinDelta,
+      recentMaxDelta,
+      recentP90AbsDelta,
+      recentMaxAbsDelta,
+      isOutsideRecentRange,
+      isAboveRecentP90,
+      message,
+    };
+  });
+
+  return {
+    comparisonYear,
+    historicalYears: historicalRows.map((row) => row.year),
+    checks,
+    warningCount: checks.filter((check) => check.message !== null).length,
+  };
+}
+
+export type MethodologyForecastOptions = {
+  baselineSamples?: MeasureScoreSample[];
+  baselineYear?: number | null;
+};
+
+export function analyzeCutPointMethodologyForecast(
+  measureNorm: string,
+  forecastYear: number,
+  rawSamples: MeasureScoreSample[],
+  options: MethodologyForecastOptions = {}
+): MethodologyForecastResponse {
+  const measure = getMeasureByNormalizedName(measureNorm);
+  if (!measure) {
+    return {
+      status: "unsupported",
+      measure: measureNorm,
+      displayName: measureNorm,
+      reason: "Measure not found.",
+    };
+  }
+
+  if (isQualityImprovementMeasure(measure.displayName)) {
+    return {
+      status: "unsupported",
+      measure: measureNorm,
+      displayName: measure.displayName,
+      reason:
+        "Quality Improvement measures use a special split-clustering methodology and are excluded from this first pass.",
+    };
+  }
+
+  if (rawSamples.length === 0) {
+    return {
+      status: "unavailable",
+      measure: measureNorm,
+      displayName: measure.displayName,
+      forecastYear,
+      reason: "No approved projected scores were available for this measure.",
+    };
+  }
+
+  const officialCutPointsByYear = ensureOfficialCutPoints();
+  const comparisonYear = findLatestOfficialYearAtOrBefore(
+    officialCutPointsByYear,
+    forecastYear - 1
+  ) ?? findLatestOfficialYearAtOrBefore(officialCutPointsByYear, forecastYear);
+  const priorOfficialYear = comparisonYear;
+  const comparisonOfficial = comparisonYear
+    ? lookupOfficialCutPoint(measure, comparisonYear, officialCutPointsByYear)
+    : null;
+  const priorOfficial = priorOfficialYear
+    ? lookupOfficialCutPoint(measure, priorOfficialYear, officialCutPointsByYear)
+    : null;
+  const inverted = isInvertedMeasure(measure.displayName);
+  const cahps = isCahpsMeasure(measure.displayName);
+
+  const simulation = simulateThresholdsForForecast(rawSamples, forecastYear, cahps, inverted);
+  if (simulation.status !== "ready") {
+    return {
+      status: "unavailable",
+      measure: measureNorm,
+      displayName: measure.displayName,
+      forecastYear,
+      reason: simulation.reason,
+    };
+  }
+
+  const baselineSamples = options.baselineSamples ?? [];
+  const baselineSimulation =
+    comparisonOfficial && baselineSamples.length > 0
+      ? simulateThresholdsForForecast(baselineSamples, forecastYear, cahps, inverted)
+      : null;
+  const canAnchor = comparisonOfficial && baselineSimulation?.status === "ready";
+
+  let finalThresholds: ThresholdValues;
+  let thresholdMetadata: ForecastThresholdMetadata = {};
+  let guardrailsApplied = false;
+  let guardrailCap: number | null = null;
+  const notes = [...simulation.notes];
+
+  if (canAnchor) {
+    const fallbackCap = cahps
+      ? 5
+      : (simulation.bounds.isPercentageScale
+          ? 5
+          : Math.max(0, simulation.fences.upper - simulation.fences.lower) * 0.05);
+    const movementCaps = historicalMovementCaps(
+      measure,
+      officialCutPointsByYear,
+      comparisonYear,
+      fallbackCap
+    );
+    const rawAnchored = THRESHOLD_KEYS.reduce((acc, key) => {
+      const rawMovement = simulation.thresholds[key] - baselineSimulation.thresholds[key];
+      const cappedMovement = clamp(rawMovement, -movementCaps[key], movementCaps[key]);
+      acc[key] = round2(comparisonOfficial.thresholds[key] + cappedMovement);
+      thresholdMetadata[key] = {
+        rawSimulated: simulation.thresholds[key],
+        baselineSimulated: baselineSimulation.thresholds[key],
+        anchoredMovement: round2(cappedMovement),
+        movementCap: movementCaps[key],
+        movementWasCapped: round2(rawMovement) !== round2(cappedMovement),
+      };
+      return acc;
+    }, {} as ThresholdValues);
+    finalThresholds = enforceThresholdOrder(rawAnchored, simulation.bounds, inverted);
+    for (const key of THRESHOLD_KEYS) {
+      const metadata = thresholdMetadata[key];
+      if (!metadata) continue;
+      metadata.anchoredMovement = round2(finalThresholds[key] - comparisonOfficial.thresholds[key]);
+    }
+    guardrailsApplied = true;
+    guardrailCap = Math.max(...THRESHOLD_KEYS.map((key) => movementCaps[key]));
+    notes.push(
+      `Anchored projected cut-point movement to ${comparisonYear} official cut points by comparing the projected simulation to the ${
+        options.baselineYear ?? comparisonYear
+      } baseline simulation.`
+    );
+    notes.push(
+      "Movement caps use this measure's recent official year-over-year cut-point movement (minimum 1 point per threshold)."
+    );
+    const cappedCount = THRESHOLD_KEYS.filter((key) => thresholdMetadata[key]?.movementWasCapped).length;
+    if (cappedCount > 0) {
+      notes.push(`${cappedCount} threshold movement${cappedCount === 1 ? " was" : "s were"} capped to historical movement ranges.`);
+    }
+  } else {
+    const useGuardrails = !cahps && Boolean(priorOfficial);
+    const guarded = useGuardrails
+      ? applyGuardrails(
+          simulation.thresholds,
+          {
+            twoStar: priorOfficial!.thresholds.twoStar,
+            threeStar: priorOfficial!.thresholds.threeStar,
+            fourStar: priorOfficial!.thresholds.fourStar,
+            fiveStar: priorOfficial!.thresholds.fiveStar,
+          },
+          simulation.bounds,
+          Math.max(0, simulation.fences.upper - simulation.fences.lower),
+          inverted
+        )
+      : { thresholds: simulation.thresholds, cap: null };
+    finalThresholds = enforceThresholdOrder(guarded.thresholds, simulation.bounds, inverted);
+    guardrailsApplied = useGuardrails;
+    guardrailCap = guarded.cap;
+    thresholdMetadata = THRESHOLD_KEYS.reduce((acc, key) => {
+      acc[key] = {
+        rawSimulated: simulation.thresholds[key],
+        baselineSimulated: null,
+        anchoredMovement: comparisonOfficial
+          ? round2(finalThresholds[key] - comparisonOfficial.thresholds[key])
+          : null,
+        movementCap: guarded.cap,
+        movementWasCapped: round2(simulation.thresholds[key]) !== round2(finalThresholds[key]),
+      };
+      return acc;
+    }, {} as ForecastThresholdMetadata);
+    if (comparisonOfficial && baselineSimulation?.status === "unavailable") {
+      notes.push(`Baseline simulation was unavailable (${baselineSimulation.reason}), so raw simulated thresholds were used.`);
+    } else if (!comparisonOfficial) {
+      notes.push("No official baseline cut points were available, so raw simulated thresholds were used.");
+    }
+  }
+
+  const forecastThresholds = buildForecastThresholds(
+    finalThresholds,
+    comparisonOfficial,
+    thresholdMetadata
+  );
+  if (comparisonOfficial && comparisonYear !== null) {
+    notes.push(`Compared projected thresholds against the latest official year available (${comparisonYear}).`);
+  } else {
+    notes.push("No official comparison year was available for this forecast.");
+  }
+
+  return {
+    status: "ready",
+    measure: measureNorm,
+    displayName: measure.displayName,
+    forecastYear,
+    comparisonYear,
+    inverted,
+    sampleSize: simulation.sampleSize,
+    rawSampleSize: simulation.rawSampleSize,
+    resampleRuns: simulation.resampleRuns,
+    outliersRemoved: simulation.outliersRemoved,
+    tukeyApplied: simulation.tukeyApplied,
+    guardrailsApplied,
+    guardrailCap,
+    thresholds: forecastThresholds,
+    historicalMovement: buildHistoricalMovementAudit(
+      measure,
+      officialCutPointsByYear,
+      comparisonYear,
+      forecastThresholds
+    ),
+    notes,
+    methodology: {
+      method: cahps ? "cahps-percentile" : "clustering",
+      foldCount: RESAMPLE_FOLD_COUNT,
+      seed: RESAMPLE_SEED,
+      tukeyStartsIn: TUKEY_START_YEAR,
+      exclusions: ["Quality Improvement measures"],
+    },
+  };
+}
+
 export function analyzeCutPointMethodologyBacktest(
   measureNorm: string,
   contractFilter?: Set<string>,
@@ -560,4 +1146,368 @@ export function analyzeCutPointMethodologyBacktest(
       exclusions: ["Quality Improvement measures"],
     },
   };
+}
+
+/** Combined accuracy stats over a pooled set of per-threshold absolute errors. */
+export type MethodologyOverallAccuracy = {
+  thresholdComparisons: number;
+  meanAbsoluteError: number;
+  medianAbsoluteError: number;
+  maxAbsoluteError: number;
+  exactMatchPct: number;
+  withinOnePointPct: number;
+};
+
+export type MethodologyOverallThresholdSummary = {
+  key: ThresholdKey;
+  label: string;
+  count: number;
+  meanAbsoluteError: number;
+  clientCount: number;
+  clientMeanAbsoluteError: number | null;
+};
+
+export type MethodologyOverallMeasureSummary = {
+  measure: string;
+  displayName: string;
+  method: "clustering" | "cahps-percentile";
+  comparedYears: number;
+  thresholdCount: number;
+  meanAbsoluteError: number;
+  maxAbsoluteError: number;
+  clientThresholdCount: number;
+  clientMeanAbsoluteError: number | null;
+};
+
+export type MethodologyOverallResponse = {
+  status: "ready";
+  generatedAt: string;
+  clientContractCount: number;
+  measuresIncluded: number;
+  measuresExcluded: number;
+  excluded: { displayName: string; reason: string }[];
+  fullMarket: MethodologyOverallAccuracy;
+  client: MethodologyOverallAccuracy | null;
+  byThreshold: MethodologyOverallThresholdSummary[];
+  measures: MethodologyOverallMeasureSummary[];
+};
+
+function mean(values: number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
+function summarizeAbsErrors(errors: number[]): MethodologyOverallAccuracy {
+  if (errors.length === 0) {
+    return {
+      thresholdComparisons: 0,
+      meanAbsoluteError: 0,
+      medianAbsoluteError: 0,
+      maxAbsoluteError: 0,
+      exactMatchPct: 0,
+      withinOnePointPct: 0,
+    };
+  }
+  const sorted = [...errors].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  return {
+    thresholdComparisons: errors.length,
+    meanAbsoluteError: round2(mean(errors)),
+    medianAbsoluteError: round2(median),
+    maxAbsoluteError: round2(Math.max(...errors)),
+    exactMatchPct: round2((errors.filter((e) => e === 0).length / errors.length) * 100),
+    withinOnePointPct: round2((errors.filter((e) => e <= 1).length / errors.length) * 100),
+  };
+}
+
+let overallCache: MethodologyOverallResponse | null = null;
+
+/**
+ * Big-picture accuracy across every backtestable measure: pools the individual
+ * 2★–5★ absolute errors (|simulated − actual|) from each supported measure/year
+ * into a single combined mean absolute error, for both the full H+R market and
+ * the client-only population. Deterministic (seeded), so the result is cached
+ * for the process lifetime.
+ */
+export function analyzeCutPointMethodologyOverall(): MethodologyOverallResponse {
+  if (overallCache) return overallCache;
+
+  const clientIds = loadClientContractIds();
+  const { measures } = getAvailableOptions();
+
+  const fullErrors: number[] = [];
+  const clientErrors: number[] = [];
+  const byThresholdFull = new Map<ThresholdKey, number[]>();
+  const byThresholdClient = new Map<ThresholdKey, number[]>();
+  for (const key of THRESHOLD_KEYS) {
+    byThresholdFull.set(key, []);
+    byThresholdClient.set(key, []);
+  }
+
+  const measureSummaries: MethodologyOverallMeasureSummary[] = [];
+  const excluded: { displayName: string; reason: string }[] = [];
+
+  for (const m of measures) {
+    const full = analyzeCutPointMethodologyBacktest(m.normalizedName, undefined);
+    if (full.status !== "ready") {
+      excluded.push({ displayName: full.displayName, reason: full.reason });
+      continue;
+    }
+
+    const client = analyzeCutPointMethodologyBacktest(m.normalizedName, clientIds);
+    const fullMeasureErrors: number[] = [];
+    const clientMeasureErrors: number[] = [];
+
+    for (const yearRow of full.years) {
+      for (const tc of yearRow.thresholdComparisons) {
+        fullErrors.push(tc.absError);
+        fullMeasureErrors.push(tc.absError);
+        byThresholdFull.get(tc.key)!.push(tc.absError);
+      }
+    }
+
+    if (client.status === "ready") {
+      for (const yearRow of client.years) {
+        for (const tc of yearRow.thresholdComparisons) {
+          clientErrors.push(tc.absError);
+          clientMeasureErrors.push(tc.absError);
+          byThresholdClient.get(tc.key)!.push(tc.absError);
+        }
+      }
+    }
+
+    measureSummaries.push({
+      measure: m.normalizedName,
+      displayName: full.displayName,
+      method: full.methodology.method,
+      comparedYears: full.summary.comparedYears,
+      thresholdCount: fullMeasureErrors.length,
+      meanAbsoluteError: round2(mean(fullMeasureErrors)),
+      maxAbsoluteError: fullMeasureErrors.length ? round2(Math.max(...fullMeasureErrors)) : 0,
+      clientThresholdCount: clientMeasureErrors.length,
+      clientMeanAbsoluteError: clientMeasureErrors.length ? round2(mean(clientMeasureErrors)) : null,
+    });
+  }
+
+  measureSummaries.sort((a, b) => b.meanAbsoluteError - a.meanAbsoluteError);
+
+  const byThreshold: MethodologyOverallThresholdSummary[] = THRESHOLD_KEYS.map((key) => {
+    const full = byThresholdFull.get(key)!;
+    const client = byThresholdClient.get(key)!;
+    return {
+      key,
+      label: THRESHOLD_LABELS[key],
+      count: full.length,
+      meanAbsoluteError: round2(mean(full)),
+      clientCount: client.length,
+      clientMeanAbsoluteError: client.length ? round2(mean(client)) : null,
+    };
+  });
+
+  overallCache = {
+    status: "ready",
+    generatedAt: new Date().toISOString(),
+    clientContractCount: clientIds.size,
+    measuresIncluded: measureSummaries.length,
+    measuresExcluded: excluded.length,
+    excluded,
+    fullMarket: summarizeAbsErrors(fullErrors),
+    client: clientErrors.length ? summarizeAbsErrors(clientErrors) : null,
+    byThreshold,
+    measures: measureSummaries,
+  };
+
+  return overallCache;
+}
+
+/** One row per threshold for measures with a ready backtest; one row for unsupported measures. */
+export type MethodologyBacktestExportThresholdRow = {
+  rowKind: "threshold";
+  measureNormalized: string;
+  displayName: string;
+  inverted: boolean;
+  year: number;
+  thresholdKey: string;
+  thresholdLabel: string;
+  actual: number;
+  fullMarketSimulated: number;
+  fullMarketDelta: number;
+  clientSimulated: number | null;
+  clientDelta: number | null;
+  /** Client simulated minus full market simulated (same as UI “Diff”). */
+  diffSimulated: number | null;
+  sampleSizeFullMarket: number;
+  sampleSizeClient: number | null;
+  meanAbsoluteErrorFull: number;
+  meanAbsoluteErrorClient: number | null;
+  tukeyApplied: boolean;
+  guardrailsApplied: boolean;
+  methodologyMethod: "clustering" | "cahps-percentile";
+  methodologyFoldCount: number;
+  methodologySeed: number;
+  methodologyTukeyStartsIn: number;
+};
+
+export type MethodologyBacktestExportUnsupportedRow = {
+  rowKind: "unsupported";
+  measureNormalized: string;
+  displayName: string;
+  reason: string;
+};
+
+export type MethodologyBacktestExportRow =
+  | MethodologyBacktestExportThresholdRow
+  | MethodologyBacktestExportUnsupportedRow;
+
+export type MethodologyBacktestExportBundle = {
+  generatedAt: string;
+  clientContractCount: number;
+  rows: MethodologyBacktestExportRow[];
+};
+
+export function buildMethodologyBacktestExport(): MethodologyBacktestExportBundle {
+  const clientIds = loadClientContractIds();
+  const { measures } = getAvailableOptions();
+  const rows: MethodologyBacktestExportRow[] = [];
+
+  for (const m of measures) {
+    const full = analyzeCutPointMethodologyBacktest(m.normalizedName, undefined);
+    const client = analyzeCutPointMethodologyBacktest(m.normalizedName, clientIds);
+
+    if (full.status !== "ready") {
+      rows.push({
+        rowKind: "unsupported",
+        measureNormalized: m.normalizedName,
+        displayName: full.displayName,
+        reason: full.reason,
+      });
+      continue;
+    }
+
+    const clientYearMap =
+      client.status === "ready" ? new Map(client.years.map((y) => [y.year, y])) : new Map<number, MethodologyBacktestYear>();
+
+    for (const yearRow of full.years) {
+      const cy = clientYearMap.get(yearRow.year);
+      for (const tc of yearRow.thresholdComparisons) {
+        const clientComp = cy?.thresholdComparisons.find((c) => c.key === tc.key);
+        const diffSimulated =
+          clientComp !== undefined ? round2(clientComp.simulated - tc.simulated) : null;
+        rows.push({
+          rowKind: "threshold",
+          measureNormalized: m.normalizedName,
+          displayName: full.displayName,
+          inverted: full.inverted,
+          year: yearRow.year,
+          thresholdKey: tc.key,
+          thresholdLabel: tc.label,
+          actual: tc.actual,
+          fullMarketSimulated: tc.simulated,
+          fullMarketDelta: tc.delta,
+          clientSimulated: clientComp?.simulated ?? null,
+          clientDelta: clientComp?.delta ?? null,
+          diffSimulated,
+          sampleSizeFullMarket: yearRow.sampleSize,
+          sampleSizeClient: cy?.sampleSize ?? null,
+          meanAbsoluteErrorFull: yearRow.meanAbsoluteError,
+          meanAbsoluteErrorClient: cy?.meanAbsoluteError ?? null,
+          tukeyApplied: yearRow.tukeyApplied,
+          guardrailsApplied: yearRow.guardrailsApplied,
+          methodologyMethod: full.methodology.method,
+          methodologyFoldCount: full.methodology.foldCount,
+          methodologySeed: full.methodology.seed,
+          methodologyTukeyStartsIn: full.methodology.tukeyStartsIn,
+        });
+      }
+    }
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    clientContractCount: clientIds.size,
+    rows,
+  };
+}
+
+function csvEscape(value: string | number | boolean | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  const s = String(value);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+/** CSV aligned with the “Actual vs Simulated Cut Points” table (one row per measure × year × threshold). */
+export function methodologyBacktestExportToCsv(bundle: MethodologyBacktestExportBundle): string {
+  const headers = [
+    "measure_normalized",
+    "display_name",
+    "row_kind",
+    "unsupported_reason",
+    "year",
+    "threshold_key",
+    "threshold_label",
+    "actual",
+    "full_market_simulated",
+    "full_market_delta",
+    "client_simulated",
+    "client_delta",
+    "diff_simulated",
+    "inverted",
+    "sample_size_full_market",
+    "sample_size_client",
+    "mae_full_market",
+    "mae_client",
+    "tukey_applied",
+    "guardrails_applied",
+    "methodology_method",
+    "methodology_fold_count",
+    "methodology_seed",
+    "methodology_tukey_starts_year",
+  ];
+
+  const lines = [headers.join(",")];
+
+  for (const row of bundle.rows) {
+    if (row.rowKind === "unsupported") {
+      const cols = new Array(headers.length).fill("");
+      cols[0] = csvEscape(row.measureNormalized);
+      cols[1] = csvEscape(row.displayName);
+      cols[2] = "unsupported";
+      cols[3] = csvEscape(row.reason);
+      lines.push(cols.join(","));
+      continue;
+    }
+
+    lines.push(
+      [
+        csvEscape(row.measureNormalized),
+        csvEscape(row.displayName),
+        csvEscape("threshold"),
+        "",
+        csvEscape(row.year),
+        csvEscape(row.thresholdKey),
+        csvEscape(row.thresholdLabel),
+        csvEscape(row.actual),
+        csvEscape(row.fullMarketSimulated),
+        csvEscape(row.fullMarketDelta),
+        row.clientSimulated === null ? "" : csvEscape(row.clientSimulated),
+        row.clientDelta === null ? "" : csvEscape(row.clientDelta),
+        row.diffSimulated === null ? "" : csvEscape(row.diffSimulated),
+        csvEscape(row.inverted),
+        csvEscape(row.sampleSizeFullMarket),
+        row.sampleSizeClient === null ? "" : csvEscape(row.sampleSizeClient),
+        csvEscape(row.meanAbsoluteErrorFull),
+        row.meanAbsoluteErrorClient === null ? "" : csvEscape(row.meanAbsoluteErrorClient),
+        csvEscape(row.tukeyApplied),
+        csvEscape(row.guardrailsApplied),
+        csvEscape(row.methodologyMethod),
+        csvEscape(row.methodologyFoldCount),
+        csvEscape(row.methodologySeed),
+        csvEscape(row.methodologyTukeyStartsIn),
+      ].join(",")
+    );
+  }
+
+  return `${lines.join("\n")}\n`;
 }

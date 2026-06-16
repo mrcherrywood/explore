@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, FlaskConical, Info, Users } from "lucide-react";
+import { AlertTriangle, FlaskConical, Info, Sparkles, Target, Users } from "lucide-react";
 
 import { BacktestBanner } from "./BacktestMethodologyPanels";
 import { RosterAccuracyCurve } from "./RosterAccuracyCurve";
 import { DecimalUpliftCurve } from "./DecimalUpliftCurve";
+import { CutPointForecastAnalysis } from "./CutPointForecastAnalysis";
 
 type ThresholdComparison = {
   key: "twoStar" | "threeStar" | "fourStar" | "fiveStar";
@@ -61,6 +62,49 @@ type UnsupportedResponse = {
 };
 
 type ResponsePayload = ReadyResponse | UnsupportedResponse;
+
+type OverallAccuracy = {
+  thresholdComparisons: number;
+  meanAbsoluteError: number;
+  medianAbsoluteError: number;
+  maxAbsoluteError: number;
+  exactMatchPct: number;
+  withinOnePointPct: number;
+};
+
+type OverallThresholdSummary = {
+  key: "twoStar" | "threeStar" | "fourStar" | "fiveStar";
+  label: string;
+  count: number;
+  meanAbsoluteError: number;
+  clientCount: number;
+  clientMeanAbsoluteError: number | null;
+};
+
+type OverallMeasureSummary = {
+  measure: string;
+  displayName: string;
+  method: "clustering" | "cahps-percentile";
+  comparedYears: number;
+  thresholdCount: number;
+  meanAbsoluteError: number;
+  maxAbsoluteError: number;
+  clientThresholdCount: number;
+  clientMeanAbsoluteError: number | null;
+};
+
+type OverallResponse = {
+  status: "ready";
+  generatedAt: string;
+  clientContractCount: number;
+  measuresIncluded: number;
+  measuresExcluded: number;
+  excluded: { displayName: string; reason: string }[];
+  fullMarket: OverallAccuracy;
+  client: OverallAccuracy | null;
+  byThreshold: OverallThresholdSummary[];
+  measures: OverallMeasureSummary[];
+};
 
 type Props = {
   measure: string;
@@ -120,6 +164,8 @@ export function CutPointMethodologyAnalysis({ measure, displayName }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [showProjected, setShowProjected] = useState(false);
+  const [showOverall, setShowOverall] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -203,6 +249,8 @@ export function CutPointMethodologyAnalysis({ measure, displayName }: Props) {
     <div className="space-y-6">
       <BacktestBanner data={data} displayName={displayName} />
 
+      <OverallAccuracySection show={showOverall} onToggle={() => setShowOverall((prev) => !prev)} />
+
       <section className="rounded-2xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div>
@@ -277,8 +325,193 @@ export function CutPointMethodologyAnalysis({ measure, displayName }: Props) {
 
       <ComparisonTable data={data} marketYear={marketYear} clientYear={clientYear} />
       <YearlySummaryTable data={data} clientData={clientData?.status === "ready" ? clientData : null} activeYear={marketYear.year} />
+
+      <ProjectedClientDataSection
+        measure={measure}
+        displayName={displayName}
+        show={showProjected}
+        onToggle={() => setShowProjected((prev) => !prev)}
+      />
+
       <RosterAccuracyCurve measure={measure} displayName={displayName} />
       <DecimalUpliftCurve measure={measure} displayName={displayName} />
+    </div>
+  );
+}
+
+function OverallAccuracySection({ show, onToggle }: { show: boolean; onToggle: () => void }) {
+  const [data, setData] = useState<OverallResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!show || data) return;
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
+    fetch("/api/analysis/band-movement?view=methodology-backtest-overall", { cache: "no-store" })
+      .then(async (res) => {
+        const payload = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(payload?.error || "Failed to load combined accuracy");
+        if (!cancelled) setData(payload as OverallResponse);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load combined accuracy");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [show, data]);
+
+  return (
+    <section className="rounded-2xl border border-border bg-card p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Target className="mt-0.5 h-5 w-5 shrink-0 text-sky-500" />
+          <div>
+            <h3 className="text-base font-semibold text-foreground">Combined Accuracy — All Measures</h3>
+            <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+              Pools every 2★–5★ cut point we simulate across all backtestable measures and years into a
+              single mean absolute error, so you can see the big-picture accuracy of the methodology.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-pressed={show}
+          className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+            show ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {show ? "Hide combined accuracy" : "Show combined accuracy"}
+        </button>
+      </div>
+
+      {show && (
+        <div className="mt-6 border-t border-border pt-6">
+          {isLoading && (
+            <p className="text-sm text-muted-foreground">
+              Crunching every measure&apos;s backtest — this can take a few seconds on first load…
+            </p>
+          )}
+          {error && (
+            <div className="flex items-center gap-3 text-red-400">
+              <AlertTriangle className="h-5 w-5" />
+              <span className="text-sm">{error}</span>
+            </div>
+          )}
+          {!isLoading && !error && data && <OverallAccuracyContent data={data} />}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function OverallAccuracyContent({ data }: { data: OverallResponse }) {
+  const hasClient = data.client !== null;
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <ComparisonCard
+          label="Combined MAE"
+          marketValue={data.fullMarket.meanAbsoluteError.toFixed(2)}
+          clientValue={hasClient ? data.client!.meanAbsoluteError.toFixed(2) : null}
+          helper={`Pooled across ${data.fullMarket.thresholdComparisons.toLocaleString()} thresholds`}
+          accent="text-sky-500"
+        />
+        <ComparisonCard
+          label="Median Abs Error"
+          marketValue={data.fullMarket.medianAbsoluteError.toFixed(2)}
+          clientValue={hasClient ? data.client!.medianAbsoluteError.toFixed(2) : null}
+          helper="Typical (50th percentile) gap"
+          accent="text-emerald-500"
+        />
+        <ComparisonCard
+          label="Within 1 Point"
+          marketValue={`${data.fullMarket.withinOnePointPct.toFixed(0)}%`}
+          clientValue={hasClient ? `${data.client!.withinOnePointPct.toFixed(0)}%` : null}
+          helper={`Exact match: ${data.fullMarket.exactMatchPct.toFixed(0)}% of thresholds`}
+          accent="text-green-500"
+        />
+        <ComparisonCard
+          label="Measures Covered"
+          marketValue={String(data.measuresIncluded)}
+          clientValue={null}
+          helper={`${data.measuresExcluded} excluded (QI / no comparable years)`}
+          accent="text-foreground"
+        />
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <th className="px-3 py-2">Threshold</th>
+              <th className="px-3 py-2 text-right">Market MAE</th>
+              {hasClient && <th className="px-3 py-2 text-right text-violet-500">Client MAE</th>}
+              <th className="px-3 py-2 text-right">Samples</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...data.byThreshold].reverse().map((t) => (
+              <tr key={t.key} className="border-b border-border/50">
+                <td className="px-3 py-3 font-medium" style={{ color: STAR_COLORS[THRESHOLD_STAR[t.key]] }}>{t.label}</td>
+                <td className={`px-3 py-3 text-right tabular-nums font-semibold ${maeColor(t.meanAbsoluteError)}`}>{t.meanAbsoluteError.toFixed(2)}</td>
+                {hasClient && (
+                  <td className={`px-3 py-3 text-right tabular-nums font-semibold ${t.clientMeanAbsoluteError !== null ? maeColor(t.clientMeanAbsoluteError) : ""}`}>
+                    {t.clientMeanAbsoluteError !== null ? t.clientMeanAbsoluteError.toFixed(2) : "—"}
+                  </td>
+                )}
+                <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{t.count.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <h4 className="mb-2 text-sm font-semibold text-foreground">Per-measure mean absolute error</h4>
+        <p className="mb-3 text-xs text-muted-foreground">Sorted worst-fit first, so the biggest accuracy gaps surface at the top.</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="px-3 py-2">Measure</th>
+                <th className="px-3 py-2 text-right">Method</th>
+                <th className="px-3 py-2 text-right">Years</th>
+                <th className="px-3 py-2 text-right">Market MAE</th>
+                {hasClient && <th className="px-3 py-2 text-right text-violet-500">Client MAE</th>}
+                <th className="px-3 py-2 text-right">Max</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.measures.map((m) => (
+                <tr key={m.measure} className="border-b border-border/50">
+                  <td className="px-3 py-3 font-medium text-foreground">{m.displayName}</td>
+                  <td className="px-3 py-3 text-right text-xs text-muted-foreground">{m.method === "cahps-percentile" ? "CAHPS" : "Clustering"}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{m.comparedYears}</td>
+                  <td className={`px-3 py-3 text-right tabular-nums font-semibold ${maeColor(m.meanAbsoluteError)}`}>{m.meanAbsoluteError.toFixed(2)}</td>
+                  {hasClient && (
+                    <td className={`px-3 py-3 text-right tabular-nums font-semibold ${m.clientMeanAbsoluteError !== null ? maeColor(m.clientMeanAbsoluteError) : ""}`}>
+                      {m.clientMeanAbsoluteError !== null ? m.clientMeanAbsoluteError.toFixed(2) : "—"}
+                    </td>
+                  )}
+                  <td className={`px-3 py-3 text-right tabular-nums font-semibold ${maeColor(m.maxAbsoluteError)}`}>{m.maxAbsoluteError.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Combined MAE is the average of every individual 2★–5★ absolute error (|simulated − actual|) across
+        all measures and backtest years, weighting each threshold equally.
+      </p>
     </div>
   );
 }
@@ -381,6 +614,49 @@ function ComparisonTable({ data, marketYear, clientYear }: {
           Client population: {clientYear.sampleSize} contracts (vs {marketYear.sampleSize} full market).
           &quot;Diff&quot; = client simulated minus full market simulated.
         </p>
+      )}
+    </section>
+  );
+}
+
+function ProjectedClientDataSection({ measure, displayName, show, onToggle }: {
+  measure: string;
+  displayName: string;
+  show: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <section className="rounded-2xl border border-border bg-card p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-sky-500" />
+          <div>
+            <h3 className="text-base font-semibold text-foreground">Projected Client Data</h3>
+            <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+              Apply the same CMS methodology to your client&apos;s projected year-end scores instead of
+              published history. Projections come from the latest <strong>approved</strong> run — upload current
+              client data and approve it under <span className="font-medium text-foreground">Admin → Forecast</span>.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-pressed={show}
+          className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+            show
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {show ? "Hide projected cut points" : "Use projected client data"}
+        </button>
+      </div>
+
+      {show && (
+        <div className="mt-6 border-t border-border pt-6">
+          <CutPointForecastAnalysis measure={measure} displayName={displayName} />
+        </div>
       )}
     </section>
   );

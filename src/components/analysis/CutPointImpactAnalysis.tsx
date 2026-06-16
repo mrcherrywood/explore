@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, Fragment } from "react";
-import { AlertTriangle, TrendingUp, Info, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, TrendingUp, Info, HelpCircle, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 import {
@@ -82,10 +82,59 @@ type CutPointImpactResponse = {
   projectionYear: number;
 };
 
+type ForecastPopulationMode = "full_market" | "client_only";
+
+type MethodologyForecastThreshold = {
+  key: ThresholdKey;
+  projected: number;
+  comparisonActual: number | null;
+  deltaVsComparison: number | null;
+};
+
+type MethodologyForecast = {
+  status: "ready" | "unavailable" | "unsupported";
+  forecastYear: number;
+  comparisonYear?: number | null;
+  runStatus?: "draft" | "approved" | null;
+  populationMode: ForecastPopulationMode;
+  thresholds: MethodologyForecastThreshold[];
+  reason?: string | null;
+};
+
 type Props = {
   measure: string;
   displayName: string;
 };
+
+async function fetchMethodologyForecast(
+  measure: string,
+  populationMode: ForecastPopulationMode
+): Promise<MethodologyForecast | null> {
+  const params = new URLSearchParams({
+    view: "methodology-forecast",
+    measure,
+    populationMode,
+  });
+  const res = await fetch(`/api/analysis/band-movement?${params}`, { cache: "no-store" });
+  const payload = await res.json().catch(() => null);
+  if (!payload?.status) return null;
+  return {
+    status: payload.status,
+    forecastYear: payload.forecastYear ?? 0,
+    comparisonYear: payload.comparisonYear ?? null,
+    runStatus: payload.runStatus ?? null,
+    populationMode,
+    thresholds: Array.isArray(payload.thresholds)
+      ? payload.thresholds.map((t: MethodologyForecastThreshold) => ({
+          key: t.key,
+          projected: t.projected,
+          comparisonActual: t.comparisonActual ?? null,
+          deltaVsComparison: t.deltaVsComparison ?? null,
+        }))
+      : [],
+    reason: payload.reason ?? null,
+  };
+}
 
 const STAR_COLORS: Record<string, string> = {
   "2": "#f97316",
@@ -140,6 +189,8 @@ export function CutPointImpactAnalysis({ measure, displayName }: Props) {
   const [data, setData] = useState<CutPointImpactResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [populationMode, setPopulationMode] = useState<ForecastPopulationMode>("full_market");
+  const [forecast, setForecast] = useState<MethodologyForecast | null>(null);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -159,6 +210,22 @@ export function CutPointImpactAnalysis({ measure, displayName }: Props) {
   useEffect(() => {
     if (measure) fetchData();
   }, [measure, fetchData]);
+
+  useEffect(() => {
+    if (!measure) return;
+    let cancelled = false;
+    setForecast(null);
+    fetchMethodologyForecast(measure, populationMode)
+      .then((result) => {
+        if (!cancelled) setForecast(result);
+      })
+      .catch(() => {
+        if (!cancelled) setForecast(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [measure, populationMode]);
 
   if (isLoading) {
     return <div className="rounded-2xl border border-border bg-card p-8 text-sm text-muted-foreground">Loading cut point impact analysis...</div>;
@@ -187,8 +254,20 @@ export function CutPointImpactAnalysis({ measure, displayName }: Props) {
     <div className="space-y-6">
       <CaveatsBanner transitionCount={data.transitionCount} />
 
+      <ClientDataControls
+        populationMode={populationMode}
+        onChangePopulation={setPopulationMode}
+        forecast={forecast}
+        displayName={displayName}
+      />
+
       {hasProjections && (
-        <ProjectionCards perBand={data.perBand} displayName={displayName} projectionYear={data.projectionYear} />
+        <ProjectionCards
+          perBand={data.perBand}
+          displayName={displayName}
+          projectionYear={data.projectionYear}
+          forecast={forecast}
+        />
       )}
 
       {data.historicalCutPoints.length > 1 && (
@@ -348,9 +427,78 @@ function CaveatsBanner({ transitionCount }: { transitionCount: number }) {
   );
 }
 
-function ProjectionCards({ perBand, displayName, projectionYear }: { perBand: CutPointImpactSummary[]; displayName: string; projectionYear: number }) {
+function ClientDataControls({
+  populationMode,
+  onChangePopulation,
+  forecast,
+  displayName,
+}: {
+  populationMode: ForecastPopulationMode;
+  onChangePopulation: (mode: ForecastPopulationMode) => void;
+  forecast: MethodologyForecast | null;
+  displayName: string;
+}) {
+  const ready = forecast?.status === "ready";
+  const statusText = !forecast
+    ? "Loading projected client data…"
+    : forecast.status === "ready"
+      ? `Applying the CMS methodology to ${forecast.populationMode === "client_only" ? "client-only" : "full-market overlaid"} projected ${forecast.forecastYear} scores${forecast.runStatus ? ` (${forecast.runStatus} run)` : ""}.`
+      : forecast.status === "unsupported"
+        ? forecast.reason ?? "This measure is not supported for projected cut points."
+        : forecast.reason ?? "No approved projection run is available. Upload current client data under Admin → Forecast.";
+
+  return (
+    <section className="rounded-2xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center gap-4">
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">Projected Population</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onChangePopulation("full_market")}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                populationMode === "full_market"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Full Market Overlay
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangePopulation("client_only")}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                populationMode === "client_only"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Client Only
+            </button>
+          </div>
+        </div>
+        <p className={`flex items-start gap-1.5 text-xs ${ready ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400"}`}>
+          {!ready && <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+          <span>{displayName} · {statusText}</span>
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function ProjectionCards({ perBand, displayName, projectionYear, forecast }: {
+  perBand: CutPointImpactSummary[];
+  displayName: string;
+  projectionYear: number;
+  forecast: MethodologyForecast | null;
+}) {
   const showable = perBand.filter((b) => b.projectedNextCutPoint !== null || b.projectionConfidence === "suppressed");
   if (showable.length === 0) return null;
+
+  const methodologyByKey = new Map<ThresholdKey, MethodologyForecastThreshold>(
+    forecast?.status === "ready" ? forecast.thresholds.map((t) => [t.key, t]) : []
+  );
+  const forecastYear = forecast?.status === "ready" ? forecast.forecastYear : null;
 
   const confidenceBorder: Record<ProjectionConfidence, string> = {
     reasonable: "border-border",
@@ -372,9 +520,14 @@ function ProjectionCards({ perBand, displayName, projectionYear }: { perBand: Cu
       </h3>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {showable.map((band) => {
-          const forecast = band.forecastCutPoints[0];
+          const forecastCutPoint = band.forecastCutPoints[0];
           const isSuppressed = band.projectionConfidence === "suppressed";
           const badge = confidenceLabel[band.projectionConfidence];
+          const methodology = methodologyByKey.get(band.thresholdKey);
+          const methodologyDelta =
+            methodology && band.latestCutPoint !== null
+              ? Number((methodology.projected - band.latestCutPoint).toFixed(2))
+              : null;
 
           return (
             <div key={band.thresholdKey} className={`rounded-2xl border bg-muted/40 p-4 ${confidenceBorder[band.projectionConfidence]}`}>
@@ -408,19 +561,38 @@ function ProjectionCards({ perBand, displayName, projectionYear }: { perBand: Cu
                     <span className="ml-1">(Δ {fmtDelta(band.projectedDelta)})</span>
                   )}
                 </p>
-                {!isSuppressed && band.projectionMethod === "blended" && forecast && (
+                {!isSuppressed && band.projectionMethod === "blended" && forecastCutPoint && (
                   <p className="text-[11px]">
-                    Forecast: {forecast.value.toFixed(2)} · Regression: {band.regressionOnlyProjection?.toFixed(2)}
+                    Forecast: {forecastCutPoint.value.toFixed(2)} · Regression: {band.regressionOnlyProjection?.toFixed(2)}
                   </p>
                 )}
                 {!isSuppressed && band.projectionMethod === "regression_only" && band.fit && (
                   <p>Based on avg score change of {fmtDelta(band.latestAvgScoreChange)} pts (r={fmtR(band.fit.r)})</p>
                 )}
-                {!isSuppressed && band.projectionMethod === "forecast_only" && forecast && (
+                {!isSuppressed && band.projectionMethod === "forecast_only" && forecastCutPoint && (
                   <p>Based on workbook forecast (no regression adjustment)</p>
                 )}
-                {isSuppressed && forecast && (
-                  <p>Workbook forecast ({forecast.year}): {forecast.value.toFixed(2)}</p>
+                {isSuppressed && forecastCutPoint && (
+                  <p>Workbook forecast ({forecastCutPoint.year}): {forecastCutPoint.value.toFixed(2)}</p>
+                )}
+                {methodology && (
+                  <div className="mt-1.5 border-t border-border/60 pt-1.5">
+                    <p className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-sky-600 dark:text-sky-400">
+                        <Sparkles className="h-3 w-3" />
+                        CMS methodology{forecastYear ? ` (${forecastYear})` : ""}
+                      </span>
+                      <span className="font-semibold tabular-nums text-foreground">
+                        {methodology.projected.toFixed(2)}
+                        {methodologyDelta !== null && (
+                          <span className="ml-1 font-normal text-muted-foreground">(Δ {fmtDelta(methodologyDelta)})</span>
+                        )}
+                      </span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Clustering/CAHPS on projected client scores — independent of the score-movement regression above.
+                    </p>
+                  </div>
                 )}
                 {band.projectionWarnings.length > 0 && (
                   <div className="mt-1.5 space-y-0.5">

@@ -341,7 +341,28 @@ export function getAvailableMeasureYears(): number[] {
 
 export function getMeasureByNormalizedName(measureNorm: string): UnifiedMeasure | null {
   const { measures } = ensureData();
-  return measures.find((measure) => measure.normalizedName === measureNorm) ?? null;
+  const exact = measures.find((m) => m.normalizedName === measureNorm);
+  if (exact) return exact;
+
+  const partMatch = measureNorm.match(/^(.+) (partc|partd)$/);
+  const baseName = partMatch ? partMatch[1] : measureNorm;
+  const existingSuffix = partMatch ? ` ${partMatch[2]}` : null;
+
+  const aliased = normalizeMeasureName(baseName);
+  const candidates = aliased !== baseName
+    ? [aliased, `${aliased} partc`, `${aliased} partd`]
+    : [];
+  if (existingSuffix) {
+    candidates.push(baseName + existingSuffix);
+  }
+  candidates.push(`${measureNorm} partc`, `${measureNorm} partd`);
+
+  for (const candidate of candidates) {
+    const found = measures.find((m) => m.normalizedName === candidate);
+    if (found) return found;
+  }
+
+  return null;
 }
 
 export function getMeasureYearScoreSamples(measureNorm: string, year: number): MeasureScoreSample[] {
@@ -438,6 +459,19 @@ export type HistoricalBandMovementResponse = {
 export function getAvailableOptions(): { measures: UnifiedMeasure[]; transitions: number[] } {
   const { measures } = ensureData();
   return { measures, transitions: [...TRANSITION_FROM_YEARS] };
+}
+
+export function getLatestContractRecords(): ContractRecord[] {
+  const { years } = ensureData();
+  const latestYear = AVAILABLE_YEARS[AVAILABLE_YEARS.length - 1];
+  const yearData = years.get(latestYear);
+  if (!yearData) return [];
+
+  return [...yearData.contracts.values()].sort(
+    (left, right) =>
+      left.parentOrg.localeCompare(right.parentOrg) ||
+      left.contractId.localeCompare(right.contractId)
+  );
 }
 
 export function analyzeHistoricalBandMovement(

@@ -7,10 +7,11 @@ import {
   type BandMovementResponse,
   type HistoricalBandMovementResponse,
 } from "@/lib/band-movement/analysis";
-import { analyzeCutPointMethodologyBacktest, ensureOfficialCutPoints, loadClientContractIds } from "@/lib/band-movement/cut-point-methodology";
+import { analyzeCutPointMethodologyBacktest, analyzeCutPointMethodologyOverall, ensureOfficialCutPoints, loadClientContractIds } from "@/lib/band-movement/cut-point-methodology";
 import { analyzeCutPointImpact } from "@/lib/band-movement/cut-point-impact";
 import { analyzeRosterAccuracyCurve } from "@/lib/band-movement/roster-accuracy-curve";
 import { analyzeDecimalUpliftCurve } from "@/lib/band-movement/decimal-uplift-curve";
+import { analyzeApprovedCutPointForecast } from "@/lib/cutpoint-forecast/analysis";
 
 export const runtime = "nodejs";
 
@@ -89,6 +90,13 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    if (view === "methodology-backtest-overall") {
+      const result = analyzeCutPointMethodologyOverall();
+      return NextResponse.json(result, {
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+
     if (view === "methodology-backtest") {
       if (!measure) {
         return NextResponse.json(
@@ -100,6 +108,30 @@ export async function GET(req: NextRequest) {
       const clientOnly = searchParams.get("clientOnly") === "true";
       const contractFilter = clientOnly ? loadClientContractIds() : undefined;
       const result = analyzeCutPointMethodologyBacktest(measure, contractFilter);
+      const status = result.status === "unsupported" ? 400 : 200;
+      return NextResponse.json(result, {
+        status,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+
+    if (view === "methodology-forecast") {
+      if (!measure) {
+        return NextResponse.json(
+          { error: "measure parameter is required for methodology-forecast view" },
+          { status: 400 }
+        );
+      }
+
+      const forecastYear = parseYearParam(searchParams.get("forecastYear")) ?? undefined;
+      const populationMode = searchParams.get("populationMode") === "client_only"
+        ? "client_only"
+        : "full_market";
+      const result = await analyzeApprovedCutPointForecast(
+        measure,
+        forecastYear,
+        populationMode
+      );
       const status = result.status === "unsupported" ? 400 : 200;
       return NextResponse.json(result, {
         status,

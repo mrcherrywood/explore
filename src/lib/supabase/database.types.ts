@@ -440,6 +440,315 @@ export interface Database {
           year?: number
         }
       }
+      forecast_import_batches: {
+        Row: {
+          id: string
+          file_name: string
+          forecast_year: number
+          row_count: number
+          contract_count: number
+          measure_count: number
+          source_sheet: string | null
+          latest_observed_year: number | null
+          latest_observed_month: number | null
+          imported_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          file_name: string
+          forecast_year: number
+          row_count?: number
+          contract_count?: number
+          measure_count?: number
+          source_sheet?: string | null
+          latest_observed_year?: number | null
+          latest_observed_month?: number | null
+          imported_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          file_name?: string
+          forecast_year?: number
+          row_count?: number
+          contract_count?: number
+          measure_count?: number
+          source_sheet?: string | null
+          latest_observed_year?: number | null
+          latest_observed_month?: number | null
+          imported_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      forecast_monthly_measure_history: {
+        Row: {
+          id: string
+          batch_id: string
+          source_row_number: number
+          hl_code: string | null
+          contract_id: string
+          measure_name: string
+          measure_display_name: string
+          measure_normalized: string
+          measure_code: string | null
+          metric_category: string
+          data_year: number
+          data_month: number
+          normalized_month: number
+          rate: number | null
+          numerator_all: number | null
+          denominator_all: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          batch_id: string
+          source_row_number: number
+          hl_code?: string | null
+          contract_id: string
+          measure_name: string
+          measure_display_name: string
+          measure_normalized: string
+          measure_code?: string | null
+          metric_category: string
+          data_year: number
+          data_month: number
+          normalized_month: number
+          rate?: number | null
+          numerator_all?: number | null
+          denominator_all?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          batch_id?: string
+          source_row_number?: number
+          hl_code?: string | null
+          contract_id?: string
+          measure_name?: string
+          measure_display_name?: string
+          measure_normalized?: string
+          measure_code?: string | null
+          metric_category?: string
+          data_year?: number
+          data_month?: number
+          normalized_month?: number
+          rate?: number | null
+          numerator_all?: number | null
+          denominator_all?: number | null
+          created_at?: string
+        }
+      }
+      forecast_measure_approvals: {
+        Row: {
+          id: string
+          run_id: string
+          measure_normalized: string
+          measure_display_name: string
+          approved_by: string | null
+          approved_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          run_id: string
+          measure_normalized: string
+          measure_display_name: string
+          approved_by?: string | null
+          approved_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          run_id?: string
+          measure_normalized?: string
+          measure_display_name?: string
+          approved_by?: string | null
+          approved_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      forecast_projection_runs: {
+        Row: {
+          id: string
+          source_batch_id: string | null
+          forecast_year: number
+          status: string
+          dataset_type: string
+          as_of_year: number | null
+          as_of_month: number | null
+          model_version: string | null
+          projection_count: number
+          notes: string | null
+          imported_by: string | null
+          approved_by: string | null
+          approved_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          source_batch_id?: string | null
+          forecast_year: number
+          status?: string
+          dataset_type?: string
+          as_of_year?: number | null
+          as_of_month?: number | null
+          model_version?: string | null
+          projection_count?: number
+          notes?: string | null
+          imported_by?: string | null
+          approved_by?: string | null
+          approved_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          source_batch_id?: string | null
+          forecast_year?: number
+          status?: string
+          dataset_type?: string
+          as_of_year?: number | null
+          as_of_month?: number | null
+          model_version?: string | null
+          projection_count?: number
+          notes?: string | null
+          imported_by?: string | null
+          approved_by?: string | null
+          approved_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      forecast_year_end_projections: {
+        Row: {
+          id: string
+          run_id: string
+          forecast_year: number
+          contract_id: string
+          measure_name: string
+          measure_display_name: string
+          measure_normalized: string
+          measure_code: string | null
+          hl_code: string | null
+          metric_category: string
+          model_score: number
+          manual_score: number | null
+          final_score: number
+          confidence: number
+          confidence_label: string
+          trend_slope: number | null
+          seasonality_delta: number | null
+          last_observed_year: number | null
+          last_observed_month: number | null
+          last_observed_score: number | null
+          supporting_points: number
+          notes: string[]
+          updated_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          run_id: string
+          forecast_year: number
+          contract_id: string
+          measure_name: string
+          measure_display_name: string
+          measure_normalized: string
+          measure_code?: string | null
+          hl_code?: string | null
+          metric_category: string
+          model_score: number
+          manual_score?: number | null
+          final_score: number
+          confidence: number
+          confidence_label: string
+          trend_slope?: number | null
+          seasonality_delta?: number | null
+          last_observed_year?: number | null
+          last_observed_month?: number | null
+          last_observed_score?: number | null
+          supporting_points?: number
+          notes?: string[]
+          updated_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          run_id?: string
+          forecast_year?: number
+          contract_id?: string
+          measure_name?: string
+          measure_display_name?: string
+          measure_normalized?: string
+          measure_code?: string | null
+          hl_code?: string | null
+          metric_category?: string
+          model_score?: number
+          manual_score?: number | null
+          final_score?: number
+          confidence?: number
+          confidence_label?: string
+          trend_slope?: number | null
+          seasonality_delta?: number | null
+          last_observed_year?: number | null
+          last_observed_month?: number | null
+          last_observed_score?: number | null
+          supporting_points?: number
+          notes?: string[]
+          updated_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      user_approvals: {
+        Row: {
+          id: string
+          user_id: string
+          email: string
+          status: string
+          requested_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email: string
+          status?: string
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email?: string
+          status?: string
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

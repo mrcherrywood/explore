@@ -4,10 +4,12 @@ import test from "node:test";
 import {
   applyGuardrails,
   assignResampleFolds,
+  buildMethodologyBacktestExport,
   clusterScoresWard,
   computeCahpsPercentileThresholds,
   computeTukeyFences,
   deriveThresholdsFromClusters,
+  methodologyBacktestExportToCsv,
 } from "./cut-point-methodology";
 
 test("computeTukeyFences caps outer fences to 0-100 bounds", () => {
@@ -85,6 +87,20 @@ test("computeCahpsPercentileThresholds produces monotonically increasing values"
   assert.equal(thresholds.twoStar <= thresholds.threeStar, true, "2★ <= 3★");
   assert.equal(thresholds.threeStar <= thresholds.fourStar, true, "3★ <= 4★");
   assert.equal(thresholds.fourStar <= thresholds.fiveStar, true, "4★ <= 5★");
+});
+
+test("buildMethodologyBacktestExport returns threshold and unsupported rows", () => {
+  const bundle = buildMethodologyBacktestExport();
+  assert.ok(bundle.generatedAt.length > 0);
+  assert.ok(bundle.clientContractCount >= 0);
+  assert.ok(bundle.rows.length > 0);
+
+  const kinds = new Set(bundle.rows.map((r) => r.rowKind));
+  assert.ok(kinds.has("threshold") || kinds.has("unsupported"));
+
+  const csv = methodologyBacktestExportToCsv(bundle);
+  assert.ok(csv.includes("measure_normalized"));
+  assert.ok(csv.includes("\n"));
 });
 
 test("applyGuardrails caps threshold movement to five points on 0-100 scales", () => {
