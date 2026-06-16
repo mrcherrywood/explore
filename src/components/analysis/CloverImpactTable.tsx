@@ -99,21 +99,32 @@ function SortHeader({
 export function CloverImpactTable({ contracts, selectedContractId, onSelectContract }: Props) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [parentFilter, setParentFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("model1Change");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
+  const parentOptions = useMemo(() => {
+    const parents = new Set(
+      contracts.map((contract) => contract.parentOrganization).filter((parent): parent is string => Boolean(parent)),
+    );
+    return Array.from(parents).sort((a, b) => a.localeCompare(b));
+  }, [contracts]);
+
   const filteredContracts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    const filtered = query
-      ? contracts.filter((contract) =>
-          contract.contractId.toLowerCase().includes(query) ||
-          contract.contractName?.toLowerCase().includes(query) ||
-          contract.organizationMarketingName?.toLowerCase().includes(query) ||
-          contract.parentOrganization?.toLowerCase().includes(query),
-        )
-      : contracts;
+    const filtered = contracts.filter((contract) => {
+      const matchesParent = parentFilter === "all" || contract.parentOrganization === parentFilter;
+      if (!matchesParent) return false;
+      if (!query) return true;
+      return (
+        contract.contractId.toLowerCase().includes(query) ||
+        contract.contractName?.toLowerCase().includes(query) ||
+        contract.organizationMarketingName?.toLowerCase().includes(query) ||
+        contract.parentOrganization?.toLowerCase().includes(query)
+      );
+    });
 
     return [...filtered].sort((a, b) => {
       const aValue = getSortValue(a, sortKey);
@@ -131,7 +142,7 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
         ? (aValue as number) - (bValue as number)
         : (bValue as number) - (aValue as number);
     });
-  }, [contracts, searchQuery, sortDirection, sortKey]);
+  }, [contracts, parentFilter, searchQuery, sortDirection, sortKey]);
 
   const totalPages = Math.max(1, Math.ceil(filteredContracts.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -157,6 +168,22 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <ExportCsvButton tableRef={tableRef} fileName="clover-scenario-impact" />
+          <select
+            value={parentFilter}
+            onChange={(event) => {
+              setParentFilter(event.target.value);
+              setPage(1);
+            }}
+            className="max-w-[220px] rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            title="Filter the table to a single parent organization."
+          >
+            <option value="all">All parent organizations</option>
+            {parentOptions.map((parent) => (
+              <option key={parent} value={parent}>
+                {parent}
+              </option>
+            ))}
+          </select>
           <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
             <Search className="h-4 w-4 text-muted-foreground" />
             <input

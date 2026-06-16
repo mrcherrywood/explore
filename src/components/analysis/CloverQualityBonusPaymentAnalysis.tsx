@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 import type { CsvData } from "@/lib/export/csv";
 import type { CloverContractImpact } from "@/lib/clover-impact/analysis";
@@ -244,7 +244,20 @@ export function CloverQualityBonusPaymentAnalysis({ contracts }: { contracts: Cl
     () => impacts.flatMap((impact) => impact.changedRows.map((row) => ({ ...row, scenarioLabel: impact.label }))),
     [impacts],
   );
-  const changedRows = useMemo(() => allChangedRows.slice(0, 25), [allChangedRows]);
+
+  const [parentFilter, setParentFilter] = useState<string>("all");
+
+  const parentOptions = useMemo(() => {
+    const parents = new Set(allChangedRows.map((row) => row.parentOrganization));
+    return Array.from(parents).sort((a, b) => a.localeCompare(b));
+  }, [allChangedRows]);
+
+  const filteredChangedRows = useMemo(
+    () => (parentFilter === "all" ? allChangedRows : allChangedRows.filter((row) => row.parentOrganization === parentFilter)),
+    [allChangedRows, parentFilter],
+  );
+
+  const changedRows = useMemo(() => filteredChangedRows.slice(0, 25), [filteredChangedRows]);
 
   const getCsvData = (): CsvData => ({
     headers: [
@@ -259,7 +272,7 @@ export function CloverQualityBonusPaymentAnalysis({ contracts }: { contracts: Cl
       "Est. Annual Swing",
       "QBP Status",
     ],
-    rows: allChangedRows.map((row) => [
+    rows: filteredChangedRows.map((row) => [
       row.scenarioLabel,
       row.contractId,
       row.organizationName,
@@ -287,7 +300,7 @@ export function CloverQualityBonusPaymentAnalysis({ contracts }: { contracts: Cl
         <ExportCsvButton
           fileName="clover-qbp-eligibility-changes"
           getData={getCsvData}
-          disabled={allChangedRows.length === 0}
+          disabled={filteredChangedRows.length === 0}
           className="shrink-0"
         />
       </div>
@@ -298,7 +311,29 @@ export function CloverQualityBonusPaymentAnalysis({ contracts }: { contracts: Cl
         ))}
       </div>
 
-      <div className="mt-5 overflow-x-auto">
+      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="font-medium">Parent organization</span>
+          <select
+            value={parentFilter}
+            onChange={(event) => setParentFilter(event.target.value)}
+            className="rounded-md border border-border bg-card px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            <option value="all">All parent organizations</option>
+            {parentOptions.map((parent) => (
+              <option key={parent} value={parent}>
+                {parent}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="text-xs text-muted-foreground">
+          Showing <span className="font-medium tabular-nums text-foreground">{changedRows.length}</span> of{" "}
+          <span className="font-medium tabular-nums text-foreground">{filteredChangedRows.length}</span> changed contracts
+        </p>
+      </div>
+
+      <div className="mt-3 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/30 text-xs text-muted-foreground">
