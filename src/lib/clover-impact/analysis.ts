@@ -41,6 +41,21 @@ const OVERALL_CAI_VALUE_BY_FAC_2026 = new Map<number, number>([
   [9, 0.145515],
 ]);
 
+// 2026 Star Ratings Technical Notes, Table 15: Final Adjustment Categories and
+// CAI Values for the Part C Summary. The official recalculation removes all Part D
+// measures, so the resulting rating is a Part C summary rating and uses the Part C
+// CAI keyed by Part C FAC (not the Overall MA-PD CAI used for the full rating).
+const PART_C_CAI_VALUE_BY_FAC_2026 = new Map<number, number>([
+  [1, -0.058259],
+  [2, -0.036927],
+  [3, -0.013699],
+  [4, 0.004022],
+  [5, 0.032302],
+  [6, 0.059788],
+  [7, 0.080451],
+  [8, 0.10237],
+]);
+
 type RawSummaryRow = Record<string, string | number | null | undefined>;
 type RawEnrollmentRow = {
   CONTRACT_ID?: string | null;
@@ -49,6 +64,7 @@ type RawEnrollmentRow = {
 type RawCaiRow = RawSummaryRow & {
   CONTRACT_ID?: string | number | null;
   "Overall FAC"?: string | number | null;
+  "Part C FAC"?: string | number | null;
   "CAI Value"?: string | number | null;
 };
 
@@ -174,7 +190,11 @@ function loadOfficialOverallRatings(year: number): Map<string, number> {
   return ratings;
 }
 
-function loadCaiAdjustments(year: number): Map<string, number> {
+function loadCaiAdjustmentsByFac(
+  year: number,
+  facKey: "Overall FAC" | "Part C FAC",
+  valueMap: Map<number, number>,
+): Map<string, number> {
   const filePath = path.join(DATA_DIR, String(year), `cai_${year}.json`);
   const rows: RawCaiRow[] = JSON.parse(readFileSync(filePath, "utf-8"));
   const adjustments = new Map<string, number>();
@@ -189,9 +209,9 @@ function loadCaiAdjustments(year: number): Map<string, number> {
       continue;
     }
 
-    const overallFac = parseRating(row["Overall FAC"]);
-    if (year === 2026 && overallFac !== null) {
-      const mappedCaiValue = OVERALL_CAI_VALUE_BY_FAC_2026.get(overallFac);
+    const fac = parseRating(row[facKey]);
+    if (year === 2026 && fac !== null) {
+      const mappedCaiValue = valueMap.get(fac);
       if (mappedCaiValue !== undefined) {
         adjustments.set(contractId, mappedCaiValue);
       }
@@ -199,6 +219,18 @@ function loadCaiAdjustments(year: number): Map<string, number> {
   }
 
   return adjustments;
+}
+
+// Overall MA-PD CAI (keyed by Overall FAC) for the full rating and every scenario
+// that retains Part D measures.
+function loadCaiAdjustments(year: number): Map<string, number> {
+  return loadCaiAdjustmentsByFac(year, "Overall FAC", OVERALL_CAI_VALUE_BY_FAC_2026);
+}
+
+// Part C summary CAI (keyed by Part C FAC) for the official recalculation, which
+// removes all Part D measures and is therefore a Part C summary rating.
+function loadPartCCaiAdjustments(year: number): Map<string, number> {
+  return loadCaiAdjustmentsByFac(year, "Part C FAC", PART_C_CAI_VALUE_BY_FAC_2026);
 }
 
 function loadMeasureNames(year: number): Map<string, string> {
@@ -623,13 +655,21 @@ export function analyzeCloverImpact(): CloverImpactResult {
   const measureNames2026 = loadMeasureNames(SOURCE_YEAR);
   const measureValues2026 = loadMeasureValues(SOURCE_YEAR);
   const caiAdjustments2026 = loadCaiAdjustments(SOURCE_YEAR);
+  const caiAdjustmentsPartC2026 = loadPartCCaiAdjustments(SOURCE_YEAR);
   const measureStars2026 = loadMeasureStarsFromFile(SOURCE_YEAR);
   const enrollment = loadLatestEnrollment();
   const population = filterOverallMapdPopulation(measureStars2026, official2026);
 
   const calculated2026 = computeCalculatedBaseline(population, caiAdjustments2026);
   const scenarioComputations = CLOVER_COMPUTED_SCENARIOS.map((scenario) =>
-    computeScenario(scenario, population, caiAdjustments2026),
+    computeScenario(
+      scenario,
+      population,
+      // The official recalc removes all Part D, becoming a Part C summary rating,
+      // so it uses the Part C CAI; every other scenario retains Part D and uses
+      // the Overall MA-PD CAI.
+      scenario.id === "officialRecalc" ? caiAdjustmentsPartC2026 : caiAdjustments2026,
+    ),
   );
   const contracts: CloverContractImpact[] = [];
 
