@@ -11,6 +11,9 @@ type SortKey =
   | "parentOrganization"
   | "stars2025"
   | "stars2026"
+  | "officialRecalc"
+  | "officialRecalcChange"
+  | "qbpFinal"
   | "s29Removal"
   | "model1"
   | "model2"
@@ -51,6 +54,12 @@ function getSortValue(contract: CloverContractImpact, key: SortKey): string | nu
       return contract.scores.stars2025;
     case "stars2026":
       return contract.scores.stars2026;
+    case "officialRecalc":
+      return contract.scores.officialRecalc;
+    case "officialRecalcChange":
+      return contract.changesFromStars2026.officialRecalc;
+    case "qbpFinal":
+      return contract.qbp2027.finalRating;
     case "s29Removal":
       return contract.scores.s29Removal;
     case "model1":
@@ -100,7 +109,7 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
   const tableRef = useRef<HTMLTableElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [parentFilter, setParentFilter] = useState<string>("all");
-  const [sortKey, setSortKey] = useState<SortKey>("model1Change");
+  const [sortKey, setSortKey] = useState<SortKey>("officialRecalcChange");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
@@ -156,7 +165,11 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
     }
 
     setSortKey(key);
-    setSortDirection(["model1Change", "model2Change", "s29Removal", "model1", "model2"].includes(key) ? "desc" : "asc");
+    setSortDirection(
+      ["officialRecalcChange", "officialRecalc", "qbpFinal", "model1Change", "model2Change", "s29Removal", "model1", "model2"].includes(key)
+        ? "desc"
+        : "asc",
+    );
   };
 
   return (
@@ -207,7 +220,10 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
               <th className="px-4 py-3 text-left"><SortHeader label="Contract" tooltip="CMS contract ID. Click a contract to update the chart above." value="contractId" align="left" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-left"><SortHeader label="Parent" tooltip="Organization marketing name and parent organization for the contract." value="parentOrganization" align="left" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="2025" tooltip="Official CMS 2025 overall Stars rating from the summary file, when available." value="stars2025" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="2026" tooltip="Official CMS 2026 overall Stars rating from the summary file." value="stars2026" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
+              <th className="px-4 py-3 text-right"><SortHeader label="2026" tooltip="Official CMS Stars 2026 overall rating from the summary file. This rating drives the 2027 QBP." value="stars2026" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
+              <th className="px-4 py-3 text-right"><SortHeader label="Official Recalc" tooltip="CMS June 17, 2026 Stars 2026 recalculation: Part C HEDIS/CAHPS/HOS only, removing all Part D and six named Part C measures (unrounded calculated score)." value="officialRecalc" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
+              <th className="px-4 py-3 text-right"><SortHeader label="Recalc Change" tooltip="Official recalculation score minus the official Stars 2026 overall rating." value="officialRecalcChange" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
+              <th className="px-4 py-3 text-right"><SortHeader label="Stars 2026 (HH)" tooltip="Final hold-harmless Stars 2026 rating (drives the 2027 QBP): the higher of the original rating and the rounded recalculation. No contract is downgraded." value="qbpFinal" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="S29 Removal" tooltip="Calculated score after removing the operations and CAHPS-style measures from the S29 removal scenario." value="s29Removal" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="Model 1" tooltip="Calculated score after removing the ten 1395w-22(e) data-source measures from the Clover scenario." value="model1" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="Model 2" tooltip="Calculated score after removing the full 20-measure Clover scenario set." value="model2" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
@@ -243,6 +259,23 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
                 </td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.stars2025)}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.stars2026)}</td>
+                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.officialRecalc)}</td>
+                <td className={`px-4 py-3 text-right font-mono text-xs font-semibold ${getChangeClass(contract.changesFromStars2026.officialRecalc)}`}>
+                  {formatChange(contract.changesFromStars2026.officialRecalc)}
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  <span className={contract.qbp2027.ratingIncreased ? "font-semibold text-emerald-500" : "text-foreground"}>
+                    {formatScore(contract.qbp2027.finalRating)}
+                  </span>
+                  {contract.qbp2027.bidResubmissionEligible ? (
+                    <span
+                      title="Increase reaches or raises a benchmark/rebate tier — eligible to resubmit the 2027 bid per the CMS deadlines."
+                      className="ml-1 rounded bg-emerald-500/10 px-1 py-0.5 text-[9px] font-medium text-emerald-500"
+                    >
+                      bid
+                    </span>
+                  ) : null}
+                </td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.s29Removal)}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.model1)}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.model2)}</td>

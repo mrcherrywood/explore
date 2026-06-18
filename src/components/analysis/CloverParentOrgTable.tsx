@@ -9,6 +9,8 @@ type ParentOrgImpact = {
   parentOrganization: string;
   contractCount: number;
   avgOfficial2026: number | null;
+  avgOfficialRecalc: number | null;
+  qbpImprovedContracts: number;
   avgNoQI: number | null;
   avgS29Removal: number | null;
   avgModel1: number | null;
@@ -26,6 +28,8 @@ type SortKey = keyof Pick<
   | "parentOrganization"
   | "contractCount"
   | "avgOfficial2026"
+  | "avgOfficialRecalc"
+  | "qbpImprovedContracts"
   | "avgNoQI"
   | "avgS29Removal"
   | "avgModel1"
@@ -81,6 +85,8 @@ function buildParentOrgRows(contracts: CloverContractImpact[]): ParentOrgImpact[
       parentOrganization,
       contractCount: group.length,
       avgOfficial2026: average(group.map((contract) => contract.officialScores.stars2026)),
+      avgOfficialRecalc: average(group.map((contract) => contract.scores.officialRecalc)),
+      qbpImprovedContracts: group.filter((contract) => contract.qbp2027.ratingIncreased).length,
       avgNoQI: average(group.map((contract) => contract.scores.s26NoQI)),
       avgS29Removal: average(group.map((contract) => contract.scores.s29Removal)),
       avgModel1: average(group.map((contract) => contract.scores.model1)),
@@ -212,6 +218,8 @@ export function CloverParentOrgTable({ contracts, selectedParent, onSelectParent
               <th className="px-4 py-3 text-left"><SortHeader label="Parent Organization" tooltip="Parent organization name. Click a row to select that parent above." value="parentOrganization" align="left" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="Contracts" tooltip="Number of analyzed H+R MA-PD contracts under this parent organization." value="contractCount" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="Official 2026" tooltip="Average official CMS 2026 overall Stars rating across contracts with a published rating." value="avgOfficial2026" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
+              <th className="px-4 py-3 text-right"><SortHeader label="Official Recalc" tooltip="Average official Stars 2026 recalculation score (Part C HEDIS/CAHPS/HOS only, removing all Part D and six named Part C measures)." value="avgOfficialRecalc" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
+              <th className="px-4 py-3 text-center"><SortHeader label="S26 Improved" tooltip="Number of contracts whose hold-harmless Stars 2026 rating increases under the official recalculation (driving a higher 2027 QBP)." value="qbpImprovedContracts" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="No QI" tooltip="Average calculated score after removing the Quality Improvement measures." value="avgNoQI" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="S29 Removal" tooltip="Average calculated score after removing the S29 operations and CAHPS-style measure set." value="avgS29Removal" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
               <th className="px-4 py-3 text-right"><SortHeader label="Model 1" tooltip="Average calculated score after removing the ten Model 1 Clover measures." value="avgModel1" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
@@ -241,6 +249,14 @@ export function CloverParentOrgTable({ contracts, selectedParent, onSelectParent
                 </td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{row.contractCount}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(row.avgOfficial2026)}</td>
+                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(row.avgOfficialRecalc)}</td>
+                <td className="px-4 py-3 text-center font-mono text-xs">
+                  {row.qbpImprovedContracts > 0 ? (
+                    <span className="text-emerald-500">{row.qbpImprovedContracts}</span>
+                  ) : (
+                    <span className="text-muted-foreground">0</span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(row.avgNoQI)}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(row.avgS29Removal)}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(row.avgModel1)}</td>

@@ -1,6 +1,7 @@
 export const QI_MEASURE_CODES = new Set(["C30", "D04"]);
 
 export type CloverComputedScenarioId =
+  | "officialRecalc"
   | "s26NoQI"
   | "s29Removal"
   | "model1"
@@ -11,9 +12,29 @@ export type CloverChartScoreId =
   | "s26WithQI"
   | "s26NoQI"
   | "stars2026"
+  | "officialRecalc"
   | "s29Removal"
   | "model1"
   | "model2";
+
+/**
+ * Measures CMS removed in the June 17, 2026 voluntary recalculation. The
+ * recalculated Stars 2026 rating drives the 2027 QBP rating: all Part D measures
+ * plus six named Part C measures are removed, leaving only the Part C
+ * HEDIS/CAHPS/HOS measures collected under 42 U.S.C. 1395w-22(e).
+ */
+export const OFFICIAL_RECALC_REMOVED_CODES = new Set([
+  // Named Part C removals
+  "C07", // Special Needs Plan (SNP) Care Management
+  "C28", // Complaints about the Health Plan
+  "C29", // Members Choosing to Leave the Plan
+  "C31", // Plan Makes Timely Decisions about Appeals
+  "C32", // Reviewing Appeals Decisions
+  "C33", // Call Center – Foreign Language Interpreter and TTY Availability (Part C)
+  // All Part D measures
+  "D01", "D02", "D03", "D04", "D05", "D06",
+  "D07", "D08", "D09", "D10", "D11", "D12",
+]);
 
 export type CloverComputedScenario = {
   id: CloverComputedScenarioId;
@@ -32,19 +53,29 @@ export type CloverChartScore = {
 };
 
 export const CLOVER_RULING_SUMMARY =
-  "A federal court ruled that CMS improperly included 20 measures in Clover's 2026 Star Rating calculation. This screen compares official 2025/2026 results with several what-if recalculations that remove the affected measure groups while holding Quality Improvement ratings constant where applicable.";
+  "Following Clover Insurance Co. v. HHS (S.D. Ga., May 27, 2026), CMS announced on June 17, 2026 that it is voluntarily recalculating the Stars 2026 ratings that drive the 2027 Quality Bonus Payment (QBP), using only Part C HEDIS/CAHPS/HOS measures — removing all Part D measures and six named Part C measures. The recalculated rating is assigned only when it is higher than the original Stars 2026 rating (hold-harmless: no contract is downgraded). This screen shows that official recalculation alongside speculative sensitivity models. It does not change the Stars 2027 ratings (Oct 2026) or 2028 QBP ratings.";
 
 export const CLOVER_CHART_SCORES: CloverChartScore[] = [
   { id: "stars2025", label: "Stars 2025", color: "#213a8f", source: "official" },
   { id: "s26WithQI", label: "S26 With QI", color: "#6d5a9e", source: "computed" },
   { id: "s26NoQI", label: "S26 No QI", color: "#9b529c", source: "computed" },
   { id: "stars2026", label: "Stars 2026", color: "#8ea5ee", source: "official" },
+  { id: "officialRecalc", label: "S26 Recalc (Official)", color: "#2f9e7e", source: "computed" },
   { id: "s29Removal", label: "S26 - S29 Removal", color: "#b9c9f6", source: "computed" },
   { id: "model1", label: "Model 1 Score", color: "#c45583", source: "computed" },
   { id: "model2", label: "Model 2 Score", color: "#f4c1a5", source: "computed" },
 ];
 
 export const CLOVER_COMPUTED_SCENARIOS: CloverComputedScenario[] = [
+  {
+    id: "officialRecalc",
+    label: "Stars 2026 Recalculation (Official CMS)",
+    shortLabel: "Official Recalc",
+    description:
+      "CMS's June 17, 2026 voluntary recalculation of the Stars 2026 rating that drives the 2027 QBP. Keeps only Part C HEDIS/CAHPS/HOS measures; removes all Part D measures and six named Part C measures: SNP Care Management, Complaints about the Health Plan, Members Choosing to Leave the Plan, Plan Makes Timely Decisions about Appeals, Reviewing Appeals Decisions, and Call Center – Foreign Language Interpreter and TTY Availability. The recalculated rating is applied only when it raises the contract's original Stars 2026 rating (hold-harmless).",
+    removedCodes: OFFICIAL_RECALC_REMOVED_CODES,
+    holdQiConstant: true,
+  },
   {
     id: "s26NoQI",
     label: "Stars 2026 - No QI",
@@ -108,6 +139,11 @@ export const CLOVER_SCENARIO_MEASURE_NOTES = [
   {
     label: "Stars 2025",
     description: "Official CMS overall Stars rating for Stars 2025.",
+  },
+  {
+    label: "Stars 2026 Recalculation (Official CMS)",
+    description:
+      "Models CMS's June 17, 2026 memo recalculating the Stars 2026 rating that drives the 2027 QBP, from only Part C HEDIS/CAHPS/HOS measures, removing all Part D measures and six named Part C measures. Hold-harmless: each contract's final Stars 2026 rating is the higher of its original rounded rating and the recalculated rounded rating, so no contract is downgraded. The official values live in HPMS; reward factor and CAI are applied here over the remaining measures as a modeling assumption. Contracts whose increase reaches or raises a benchmark/rebate tier (3.5/4.0/4.5 boundaries) are flagged as bid-resubmission eligible per the memo's June 22/June 29 deadlines.",
   },
   {
     label: "Stars 2026",

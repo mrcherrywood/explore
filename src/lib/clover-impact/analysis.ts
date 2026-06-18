@@ -59,6 +59,8 @@ export type CloverScenarioMeasureScore = {
   measureValue: string | null;
   starValue: number;
   weight: number;
+  /** True when this measure is removed in the scenario; false when it is kept. */
+  removed: boolean;
 };
 
 export type CloverScenarioDetail = {
@@ -74,6 +76,23 @@ export type CloverScenarioDetail = {
 
 export type CloverScenarioScores = Record<CloverChartScoreId, number | null>;
 
+export type CloverQbp2027 = {
+  /** Original official Stars 2026 rating (the rating that drives the 2027 QBP). */
+  originalRating: number | null;
+  /** Unrounded recalculated score from the official-recalc measure set. */
+  recalcRatingRaw: number | null;
+  /** Recalculated score rounded to the nearest half star. */
+  recalcRatingRounded: number | null;
+  /** Hold-harmless result: max(originalRating, recalcRatingRounded). */
+  finalRating: number | null;
+  /** True when the hold-harmless final rating is above the original. */
+  ratingIncreased: boolean;
+  /** True when the recalc came in lower, so the original rating is kept. */
+  heldHarmless: boolean;
+  /** True when the increase crosses a benchmark/rebate tier (resubmission-eligible). */
+  bidResubmissionEligible: boolean;
+};
+
 export type CloverContractImpact = {
   contractId: string;
   contractName: string | null;
@@ -85,6 +104,7 @@ export type CloverContractImpact = {
     stars2026: number | null;
   };
   scores: CloverScenarioScores;
+  qbp2027: CloverQbp2027;
   calculated2026Detail: CloverScenarioDetail | null;
   changesFromStars2026: Record<CloverComputedScenarioId, number | null>;
   scenarioDetails: Record<CloverComputedScenarioId, CloverScenarioDetail>;
@@ -338,9 +358,45 @@ function buildScoreTemplate(official2025: number | null, official2026: number | 
     s26WithQI: official2026,
     s26NoQI: null,
     stars2026: official2026,
+    officialRecalc: null,
     s29Removal: null,
     model1: null,
     model2: null,
+  };
+}
+
+/**
+ * Benchmark/rebate tier index used to flag bid-resubmission eligibility. The
+ * memo only lets contracts resubmit bids when a Stars 2026 increase impacts
+ * their benchmark or rebate amount. The QBP benchmark bonus applies at 4.0
+ * stars and rebate retention steps at 3.5 and 4.5 stars.
+ */
+function qbpRebateTier(rating: number | null): number {
+  if (rating === null) return 0;
+  if (rating >= 4.5) return 3;
+  if (rating >= 4.0) return 2;
+  if (rating >= 3.5) return 1;
+  return 0;
+}
+
+function buildQbp2027(officialRating: number | null, recalcRaw: number | null): CloverQbp2027 {
+  const recalcRounded = recalcRaw === null ? null : roundToHalf(recalcRaw);
+  const original = officialRating;
+  const finalRating =
+    original === null ? recalcRounded : recalcRounded === null ? original : Math.max(original, recalcRounded);
+  const ratingIncreased = original !== null && finalRating !== null && finalRating > original + 0.001;
+  const heldHarmless =
+    original !== null && recalcRounded !== null && recalcRounded < original - 0.001;
+  const bidResubmissionEligible = ratingIncreased && qbpRebateTier(finalRating) > qbpRebateTier(original);
+
+  return {
+    originalRating: original,
+    recalcRatingRaw: recalcRaw,
+    recalcRatingRounded: recalcRounded,
+    finalRating,
+    ratingIncreased,
+    heldHarmless,
+    bidResubmissionEligible,
   };
 }
 
@@ -365,7 +421,6 @@ function buildScenarioMeasureScores(
 
   for (const scenario of CLOVER_COMPUTED_SCENARIOS) {
     result[scenario.id] = measures
-      .filter((measure) => scenario.removedCodes.has(measure.code.toUpperCase()))
       .map((measure) => ({
         code: measure.code,
         name: measureNames.get(measure.code.toUpperCase()) ?? measure.code,
@@ -373,8 +428,10 @@ function buildScenarioMeasureScores(
         measureValue: measureValues?.get(measure.code.toUpperCase()) ?? null,
         starValue: measure.starValue,
         weight: measure.weight,
+        removed: scenario.removedCodes.has(measure.code.toUpperCase()),
       }))
       .sort((a, b) => {
+        if (a.removed !== b.removed) return a.removed ? -1 : 1;
         if (a.category !== b.category) return a.category.localeCompare(b.category);
         return a.code.localeCompare(b.code);
       });
@@ -607,6 +664,7 @@ export function analyzeCloverImpact(): CloverImpactResult {
         stars2026: official2026Score,
       },
       scores,
+      qbp2027: buildQbp2027(official2026Score, scores.officialRecalc),
       calculated2026Detail: calculated2026.get(contractId) ?? null,
       changesFromStars2026,
       scenarioDetails,

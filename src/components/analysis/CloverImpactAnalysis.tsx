@@ -5,6 +5,7 @@ import { AlertTriangle, ChevronDown, Loader2, Scale } from "lucide-react";
 import { CloverImpactTable } from "./CloverImpactTable";
 import { CloverParentOrgChart, type CloverParentWeightMode } from "./CloverParentOrgChart";
 import { CloverParentOrgTable } from "./CloverParentOrgTable";
+import { CloverQbpRecalcAnalysis } from "./CloverQbpRecalcAnalysis";
 import { CloverQualityBonusPaymentAnalysis } from "./CloverQualityBonusPaymentAnalysis";
 import { CloverScenarioMeasureScores } from "./CloverScenarioMeasureScores";
 import { CloverScenarioChart } from "./CloverScenarioChart";
@@ -79,6 +80,29 @@ function choosePreferredContract(contracts: CloverContractImpact[]): CloverContr
   return contracts.find((contract) => contract.contractId === "H8947") ?? contracts[0] ?? null;
 }
 
+type RewardFactorThresholds = {
+  mean65th: number;
+  mean85th: number;
+  variance30th: number;
+  variance70th: number;
+};
+
+function ThresholdRow({ label, thresholds }: { label: string; thresholds: RewardFactorThresholds }) {
+  return (
+    <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+      <span className="font-medium text-foreground">{label}</span>
+      <span title="Weighted mean percentile thresholds: 65th = relatively high, 85th = high performance">
+        Mean P65/P85: <span className="font-mono text-foreground">{thresholds.mean65th.toFixed(3)}</span> /{" "}
+        <span className="font-mono text-foreground">{thresholds.mean85th.toFixed(3)}</span>
+      </span>
+      <span title="Weighted variance percentile thresholds: 30th = low, 70th = medium/high variance">
+        Var P30/P70: <span className="font-mono text-foreground">{thresholds.variance30th.toFixed(3)}</span> /{" "}
+        <span className="font-mono text-foreground">{thresholds.variance70th.toFixed(3)}</span>
+      </span>
+    </p>
+  );
+}
+
 export function CloverImpactAnalysis() {
   const [data, setData] = useState<CloverImpactResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,6 +149,11 @@ export function CloverImpactAnalysis() {
   }, [data, selectedContractId]);
 
   const parentOptions = useMemo(() => uniqueSorted(data?.contracts.map((contract) => contract.parentOrganization) ?? []), [data]);
+
+  const summaryById = useMemo(
+    () => new Map((data?.summaries ?? []).map((summary) => [summary.id, summary])),
+    [data],
+  );
 
   const marketingOptions = useMemo(() => {
     if (!data || !selectedParent) return [];
@@ -366,6 +395,19 @@ export function CloverImpactAnalysis() {
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">{scenario.description}</p>
                   <p className="mt-2 font-mono text-[10px] text-muted-foreground">{scenario.removedCodes.join(", ")}</p>
+                  {(() => {
+                    const summary = summaryById.get(scenario.id);
+                    const withQI = summary?.thresholds.withQI ?? null;
+                    const withoutQI = summary?.thresholds.withoutQI ?? null;
+                    if (!withQI && !withoutQI) return null;
+                    return (
+                      <div className="mt-2 rounded-lg border border-border bg-card/40 p-2 text-[10px] text-muted-foreground">
+                        <p className="font-semibold text-foreground">Reward factor thresholds (PERCENTILE.INC)</p>
+                        {withQI ? <ThresholdRow label="With QI" thresholds={withQI} /> : null}
+                        {withoutQI ? <ThresholdRow label="No QI" thresholds={withoutQI} /> : null}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
@@ -448,6 +490,8 @@ export function CloverImpactAnalysis() {
       )}
 
       <CloverScenarioMeasureScores contract={selectedContract} scenarios={data.computedScenarios} />
+
+      <CloverQbpRecalcAnalysis contracts={data.contracts} />
 
       <CloverQualityBonusPaymentAnalysis contracts={data.contracts} />
 

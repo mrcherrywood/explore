@@ -290,9 +290,11 @@ export function CloverQualityBonusPaymentAnalysis({ contracts }: { contracts: Cl
     <section className="rounded-2xl border border-border bg-card p-6">
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h3 className="text-base font-semibold text-foreground">Quality Bonus Payment Eligibility</h3>
+          <h3 className="text-base font-semibold text-foreground">QBP Sensitivity Models (Speculative)</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Uses the CMS 4.0+ overall Star threshold as a QBP eligibility proxy. Dollar impact is a ballpark annual estimate:
+            Speculative Model 1 / Model 2 measure-removal scenarios shown two-directionally (gains and losses) for sensitivity
+            only — unlike the official recalculation above, these are not hold-harmless. Uses the CMS 4.0+ overall Star
+            threshold as a QBP eligibility proxy. Dollar impact is a ballpark annual estimate:
             enrollment x ${ESTIMATED_BENCHMARK_PMPM.toLocaleString()} benchmark PMPM x {(QUALITY_BONUS_RATE * 100).toFixed(0)}% QBP.
             It does not adjust for county benchmarks, bids, rebates, or double-bonus counties.
           </p>

@@ -70,7 +70,19 @@ function roundToHalf(value: number): number {
 }
 
 function getQbpChange(contract: CloverContractImpact, scoreId: CloverChartScoreId, score: number | null): number | null {
-  if (!QBP_SCENARIO_IDS.has(scoreId) || score === null) return null;
+  if (score === null) return null;
+
+  // Official recalc is hold-harmless: ratings only rise, so QBP can only be gained.
+  if (scoreId === "officialRecalc") {
+    const { originalRating, finalRating } = contract.qbp2027;
+    const originalEligible = (originalRating ?? 0) >= 4;
+    const finalEligible = (finalRating ?? 0) >= 4;
+    return !originalEligible && finalEligible
+      ? (contract.totalEnrollment ?? 0) * ESTIMATED_ANNUAL_QBP_PER_MEMBER
+      : 0;
+  }
+
+  if (!QBP_SCENARIO_IDS.has(scoreId)) return null;
 
   const officialEligible = (contract.officialScores.stars2026 ?? 0) >= 4;
   const scenarioEligible = roundToHalf(score) >= 4;
