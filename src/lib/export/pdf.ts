@@ -77,3 +77,42 @@ export async function exportElementToPdf(
   pdf.save(fileName);
 }
 
+export type ExportPagesPdfOptions = {
+  fileName?: string;
+  scale?: number;
+};
+
+/**
+ * Exports a set of pre-sized report page elements as a multi-page PDF, one
+ * element per letter-portrait page. Each element should already be laid out
+ * at the 8.5x11 aspect ratio; the rendered image fills the entire page.
+ */
+export async function exportPagesToPdf(
+  pages: HTMLElement[],
+  options: ExportPagesPdfOptions = {}
+) {
+  const { scale = 2 } = options;
+  if (pages.length === 0) {
+    throw new Error("PDF export requires at least one report page element");
+  }
+
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+
+  for (let index = 0; index < pages.length; index += 1) {
+    const element = pages[index];
+    const imageData = await renderElementToPngDataUrl(element, {
+      scale,
+      minWidth: element.offsetWidth,
+    });
+    const imageBinary = await dataUrlToUint8Array(imageData);
+    if (index > 0) pdf.addPage();
+    pdf.addImage(imageBinary, "PNG", 0, 0, pageWidth, pageHeight, undefined, "FAST");
+  }
+
+  const fileName = `${options.fileName || DEFAULT_FILE_PREFIX}_${getTimestampSlug()}.pdf`;
+  pdf.save(fileName);
+}
+

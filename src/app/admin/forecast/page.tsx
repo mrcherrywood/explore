@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
 import { CutPointForecastAdmin } from "@/components/admin/CutPointForecastAdmin";
@@ -28,8 +29,11 @@ export default function ForecastAdminPage() {
                 </h1>
               </div>
             </div>
-            <div className="text-xs text-muted-foreground">
-              {new Date().toLocaleString()}
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <Link href="/admin/plan-preview" className="underline-offset-2 hover:underline">
+                Plan Preview 1
+              </Link>
+              <span>{new Date().toLocaleString()}</span>
             </div>
           </header>
 

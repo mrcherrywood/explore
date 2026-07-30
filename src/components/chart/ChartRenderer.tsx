@@ -142,7 +142,6 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
     
     try {
       // Use dom-to-image-more which handles modern CSS better
-      // @ts-expect-error - no types available for this package
       const domtoimage = await import("dom-to-image-more");
       
       // Temporarily hide the export button

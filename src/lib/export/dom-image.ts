@@ -3,6 +3,8 @@
 export type RenderPngOptions = {
   scale?: number;
   bgcolor?: string;
+  /** Minimum capture width in px; pass the element width for exact-size captures. */
+  minWidth?: number;
 };
 
 /**
@@ -21,7 +23,6 @@ export async function renderElementToPngDataUrl(
     throw new Error("Image export target element is not available");
   }
 
-  // @ts-expect-error - no types available for this package
   const domtoimage = await import("dom-to-image-more");
 
   const clonedElement = element.cloneNode(true) as HTMLElement;
@@ -42,17 +43,18 @@ export async function renderElementToPngDataUrl(
     }
   });
 
-  const captureWidth = Math.max(element.offsetWidth, 960);
+  const captureWidth = Math.max(element.offsetWidth, options.minWidth ?? 960);
   clonedElement.style.width = `${captureWidth}px`;
   clonedElement.style.minWidth = `${captureWidth}px`;
   clonedElement.style.boxSizing = "border-box";
   clonedElement.style.position = "absolute";
   clonedElement.style.left = "-9999px";
-  document.body.appendChild(clonedElement);
+  // Mount the clone beside the original so it inherits the same CSS cascade
+  // (theme variables, fonts, light/dark context) instead of the body's theme.
+  (element.parentElement ?? document.body).appendChild(clonedElement);
 
   try {
-    const bgcolor =
-      options.bgcolor ?? getComputedStyle(document.body).backgroundColor ?? "#ffffff";
+    const bgcolor = options.bgcolor ?? resolveEffectiveBackgroundColor(element);
 
     const imageData: string = await domtoimage.toPng(clonedElement, {
       bgcolor,
@@ -85,10 +87,25 @@ export async function renderElementToPngDataUrl(
 
     return imageData;
   } finally {
-    if (document.body.contains(clonedElement)) {
-      document.body.removeChild(clonedElement);
-    }
+    clonedElement.remove();
   }
+}
+
+/**
+ * Walk up from the element to the first non-transparent background color so
+ * the export matches the theme the element is actually rendered on (e.g. the
+ * light plan preview theme rather than the app's dark body background).
+ */
+function resolveEffectiveBackgroundColor(element: HTMLElement): string {
+  let node: HTMLElement | null = element;
+  while (node) {
+    const background = getComputedStyle(node).backgroundColor;
+    if (background && background !== "transparent" && background !== "rgba(0, 0, 0, 0)") {
+      return background;
+    }
+    node = node.parentElement;
+  }
+  return "#ffffff";
 }
 
 function getTimestampSlug() {

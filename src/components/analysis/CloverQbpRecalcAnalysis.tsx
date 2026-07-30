@@ -16,7 +16,10 @@ type RecalcRow = {
   organizationName: string;
   parentOrganization: string;
   enrollment: number | null;
+  disasterPercent: number | null;
   originalRating: number | null;
+  originalScore: number | null;
+  roundsBelowOfficial: boolean;
   recalcRaw: number | null;
   partCCai: number | null;
   finalRating: number | null;
@@ -40,6 +43,10 @@ function formatCai(value: number | null): string {
   return `${value >= 0 ? "+" : "-"}${Math.abs(value).toFixed(4)}`;
 }
 
+function roundToHalf(value: number): number {
+  return Math.round(value * 2) / 2;
+}
+
 function formatEnrollment(value: number | null): string {
   return value === null ? "-" : value.toLocaleString();
 }
@@ -60,13 +67,19 @@ function buildRow(contract: CloverContractImpact): RecalcRow {
   const gainsBonus = qbp.ratingIncreased && !originalEligible && finalEligible;
   const enrollment = contract.totalEnrollment;
   const estimatedAnnualGain = gainsBonus ? (enrollment ?? 0) * ESTIMATED_ANNUAL_QBP_PER_MEMBER : 0;
+  const originalScore = contract.calculated2026HoldHarmless?.score ?? null;
+  const roundsBelowOfficial =
+    originalScore !== null && qbp.originalRating !== null && roundToHalf(originalScore) < qbp.originalRating;
 
   return {
     contractId: contract.contractId,
     organizationName: contract.organizationMarketingName || contract.contractName || "Unknown",
     parentOrganization: contract.parentOrganization ?? "Unknown",
     enrollment,
+    disasterPercent: contract.disasterPercent,
     originalRating: qbp.originalRating,
+    originalScore,
+    roundsBelowOfficial,
     recalcRaw: qbp.recalcRatingRaw,
     partCCai: contract.scenarioDetails.officialRecalc?.caiValue ?? null,
     finalRating: qbp.finalRating,
@@ -132,6 +145,8 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
     const bonusDollars = bonusRows.reduce((sum, row) => sum + row.estimatedAnnualGain, 0);
     const bidRows = improvedRows.filter((row) => row.bidResubmissionEligible);
     return {
+      roundUpContracts: allRows.filter((row) => row.roundsBelowOfficial).length,
+      disasterContracts: allRows.filter((row) => (row.disasterPercent ?? 0) > 0).length,
       improvedContracts: improvedRows.length,
       improvedEnrollment,
       bonusContracts: bonusRows.length,
@@ -147,7 +162,10 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
       "Organization",
       "Parent",
       "Enrollment",
+      "Disaster %",
       "Original Stars 2026",
+      "Original Calc Score",
+      "Calc Rounds Below Official",
       "Recalc Score",
       "Part C CAI",
       "Final Stars 2026 (HH)",
@@ -160,7 +178,10 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
       row.organizationName,
       row.parentOrganization,
       row.enrollment === null ? "" : String(row.enrollment),
+      row.disasterPercent === null ? "" : String(Math.round(row.disasterPercent)),
       formatRating(row.originalRating),
+      formatScore(row.originalScore),
+      row.roundsBelowOfficial ? "Yes" : "No",
       formatScore(row.recalcRaw),
       formatCai(row.partCCai),
       formatRating(row.finalRating),
@@ -250,6 +271,9 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
               <th className="px-3 py-2 text-left">Parent</th>
               <th className="px-3 py-2 text-right">Enrollment</th>
               <th className="px-3 py-2 text-right">Original 2026</th>
+              <th className="px-3 py-2 text-right" title="Calculated original Stars 2026 score (unrounded) over the full measure set, before the recalc, with the QI hold-harmless applied (higher of with/without improvement measures)">
+                Original Calc Score
+              </th>
               <th className="px-3 py-2 text-right">Recalc Score</th>
               <th className="px-3 py-2 text-right" title="Published 2026 Part C CAI (Technical Notes Table 15), applied because the recalc removes all Part D measures">
                 Part C CAI
@@ -263,13 +287,34 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
             {filteredRows.length > 0 ? (
               filteredRows.map((row) => (
                 <tr key={row.contractId} className="border-b border-border/50">
-                  <td className="px-3 py-2 font-mono text-xs text-primary">{row.contractId}</td>
+                  <td className="px-3 py-2 font-mono text-xs text-primary">
+                    {row.contractId}
+                    {(row.disasterPercent ?? 0) > 0 ? (
+                      <span
+                        className="ml-1 text-amber-500"
+                        title={`Disaster-affected: up to ${Math.round(row.disasterPercent as number)}% of beneficiaries hit by an extreme & uncontrollable circumstance. CMS applies a "higher of current/prior year" measure adjustment we don't model.`}
+                      >
+                        &dagger;
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2">
                     <p className="max-w-[240px] truncate text-foreground">{row.organizationName}</p>
                     <p className="max-w-[240px] truncate text-xs text-muted-foreground">{row.parentOrganization}</p>
                   </td>
                   <td className="px-3 py-2 text-right font-mono text-xs">{formatEnrollment(row.enrollment)}</td>
                   <td className="px-3 py-2 text-right font-mono text-xs">{formatRating(row.originalRating)}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
+                    {formatScore(row.originalScore)}
+                    {row.roundsBelowOfficial ? (
+                      <span
+                        className="ml-0.5 font-semibold text-amber-500"
+                        title="Our reconstructed score rounds below the official rating — CMS rounded up beyond what this score supports (most often a reward factor we model as 0 due to high reconstructed variance)."
+                      >
+                        *
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2 text-right font-mono text-xs">{formatScore(row.recalcRaw)}</td>
                   <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">{formatCai(row.partCCai)}</td>
                   <td
@@ -314,7 +359,7 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
               ))
             ) : (
               <tr>
-                <td colSpan={9} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                <td colSpan={10} className="px-3 py-6 text-center text-sm text-muted-foreground">
                   No contracts match the selected parent organization.
                 </td>
               </tr>
@@ -322,6 +367,25 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
           </tbody>
         </table>
       </div>
+
+      {summary.roundUpContracts > 0 ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          <span className="font-semibold text-amber-500">*</span> Original Calc Score rounds below the official rating for{" "}
+          <span className="font-medium tabular-nums text-foreground">{summary.roundUpContracts}</span> contracts — CMS
+          rounded up beyond what the reconstructed score supports. This is almost always a reward factor we model as 0
+          because the reconstructed weighted variance (from integer measure stars with heavy ties) runs higher than CMS&apos;s.
+        </p>
+      ) : null}
+
+      {summary.disasterContracts > 0 ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          <span className="font-semibold text-amber-500">&dagger;</span> Disaster-affected (extreme &amp; uncontrollable
+          circumstances) for{" "}
+          <span className="font-medium tabular-nums text-foreground">{summary.disasterContracts}</span> contracts. CMS
+          assigns each affected measure the higher of its current- and prior-year star, which our reconstruction does not
+          model — a common reason these contracts&apos; official rating exceeds our calculated score.
+        </p>
+      ) : null}
     </section>
   );
 }

@@ -711,6 +711,216 @@ export interface Database {
           updated_at?: string
         }
       }
+      plan_preview_upload_batches: {
+        Row: {
+          id: string
+          file_name: string
+          file_type: string
+          stars_year: number
+          source_sheet: string | null
+          detected_stars_year: number | null
+          row_count: number
+          contract_count: number
+          measure_count: number
+          imported_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          file_name: string
+          file_type: string
+          stars_year: number
+          source_sheet?: string | null
+          detected_stars_year?: number | null
+          row_count?: number
+          contract_count?: number
+          measure_count?: number
+          imported_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          file_name?: string
+          file_type?: string
+          stars_year?: number
+          source_sheet?: string | null
+          detected_stars_year?: number | null
+          row_count?: number
+          contract_count?: number
+          measure_count?: number
+          imported_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      plan_preview_measure_scores: {
+        Row: {
+          id: string
+          batch_id: string
+          stars_year: number
+          contract_id: string
+          organization_marketing_name: string | null
+          contract_name: string | null
+          parent_organization: string | null
+          measure_code: string
+          measure_name: string
+          measure_display_name: string
+          measure_normalized: string
+          metric_category: string
+          raw_value: string
+          score: number | null
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          batch_id: string
+          stars_year: number
+          contract_id: string
+          organization_marketing_name?: string | null
+          contract_name?: string | null
+          parent_organization?: string | null
+          measure_code: string
+          measure_name: string
+          measure_display_name: string
+          measure_normalized: string
+          metric_category: string
+          raw_value: string
+          score?: number | null
+          status: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          batch_id?: string
+          stars_year?: number
+          contract_id?: string
+          organization_marketing_name?: string | null
+          contract_name?: string | null
+          parent_organization?: string | null
+          measure_code?: string
+          measure_name?: string
+          measure_display_name?: string
+          measure_normalized?: string
+          metric_category?: string
+          raw_value?: string
+          score?: number | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      plan_preview_cai: {
+        Row: {
+          id: string
+          batch_id: string
+          stars_year: number
+          contract_id: string
+          organization_marketing_name: string | null
+          contract_name: string | null
+          parent_organization: string | null
+          puerto_rico_only: boolean | null
+          contract_type: string | null
+          part_d_offered: boolean | null
+          enrolled: number | null
+          num_lis_de: number | null
+          num_disabled: number | null
+          pct_lis_de: number | null
+          pct_disabled: number | null
+          part_c_lis_de_group: string | null
+          part_c_disabled_quintile: string | null
+          part_c_fac: string | null
+          part_c_cai: number | null
+          part_d_mapd_lis_de_group: string | null
+          part_d_mapd_disabled_quintile: string | null
+          part_d_mapd_fac: string | null
+          part_d_mapd_cai: number | null
+          part_d_pdp_lis_de_quartile: string | null
+          part_d_pdp_disabled_quartile: string | null
+          part_d_pdp_fac: string | null
+          part_d_pdp_cai: number | null
+          overall_lis_de_group: string | null
+          overall_disabled_quintile: string | null
+          overall_fac: string | null
+          overall_cai: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          batch_id: string
+          stars_year: number
+          contract_id: string
+          organization_marketing_name?: string | null
+          contract_name?: string | null
+          parent_organization?: string | null
+          puerto_rico_only?: boolean | null
+          contract_type?: string | null
+          part_d_offered?: boolean | null
+          enrolled?: number | null
+          num_lis_de?: number | null
+          num_disabled?: number | null
+          pct_lis_de?: number | null
+          pct_disabled?: number | null
+          part_c_lis_de_group?: string | null
+          part_c_disabled_quintile?: string | null
+          part_c_fac?: string | null
+          part_c_cai?: number | null
+          part_d_mapd_lis_de_group?: string | null
+          part_d_mapd_disabled_quintile?: string | null
+          part_d_mapd_fac?: string | null
+          part_d_mapd_cai?: number | null
+          part_d_pdp_lis_de_quartile?: string | null
+          part_d_pdp_disabled_quartile?: string | null
+          part_d_pdp_fac?: string | null
+          part_d_pdp_cai?: number | null
+          overall_lis_de_group?: string | null
+          overall_disabled_quintile?: string | null
+          overall_fac?: string | null
+          overall_cai?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          batch_id?: string
+          stars_year?: number
+          contract_id?: string
+          organization_marketing_name?: string | null
+          contract_name?: string | null
+          parent_organization?: string | null
+          puerto_rico_only?: boolean | null
+          contract_type?: string | null
+          part_d_offered?: boolean | null
+          enrolled?: number | null
+          num_lis_de?: number | null
+          num_disabled?: number | null
+          pct_lis_de?: number | null
+          pct_disabled?: number | null
+          part_c_lis_de_group?: string | null
+          part_c_disabled_quintile?: string | null
+          part_c_fac?: string | null
+          part_c_cai?: number | null
+          part_d_mapd_lis_de_group?: string | null
+          part_d_mapd_disabled_quintile?: string | null
+          part_d_mapd_fac?: string | null
+          part_d_mapd_cai?: number | null
+          part_d_pdp_lis_de_quartile?: string | null
+          part_d_pdp_disabled_quartile?: string | null
+          part_d_pdp_fac?: string | null
+          part_d_pdp_cai?: number | null
+          overall_lis_de_group?: string | null
+          overall_disabled_quintile?: string | null
+          overall_fac?: string | null
+          overall_cai?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       user_approvals: {
         Row: {
           id: string

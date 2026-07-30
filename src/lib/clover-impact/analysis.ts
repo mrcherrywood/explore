@@ -4,6 +4,7 @@ import {
   calculateContractStats,
   calculateRewardFactor,
   computePercentileThresholds,
+  getOfficialForScenario,
   type ContractMeasure,
   type PercentileThresholds,
 } from "@/lib/reward-factor";
@@ -26,9 +27,8 @@ import {
 const DATA_DIR = path.join(process.cwd(), "data");
 const SOURCE_YEAR = 2026;
 const PRIOR_YEAR = 2025;
-const HOLD_HARMLESS_THRESHOLD = 4.0;
-const MIN_OVERALL_MEASURE_COUNT = 15;
-const OVERALL_DEDUP_DROP_CODES = new Set(["D02", "D03"]);
+export const MIN_OVERALL_MEASURE_COUNT = 15;
+export const OVERALL_DEDUP_DROP_CODES = new Set(["D02", "D03"]);
 const OVERALL_CAI_VALUE_BY_FAC_2026 = new Map<number, number>([
   [1, -0.063262],
   [2, -0.040422],
@@ -115,6 +115,7 @@ export type CloverContractImpact = {
   organizationMarketingName: string | null;
   parentOrganization: string | null;
   totalEnrollment: number | null;
+  disasterPercent: number | null;
   officialScores: {
     stars2025: number | null;
     stars2026: number | null;
@@ -122,6 +123,7 @@ export type CloverContractImpact = {
   scores: CloverScenarioScores;
   qbp2027: CloverQbp2027;
   calculated2026Detail: CloverScenarioDetail | null;
+  calculated2026HoldHarmless: CloverScenarioDetail | null;
   changesFromStars2026: Record<CloverComputedScenarioId, number | null>;
   scenarioDetails: Record<CloverComputedScenarioId, CloverScenarioDetail>;
   scenarioMeasureScores: Record<CloverComputedScenarioId, CloverScenarioMeasureScore[]>;
@@ -188,6 +190,27 @@ function loadOfficialOverallRatings(year: number): Map<string, number> {
   }
 
   return ratings;
+}
+
+// Largest share of beneficiaries affected by an extreme & uncontrollable
+// circumstance (disaster) across the two relevant measurement years. CMS applies
+// a "higher of current/prior year" measure-level adjustment for affected
+// contracts, which our reconstruction does not model.
+function loadDisasterPercents(year: number): Map<string, number> {
+  const filePath = path.join(DATA_DIR, String(year), `summary_rating_${year}.json`);
+  const rows: RawSummaryRow[] = JSON.parse(readFileSync(filePath, "utf-8"));
+  const disaster = new Map<string, number>();
+
+  for (const row of rows) {
+    const contractId = String(row.CONTRACT_ID ?? "").trim().toUpperCase();
+    if (!contractId) continue;
+
+    const pct2023 = parseRating(row["2023 Disaster %"]) ?? 0;
+    const pct2024 = parseRating(row["2024 Disaster %"]) ?? 0;
+    disaster.set(contractId, Math.max(pct2023, pct2024));
+  }
+
+  return disaster;
 }
 
 function loadCaiAdjustmentsByFac(
@@ -481,37 +504,84 @@ type ScenarioComputation = {
   };
 };
 
+type BaselineComputation = {
+  // Pure with-improvement calculation (powers the "S26 With QI" chart bar).
+  withQI: Map<string, CloverScenarioDetail>;
+  // QI hold-harmless reconstruction of the official rating: higher of the
+  // with/without-improvement rating (powers the recalc table's "Original Calc Score").
+  holdHarmless: Map<string, CloverScenarioDetail>;
+};
+
 function computeCalculatedBaseline(
   population: Map<string, ContractMeasure[]>,
   caiAdjustments: Map<string, number>,
-): Map<string, CloverScenarioDetail> {
-  const detailsByContract = new Map<string, CloverScenarioDetail>();
-  const stats = [];
+): BaselineComputation {
+  const withQIByContract = new Map<string, CloverScenarioDetail>();
+  const holdHarmlessByContract = new Map<string, CloverScenarioDetail>();
+  const statsWithQI = [];
+  const statsWithoutQI = [];
 
   for (const [contractId, measures] of population) {
-    const contractStats = calculateContractStats(contractId, measures, null);
-    if (contractStats.measureCount > 1) stats.push(contractStats);
+    const withQI = calculateContractStats(contractId, measures, null);
+    const measuresWithoutQI = measures.filter((measure) => !QI_MEASURE_CODES.has(measure.code.toUpperCase()));
+    const withoutQI = calculateContractStats(contractId, measuresWithoutQI, null);
+    if (withQI.measureCount > 1) statsWithQI.push(withQI);
+    if (withoutQI.measureCount > 1) statsWithoutQI.push(withoutQI);
   }
 
-  const thresholds = stats.length > 0 ? computePercentileThresholds(stats) : null;
-  if (!thresholds) return detailsByContract;
+  // Prefer CMS's official reward-factor thresholds: with-improvement for the
+  // standard calc, without-improvement for the QI hold-harmless comparison.
+  const thresholdsWithQI =
+    getOfficialForScenario(SOURCE_YEAR, "overall_mapd", true) ??
+    (statsWithQI.length > 0 ? computePercentileThresholds(statsWithQI) : null);
+  const thresholdsWithoutQI =
+    getOfficialForScenario(SOURCE_YEAR, "overall_mapd", false) ??
+    (statsWithoutQI.length > 0 ? computePercentileThresholds(statsWithoutQI) : null);
+  if (!thresholdsWithQI) return { withQI: withQIByContract, holdHarmless: holdHarmlessByContract };
 
-  for (const contractStats of stats) {
-    const result = calculateRewardFactor(contractStats, thresholds, "overall_mapd");
-    const caiValue = caiAdjustments.get(contractStats.contractId) ?? null;
-    detailsByContract.set(contractStats.contractId, {
-      score: addCaiAdjustment(result.adjustedRating, caiValue),
-      baseMean: result.weightedMean,
-      weightedVariance: result.weightedVariance,
-      rewardFactor: result.rFactor,
+  const statsWithoutQIMap = new Map(statsWithoutQI.map((stats) => [stats.contractId, stats]));
+
+  for (const withQI of statsWithQI) {
+    const contractId = withQI.contractId;
+    const caiValue = caiAdjustments.get(contractId) ?? null;
+    const resultWithQI = calculateRewardFactor(withQI, thresholdsWithQI, "overall_mapd");
+    const scoreWithQI = addCaiAdjustment(resultWithQI.adjustedRating, caiValue);
+    const withDetail: CloverScenarioDetail = {
+      score: scoreWithQI,
+      baseMean: resultWithQI.weightedMean,
+      weightedVariance: resultWithQI.weightedVariance,
+      rewardFactor: resultWithQI.rFactor,
       caiValue,
-      measureCount: contractStats.measureCount,
+      measureCount: withQI.measureCount,
       removedMeasureCount: 0,
       holdHarmlessApplied: false,
-    });
+    };
+    withQIByContract.set(contractId, withDetail);
+
+    // QI hold-harmless: CMS computes the rating with and without the improvement
+    // measures and assigns the higher of the two.
+    let holdHarmlessDetail = withDetail;
+    const withoutQI = statsWithoutQIMap.get(contractId);
+    if (withoutQI && thresholdsWithoutQI) {
+      const resultWithoutQI = calculateRewardFactor(withoutQI, thresholdsWithoutQI, "overall_mapd");
+      const scoreWithoutQI = addCaiAdjustment(resultWithoutQI.adjustedRating, caiValue);
+      if (scoreWithoutQI > scoreWithQI) {
+        holdHarmlessDetail = {
+          score: scoreWithoutQI,
+          baseMean: resultWithoutQI.weightedMean,
+          weightedVariance: resultWithoutQI.weightedVariance,
+          rewardFactor: resultWithoutQI.rFactor,
+          caiValue,
+          measureCount: withoutQI.measureCount,
+          removedMeasureCount: 0,
+          holdHarmlessApplied: true,
+        };
+      }
+    }
+    holdHarmlessByContract.set(contractId, holdHarmlessDetail);
   }
 
-  return detailsByContract;
+  return { withQI: withQIByContract, holdHarmless: holdHarmlessByContract };
 }
 
 function computeScenario(
@@ -570,28 +640,31 @@ function computeScenario(
       continue;
     }
 
+    const caiValue = caiAdjustments.get(contractId) ?? null;
+    const resultWithQI = calculateRewardFactor(withQI, thresholdsWithQI, "overall_mapd");
+    let selectedResult = resultWithQI;
     let selectedStats = withQI;
-    let selectedThresholds = thresholdsWithQI;
+    let selectedScore = addCaiAdjustment(resultWithQI.adjustedRating, caiValue);
     let holdHarmlessApplied = false;
 
-    if (
-      withoutQI &&
-      thresholdsWithoutQI &&
-      withoutQI.weightedMean >= HOLD_HARMLESS_THRESHOLD &&
-      withQI.weightedMean < HOLD_HARMLESS_THRESHOLD
-    ) {
-      selectedStats = withoutQI;
-      selectedThresholds = thresholdsWithoutQI;
-      holdHarmlessApplied = true;
+    // QI hold-harmless: CMS computes the rating with and without the improvement
+    // measures and assigns the higher of the two.
+    if (withoutQI && thresholdsWithoutQI) {
+      const resultWithoutQI = calculateRewardFactor(withoutQI, thresholdsWithoutQI, "overall_mapd");
+      const scoreWithoutQI = addCaiAdjustment(resultWithoutQI.adjustedRating, caiValue);
+      if (scoreWithoutQI > selectedScore) {
+        selectedResult = resultWithoutQI;
+        selectedStats = withoutQI;
+        selectedScore = scoreWithoutQI;
+        holdHarmlessApplied = true;
+      }
     }
 
-    const result = calculateRewardFactor(selectedStats, selectedThresholds, "overall_mapd");
-    const caiValue = caiAdjustments.get(contractId) ?? null;
     detailsByContract.set(contractId, {
-      score: addCaiAdjustment(result.adjustedRating, caiValue),
-      baseMean: result.weightedMean,
-      weightedVariance: result.weightedVariance,
-      rewardFactor: result.rFactor,
+      score: selectedScore,
+      baseMean: selectedResult.weightedMean,
+      weightedVariance: selectedResult.weightedVariance,
+      rewardFactor: selectedResult.rFactor,
       caiValue,
       measureCount: selectedStats.measureCount,
       removedMeasureCount,
@@ -657,6 +730,7 @@ export function analyzeCloverImpact(): CloverImpactResult {
   const caiAdjustments2026 = loadCaiAdjustments(SOURCE_YEAR);
   const caiAdjustmentsPartC2026 = loadPartCCaiAdjustments(SOURCE_YEAR);
   const measureStars2026 = loadMeasureStarsFromFile(SOURCE_YEAR);
+  const disasterPercents = loadDisasterPercents(SOURCE_YEAR);
   const enrollment = loadLatestEnrollment();
   const population = filterOverallMapdPopulation(measureStars2026, official2026);
 
@@ -678,7 +752,7 @@ export function analyzeCloverImpact(): CloverImpactResult {
     const metadata = getContractMetadata(contractId, metadata2026, metadata2025);
     const official2025Score = official2025.get(contractId) ?? null;
     const official2026Score = official2026.get(contractId) ?? null;
-    const calculated2026Score = calculated2026.get(contractId)?.score ?? null;
+    const calculated2026Score = calculated2026.withQI.get(contractId)?.score ?? null;
     const scores = buildScoreTemplate(official2025Score, official2026Score);
     const changesFromStars2026 = {} as Record<CloverComputedScenarioId, number | null>;
     const scenarioDetails = {} as Record<CloverComputedScenarioId, CloverScenarioDetail>;
@@ -699,13 +773,15 @@ export function analyzeCloverImpact(): CloverImpactResult {
       organizationMarketingName: metadata.organizationMarketingName,
       parentOrganization: metadata.parentOrganization,
       totalEnrollment: enrollment.enrollmentByContract.get(contractId) ?? null,
+      disasterPercent: disasterPercents.get(contractId) ?? null,
       officialScores: {
         stars2025: official2025Score,
         stars2026: official2026Score,
       },
       scores,
       qbp2027: buildQbp2027(official2026Score, scores.officialRecalc),
-      calculated2026Detail: calculated2026.get(contractId) ?? null,
+      calculated2026Detail: calculated2026.withQI.get(contractId) ?? null,
+      calculated2026HoldHarmless: calculated2026.holdHarmless.get(contractId) ?? null,
       changesFromStars2026,
       scenarioDetails,
       scenarioMeasureScores: buildScenarioMeasureScores(
