@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
+import { AdminSubNav } from "@/components/admin/AdminSubNav";
 import { CutPointForecastAdmin } from "@/components/admin/CutPointForecastAdmin";
 import { DataPageNav } from "@/components/navigation/DataPageNav";
 
@@ -15,7 +15,7 @@ export default function ForecastAdminPage() {
       <div className="flex min-h-screen">
         <DataPageNav />
         <div className="flex min-h-screen flex-1 flex-col">
-          <header className="flex items-center justify-between border-b border-border px-10 py-6">
+          <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-10 py-6">
             <div className="flex items-center gap-4">
               <div className="flex h-11 w-11 items-center justify-center rounded-full border border-sky-500/50 bg-sky-500/10 text-lg font-semibold">
                 <Sparkles className="h-5 w-5 text-sky-500" />
@@ -29,12 +29,7 @@ export default function ForecastAdminPage() {
                 </h1>
               </div>
             </div>
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <Link href="/admin/plan-preview" className="underline-offset-2 hover:underline">
-                Plan Preview 1
-              </Link>
-              <span>{new Date().toLocaleString()}</span>
-            </div>
+            <AdminSubNav />
           </header>
 
           <main className="flex flex-1 flex-col gap-6 px-10 pb-10 pt-8">

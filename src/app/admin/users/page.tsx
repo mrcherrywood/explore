@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 
+import { AdminSubNav } from '@/components/admin/AdminSubNav';
+
 type UserApproval = {
   id: string;
   user_id: string;
@@ -87,9 +89,9 @@ export default function AdminUsersPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Link href="/">
+            <Link href="/admin/forecast">
               <Button variant="ghost" size="icon">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
@@ -99,10 +101,13 @@ export default function AdminUsersPage() {
               <p className="text-muted-foreground">Approve or reject user signups</p>
             </div>
           </div>
-          <Button onClick={fetchUsers} variant="outline" disabled={isLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <AdminSubNav />
+            <Button onClick={fetchUsers} variant="outline" disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {error && (

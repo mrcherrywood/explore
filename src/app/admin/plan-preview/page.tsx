@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { AdminSubNav } from "@/components/admin/AdminSubNav";
 import { PlanPreviewAdmin } from "@/components/admin/PlanPreviewAdmin";
 import { DataPageNav } from "@/components/navigation/DataPageNav";
 
@@ -14,7 +13,7 @@ export default function PlanPreviewAdminPage() {
     <div className="flex min-h-screen">
       <DataPageNav />
       <main className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <div className="flex items-start justify-between gap-5 px-[30px] pb-4 pt-[22px]">
+        <div className="flex flex-wrap items-start justify-between gap-5 px-[30px] pb-4 pt-[22px]">
           <div>
             <h1 className="fep-title">Plan Preview 1</h1>
             <p className="fep-subtitle">
@@ -22,10 +21,8 @@ export default function PlanPreviewAdminPage() {
               power cut point predictions, final score projections, and scenario analyses.
             </p>
           </div>
-          <div className="flex items-center gap-4 pt-2 text-xs">
-            <Link href="/admin/forecast" className="fep-link">
-              Forecast Admin
-            </Link>
+          <div className="pt-2">
+            <AdminSubNav variant="fep" />
           </div>
         </div>
 
