@@ -165,12 +165,12 @@ test(
     assert.ok(h0885.withQi, "with-QI leg should carry forward H0885's 2026 QI stars");
     assert.ok(h0885.withoutQi, "without-QI leg missing");
 
-    // Hold-harmless: final = max of the two legs.
-    const expectedRaw = Math.max(h0885.withQi.finalScoreRaw, h0885.withoutQi.finalScoreRaw);
-    assert.equal(h0885.finalScoreRaw, expectedRaw);
+    // QI is not estimable from PP1 data, so the without-QI leg drives the rating.
+    assert.equal(h0885.selectedLeg, "without_qi");
+    assert.equal(h0885.finalScoreRaw, h0885.withoutQi.finalScoreRaw);
     assert.equal(
       h0885.finalRating,
-      Math.round(Math.min(5, Math.max(1, expectedRaw)) * 2) / 2
+      Math.round(Math.min(5, Math.max(1, h0885.withoutQi.finalScoreRaw)) * 2) / 2
     );
     assert.ok(
       h0885.finalRating !== null && h0885.finalRating >= 1 && h0885.finalRating <= 5,

@@ -177,8 +177,10 @@ export function DomainsPage({
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 8 }}>
           Domain groupings follow the CMS Stars {report.baselineYear ?? "—"} measure-to-domain
-          assignments. Measures without a published domain are grouped under Other. Domain means are
-          weighted by each measure&apos;s Star Ratings weight.
+          assignments; measures new to Stars {report.starsYear} (e.g. Polypharmacy Poly-ACH) are
+          assigned to their CMS domain. Domain means are weighted by each measure&apos;s Star
+          Ratings weight. When MCAHPS adjusted output is uploaded, CAHPS measure stars in these
+          means use case-mix and reliability adjusted base stars.
         </p>
       </ReportSection>
     </ReportPageFrame>

@@ -12,6 +12,7 @@ import {
 } from "./predictions";
 import {
   getPlanPreviewCaiByContract,
+  getPlanPreviewCahpsAdjustedStars,
   getPlanPreviewScoredRows,
   listPlanPreviewBatches,
 } from "./store";
@@ -39,11 +40,12 @@ export async function getPlanPreviewRun(
   const cached = cache.get(starsYear);
   if (cached && cached.fingerprint === fingerprint) return cached;
 
-  const [rows, caiByContract] = await Promise.all([
+  const [rows, caiByContract, cahpsAdjustedStars] = await Promise.all([
     getPlanPreviewScoredRows(client, starsYear),
     getPlanPreviewCaiByContract(client, starsYear),
+    getPlanPreviewCahpsAdjustedStars(client, starsYear),
   ]);
-  const result = buildPlanPreviewPredictions(rows, starsYear);
+  const result = buildPlanPreviewPredictions(rows, starsYear, { cahpsAdjustedStars });
   const run: PlanPreviewRun = {
     fingerprint,
     result,

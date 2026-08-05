@@ -189,8 +189,9 @@ export function ScenariosPage({
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 10 }}>
           The Clover-style recalc produces a Part C summary rating, so the uploaded Part C CAI
-          applies instead of the Overall MA-PD CAI. QI hold-harmless is applied in every scenario:
-          the final rating uses the higher of the with-QI and without-QI scores.
+          applies instead of the Overall MA-PD CAI. Quality Improvement is not scored in plan
+          preview 1 and cannot be accurately estimated yet, so every scenario excludes the QI
+          measures.
         </p>
       </ReportSection>
     </ReportPageFrame>

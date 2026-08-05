@@ -129,6 +129,11 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
                 {data.summary.warningCount} movement warnings
               </span>
             ) : null}
+            {data.summary.cahpsAdjustedStarCount > 0 ? (
+              <span className="fep-pill">
+                {data.summary.cahpsAdjustedStarCount} CAHPS adjusted stars
+              </span>
+            ) : null}
           </div>
 
           <div className="overflow-x-auto">
@@ -332,7 +337,7 @@ function ContractPanel({
             </thead>
             <tbody>
               {detail.measures.map((measure) => (
-                <tr key={measure.measureNormalized}>
+                <tr key={measure.measureCode}>
                   <td className="l" style={{ maxWidth: 280, whiteSpace: "normal", lineHeight: 1.35 }}>
                     <span style={{ fontWeight: 600, color: "var(--fep-ink)" }}>
                       {measure.measureCode} — {measure.displayName}
@@ -341,7 +346,10 @@ function ContractPanel({
                   <td style={{ fontWeight: 700, color: "var(--fep-ink)" }}>{measure.score}</td>
                   <td>
                     {measure.predictedStar !== null ? (
-                      <span className="fep-pill">{measure.predictedStar}★</span>
+                      <span className="fep-pill">
+                        {measure.predictedStar}★
+                        {measure.starSource === "cahps_case_mix_reliability" ? " · Adjusted" : ""}
+                      </span>
                     ) : (
                       <span style={{ color: "var(--fep-faint)" }}>
                         {measure.predictionStatus === "unsupported" ? "excluded" : "—"}
@@ -357,7 +365,8 @@ function ContractPanel({
           <p className="mt-3 text-xs" style={{ color: "var(--fep-faint)" }}>
             Base mean is the weighted measure-star mean before reward factor and CAI. The SY
             {data.baselineYear ?? "—"} column shows the star this score would earn at the latest
-            published official cut points.
+            published official cut points. CAHPS rows marked Adjusted use case-mix and reliability
+            adjusted base stars from the uploaded MCAHPS final output.
           </p>
         </div>
       ) : null}

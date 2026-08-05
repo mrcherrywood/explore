@@ -157,7 +157,7 @@ export function YoyPage({
 
       <ReportSection
         title="Measure Movement vs Published Stars"
-        note={`Each accrued measure's predicted Stars ${report.starsYear} star compared with the contract's published Stars ${report.baselineYear ?? "—"} star for the same measure.`}
+        note={`Each accrued measure's predicted Stars ${report.starsYear} star compared with the contract's published Stars ${report.baselineYear ?? "—"} star for the same measure. CAHPS predictions marked Adjusted use case-mix and reliability adjusted base stars.`}
         style={{ marginTop: 16 }}
       >
         <div style={{ display: "flex", gap: 12 }}>
@@ -196,6 +196,11 @@ export function YoyPage({
                     <td>{formatStars(measure.publishedBaselineStar, 0)}★</td>
                     <td style={{ fontWeight: 800, color: "var(--fep-ink)" }}>
                       {formatStars(measure.predictedStar, 0)}★
+                      {measure.starSource === "cahps_case_mix_reliability" ? (
+                        <span className="fep-report-pill" style={{ marginLeft: 6, textTransform: "none" }}>
+                          Adjusted
+                        </span>
+                      ) : null}
                     </td>
                     <td
                       style={{

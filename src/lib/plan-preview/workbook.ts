@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 
+import { parseCahpsAdjustedWorkbook } from "./cahps-adjusted-workbook";
 import {
   detectDomainFileKind,
   parseDomainWorkbook,
@@ -292,6 +293,9 @@ function parseCaiWorkbook(
 }
 
 export function parsePlanPreviewWorkbook(buffer: Buffer): PlanPreviewParseResult {
+  const cahpsAdjusted = parseCahpsAdjustedWorkbook(buffer);
+  if (cahpsAdjusted) return cahpsAdjusted;
+
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const sheetName = workbook.SheetNames[0];
   if (!sheetName) {

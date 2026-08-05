@@ -30,9 +30,26 @@ const MANUAL_CP_TO_NORM: Record<string, string> = {
   "Kidney Health Evaluation for Patients With Diabetes": "kidney disease monitoring",
   "KED (Kidney Health Evaluation for Patients with Diabetes)": "kidney health evaluation for patients with diabetes",
   "Plan All Cause Readmissions": "plan all-cause readmissions",
+  // Workbook shorthand for the Stars 2027+ Poly-ACH measure.
+  "Poly Rx Multi-Anticholinergics":
+    "polypharmacy use of multiple anticholinergic medications in older adults poly ach",
+  // Workbook uses a shortened COA label; PP1 uses the full CMS name.
+  "COA - Functional Status Assessment":
+    "care for older adults functional status assessment",
+  // Workbook spelling is "Opiods"; PP1 uses "Opioids and Benzodiazepines (COB)".
+  "Concurrent Use of Opiods/Benzos":
+    "concurrent use of opioids and benzodiazepines cob",
 };
 
-const INVERTED_KEYWORDS = ["complaint", "choosing to leave", "readmission"];
+const INVERTED_KEYWORDS = [
+  "complaint",
+  "choosing to leave",
+  "readmission",
+  "anticholinerg", // Poly-ACH / Poly Rx Multi-Anticholinergics (lower is better)
+  "opioid", // Concurrent Use of Opioids and Benzodiazepines (COB)
+  "opiod", // workbook spelling
+  "benzo",
+];
 
 type RawCutPointRow = {
   HLCode?: string | null;

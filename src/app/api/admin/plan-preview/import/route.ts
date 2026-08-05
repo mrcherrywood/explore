@@ -4,6 +4,7 @@ import { requireApprovedAdmin } from "@/lib/admin/require-approved-admin";
 import {
   createPlanPreviewBatch,
   upsertPlanPreviewCai,
+  upsertPlanPreviewCahpsAdjustedStars,
   upsertPlanPreviewDecimalScores,
   upsertPlanPreviewMeasureScores,
 } from "@/lib/plan-preview/store";
@@ -47,9 +48,24 @@ export async function POST(request: Request) {
       parsed.fileType === "measure_data" ||
       parsed.fileType === "cahps" ||
       parsed.fileType === "hedis" ||
-      parsed.fileType === "snp_cm"
+      parsed.fileType === "snp_cm" ||
+      parsed.fileType === "cahps_adjusted"
         ? parsed.summary.measureCount
         : 0;
+
+    const parentOrgs = [
+      ...new Set(
+        parsed.rows
+          .map((row) => row.parentOrganization)
+          .filter((org): org is string => Boolean(org))
+      ),
+    ];
+    const parentOrganization =
+      parentOrgs.length === 0
+        ? null
+        : parentOrgs.length === 1
+          ? parentOrgs[0]
+          : `${parentOrgs.length} parent organizations`;
 
     const batch = await createPlanPreviewBatch(admin.serviceClient, {
       fileName: file.name,
@@ -60,6 +76,7 @@ export async function POST(request: Request) {
       rowCount: parsed.summary.rowCount,
       contractCount: parsed.summary.contractCount,
       measureCount,
+      parentOrganization,
       importedBy: admin.userId,
     });
 
@@ -71,6 +88,12 @@ export async function POST(request: Request) {
       });
     } else if (parsed.fileType === "cai") {
       await upsertPlanPreviewCai(admin.serviceClient, {
+        batchId: batch.id,
+        starsYear,
+        rows: parsed.rows,
+      });
+    } else if (parsed.fileType === "cahps_adjusted") {
+      await upsertPlanPreviewCahpsAdjustedStars(admin.serviceClient, {
         batchId: batch.id,
         starsYear,
         rows: parsed.rows,

@@ -24,9 +24,6 @@ import {
   formatStars,
 } from "./report-shared";
 
-function humanize(category: string | undefined): string {
-  return category ? category.replace(/_/g, " ") : "—";
-}
 
 function BuildupRow({
   label,
@@ -152,17 +149,12 @@ export function OverviewPage({
           <div className="fep-report-panel" style={{ flex: 1, padding: "14px 18px 10px" }}>
             <p className="fep-label" style={{ fontSize: 8.5, marginBottom: 4 }}>
               Score buildup
-              {score?.selectedLeg ? (
-                <span className="fep-report-pill" style={{ marginLeft: 8, textTransform: "none" }}>
-                  {score.selectedLeg === "with_qi" ? "QI carried forward" : "QI hold-harmless (no-QI leg)"}
-                </span>
-              ) : null}
+              <span className="fep-report-pill" style={{ marginLeft: 8, textTransform: "none" }}>
+                Without QI
+              </span>
             </p>
             <BuildupRow label={`Base mean (${leg?.measureCount ?? 0} measures, weighted)`} value={formatScore(leg?.baseMean)} />
-            <BuildupRow
-              label={`Reward factor (mean ${humanize(leg?.meanCategory)}, variance ${humanize(leg?.varianceCategory)})`}
-              value={formatSigned(leg?.rewardFactor ?? null, 1)}
-            />
+            <BuildupRow label="Reward factor" value={formatSigned(leg?.rewardFactor ?? null, 1)} />
             <BuildupRow label="CAI adjustment" value={formatSigned(score?.caiValue ?? null, 6)} />
             <BuildupRow label="Final score (unrounded)" value={formatScore(score?.finalScoreRaw)} emphasis />
             <BuildupRow
@@ -170,6 +162,16 @@ export function OverviewPage({
               value={`${formatStars(score?.finalRating ?? null)}★`}
               emphasis
             />
+            <p style={{ margin: "8px 0 0", fontSize: 9, color: "var(--fep-faint)" }}>
+              Quality Improvement is not scored in plan preview 1 and cannot be accurately estimated
+              yet, so the projection excludes the QI measures.
+            </p>
+            {report.measures.some((m) => m.starSource === "cahps_case_mix_reliability") ? (
+              <p style={{ margin: "6px 0 0", fontSize: 9, color: "var(--fep-faint)" }}>
+                CAHPS measure stars marked Adjusted use case-mix and reliability adjusted base stars
+                from the MCAHPS final output (not cut-point banding of the unadjusted PP1 score).
+              </p>
+            ) : null}
           </div>
         </div>
       </ReportSection>
@@ -179,7 +181,9 @@ export function OverviewPage({
           <ReportStat
             label="Measures scored"
             value={report.measures.length}
-            detail={`${report.measures.filter((m) => m.predictedStar !== null).length} rated at projected cut points`}
+            detail={`${report.measures.filter((m) => m.predictedStar !== null).length} rated; ${
+              report.measures.filter((m) => m.starSource === "cahps_case_mix_reliability").length
+            } CAHPS adjusted; ${leg?.measureCount ?? 0} enter Overall after Part C/D dedup`}
           />
           <ReportStat
             label="Reward factor"
@@ -200,16 +204,16 @@ export function OverviewPage({
             }
           />
           <ReportStat
-            label="Market population"
-            value={report.populationSize.toLocaleString()}
-            detail={`Anchored to Stars ${report.baselineYear ?? "—"} published contracts`}
+            label="Weighted mean"
+            value={formatScore(leg?.baseMean)}
+            detail={`${leg?.measureCount ?? 0} measures in the Overall base mean`}
           />
         </div>
       </ReportSection>
 
       <ReportSection
         title="Predicted Measure Star Distribution"
-        note="Count of accrued measures at each whole-star rating under the projected cut points."
+        note="Count of accrued measures at each whole-star rating. Non-CAHPS measures use projected cut points; CAHPS measures use case-mix/reliability adjusted base stars when that file is uploaded."
         style={{ marginTop: 16 }}
       >
         <div className="fep-report-panel" style={{ padding: "16px 10px 6px" }}>

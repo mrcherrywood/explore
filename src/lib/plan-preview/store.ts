@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/supabase/database.types";
+import { resolveMeasureForPlanPreview } from "./measure-resolve";
 import type {
   ParsedPlanPreviewCaiRow,
   ParsedPlanPreviewMeasureScore,
@@ -13,6 +14,11 @@ export {
   getPlanPreviewExportRows,
   upsertPlanPreviewDecimalScores,
 } from "./store-decimals";
+export {
+  getPlanPreviewCahpsAdjustedStars,
+  upsertPlanPreviewCahpsAdjustedStars,
+  type PlanPreviewCahpsAdjustedStarRow,
+} from "./store-cahps-adjusted";
 
 type ServiceClient = SupabaseClient<Database>;
 type BatchRow = Database["public"]["Tables"]["plan_preview_upload_batches"]["Row"];
@@ -32,6 +38,7 @@ function mapBatchRow(row: BatchRow): PlanPreviewBatchRecord {
     rowCount: row.row_count,
     contractCount: row.contract_count,
     measureCount: row.measure_count,
+    parentOrganization: row.parent_organization,
     importedBy: row.imported_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -49,6 +56,7 @@ export async function createPlanPreviewBatch(
     rowCount: number;
     contractCount: number;
     measureCount: number;
+    parentOrganization: string | null;
     importedBy: string | null;
   }
 ): Promise<PlanPreviewBatchRecord> {
@@ -64,6 +72,7 @@ export async function createPlanPreviewBatch(
       row_count: input.rowCount,
       contract_count: input.contractCount,
       measure_count: input.measureCount,
+      parent_organization: input.parentOrganization,
       imported_by: input.importedBy,
     })
     .select()
@@ -219,7 +228,7 @@ export async function getPlanPreviewScoredRows(
     const { data, error } = await client
       .from("plan_preview_measure_scores")
       .select(
-        "contract_id, contract_name, organization_marketing_name, parent_organization, measure_code, measure_display_name, measure_normalized, score, decimal_score, decimal_source, status"
+        "contract_id, contract_name, organization_marketing_name, parent_organization, measure_code, measure_name, measure_display_name, measure_normalized, score, decimal_score, decimal_source, status"
       )
       .eq("stars_year", starsYear)
       .eq("status", "scored")
@@ -234,6 +243,7 @@ export async function getPlanPreviewScoredRows(
       organization_marketing_name: string | null;
       parent_organization: string | null;
       measure_code: string;
+      measure_name: string | null;
       measure_display_name: string;
       measure_normalized: string;
       score: number | null;
@@ -249,14 +259,18 @@ export async function getPlanPreviewScoredRows(
             ? Number(row.score)
             : null;
       if (effective === null) continue;
+      // Re-resolve from the PP1 file measure name so prior-year code fallbacks
+      // stored at import (e.g. D12 COB → SUPD) do not survive into predictions.
+      const fileName = row.measure_name?.trim() || row.measure_display_name;
+      const resolved = resolveMeasureForPlanPreview(row.measure_code, fileName);
       rows.push({
         contractId: row.contract_id,
         contractName: row.contract_name,
         organizationMarketingName: row.organization_marketing_name,
         parentOrganization: row.parent_organization,
         measureCode: row.measure_code,
-        measureDisplayName: row.measure_display_name,
-        measureNormalized: row.measure_normalized,
+        measureDisplayName: resolved.displayName,
+        measureNormalized: resolved.normalizedName,
         score: effective,
         decimalSource: row.decimal_source,
       });

@@ -15,6 +15,7 @@ import {
 } from "@/lib/reward-factor";
 import { loadMeasureStarsFromFile } from "@/lib/reward-factor/backtest";
 import { getMeasureRemovalForYear } from "@/lib/reward-factor/measure-removal-projection";
+import { toBaselineMeasureCode } from "./measure-resolve";
 import type { PlanPreviewPredictionsResult } from "./predictions";
 
 export type PlanPreviewFinalScoreLeg = {
@@ -36,7 +37,7 @@ export type PlanPreviewFinalScore = {
   /** QI stars carried forward from the baseline published year. */
   withQi: PlanPreviewFinalScoreLeg | null;
   withoutQi: PlanPreviewFinalScoreLeg | null;
-  /** QI hold-harmless: the higher-scoring leg drives the final rating. */
+  /** QI is not estimable from PP1 data, so the without-QI leg drives ratings. */
   selectedLeg: "with_qi" | "without_qi" | null;
   finalScoreRaw: number | null;
   finalRating: number | null;
@@ -121,14 +122,24 @@ function buildAnchoredPopulation(
   }
 
   for (const contract of predictions.contracts) {
+    // Codes are translated to their baseline-year equivalents so the
+    // 2026-coded dedup/QI/scenario-removal sets apply to the right measures
+    // (CMS renumbers codes between years).
     const predicted: ContractMeasure[] = contract.measures
       .filter((measure) => measure.predictedStar !== null)
-      .map((measure) => ({
-        code: measure.measureCode,
-        starValue: measure.predictedStar as number,
-        weight: measure.weight,
-        category: measure.measureCode.startsWith("D") ? "Part D" : "Part C",
-      }));
+      .map((measure) => {
+        const code = toBaselineMeasureCode(
+          measure.measureNormalized,
+          measure.measureCode,
+          baselineYear
+        );
+        return {
+          code,
+          starValue: measure.predictedStar as number,
+          weight: measure.weight,
+          category: code.startsWith("D") ? "Part D" : "Part C",
+        };
+      });
     if (predicted.length === 0) continue;
 
     const carriedQi = (baseline.get(contract.contractId) ?? []).filter((measure) =>
@@ -294,10 +305,10 @@ function computeScenario(
       continue;
     }
 
-    const selectedLeg =
-      withQi && (!withoutQi || withQi.finalScoreRaw >= withoutQi.finalScoreRaw)
-        ? ("with_qi" as const)
-        : ("without_qi" as const);
+    // QI cannot be accurately estimated from plan preview 1 data, so the
+    // without-QI leg drives every rating (with-QI kept only as a fallback
+    // when the no-QI leg cannot be computed).
+    const selectedLeg = withoutQi ? ("without_qi" as const) : ("with_qi" as const);
     const selected = selectedLeg === "with_qi" ? withQi! : withoutQi!;
 
     contracts.push({
@@ -323,8 +334,7 @@ function computeScenario(
     contracts,
     notes: [
       ...scenario.notes,
-      `QI (C30/D04) is not scored in plan preview 1 files; the with-QI leg carries each contract's Stars ${baselineYear ?? "—"} published QI stars forward as the estimate.`,
-      "QI hold-harmless: the final rating uses the higher of the with-QI and without-QI scores, matching CMS methodology.",
+      "QI (C30/D04) is not scored in plan preview 1 files and cannot be accurately estimated yet, so all ratings exclude the QI measures (without-QI leg).",
       "Reward-factor thresholds are recomputed per leg from the baseline population with accrued contracts' predicted stars overlaid.",
       "CAI comes from the uploaded plan preview CAI file. Disaster/EUC 'higher-of' uplift is not modeled.",
     ],
@@ -336,8 +346,8 @@ function computeScenario(
  * under each scenario: predicted measure stars are overlaid onto the baseline
  * published population, scenario removals are applied to everyone, and
  * reward-factor thresholds are recomputed over that anchored population
- * (PERCENTILE.INC mean 65/85, variance 30/70) for both QI legs, mirroring
- * CMS's QI hold-harmless.
+ * (PERCENTILE.INC mean 65/85, variance 30/70) for both QI legs. QI cannot be
+ * accurately estimated from PP1 data, so the without-QI leg drives ratings.
  */
 export function buildPlanPreviewScenarios(
   predictions: PlanPreviewPredictionsResult,

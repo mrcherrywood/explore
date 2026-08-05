@@ -3,7 +3,8 @@ export type PlanPreviewFileType =
   | "cai"
   | "cahps"
   | "hedis"
-  | "snp_cm";
+  | "snp_cm"
+  | "cahps_adjusted";
 
 export type PlanPreviewDecimalSource = "cahps" | "hedis" | "snp_cm";
 
@@ -113,10 +114,41 @@ export type PlanPreviewCaiParseResult = {
   };
 };
 
+export type ParsedPlanPreviewCahpsAdjustedStar = {
+  sourceRowNumber: number;
+  contractId: string;
+  organizationMarketingName: string | null;
+  parentOrganization: string | null;
+  variable: string | null;
+  variableName: string;
+  measureCode: string;
+  measureDisplayName: string;
+  measureNormalized: string;
+  adjustedBaseStar: number;
+  unadjustedBaseStar: number | null;
+  adjustedFinalStar: number | null;
+  caseMixAdjustment: number | null;
+  planReliability: string | null;
+  planSignificance: string | null;
+};
+
+export type PlanPreviewCahpsAdjustedParseResult = {
+  fileType: "cahps_adjusted";
+  sheetName: string;
+  detectedStarsYear: number | null;
+  rows: ParsedPlanPreviewCahpsAdjustedStar[];
+  summary: {
+    rowCount: number;
+    contractCount: number;
+    measureCount: number;
+  };
+};
+
 export type PlanPreviewParseResult =
   | PlanPreviewMeasureParseResult
   | PlanPreviewCaiParseResult
-  | PlanPreviewDecimalParseResult;
+  | PlanPreviewDecimalParseResult
+  | PlanPreviewCahpsAdjustedParseResult;
 
 export type PlanPreviewBatchRecord = {
   id: string;
@@ -128,6 +160,7 @@ export type PlanPreviewBatchRecord = {
   rowCount: number;
   contractCount: number;
   measureCount: number;
+  parentOrganization: string | null;
   importedBy: string | null;
   createdAt: string;
   updatedAt: string;

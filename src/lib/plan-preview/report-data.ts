@@ -3,6 +3,8 @@ import path from "path";
 
 import { loadMeasureStarsFromFile } from "@/lib/reward-factor/backtest";
 
+import { toBaselineMeasureCode } from "./measure-resolve";
+
 import type {
   PlanPreviewFinalScore,
   PlanPreviewFinalScoresResult,
@@ -200,6 +202,15 @@ function buildScenarios(
 }
 
 /**
+ * Domain assignments for measures new to a stars year that therefore have no
+ * row in the baseline year's ma_measures table.
+ */
+const NEW_MEASURE_DOMAINS: Record<string, string> = {
+  // Polypharmacy Poly-ACH, new for Stars 2027.
+  D13: "Pharmacy",
+};
+
+/**
  * Assemble every data point the multi-page contract report needs: predicted
  * measure stars with domains, domain rollups, published rating history,
  * year-over-year movement vs the baseline published stars, and each
@@ -222,18 +233,32 @@ export function buildPlanPreviewContractReport(options: {
     publishedBaseline.map((measure) => [measure.code.toUpperCase(), measure.starValue])
   );
 
-  const measures: ReportMeasure[] = contract.measures.map((measure) => ({
-    ...measure,
-    domain: domainByCode.get(measure.measureCode.toUpperCase()) ?? null,
-    publishedBaselineStar:
-      publishedStarByCode.get(measure.measureCode.toUpperCase()) ?? null,
-  }));
+  // Domain and published-star lookups are keyed by baseline-year codes, so
+  // translate each measure's file code (CMS renumbers codes between years).
+  const measures: ReportMeasure[] = contract.measures.map((measure) => {
+    const code =
+      baselineYear !== null
+        ? toBaselineMeasureCode(measure.measureNormalized, measure.measureCode, baselineYear)
+        : measure.measureCode.toUpperCase();
+    return {
+      ...measure,
+      domain: domainByCode.get(code) ?? NEW_MEASURE_DOMAINS[code] ?? null,
+      publishedBaselineStar: publishedStarByCode.get(code) ?? null,
+    };
+  });
 
   const baselineSummaryRow = baselineYear !== null
     ? findSummaryRow(loadSummaryRows(baselineYear) ?? [], contractId)
     : null;
 
-  const contractCodes = new Set(measures.map((measure) => measure.measureCode.toUpperCase()));
+  // Scenario removal sets use baseline-year codes, so intersect on those.
+  const contractCodes = new Set(
+    measures.map((measure) =>
+      baselineYear !== null
+        ? toBaselineMeasureCode(measure.measureNormalized, measure.measureCode, baselineYear)
+        : measure.measureCode.toUpperCase()
+    )
+  );
 
   return {
     starsYear,

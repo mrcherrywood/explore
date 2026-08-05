@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Download, FolderOpen, Loader2, RefreshCw, Trash2, Upload } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, Download, FolderOpen, Loader2, RefreshCw, Trash2, Upload } from "lucide-react";
 
 import { PlanPreviewPredictions } from "@/components/admin/PlanPreviewPredictions";
 import type { PlanPreviewAccrualSummary, PlanPreviewBatchRecord } from "@/lib/plan-preview/types";
@@ -19,9 +19,35 @@ const FILE_TYPE_LABELS: Record<string, string> = {
   cahps: "CAHPS decimals",
   hedis: "HEDIS decimals",
   snp_cm: "SNP CM decimals",
+  cahps_adjusted: "CAHPS adjusted stars",
 };
 
 const DECIMAL_FILE_TYPES = new Set(["cahps", "hedis", "snp_cm"]);
+const MEASURE_COUNT_FILE_TYPES = new Set(["measure_data", "cahps", "hedis", "snp_cm", "cahps_adjusted"]);
+
+/** Group upload batches by parent organization, most recent upload first. */
+function groupBatchesByParentOrg(
+  batches: PlanPreviewBatchRecord[]
+): { parentOrganization: string; batches: PlanPreviewBatchRecord[] }[] {
+  const groups = new Map<string, PlanPreviewBatchRecord[]>();
+  for (const batch of batches) {
+    const key = batch.parentOrganization ?? "Unknown parent organization";
+    const existing = groups.get(key);
+    if (existing) existing.push(batch);
+    else groups.set(key, [batch]);
+  }
+  return [...groups.entries()]
+    .map(([parentOrganization, groupBatches]) => ({
+      parentOrganization,
+      batches: [...groupBatches].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+    }))
+    .sort(
+      (a, b) =>
+        new Date(b.batches[0].createdAt).getTime() - new Date(a.batches[0].createdAt).getTime()
+    );
+}
 
 async function fetchOverview(starsYear?: number): Promise<OverviewResponse> {
   const params = new URLSearchParams();
@@ -40,8 +66,18 @@ export function PlanPreviewAdmin() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(() => new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+
+  const toggleOrg = (parentOrganization: string) => {
+    setExpandedOrgs((prev) => {
+      const next = new Set(prev);
+      if (next.has(parentOrganization)) next.delete(parentOrganization);
+      else next.add(parentOrganization);
+      return next;
+    });
+  };
 
   const loadOverview = useCallback(async (year?: number) => {
     setLoading(true);
@@ -60,6 +96,11 @@ export function PlanPreviewAdmin() {
   useEffect(() => {
     void loadOverview();
   }, [loadOverview]);
+
+  const batchGroups = useMemo(
+    () => groupBatchesByParentOrg(overview?.batches ?? []),
+    [overview?.batches]
+  );
 
   const importFiles = async (allFiles: File[]) => {
     if (allFiles.length === 0 || !starsYear) return;
@@ -94,9 +135,12 @@ export function PlanPreviewAdmin() {
           continue;
         }
         const label = FILE_TYPE_LABELS[payload.summary?.fileType] ?? "File";
-        const detail = DECIMAL_FILE_TYPES.has(payload.summary?.fileType)
-          ? `${payload.summary?.rowCount ?? 0} decimal values across ${payload.summary?.measureCount ?? 0} measures`
-          : `${payload.summary?.contractCount ?? 0} contracts`;
+        const detail =
+          payload.summary?.fileType === "cahps_adjusted"
+            ? `${payload.summary?.rowCount ?? 0} adjusted stars across ${payload.summary?.contractCount ?? 0} contracts`
+            : DECIMAL_FILE_TYPES.has(payload.summary?.fileType)
+              ? `${payload.summary?.rowCount ?? 0} decimal values across ${payload.summary?.measureCount ?? 0} measures`
+              : `${payload.summary?.contractCount ?? 0} contracts`;
         imported.push(
           `${file.name}: ${label} (${detail})` + (payload.warning ? ` — ${payload.warning}` : "")
         );
@@ -208,12 +252,14 @@ export function PlanPreviewAdmin() {
         <div className="px-5 pb-4 pt-5">
           <p className="fep-label">Upload</p>
           <p className="fep-subtitle" style={{ marginTop: 4 }}>
-            Upload CMS plan preview master table exports (.xlsx) — measure data, CAI, and domain
-            decimal files (CAHPS, HEDIS, SNP Care Management) are detected automatically. Domain
-            decimals overlay whole-number measure scores when available. Use Import folder to pull
-            in a whole release folder at once; files without usable scores (appeals, CTM,
-            disenrollment, disaster) are skipped with a note. Re-uploading a contract replaces its
-            accrued rows for the selected Star year.
+            Upload CMS plan preview master table exports (.xlsx) — measure data, CAI, domain
+            decimal files (CAHPS, HEDIS, SNP Care Management), and the MCAHPS enriched final
+            output (Adjusted_Base_Star) are detected automatically. Domain decimals overlay
+            whole-number measure scores when available; adjusted CAHPS stars replace cut-point
+            banding for matching contracts. Use Import folder to pull in a whole release folder at
+            once; files without usable scores (appeals, CTM, disenrollment, disaster) are skipped
+            with a note. Re-uploading a contract replaces its accrued rows for the selected Star
+            year.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 border-t px-5 py-4" style={{ borderColor: "var(--fep-row-border)" }}>
@@ -319,50 +365,83 @@ export function PlanPreviewAdmin() {
               : "No uploads yet for this Star year."}
           </p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="fep-table">
-            <thead>
-              <tr>
-                <th className="l">File</th>
-                <th className="l">Type</th>
-                <th>Contracts</th>
-                <th>Measures</th>
-                <th>Rows</th>
-                <th>File title year</th>
-                <th className="l">Uploaded</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(overview?.batches ?? []).map((batch) => (
-                <tr key={batch.id}>
-                  <td className="l max-w-[280px] truncate font-semibold" style={{ color: "var(--fep-ink)" }}>
-                    {batch.fileName}
-                  </td>
-                  <td className="l">
-                    <span className="fep-pill">{FILE_TYPE_LABELS[batch.fileType] ?? batch.fileType}</span>
-                  </td>
-                  <td>{batch.contractCount.toLocaleString()}</td>
-                  <td>
-                    {batch.fileType === "measure_data" || DECIMAL_FILE_TYPES.has(batch.fileType)
-                      ? batch.measureCount.toLocaleString()
-                      : "—"}
-                  </td>
-                  <td>{batch.rowCount.toLocaleString()}</td>
-                  <td>{batch.detectedStarsYear ?? "—"}</td>
-                  <td className="l">{new Date(batch.createdAt).toLocaleString()}</td>
-                </tr>
-              ))}
-              {!loading && (overview?.batches ?? []).length === 0 ? (
-                <tr>
-                  <td className="l" colSpan={7} style={{ color: "var(--fep-faint)", padding: "24px 20px", whiteSpace: "normal" }}>
-                    Upload the measure data, CAI, and optional domain decimal files to start accruing
-                    Stars {starsYear ?? ""} plan preview scores.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
+        {!loading && batchGroups.length === 0 ? (
+          <p className="px-5 pb-5 text-sm" style={{ color: "var(--fep-faint)" }}>
+            Upload the measure data, CAI, optional domain decimal files, and MCAHPS adjusted-star
+            output to start accruing Stars {starsYear ?? ""} plan preview scores.
+          </p>
+        ) : (
+          <div className="divide-y" style={{ borderColor: "var(--fep-row-border)" }}>
+            {batchGroups.map((group) => {
+              const expanded = expandedOrgs.has(group.parentOrganization);
+              return (
+                <div key={group.parentOrganization}>
+                  <button
+                    type="button"
+                    onClick={() => toggleOrg(group.parentOrganization)}
+                    aria-expanded={expanded}
+                    className="flex w-full items-center gap-2 px-5 py-3.5 text-left transition-colors hover:bg-black/[0.03]"
+                    style={{
+                      color: "var(--fep-ink)",
+                      fontWeight: 700,
+                      fontSize: "0.75rem",
+                      letterSpacing: "0.04em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {expanded ? (
+                      <ChevronDown className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--fep-faint)" }} />
+                    ) : (
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--fep-faint)" }} />
+                    )}
+                    <span className="min-w-0 truncate">{group.parentOrganization}</span>
+                    <span className="shrink-0 font-medium normal-case tracking-normal" style={{ color: "var(--fep-faint)" }}>
+                      {group.batches.length === 1 ? "1 upload" : `${group.batches.length} uploads`}
+                    </span>
+                  </button>
+                  {expanded ? (
+                    <div className="overflow-x-auto border-t" style={{ borderColor: "var(--fep-row-border)" }}>
+                      <table className="fep-table">
+                        <thead>
+                          <tr>
+                            <th className="l">File</th>
+                            <th className="l">Type</th>
+                            <th>Contracts</th>
+                            <th>Measures</th>
+                            <th>Rows</th>
+                            <th>File title year</th>
+                            <th className="l">Uploaded</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.batches.map((batch) => (
+                            <tr key={batch.id}>
+                              <td className="l max-w-[280px] truncate font-semibold" style={{ color: "var(--fep-ink)" }}>
+                                {batch.fileName}
+                              </td>
+                              <td className="l">
+                                <span className="fep-pill">{FILE_TYPE_LABELS[batch.fileType] ?? batch.fileType}</span>
+                              </td>
+                              <td>{batch.contractCount.toLocaleString()}</td>
+                              <td>
+                                {MEASURE_COUNT_FILE_TYPES.has(batch.fileType)
+                                  ? batch.measureCount.toLocaleString()
+                                  : "—"}
+                              </td>
+                              <td>{batch.rowCount.toLocaleString()}</td>
+                              <td>{batch.detectedStarsYear ?? "—"}</td>
+                              <td className="l">{new Date(batch.createdAt).toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode, Ref } from "react";
+import { useId, type ReactNode, type Ref } from "react";
 
 export const REPORT_COLORS = {
   accent: "#1a3673",
@@ -32,19 +32,62 @@ export function chartValueFormatter(digits: number, suffix = "", fallback = "") 
     typeof label === "number" ? `${label.toFixed(digits)}${suffix}` : fallback;
 }
 
-/** Filled/empty star glyph row, e.g. ★★★★☆ for 4. */
+/** Classic 5-point star path in a 24×24 viewBox. */
+const STAR_PATH =
+  "M12 2.5l2.9 6.1 6.6.9-4.8 4.6 1.2 6.5L12 17.2 6.1 20.6l1.2-6.5-4.8-4.6 6.6-.9L12 2.5z";
+
+function ReportStar({
+  fill,
+  size,
+}: {
+  fill: "full" | "half" | "empty";
+  size: number;
+}) {
+  const filled = REPORT_COLORS.accent;
+  const empty = "#d8d2c4";
+  // useId can include colons; strip them so SVG url(#…) refs survive PDF rasterization.
+  const gradientId = `pp-half-${useId().replace(/:/g, "")}`;
+
+  if (fill === "half") {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="50%" stopColor={filled} />
+            <stop offset="50%" stopColor={empty} />
+          </linearGradient>
+        </defs>
+        <path d={STAR_PATH} fill={`url(#${gradientId})`} />
+      </svg>
+    );
+  }
+
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path d={STAR_PATH} fill={fill === "full" ? filled : empty} />
+    </svg>
+  );
+}
+
+/** Full / half / empty star row that rasterizes cleanly for PDF export. */
 export function StarGlyphs({ value, size = 15 }: { value: number | null; size?: number }) {
   if (value === null) return null;
   const full = Math.floor(value);
   const half = value - full >= 0.5;
+  const empty = Math.max(0, 5 - full - (half ? 1 : 0));
+
   return (
     <span
       aria-label={`${value} stars`}
-      style={{ fontSize: size, letterSpacing: 2, color: REPORT_COLORS.accent, lineHeight: 1 }}
+      style={{ display: "inline-flex", alignItems: "center", gap: 2, lineHeight: 1 }}
     >
-      {"★".repeat(full)}
-      {half ? "⯨" : ""}
-      <span style={{ color: "#d8d2c4" }}>{"★".repeat(Math.max(0, 5 - full - (half ? 1 : 0)))}</span>
+      {Array.from({ length: full }, (_, i) => (
+        <ReportStar key={`full-${i}`} fill="full" size={size} />
+      ))}
+      {half ? <ReportStar key="half" fill="half" size={size} /> : null}
+      {Array.from({ length: empty }, (_, i) => (
+        <ReportStar key={`empty-${i}`} fill="empty" size={size} />
+      ))}
     </span>
   );
 }

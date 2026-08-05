@@ -62,6 +62,9 @@ export type PlanPreviewCutPointPrediction = {
   notes: string[];
 };
 
+/** How the predicted measure star was assigned. */
+export type PlanPreviewStarSource = "cut_points" | "cahps_case_mix_reliability";
+
 export type PlanPreviewContractMeasurePrediction = {
   measureNormalized: string;
   displayName: string;
@@ -70,6 +73,12 @@ export type PlanPreviewContractMeasurePrediction = {
   weight: number;
   inverted: boolean;
   predictedStar: number | null;
+  /**
+   * When set to cahps_case_mix_reliability, the star comes from the uploaded
+   * MCAHPS Adjusted_Base_Star (case-mix + reliability) rather than banding
+   * the PP1 score against projected cut points.
+   */
+  starSource: PlanPreviewStarSource | null;
   baselineOfficialStar: number | null;
   predictionStatus: PlanPreviewCutPointPrediction["status"];
 };
@@ -95,6 +104,8 @@ export type PlanPreviewPredictionsResult = {
     unsupportedCount: number;
     warningCount: number;
     accruedContractCount: number;
+    /** Contract×measure cells using MCAHPS adjusted base stars. */
+    cahpsAdjustedStarCount: number;
   };
   cutPoints: PlanPreviewCutPointPrediction[];
   contracts: PlanPreviewContractPrediction[];
@@ -211,12 +222,24 @@ function maxModelDivergence(
   return max;
 }
 
+export type CahpsAdjustedStarLookup = {
+  contractId: string;
+  measureNormalized: string;
+  adjustedBaseStar: number;
+};
+
 export function buildPlanPreviewPredictions(
   rows: AccruedMeasureScore[],
-  starsYear: number
+  starsYear: number,
+  options?: { cahpsAdjustedStars?: CahpsAdjustedStarLookup[] }
 ): PlanPreviewPredictionsResult {
   const maRows = rows.filter((row) => MA_CONTRACT_PATTERN.test(row.contractId));
   const baselineYear = resolveBaselineYear(starsYear);
+  const adjustedByKey = new Map<string, number>();
+  for (const item of options?.cahpsAdjustedStars ?? []) {
+    if (!MA_CONTRACT_PATTERN.test(item.contractId)) continue;
+    adjustedByKey.set(`${item.contractId}|${item.measureNormalized}`, item.adjustedBaseStar);
+  }
 
   const rowsByMeasure = new Map<string, AccruedMeasureScore[]>();
   for (const row of maRows) {
@@ -415,7 +438,16 @@ export function buildPlanPreviewPredictions(
     maRows,
     readyThresholds,
     predictionStatusByMeasure,
-    baselineYear
+    baselineYear,
+    adjustedByKey
+  );
+
+  const cahpsAdjustedStarCount = contracts.reduce(
+    (sum, contract) =>
+      sum +
+      contract.measures.filter((measure) => measure.starSource === "cahps_case_mix_reliability")
+        .length,
+    0
   );
 
   return {
@@ -429,6 +461,7 @@ export function buildPlanPreviewPredictions(
       unsupportedCount: cutPoints.filter((item) => item.status === "unsupported").length,
       warningCount: cutPoints.reduce((sum, item) => sum + item.warningCount, 0),
       accruedContractCount: new Set(maRows.map((row) => row.contractId)).size,
+      cahpsAdjustedStarCount,
     },
     cutPoints,
     contracts,
@@ -439,7 +472,8 @@ function buildContractPredictions(
   rows: AccruedMeasureScore[],
   readyThresholds: Map<string, { thresholds: ThresholdValuesShape; inverted: boolean }>,
   predictionStatusByMeasure: Map<string, PlanPreviewCutPointPrediction["status"]>,
-  baselineYear: number | null
+  baselineYear: number | null,
+  adjustedByKey: Map<string, number>
 ): PlanPreviewContractPrediction[] {
   const rowsByContract = new Map<string, AccruedMeasureScore[]>();
   for (const row of rows) {
@@ -465,12 +499,24 @@ function buildContractPredictions(
         baselineYear
       );
       const weight = baselineCutPoint?.weight ?? 1;
-      const predictedStar = ready
+      const adjustedStar = adjustedByKey.get(`${contractId}|${row.measureNormalized}`) ?? null;
+      const cutPointStar = ready
         ? starFromThresholds(row.score, ready.thresholds, ready.inverted)
         : null;
+      const predictedStar = adjustedStar ?? cutPointStar;
+      const starSource: PlanPreviewStarSource | null =
+        adjustedStar !== null
+          ? "cahps_case_mix_reliability"
+          : cutPointStar !== null
+            ? "cut_points"
+            : null;
       const baselineOfficialStar = baselineCutPoint
         ? deriveMeasureStarRating(row.score, baselineCutPoint, inverted)
         : null;
+      const predictionStatus =
+        adjustedStar !== null
+          ? ("ready" as const)
+          : (predictionStatusByMeasure.get(row.measureNormalized) ?? "unavailable");
 
       if (predictedStar !== null) {
         weightedStarSum += predictedStar * weight;
@@ -485,8 +531,9 @@ function buildContractPredictions(
         weight,
         inverted,
         predictedStar,
+        starSource,
         baselineOfficialStar,
-        predictionStatus: predictionStatusByMeasure.get(row.measureNormalized) ?? "unavailable",
+        predictionStatus,
       });
     }
 

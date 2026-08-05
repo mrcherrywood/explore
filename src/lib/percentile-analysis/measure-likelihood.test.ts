@@ -8,7 +8,12 @@ import {
   getMeasureLikelihoodTableData,
   getMeasureStarPercentileData,
 } from "@/lib/percentile-analysis/measure-likelihood";
-import { deriveMeasureStarRating, loadMeasureCutPoints, matchCutPointToMeasureName } from "@/lib/percentile-analysis/measure-matching";
+import {
+  deriveMeasureStarRating,
+  isInvertedMeasure,
+  loadMeasureCutPoints,
+  matchCutPointToMeasureName,
+} from "@/lib/percentile-analysis/measure-matching";
 import type { MeasureCutPoint, MeasureObservation } from "@/lib/percentile-analysis/measure-likelihood-types";
 
 const cutPointsPath = path.join(process.cwd(), "data", "Stars 2016-2028 Cut Points 07.2026_with_weights.xlsx");
@@ -69,6 +74,48 @@ test("matchCutPointToMeasureName supports stable-name matching", () => {
 
   assert.equal(breastCancer?.measureName, "Breast Cancer Screening");
   assert.equal(callCenterPartC?.measureName, "Call Center - FFI / TTY (Part C)");
+});
+
+test("matchCutPointToMeasureName matches Poly-ACH workbook shorthand to the full PP1 name", () => {
+  const byYear = loadMeasureCutPoints(cutPointsPath, [2027]);
+  const cutPoints = byYear.get(2027) ?? [];
+
+  const polyAch = matchCutPointToMeasureName(
+    "Polypharmacy: Use of Multiple Anticholinergic Medications in Older Adults (Poly-ACH)",
+    "D",
+    cutPoints
+  );
+
+  assert.equal(polyAch?.measureName, "Poly Rx Multi-Anticholinergics");
+  assert.equal(polyAch?.thresholds.fiveStar, 4);
+  assert.equal(isInvertedMeasure(polyAch!.measureName), true);
+  assert.equal(
+    isInvertedMeasure(
+      "Polypharmacy: Use of Multiple Anticholinergic Medications in Older Adults (Poly-ACH)"
+    ),
+    true
+  );
+});
+
+test("matchCutPointToMeasureName matches 2027 COB and Functional Status Assessment workbook rows", () => {
+  const byYear = loadMeasureCutPoints(cutPointsPath, [2027]);
+  const cutPoints = byYear.get(2027) ?? [];
+
+  const cob = matchCutPointToMeasureName(
+    "Concurrent Use of Opioids and Benzodiazepines (COB)",
+    "D",
+    cutPoints
+  );
+  assert.equal(cob?.measureName, "Concurrent Use of Opiods/Benzos");
+  assert.equal(isInvertedMeasure(cob!.measureName), true);
+  assert.equal(deriveMeasureStarRating(16.53, cob!, true), 3);
+
+  const functional = matchCutPointToMeasureName(
+    "Care for Older Adults - Functional Status Assessment",
+    "C",
+    cutPoints
+  );
+  assert.equal(functional?.measureName, "COA - Functional Status Assessment");
 });
 
 test("matchCutPointToMeasureName distinguishes Call Center Part C from Part D", () => {

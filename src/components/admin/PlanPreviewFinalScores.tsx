@@ -68,12 +68,9 @@ function ScoreRow({ contract }: { contract: PlanPreviewFinalScore }) {
               "—"
             )}
           </td>
-          <td className="l">
-            {contract.selectedLeg === "with_qi" ? "QI carried forward" : contract.withQi ? "No-QI leg higher" : "No QI available"}
-          </td>
         </>
       ) : (
-        <td className="l" colSpan={7} style={{ color: "var(--fep-faint)", whiteSpace: "normal" }}>
+        <td className="l" colSpan={6} style={{ color: "var(--fep-faint)", whiteSpace: "normal" }}>
           {contract.reason}
         </td>
       )}
@@ -107,7 +104,6 @@ export function PlanPreviewFinalScores({
             </option>
           ))}
         </select>
-        <ThresholdPill label="With QI" thresholds={data.thresholds.withQi} />
         <ThresholdPill label="No QI" thresholds={data.thresholds.withoutQi} />
         {data.populationSize > 0 ? (
           <span className="fep-pill">{data.populationSize.toLocaleString()} contracts in population</span>
@@ -126,9 +122,8 @@ export function PlanPreviewFinalScores({
               <th>Base mean</th>
               <th>Reward factor</th>
               <th>CAI</th>
-              <th>Final score</th>
+              <th>Final score (no QI)</th>
               <th>Predicted rating</th>
-              <th className="l">QI leg</th>
             </tr>
           </thead>
           <tbody>

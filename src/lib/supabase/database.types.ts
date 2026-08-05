@@ -722,6 +722,7 @@ export interface Database {
           row_count: number
           contract_count: number
           measure_count: number
+          parent_organization: string | null
           imported_by: string | null
           created_at: string
           updated_at: string
@@ -736,6 +737,7 @@ export interface Database {
           row_count?: number
           contract_count?: number
           measure_count?: number
+          parent_organization?: string | null
           imported_by?: string | null
           created_at?: string
           updated_at?: string
@@ -750,6 +752,7 @@ export interface Database {
           row_count?: number
           contract_count?: number
           measure_count?: number
+          parent_organization?: string | null
           imported_by?: string | null
           created_at?: string
           updated_at?: string
@@ -923,6 +926,71 @@ export interface Database {
           overall_disabled_quintile?: string | null
           overall_fac?: string | null
           overall_cai?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      plan_preview_cahps_adjusted_stars: {
+        Row: {
+          id: string
+          batch_id: string
+          stars_year: number
+          contract_id: string
+          organization_marketing_name: string | null
+          parent_organization: string | null
+          variable: string | null
+          variable_name: string
+          measure_code: string
+          measure_display_name: string
+          measure_normalized: string
+          adjusted_base_star: number
+          unadjusted_base_star: number | null
+          adjusted_final_star: number | null
+          case_mix_adjustment: number | null
+          plan_reliability: string | null
+          plan_significance: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          batch_id: string
+          stars_year: number
+          contract_id: string
+          organization_marketing_name?: string | null
+          parent_organization?: string | null
+          variable?: string | null
+          variable_name: string
+          measure_code: string
+          measure_display_name: string
+          measure_normalized: string
+          adjusted_base_star: number
+          unadjusted_base_star?: number | null
+          adjusted_final_star?: number | null
+          case_mix_adjustment?: number | null
+          plan_reliability?: string | null
+          plan_significance?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          batch_id?: string
+          stars_year?: number
+          contract_id?: string
+          organization_marketing_name?: string | null
+          parent_organization?: string | null
+          variable?: string | null
+          variable_name?: string
+          measure_code?: string
+          measure_display_name?: string
+          measure_normalized?: string
+          adjusted_base_star?: number
+          unadjusted_base_star?: number | null
+          adjusted_final_star?: number | null
+          case_mix_adjustment?: number | null
+          plan_reliability?: string | null
+          plan_significance?: string | null
           created_at?: string
           updated_at?: string
         }
