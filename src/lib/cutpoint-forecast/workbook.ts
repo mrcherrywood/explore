@@ -13,7 +13,7 @@ import {
   type ImportedMonthlyMeasureRow,
 } from "./types";
 
-const CUT_POINTS_PATH = `${process.cwd()}/data/Stars 2016-2028 Cut Points 12.2025_with_weights.xlsx`;
+const CUT_POINTS_PATH = `${process.cwd()}/data/Stars 2016-2028 Cut Points 07.2026_with_weights.xlsx`;
 const REQUIRED_HEADERS = ["hl code", "contract", "measure", "year", "month"] as const;
 const COMPACT_HL_CODE_ALIASES = ["hlcode", "measureid", "eqcode"] as const;
 const COMPACT_CONTRACT_ALIASES = ["contractid", "contract", "contractcode"] as const;

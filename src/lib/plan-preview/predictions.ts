@@ -7,6 +7,8 @@ import {
 import {
   analyzeCutPointMethodologyForecast,
   ensureOfficialCutPoints,
+  getWorkbookCutPointsForYear,
+  isCahpsMeasure,
   type MethodologyForecastThreshold,
 } from "@/lib/band-movement/cut-point-methodology";
 import { overlayProjectedSamples } from "@/lib/cutpoint-forecast/analysis";
@@ -31,6 +33,8 @@ export type AccruedMeasureScore = {
   score: number;
 };
 
+export type PlanPreviewCutPointSource = "official" | "workbook_forecast" | "model";
+
 export type PlanPreviewCutPointPrediction = {
   measureNormalized: string;
   displayName: string;
@@ -38,13 +42,22 @@ export type PlanPreviewCutPointPrediction = {
   status: "ready" | "unavailable" | "unsupported";
   reason: string | null;
   method: "clustering" | "cahps-percentile" | null;
+  /**
+   * Where the applied thresholds come from: official published cut points
+   * (SY2027 CAHPS), the workbook's forecast rows, or the model when the
+   * workbook has no row for this measure/year.
+   */
+  source: PlanPreviewCutPointSource;
   inverted: boolean;
   accruedContractCount: number;
   matchedBaselineCount: number;
   appendedContractCount: number;
   baselineMarketCount: number;
   sampleSize: number | null;
+  /** Thresholds applied when rating contracts. */
   thresholds: MethodologyForecastThreshold[] | null;
+  /** Model-predicted thresholds, always recomputed as data accrues. */
+  modelThresholds: MethodologyForecastThreshold[] | null;
   warningCount: number;
   notes: string[];
 };
@@ -149,6 +162,55 @@ function lookupBaselineCutPoint(
   return matchCutPointToMeasureName(displayName, codePrefix, cutPoints);
 }
 
+const THRESHOLD_ENTRIES: { key: MethodologyForecastThreshold["key"]; label: string }[] = [
+  { key: "twoStar", label: "2★ Threshold" },
+  { key: "threeStar", label: "3★ Threshold" },
+  { key: "fourStar", label: "4★ Threshold" },
+  { key: "fiveStar", label: "5★ Threshold" },
+];
+
+/** Workbook cut point values presented in the same shape as model forecasts. */
+function thresholdsFromWorkbook(
+  workbookRow: MeasureCutPoint,
+  baselineCutPoint: MeasureCutPoint | null
+): MethodologyForecastThreshold[] {
+  return THRESHOLD_ENTRIES.map(({ key, label }) => {
+    const projected = workbookRow.thresholds[key];
+    const comparisonActual = baselineCutPoint?.thresholds[key] ?? null;
+    const delta =
+      comparisonActual !== null ? Math.round((projected - comparisonActual) * 100) / 100 : null;
+    return {
+      key,
+      label,
+      projected,
+      comparisonActual,
+      deltaVsComparison: delta,
+      absDeltaVsComparison: delta !== null ? Math.abs(delta) : null,
+      rawSimulated: null,
+      baselineSimulated: null,
+      anchoredMovement: null,
+      movementCap: null,
+      movementWasCapped: false,
+    };
+  });
+}
+
+/** Largest absolute gap between the model projection and the applied workbook values. */
+function maxModelDivergence(
+  applied: ThresholdValuesShape,
+  modelThresholds: MethodologyForecastThreshold[]
+): number | null {
+  const byKey = new Map(modelThresholds.map((item) => [item.key, item.projected] as const));
+  let max: number | null = null;
+  for (const { key } of THRESHOLD_ENTRIES) {
+    const model = byKey.get(key);
+    if (model === undefined) continue;
+    const diff = Math.abs(model - applied[key]);
+    if (max === null || diff > max) max = diff;
+  }
+  return max;
+}
+
 export function buildPlanPreviewPredictions(
   rows: AccruedMeasureScore[],
   starsYear: number
@@ -166,11 +228,21 @@ export function buildPlanPreviewPredictions(
   const cutPoints: PlanPreviewCutPointPrediction[] = [];
   const readyThresholds = new Map<string, { thresholds: ThresholdValuesShape; inverted: boolean }>();
   const predictionStatusByMeasure = new Map<string, PlanPreviewCutPointPrediction["status"]>();
+  const workbookCutPoints = getWorkbookCutPointsForYear(starsYear);
 
   for (const [measureNormalized, measureRows] of rowsByMeasure) {
     const displayName = measureRows[0].measureDisplayName;
     const measureCode = measureRows[0].measureCode;
     const inverted = isInvertedMeasure(displayName);
+    const isCahps = isCahpsMeasure(displayName);
+    const codePrefix = measureCode ? measureCode[0] : null;
+    const workbookRow = matchCutPointToMeasureName(displayName, codePrefix, workbookCutPoints);
+    const baselineCutPoint = lookupBaselineCutPoint(
+      measureNormalized,
+      displayName,
+      measureCode,
+      baselineYear
+    );
     const projectedSamples: MeasureScoreSample[] = measureRows.map((row) => ({
       contractId: row.contractId,
       score: row.score,
@@ -181,6 +253,7 @@ export function buildPlanPreviewPredictions(
       displayName,
       measureCode,
       method: null,
+      source: "model",
       inverted,
       accruedContractCount: projectedSamples.length,
       matchedBaselineCount: 0,
@@ -188,11 +261,107 @@ export function buildPlanPreviewPredictions(
       baselineMarketCount: 0,
       sampleSize: null,
       thresholds: null,
+      modelThresholds: null,
       warningCount: 0,
       notes: [],
     };
 
-    if (baselineYear === null || !getMeasureByNormalizedName(measureNormalized)) {
+    const inUniverse =
+      baselineYear !== null && getMeasureByNormalizedName(measureNormalized) !== null;
+    // The model needs a published baseline; CAHPS with official workbook cut
+    // points skips the model entirely (CMS has already set the thresholds).
+    const canRunModel = inUniverse && !(isCahps && workbookRow);
+
+    let modelResult: ReturnType<typeof analyzeCutPointMethodologyForecast> | null = null;
+    let coverage = {
+      matchedBaselineCount: 0,
+      appendedContractCount: 0,
+      baselineMarketCount: 0,
+    };
+
+    if (inUniverse) {
+      const baselineSamples = getMeasureYearScoreSamples(measureNormalized, baselineYear!);
+      const baselineContractIds = new Set(baselineSamples.map((sample) => sample.contractId));
+      const matchedBaselineCount = projectedSamples.filter((sample) =>
+        baselineContractIds.has(sample.contractId)
+      ).length;
+      coverage = {
+        matchedBaselineCount,
+        appendedContractCount: projectedSamples.length - matchedBaselineCount,
+        baselineMarketCount: baselineSamples.length,
+      };
+      if (canRunModel) {
+        const anchoredSamples = overlayProjectedSamples(
+          measureNormalized,
+          projectedSamples,
+          baselineYear!
+        );
+        modelResult = analyzeCutPointMethodologyForecast(
+          measureNormalized,
+          starsYear,
+          anchoredSamples,
+          { baselineSamples, baselineYear: baselineYear! }
+        );
+      }
+    }
+
+    const readyModel = modelResult !== null && modelResult.status === "ready" ? modelResult : null;
+    const modelThresholds = readyModel?.thresholds ?? null;
+
+    if (workbookRow) {
+      // Workbook thresholds are applied: official CAHPS values, or the
+      // maintained forecast for everything else. The model keeps running as
+      // data accrues so divergence can flag a workbook row worth revisiting.
+      const applied: ThresholdValuesShape = {
+        twoStar: workbookRow.thresholds.twoStar,
+        threeStar: workbookRow.thresholds.threeStar,
+        fourStar: workbookRow.thresholds.fourStar,
+        fiveStar: workbookRow.thresholds.fiveStar,
+      };
+      readyThresholds.set(measureNormalized, { thresholds: applied, inverted });
+      predictionStatusByMeasure.set(measureNormalized, "ready");
+
+      const notes: string[] = [];
+      if (isCahps) {
+        notes.push(`Official Stars ${starsYear} CAHPS cut points from the cut point workbook.`);
+      } else {
+        notes.push(
+          `Workbook forecast cut points applied for Stars ${starsYear}; the model re-predicts as scores accrue.`
+        );
+        if (modelThresholds) {
+          const divergence = maxModelDivergence(applied, modelThresholds);
+          if (divergence !== null && divergence > 1) {
+            notes.push(
+              `Model prediction diverges from the workbook forecast by up to ${divergence.toFixed(1)} points — revisit the workbook row if this persists as coverage grows.`
+            );
+          }
+        }
+      }
+      if (modelResult && modelResult.status !== "ready" && !isCahps) {
+        notes.push(`Model prediction unavailable: ${modelResult.reason ?? "insufficient data"}.`);
+      }
+
+      cutPoints.push({
+        ...base,
+        ...coverage,
+        status: "ready",
+        reason: null,
+        method: readyModel
+          ? (readyModel.methodology.method as "clustering" | "cahps-percentile")
+          : null,
+        source: isCahps ? "official" : "workbook_forecast",
+        inverted,
+        sampleSize: readyModel?.sampleSize ?? null,
+        thresholds: thresholdsFromWorkbook(workbookRow, baselineCutPoint),
+        modelThresholds,
+        warningCount: readyModel?.historicalMovement?.warningCount ?? 0,
+        notes: [...notes, ...(readyModel?.notes ?? [])],
+      });
+      continue;
+    }
+
+    // No workbook row for this measure/year: the model prediction is applied.
+    if (!canRunModel) {
       const reason =
         baselineYear === null
           ? "No published baseline year is available to anchor the prediction."
@@ -202,44 +371,26 @@ export function buildPlanPreviewPredictions(
       continue;
     }
 
-    const baselineSamples = getMeasureYearScoreSamples(measureNormalized, baselineYear);
-    const baselineContractIds = new Set(baselineSamples.map((sample) => sample.contractId));
-    const matchedBaselineCount = projectedSamples.filter((sample) =>
-      baselineContractIds.has(sample.contractId)
-    ).length;
-    const anchoredSamples = overlayProjectedSamples(
-      measureNormalized,
-      projectedSamples,
-      baselineYear
-    );
-
-    const result = analyzeCutPointMethodologyForecast(
-      measureNormalized,
-      starsYear,
-      anchoredSamples,
-      { baselineSamples, baselineYear }
-    );
-
-    const coverage = {
-      matchedBaselineCount,
-      appendedContractCount: projectedSamples.length - matchedBaselineCount,
-      baselineMarketCount: baselineSamples.length,
-    };
-
-    if (result.status !== "ready") {
+    if (!readyModel) {
+      const status = (modelResult!.status === "unsupported" ? "unsupported" : "unavailable") as
+        | "unavailable"
+        | "unsupported";
       cutPoints.push({
         ...base,
         ...coverage,
-        status: result.status,
-        reason: result.reason,
+        status,
+        reason: modelResult!.status === "ready" ? null : modelResult!.reason,
       });
-      predictionStatusByMeasure.set(measureNormalized, result.status);
+      predictionStatusByMeasure.set(measureNormalized, status);
       continue;
     }
 
-    const thresholdValues = thresholdsFromForecast(result.thresholds);
+    const thresholdValues = thresholdsFromForecast(readyModel.thresholds);
     if (thresholdValues) {
-      readyThresholds.set(measureNormalized, { thresholds: thresholdValues, inverted: result.inverted });
+      readyThresholds.set(measureNormalized, {
+        thresholds: thresholdValues,
+        inverted: readyModel.inverted,
+      });
     }
     predictionStatusByMeasure.set(measureNormalized, "ready");
     cutPoints.push({
@@ -247,12 +398,14 @@ export function buildPlanPreviewPredictions(
       ...coverage,
       status: "ready",
       reason: null,
-      method: result.methodology.method as "clustering" | "cahps-percentile",
-      inverted: result.inverted,
-      sampleSize: result.sampleSize,
-      thresholds: result.thresholds,
-      warningCount: result.historicalMovement?.warningCount ?? 0,
-      notes: result.notes,
+      method: readyModel.methodology.method as "clustering" | "cahps-percentile",
+      source: "model",
+      inverted: readyModel.inverted,
+      sampleSize: readyModel.sampleSize,
+      thresholds: readyModel.thresholds,
+      modelThresholds: readyModel.thresholds,
+      warningCount: readyModel.historicalMovement?.warningCount ?? 0,
+      notes: readyModel.notes,
     });
   }
 

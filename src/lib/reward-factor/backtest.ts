@@ -26,7 +26,7 @@ import {
 import type { MeasureCutPoint } from "@/lib/percentile-analysis/measure-likelihood-types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
-const CUT_POINTS_PATH = path.join(DATA_DIR, "Stars 2016-2028 Cut Points 12.2025_with_weights.xlsx");
+const CUT_POINTS_PATH = path.join(DATA_DIR, "Stars 2016-2028 Cut Points 07.2026_with_weights.xlsx");
 const QI_MEASURES = new Set(["C30", "D04"]);
 const AVAILABLE_BACKTEST_YEARS = [2023, 2024, 2025, 2026] as const;
 

@@ -277,6 +277,27 @@
   background: linear-gradient(90deg, var(--fep-accent-deep), var(--fep-accent) 55%, #7f9dd1);
 }
 
+.fep-report-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.fep-report-header-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.fep-report-logo {
+  flex: 0 0 auto;
+  width: 156px;
+  height: 24px;
+  object-fit: contain;
+  object-position: right top;
+  margin-top: 2px;
+}
+
 .fep-report-eyebrow {
   font-size: 10px;
   font-weight: 800;
@@ -293,6 +314,14 @@
   letter-spacing: -0.015em;
   color: var(--fep-ink);
   line-height: 1.12;
+  padding-right: 8px;
+}
+
+.fep-report-subtitle {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--fep-muted);
 }
 
 .fep-report-h2 {

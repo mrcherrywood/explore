@@ -64,7 +64,10 @@ test(
     const breastCancer = result.cutPoints.find((cp) => cp.measureCode === "C01");
     assert.ok(breastCancer, "C01 prediction missing");
     assert.equal(breastCancer.status, "ready");
+    // Workbook forecast rows are applied while the clustering model runs alongside.
+    assert.equal(breastCancer.source, "workbook_forecast");
     assert.equal(breastCancer.method, "clustering");
+    assert.ok(breastCancer.modelThresholds, "model thresholds should still be computed");
     assert.ok(breastCancer.baselineMarketCount > 100, "should anchor to the full published market");
     assert.equal(breastCancer.accruedContractCount, 1, "only H8003 carries C01 in the sample");
     const c01 = Object.fromEntries(
@@ -91,10 +94,16 @@ test(
     const qi = result.cutPoints.find((cp) => cp.measureCode === "C30");
     if (qi) assert.equal(qi.status, "unsupported");
 
-    // CAHPS measures use the percentile method.
+    // CAHPS measures apply the official workbook cut points (no model run).
     const gettingNeededCare = result.cutPoints.find((cp) => cp.measureCode === "C22");
     assert.ok(gettingNeededCare);
-    assert.equal(gettingNeededCare.method, "cahps-percentile");
+    assert.equal(gettingNeededCare.source, "official");
+    assert.equal(gettingNeededCare.method, null);
+    const c22 = Object.fromEntries(
+      (gettingNeededCare.thresholds ?? []).map((item) => [item.key, item.projected])
+    );
+    // Official SY2027 Getting Needed Care cut points from the 07.2026 workbook.
+    assert.deepEqual(c22, { twoStar: 78, threeStar: 80, fourStar: 83, fiveStar: 84 });
 
     const h8003 = result.contracts.find((contract) => contract.contractId === "H8003");
     assert.ok(h8003, "H8003 contract prediction missing");

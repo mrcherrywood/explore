@@ -136,14 +136,22 @@ export function ReportPageFrame({
   });
   return (
     <div ref={pageRef} className="fep-report-page" data-report-page>
-      <header>
-        <p className="fep-report-eyebrow">{eyebrow}</p>
-        <h1 className="fep-report-title">{title}</h1>
-        {subtitle ? (
-          <p style={{ margin: "6px 0 0", fontSize: 11.5, fontWeight: 600, color: "var(--fep-muted)" }}>
-            {subtitle}
-          </p>
-        ) : null}
+      <header className="fep-report-header">
+        <div className="fep-report-header-copy">
+          <p className="fep-report-eyebrow">{eyebrow}</p>
+          <h1 className="fep-report-title">{title}</h1>
+          {subtitle ? (
+            <p className="fep-report-subtitle">{subtitle}</p>
+          ) : null}
+        </div>
+        {/* Raster asset preferred for reliable PDF capture with dom-to-image. */}
+        <img
+          className="fep-report-logo"
+          src="/brand/press-ganey-logo.png"
+          alt="Press Ganey"
+          width={156}
+          height={24}
+        />
       </header>
 
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>{children}</div>

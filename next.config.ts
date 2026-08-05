@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
       "./data/**",
     ],
     "/api/analysis/band-movement": ["./data/**"],
+    "/api/admin/plan-preview/predictions": ["./data/**"],
+    "/api/admin/plan-preview/report": ["./data/**"],
   },
   experimental: {
     serverActions: {

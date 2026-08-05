@@ -81,8 +81,9 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
         <div>
           <p className="fep-label">Predicted cut points</p>
           <p className="fep-subtitle" style={{ marginTop: 4 }}>
-            Accrued Stars {starsYear} scores are anchored onto the latest published market, then
-            run through the validated clustering / CAHPS percentile methodology.
+            Workbook cut points are applied by default — official for CAHPS, forecast for the rest —
+            while the clustering / CAHPS percentile model re-predicts continuously as scores accrue
+            and flags divergence.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -112,6 +113,11 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
           <div className="flex flex-wrap gap-2 px-5 pb-4 text-xs">
             <span className="fep-pill">Baseline SY{data.baselineYear ?? "—"}</span>
             <span className="fep-pill">{data.summary.readyCount} ready</span>
+            <span className="fep-pill">
+              {data.cutPoints.filter((c) => c.source === "official").length} official ·{" "}
+              {data.cutPoints.filter((c) => c.source === "workbook_forecast").length} workbook ·{" "}
+              {data.cutPoints.filter((c) => c.source === "model" && c.status === "ready").length} model
+            </span>
             {data.summary.unavailableCount > 0 ? (
               <span className="fep-pill">{data.summary.unavailableCount} unavailable</span>
             ) : null}
@@ -130,7 +136,7 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
               <thead>
                 <tr>
                   <th className="l">Measure</th>
-                  <th className="l">Method</th>
+                  <th className="l">Source</th>
                   <th>Accrued</th>
                   <th>Market</th>
                   {THRESHOLD_ORDER.map((key) => (
@@ -167,10 +173,20 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
   );
 }
 
+const SOURCE_LABELS: Record<PlanPreviewCutPointPrediction["source"], string> = {
+  official: "Official",
+  workbook_forecast: "Workbook forecast",
+  model: "Model",
+};
+
 function CutPointRow({ cutPoint }: { cutPoint: PlanPreviewCutPointPrediction }) {
   const thresholdByKey = new Map(
     (cutPoint.thresholds ?? []).map((item) => [item.key, item] as const)
   );
+  const modelByKey = new Map(
+    (cutPoint.modelThresholds ?? []).map((item) => [item.key, item] as const)
+  );
+  const showModelComparison = cutPoint.source === "workbook_forecast";
 
   return (
     <tr>
@@ -185,13 +201,27 @@ function CutPointRow({ cutPoint }: { cutPoint: PlanPreviewCutPointPrediction }) 
       </td>
       {cutPoint.status === "ready" ? (
         <>
-          <td className="l">{cutPoint.method === "cahps-percentile" ? "CAHPS percentile" : "Clustering"}</td>
+          <td className="l">
+            <span
+              className="fep-pill"
+              style={
+                cutPoint.source === "official"
+                  ? undefined
+                  : { background: "#f1ede2", color: "var(--fep-muted)" }
+              }
+            >
+              {SOURCE_LABELS[cutPoint.source]}
+            </span>
+          </td>
           <td>{cutPoint.accruedContractCount.toLocaleString()}</td>
           <td>{cutPoint.baselineMarketCount.toLocaleString()}</td>
           {THRESHOLD_ORDER.map((key) => {
             const threshold = thresholdByKey.get(key);
             if (!threshold) return <td key={key}>—</td>;
             const delta = threshold.deltaVsComparison;
+            const model = showModelComparison ? modelByKey.get(key) : undefined;
+            const modelDiffers =
+              model !== undefined && Math.round(model.projected) !== Math.round(threshold.projected);
             return (
               <td key={key}>
                 <span style={{ fontWeight: 700, color: "var(--fep-ink)" }}>
@@ -202,6 +232,11 @@ function CutPointRow({ cutPoint }: { cutPoint: PlanPreviewCutPointPrediction }) 
                     {delta > 0 ? "+" : ""}
                     {delta}
                   </span>
+                ) : null}
+                {modelDiffers ? (
+                  <div style={{ fontSize: 9.5, color: "var(--fep-faint)" }}>
+                    model {Math.round(model.projected)}
+                  </div>
                 ) : null}
               </td>
             );

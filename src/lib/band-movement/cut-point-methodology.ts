@@ -20,7 +20,7 @@ import {
 import type { MeasureCutPoint } from "@/lib/percentile-analysis/measure-likelihood-types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
-const CUT_POINTS_PATH = path.join(DATA_DIR, "Stars 2016-2028 Cut Points 12.2025_with_weights.xlsx");
+const CUT_POINTS_PATH = path.join(DATA_DIR, "Stars 2016-2028 Cut Points 07.2026_with_weights.xlsx");
 const CLIENT_CONTRACTS_PATH = path.join(DATA_DIR, "client-contracts.xlsx");
 const RESAMPLE_FOLD_COUNT = 10;
 const RESAMPLE_SEED = 8675309;
@@ -228,6 +228,24 @@ export function ensureOfficialCutPoints(): Map<number, MeasureCutPoint[]> {
     officialCutPointsCache = loadMeasureCutPoints(CUT_POINTS_PATH, [2022, ...getAvailableMeasureYears()]);
   }
   return officialCutPointsCache;
+}
+
+const fileCutPointsByYearCache = new Map<number, MeasureCutPoint[]>();
+
+/**
+ * Cut point workbook rows for any stars year, including future years beyond
+ * the published measure data (e.g. official SY2027 CAHPS values and forecast
+ * rows maintained in the workbook).
+ */
+export function getWorkbookCutPointsForYear(year: number): MeasureCutPoint[] {
+  const official = ensureOfficialCutPoints().get(year);
+  if (official) return official;
+  let cached = fileCutPointsByYearCache.get(year);
+  if (!cached) {
+    cached = loadMeasureCutPoints(CUT_POINTS_PATH, [year]).get(year) ?? [];
+    fileCutPointsByYearCache.set(year, cached);
+  }
+  return cached;
 }
 
 export function isCahpsMeasure(displayName: string): boolean {
