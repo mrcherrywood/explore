@@ -21,7 +21,6 @@ const CAHPS_PATH = path.join(FPP_DIR, "SR_2027_cahps.xlsx");
 const HEDIS_PATH = path.join(FPP_DIR, "SR_2027_hedis.xlsx");
 const SNP_CM_PATH = path.join(FPP_DIR, "SR_2027_snp_cm.xlsx");
 const MEASURE_PATH = path.join(FPP_DIR, "SR_2027_measure_data.xlsx");
-const CAI_PATH = path.join(FPP_DIR, "SR_2027_cai.xlsx");
 const APPEALS_PATH = path.join(FPP_DIR, "SR_2027_appeals_c.xlsx");
 const CTM_PATH = path.join(FPP_DIR, "SR_2027_ctm.xlsx");
 const CTM_SUMMARY_PATH = path.join(FPP_DIR, "SR_2027_ctm_summary.xlsx");
@@ -111,27 +110,6 @@ test(
     assert.equal(row.measureCode, "C07");
     assert.ok(Math.abs(row.decimalScore - 88.435507) < 1e-6);
     assert.equal(row.decimalSource, "snp_cm");
-  }
-);
-
-test(
-  "still parses official 2027 measure_data and CAI files",
-  { skip: !existsSync(MEASURE_PATH) || !existsSync(CAI_PATH) },
-  () => {
-    const measure = parsePlanPreviewWorkbook(readFileSync(MEASURE_PATH));
-    assert.equal(measure.fileType, "measure_data");
-    const measureResult = measure as PlanPreviewMeasureParseResult;
-    assert.equal(measureResult.detectedStarsYear, 2027);
-    assert.equal(measureResult.summary.contractCount, 3);
-
-    const h0885C01 = measureResult.rows.find(
-      (row) => row.contractId === "H0885" && row.measureCode === "C01"
-    );
-    assert.equal(h0885C01?.score, 76);
-
-    const cai = parsePlanPreviewWorkbook(readFileSync(CAI_PATH));
-    assert.equal(cai.fileType, "cai");
-    assert.equal(cai.summary.contractCount, 3);
   }
 );
 

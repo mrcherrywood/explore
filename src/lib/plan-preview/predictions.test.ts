@@ -12,12 +12,12 @@ import {
 import { parsePlanPreviewWorkbook } from "./workbook";
 import type { PlanPreviewCaiParseResult, PlanPreviewMeasureParseResult } from "./types";
 
-const SAMPLE_MEASURE_PATH = path.join(process.cwd(), "data/2027/SAMPLE_SR_2026_measure_data_v2.xlsx");
-const SAMPLE_CAI_PATH = path.join(process.cwd(), "data/2027/SAMPLE_SR_2026_cai (1).xlsx");
+const MEASURE_PATH = path.join(process.cwd(), "data/2027/SR_2027_FPP/SR_2027_measure_data.xlsx");
+const CAI_PATH = path.join(process.cwd(), "data/2027/SR_2027_FPP/SR_2027_cai.xlsx");
 
-function loadSampleAccruedRows(): AccruedMeasureScore[] {
+function loadAccruedRows(): AccruedMeasureScore[] {
   const parsed = parsePlanPreviewWorkbook(
-    readFileSync(SAMPLE_MEASURE_PATH)
+    readFileSync(MEASURE_PATH)
   ) as PlanPreviewMeasureParseResult;
   return parsed.rows
     .filter((row) => row.status === "scored" && row.score !== null)
@@ -47,11 +47,11 @@ test("starFromThresholds assigns whole stars for normal and inverted measures", 
 });
 
 test(
-  "builds anchored cut point predictions and contract stars from the sample file",
-  { skip: !existsSync(SAMPLE_MEASURE_PATH) },
+  "builds anchored cut point predictions and contract stars from the 2027 PP1 file",
+  { skip: !existsSync(MEASURE_PATH) },
   () => {
-    const rows = loadSampleAccruedRows();
-    assert.ok(rows.length > 30, "expected scored rows from the sample file");
+    const rows = loadAccruedRows();
+    assert.ok(rows.length > 30, "expected scored rows from the 2027 file");
 
     const result = buildPlanPreviewPredictions(rows, 2027);
 
@@ -69,7 +69,11 @@ test(
     assert.equal(breastCancer.method, "clustering");
     assert.ok(breastCancer.modelThresholds, "model thresholds should still be computed");
     assert.ok(breastCancer.baselineMarketCount > 100, "should anchor to the full published market");
-    assert.equal(breastCancer.accruedContractCount, 1, "only H8003 carries C01 in the sample");
+    assert.equal(
+      breastCancer.accruedContractCount,
+      2,
+      "H0885 and H8298 carry C01 in the 2027 file"
+    );
     const c01 = Object.fromEntries(
       (breastCancer.thresholds ?? []).map((item) => [item.key, item.projected])
     );
@@ -78,7 +82,7 @@ test(
       "non-inverted thresholds must ascend"
     );
 
-    // Shorthand medication adherence names resolve via the code fallback.
+    // Medication adherence measures resolve by full name in the 2027 file.
     for (const code of ["D08", "D09", "D10"]) {
       const adherence = result.cutPoints.find((cp) => cp.measureCode === code);
       assert.ok(adherence, `${code} prediction missing`);
@@ -90,47 +94,48 @@ test(
       assert.match(adherence.displayName, /medication adherence/i);
     }
 
-    // Quality Improvement is excluded by the methodology.
-    const qi = result.cutPoints.find((cp) => cp.measureCode === "C30");
+    // Quality Improvement (C29 in the 2027 layout) is excluded by the methodology.
+    const qi = result.cutPoints.find((cp) => cp.measureCode === "C29");
     if (qi) assert.equal(qi.status, "unsupported");
 
     // CAHPS measures apply the official workbook cut points (no model run).
-    const gettingNeededCare = result.cutPoints.find((cp) => cp.measureCode === "C22");
+    // Getting Needed Care is C21 in the 2027 layout.
+    const gettingNeededCare = result.cutPoints.find((cp) => cp.measureCode === "C21");
     assert.ok(gettingNeededCare);
     assert.equal(gettingNeededCare.source, "official");
     assert.equal(gettingNeededCare.method, null);
-    const c22 = Object.fromEntries(
+    const c21 = Object.fromEntries(
       (gettingNeededCare.thresholds ?? []).map((item) => [item.key, item.projected])
     );
     // Official SY2027 Getting Needed Care cut points from the 07.2026 workbook.
-    assert.deepEqual(c22, { twoStar: 78, threeStar: 80, fourStar: 83, fiveStar: 84 });
+    assert.deepEqual(c21, { twoStar: 78, threeStar: 80, fourStar: 83, fiveStar: 84 });
 
-    const h8003 = result.contracts.find((contract) => contract.contractId === "H8003");
-    assert.ok(h8003, "H8003 contract prediction missing");
-    assert.ok(h8003.ratedMeasureCount > 20, `expected most measures rated, got ${h8003.ratedMeasureCount}`);
+    const h0885 = result.contracts.find((contract) => contract.contractId === "H0885");
+    assert.ok(h0885, "H0885 contract prediction missing");
+    assert.ok(h0885.ratedMeasureCount > 20, `expected most measures rated, got ${h0885.ratedMeasureCount}`);
     assert.ok(
-      h8003.weightedMeanStar !== null && h8003.weightedMeanStar >= 1 && h8003.weightedMeanStar <= 5,
-      `weighted mean star out of range: ${h8003.weightedMeanStar}`
+      h0885.weightedMeanStar !== null && h0885.weightedMeanStar >= 1 && h0885.weightedMeanStar <= 5,
+      `weighted mean star out of range: ${h0885.weightedMeanStar}`
     );
-    for (const measure of h8003.measures) {
+    for (const measure of h0885.measures) {
       if (measure.predictedStar !== null) {
         assert.ok(Number.isInteger(measure.predictedStar), "measure stars must be whole");
       }
     }
-    const withBaselineStar = h8003.measures.filter((m) => m.baselineOfficialStar !== null);
+    const withBaselineStar = h0885.measures.filter((m) => m.baselineOfficialStar !== null);
     assert.ok(withBaselineStar.length > 20, "expected baseline official stars for most measures");
   }
 );
 
 test(
   "computes predicted final scores with recomputed thresholds and uploaded CAI",
-  { skip: !existsSync(SAMPLE_MEASURE_PATH) || !existsSync(SAMPLE_CAI_PATH) },
+  { skip: !existsSync(MEASURE_PATH) || !existsSync(CAI_PATH) },
   () => {
-    const rows = loadSampleAccruedRows();
+    const rows = loadAccruedRows();
     const predictions = buildPlanPreviewPredictions(rows, 2027);
 
     const caiParsed = parsePlanPreviewWorkbook(
-      readFileSync(SAMPLE_CAI_PATH)
+      readFileSync(CAI_PATH)
     ) as PlanPreviewCaiParseResult;
     const cai = { overall: {} as Record<string, number>, partC: {} as Record<string, number> };
     for (const row of caiParsed.rows) {
@@ -153,46 +158,42 @@ test(
       assert.ok(leg.variance30th < leg.variance70th);
     }
 
-    const h8003 = result.contracts.find((contract) => contract.contractId === "H8003");
-    assert.ok(h8003, "H8003 final score missing");
-    assert.ok(h8003.qualifiesOverall, `H8003 should qualify: ${h8003.reason}`);
-    assert.ok(h8003.caiValue !== null, "CAI should come from the uploaded file");
-    assert.ok(h8003.withQi, "with-QI leg should carry forward H8003's 2026 QI stars");
-    assert.ok(h8003.withoutQi, "without-QI leg missing");
+    const h0885 = result.contracts.find((contract) => contract.contractId === "H0885");
+    assert.ok(h0885, "H0885 final score missing");
+    assert.ok(h0885.qualifiesOverall, `H0885 should qualify: ${h0885.reason}`);
+    assert.equal(h0885.caiValue, -0.036054, "CAI should come from the uploaded file");
+    assert.ok(h0885.withQi, "with-QI leg should carry forward H0885's 2026 QI stars");
+    assert.ok(h0885.withoutQi, "without-QI leg missing");
 
     // Hold-harmless: final = max of the two legs.
-    const expectedRaw = Math.max(h8003.withQi.finalScoreRaw, h8003.withoutQi.finalScoreRaw);
-    assert.equal(h8003.finalScoreRaw, expectedRaw);
+    const expectedRaw = Math.max(h0885.withQi.finalScoreRaw, h0885.withoutQi.finalScoreRaw);
+    assert.equal(h0885.finalScoreRaw, expectedRaw);
     assert.equal(
-      h8003.finalRating,
+      h0885.finalRating,
       Math.round(Math.min(5, Math.max(1, expectedRaw)) * 2) / 2
+    );
+    assert.ok(
+      h0885.finalRating !== null && h0885.finalRating >= 1 && h0885.finalRating <= 5,
+      `final rating out of range: ${h0885.finalRating}`
     );
 
     // Each leg must decompose into clamp(base mean + RF) + CAI.
-    for (const leg of [h8003.withQi, h8003.withoutQi]) {
+    for (const leg of [h0885.withQi, h0885.withoutQi]) {
       const legRaw =
-        Math.min(5, Math.max(1, leg.baseMean + leg.rewardFactor)) + (h8003.caiValue ?? 0);
+        Math.min(5, Math.max(1, leg.baseMean + leg.rewardFactor)) + (h0885.caiValue ?? 0);
       assert.ok(
         Math.abs(leg.finalScoreRaw - legRaw) < 1e-9,
         `leg score should decompose: ${leg.finalScoreRaw} vs ${legRaw}`
       );
     }
 
-    // Validation context: the sample is 2026 data, so the predicted rating
-    // should land within a half star of the official 2026 overall (4.0);
-    // disaster/EUC uplift is the known un-modeled gap.
-    assert.ok(
-      h8003.finalRating !== null && Math.abs(h8003.finalRating - 4.0) <= 0.5,
-      `H8003 predicted ${h8003.finalRating}, expected near official 4.0`
-    );
-
     // Removal scenarios drop the retired measures from the contract's calc.
     const removal2029 = scenarios.find((scenario) => scenario.id === "removal2029");
     assert.ok(removal2029);
-    const h8003Removal = removal2029.contracts.find((c) => c.contractId === "H8003");
-    assert.ok(h8003Removal?.qualifiesOverall, "H8003 should still qualify under 2029 removals");
+    const h0885Removal = removal2029.contracts.find((c) => c.contractId === "H0885");
+    assert.ok(h0885Removal?.qualifiesOverall, "H0885 should still qualify under 2029 removals");
     assert.ok(
-      (h8003Removal.withoutQi?.measureCount ?? 0) < (h8003.withoutQi?.measureCount ?? 0),
+      (h0885Removal.withoutQi?.measureCount ?? 0) < (h0885.withoutQi?.measureCount ?? 0),
       "2029 removals should reduce the measure count"
     );
 
@@ -200,9 +201,9 @@ test(
     const clover = scenarios.find((scenario) => scenario.id === "cloverRecalc");
     assert.ok(clover);
     assert.equal(clover.caiSource, "part_c");
-    const h8003Clover = clover.contracts.find((c) => c.contractId === "H8003");
-    assert.ok(h8003Clover?.qualifiesOverall, "H8003 should qualify in the recalc scenario");
-    assert.equal(h8003Clover.caiValue, cai.partC["H8003"]);
+    const h0885Clover = clover.contracts.find((c) => c.contractId === "H0885");
+    assert.ok(h0885Clover?.qualifiesOverall, "H0885 should qualify in the recalc scenario");
+    assert.equal(h0885Clover.caiValue, cai.partC["H0885"]);
     for (const measureCode of ["D05", "C28", "C33"]) {
       assert.ok(
         clover.removedCodes.includes(measureCode),

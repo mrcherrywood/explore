@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Download, Loader2, RefreshCw, Upload } from "lucide-react";
+import { Download, FolderOpen, Loader2, RefreshCw, Upload } from "lucide-react";
 
 import { PlanPreviewPredictions } from "@/components/admin/PlanPreviewPredictions";
 import type { PlanPreviewAccrualSummary, PlanPreviewBatchRecord } from "@/lib/plan-preview/types";
@@ -41,6 +41,7 @@ export function PlanPreviewAdmin() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   const loadOverview = useCallback(async (year?: number) => {
     setLoading(true);
@@ -60,17 +61,26 @@ export function PlanPreviewAdmin() {
     void loadOverview();
   }, [loadOverview]);
 
-  const handleUpload = async () => {
-    const files = fileInputRef.current?.files;
-    if (!files || files.length === 0 || !starsYear) return;
+  const importFiles = async (allFiles: File[]) => {
+    if (allFiles.length === 0 || !starsYear) return;
+
+    // Excel lock files (~$...) and non-workbook files are skipped up front.
+    const workbooks = allFiles.filter(
+      (file) => /\.(xlsx|xls)$/i.test(file.name) && !file.name.startsWith("~$")
+    );
+    if (workbooks.length === 0) {
+      setError("No .xlsx files found in the selection.");
+      return;
+    }
 
     setUploading(true);
     setError(null);
     setNotice(null);
-    const messages: string[] = [];
+    const imported: string[] = [];
+    const skipped: string[] = [];
 
-    try {
-      for (const file of Array.from(files)) {
+    for (const file of workbooks) {
+      try {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("starsYear", String(starsYear));
@@ -80,25 +90,54 @@ export function PlanPreviewAdmin() {
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(`${file.name}: ${payload.error ?? "upload failed"}`);
+          skipped.push(`${file.name} — ${payload.error ?? "upload failed"}`);
+          continue;
         }
         const label = FILE_TYPE_LABELS[payload.summary?.fileType] ?? "File";
         const detail = DECIMAL_FILE_TYPES.has(payload.summary?.fileType)
           ? `${payload.summary?.rowCount ?? 0} decimal values across ${payload.summary?.measureCount ?? 0} measures`
           : `${payload.summary?.contractCount ?? 0} contracts`;
-        messages.push(
-          `${file.name}: ${label} imported (${detail}).` +
-            (payload.warning ? ` ${payload.warning}` : "")
+        imported.push(
+          `${file.name}: ${label} (${detail})` + (payload.warning ? ` — ${payload.warning}` : "")
+        );
+      } catch (uploadError) {
+        skipped.push(
+          `${file.name} — ${uploadError instanceof Error ? uploadError.message : "upload failed"}`
         );
       }
-      setNotice(messages.join(" "));
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      await loadOverview(starsYear);
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Upload failed");
-    } finally {
-      setUploading(false);
     }
+
+    const parts: string[] = [];
+    if (imported.length > 0) {
+      parts.push(`Imported ${imported.length} file${imported.length === 1 ? "" : "s"}: ${imported.join(" · ")}`);
+    }
+    if (skipped.length > 0) {
+      parts.push(`Skipped ${skipped.length}: ${skipped.join(" · ")}`);
+    }
+    if (imported.length > 0) {
+      setNotice(parts.join(" "));
+    } else {
+      setError(parts.join(" ") || "Upload failed");
+    }
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (folderInputRef.current) folderInputRef.current.value = "";
+    if (imported.length > 0) {
+      await loadOverview(starsYear);
+    }
+    setUploading(false);
+  };
+
+  const handleUpload = async () => {
+    const files = fileInputRef.current?.files;
+    if (!files || files.length === 0) return;
+    await importFiles(Array.from(files));
+  };
+
+  const handleFolderSelected = async () => {
+    const files = folderInputRef.current?.files;
+    if (!files || files.length === 0) return;
+    await importFiles(Array.from(files));
   };
 
   const handleExport = async () => {
@@ -142,8 +181,10 @@ export function PlanPreviewAdmin() {
           <p className="fep-subtitle" style={{ marginTop: 4 }}>
             Upload CMS plan preview master table exports (.xlsx) — measure data, CAI, and domain
             decimal files (CAHPS, HEDIS, SNP Care Management) are detected automatically. Domain
-            decimals overlay whole-number measure scores when available. Re-uploading a contract
-            replaces its accrued rows for the selected Star year.
+            decimals overlay whole-number measure scores when available. Use Import folder to pull
+            in a whole release folder at once; files without usable scores (appeals, CTM,
+            disenrollment, disaster) are skipped with a note. Re-uploading a contract replaces its
+            accrued rows for the selected Star year.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 border-t px-5 py-4" style={{ borderColor: "var(--fep-row-border)" }}>
@@ -167,6 +208,15 @@ export function PlanPreviewAdmin() {
             className="fep-file-input"
             disabled={uploading || exporting}
           />
+          <input
+            ref={folderInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={() => void handleFolderSelected()}
+            disabled={uploading || exporting}
+            {...{ webkitdirectory: "", directory: "" }}
+          />
           <button
             type="button"
             className="fep-btn"
@@ -175,6 +225,15 @@ export function PlanPreviewAdmin() {
           >
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             Import
+          </button>
+          <button
+            type="button"
+            className="fep-btn-outline"
+            onClick={() => folderInputRef.current?.click()}
+            disabled={uploading || exporting || !starsYear}
+          >
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderOpen className="h-4 w-4" />}
+            Import folder
           </button>
           <button
             type="button"
