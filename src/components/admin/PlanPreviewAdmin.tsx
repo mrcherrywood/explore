@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Download, FolderOpen, Loader2, RefreshCw, Upload } from "lucide-react";
+import { Download, FolderOpen, Loader2, RefreshCw, Trash2, Upload } from "lucide-react";
 
 import { PlanPreviewPredictions } from "@/components/admin/PlanPreviewPredictions";
 import type { PlanPreviewAccrualSummary, PlanPreviewBatchRecord } from "@/lib/plan-preview/types";
@@ -140,6 +140,35 @@ export function PlanPreviewAdmin() {
     await importFiles(Array.from(files));
   };
 
+  const handleClearYear = async () => {
+    if (!starsYear) return;
+    const confirmed = window.confirm(
+      `Delete all accrued Stars ${starsYear} plan preview data (uploads, measure scores, CAI)? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setUploading(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/admin/plan-preview/clear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ starsYear }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "Failed to clear data");
+      setNotice(
+        `Cleared Stars ${starsYear} plan preview data (${payload.deletedBatches ?? 0} uploads removed).`
+      );
+      await loadOverview(starsYear);
+    } catch (clearError) {
+      setError(clearError instanceof Error ? clearError.message : "Failed to clear data");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleExport = async () => {
     if (!starsYear) return;
     setExporting(true);
@@ -252,6 +281,15 @@ export function PlanPreviewAdmin() {
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
+          </button>
+          <button
+            type="button"
+            className="fep-btn-outline"
+            onClick={() => void handleClearYear()}
+            disabled={loading || uploading || exporting || !starsYear || (accrual?.batchCount ?? 0) === 0}
+          >
+            <Trash2 className="h-4 w-4" />
+            Clear year
           </button>
         </div>
       </section>

@@ -155,6 +155,20 @@ export async function upsertPlanPreviewCai(
   }
 }
 
+/** Delete all accrued plan preview data for a stars year (batches cascade to scores/CAI). */
+export async function deletePlanPreviewYear(
+  client: ServiceClient,
+  starsYear: number
+): Promise<number> {
+  const { data, error } = await client
+    .from("plan_preview_upload_batches")
+    .delete()
+    .eq("stars_year", starsYear)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return (data ?? []).length;
+}
+
 export async function listPlanPreviewBatches(
   client: ServiceClient,
   starsYear?: number
