@@ -4,6 +4,7 @@ import { requireApprovedAdmin } from "@/lib/admin/require-approved-admin";
 import {
   createPlanPreviewBatch,
   upsertPlanPreviewCai,
+  upsertPlanPreviewDecimalScores,
   upsertPlanPreviewMeasureScores,
 } from "@/lib/plan-preview/store";
 import { parsePlanPreviewWorkbook } from "@/lib/plan-preview/workbook";
@@ -42,6 +43,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const measureCount =
+      parsed.fileType === "measure_data" ||
+      parsed.fileType === "cahps" ||
+      parsed.fileType === "hedis" ||
+      parsed.fileType === "snp_cm"
+        ? parsed.summary.measureCount
+        : 0;
+
     const batch = await createPlanPreviewBatch(admin.serviceClient, {
       fileName: file.name,
       fileType: parsed.fileType,
@@ -50,7 +59,7 @@ export async function POST(request: Request) {
       detectedStarsYear: parsed.detectedStarsYear,
       rowCount: parsed.summary.rowCount,
       contractCount: parsed.summary.contractCount,
-      measureCount: parsed.fileType === "measure_data" ? parsed.summary.measureCount : 0,
+      measureCount,
       importedBy: admin.userId,
     });
 
@@ -60,8 +69,14 @@ export async function POST(request: Request) {
         starsYear,
         rows: parsed.rows,
       });
-    } else {
+    } else if (parsed.fileType === "cai") {
       await upsertPlanPreviewCai(admin.serviceClient, {
+        batchId: batch.id,
+        starsYear,
+        rows: parsed.rows,
+      });
+    } else {
+      await upsertPlanPreviewDecimalScores(admin.serviceClient, {
         batchId: batch.id,
         starsYear,
         rows: parsed.rows,

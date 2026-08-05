@@ -1,10 +1,11 @@
 import * as XLSX from "xlsx";
 
 import {
-  getAvailableMeasureYears,
-  getAvailableOptions,
-} from "@/lib/band-movement/analysis";
-import { resolveMeasure } from "@/lib/cutpoint-forecast/workbook";
+  detectDomainFileKind,
+  parseDomainWorkbook,
+  rejectUnsupportedDomainFile,
+} from "./domain-workbooks";
+import { resolveMeasureForPlanPreview } from "./measure-resolve";
 import type {
   ParsedPlanPreviewCaiRow,
   ParsedPlanPreviewMeasureScore,
@@ -13,6 +14,8 @@ import type {
   PlanPreviewMeasureStatus,
   PlanPreviewParseResult,
 } from "./types";
+
+export { resolveMeasureForPlanPreview } from "./measure-resolve";
 
 const CONTRACT_ID_PATTERN = /^[HRS]\d{4}$/;
 const MEASURE_HEADER_PATTERN = /^([CD]\d{2}):\s*(.+)$/;
@@ -104,32 +107,6 @@ type MeasureColumn = {
   measureNormalized: string;
   metricCategory: "Part C" | "Part D" | "Other";
 };
-
-/**
- * Plan preview files sometimes use shorthand measure names (e.g. "Taking
- * Diabetes Medications" for "Medication Adherence for Diabetes Medications").
- * When name matching fails, fall back to the file's own measure code matched
- * against the latest published year's codes.
- */
-export function resolveMeasureForPlanPreview(measureCode: string, measureName: string) {
-  const resolved = resolveMeasure(measureName);
-  if (resolved.measureCode !== null) return resolved;
-
-  const latestYear = getAvailableMeasureYears().at(-1);
-  if (latestYear) {
-    const byCode = getAvailableOptions().measures.find(
-      (measure) => measure.codesByYear[latestYear]?.toUpperCase() === measureCode
-    );
-    if (byCode) {
-      return {
-        ...resolved,
-        displayName: byCode.displayName,
-        normalizedName: byCode.normalizedName,
-      };
-    }
-  }
-  return resolved;
-}
 
 function buildMeasureColumns(measureHeaderRow: unknown[]): MeasureColumn[] {
   const columns: MeasureColumn[] = [];
@@ -329,6 +306,15 @@ export function parsePlanPreviewWorkbook(buffer: Buffer): PlanPreviewParseResult
 
   const headerRowIndex = findContractHeaderRow(rows);
   const headerCells = rows[headerRowIndex].map((cell) => cleanCell(cell).toLowerCase());
+
+  const domainKind = detectDomainFileKind(headerCells);
+  if (domainKind === "unsupported") {
+    rejectUnsupportedDomainFile(headerCells);
+  }
+  if (domainKind === "cahps" || domainKind === "hedis" || domainKind === "snp_cm") {
+    return parseDomainWorkbook(rows, sheetName, headerRowIndex, domainKind);
+  }
+
   const isCaiFile = headerCells.some(
     (cell) => cell === "overall cai value" || cell === "part c fac"
   );

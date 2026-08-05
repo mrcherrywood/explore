@@ -9,6 +9,11 @@ import type {
   PlanPreviewFileType,
 } from "./types";
 
+export {
+  getPlanPreviewExportRows,
+  upsertPlanPreviewDecimalScores,
+} from "./store-decimals";
+
 type ServiceClient = SupabaseClient<Database>;
 type BatchRow = Database["public"]["Tables"]["plan_preview_upload_batches"]["Row"];
 type MeasureScoreInsert = Database["public"]["Tables"]["plan_preview_measure_scores"]["Insert"];
@@ -72,6 +77,8 @@ export async function upsertPlanPreviewMeasureScores(
   client: ServiceClient,
   input: { batchId: string; starsYear: number; rows: ParsedPlanPreviewMeasureScore[] }
 ): Promise<void> {
+  // Intentionally omit decimal_score / decimal_source so PostgREST merge
+  // upserts leave any existing domain overlays intact.
   const inserts: MeasureScoreInsert[] = input.rows.map((row) => ({
     batch_id: input.batchId,
     stars_year: input.starsYear,
@@ -183,6 +190,7 @@ export type PlanPreviewScoredRow = {
   measureDisplayName: string;
   measureNormalized: string;
   score: number;
+  decimalSource: string | null;
 };
 
 export async function getPlanPreviewScoredRows(
@@ -197,7 +205,7 @@ export async function getPlanPreviewScoredRows(
     const { data, error } = await client
       .from("plan_preview_measure_scores")
       .select(
-        "contract_id, contract_name, organization_marketing_name, parent_organization, measure_code, measure_display_name, measure_normalized, score"
+        "contract_id, contract_name, organization_marketing_name, parent_organization, measure_code, measure_display_name, measure_normalized, score, decimal_score, decimal_source, status"
       )
       .eq("stars_year", starsYear)
       .eq("status", "scored")
@@ -215,9 +223,18 @@ export async function getPlanPreviewScoredRows(
       measure_display_name: string;
       measure_normalized: string;
       score: number | null;
+      decimal_score: number | null;
+      decimal_source: string | null;
+      status: string;
     }>;
     for (const row of page) {
-      if (row.score === null) continue;
+      const effective =
+        row.decimal_score !== null && row.decimal_score !== undefined
+          ? Number(row.decimal_score)
+          : row.score !== null
+            ? Number(row.score)
+            : null;
+      if (effective === null) continue;
       rows.push({
         contractId: row.contract_id,
         contractName: row.contract_name,
@@ -226,7 +243,8 @@ export async function getPlanPreviewScoredRows(
         measureCode: row.measure_code,
         measureDisplayName: row.measure_display_name,
         measureNormalized: row.measure_normalized,
-        score: Number(row.score),
+        score: effective,
+        decimalSource: row.decimal_source,
       });
     }
     if (page.length < pageSize) break;
@@ -270,6 +288,7 @@ export async function getPlanPreviewAccrualSummary(
       (SELECT COUNT(DISTINCT contract_id) FROM plan_preview_measure_scores WHERE stars_year = ${year})::int AS contract_count,
       (SELECT COUNT(DISTINCT measure_code) FROM plan_preview_measure_scores WHERE stars_year = ${year})::int AS measure_count,
       (SELECT COUNT(*) FROM plan_preview_measure_scores WHERE stars_year = ${year} AND status = 'scored')::int AS scored_value_count,
+      (SELECT COUNT(*) FROM plan_preview_measure_scores WHERE stars_year = ${year} AND decimal_score IS NOT NULL)::int AS decimal_value_count,
       (SELECT COUNT(DISTINCT contract_id) FROM plan_preview_cai WHERE stars_year = ${year})::int AS cai_contract_count
   `;
 
@@ -283,6 +302,7 @@ export async function getPlanPreviewAccrualSummary(
     contract_count: number;
     measure_count: number;
     scored_value_count: number;
+    decimal_value_count: number;
     cai_contract_count: number;
   } | null;
 
@@ -293,6 +313,7 @@ export async function getPlanPreviewAccrualSummary(
     contractCount: row?.contract_count ?? 0,
     measureCount: row?.measure_count ?? 0,
     scoredValueCount: row?.scored_value_count ?? 0,
+    decimalValueCount: row?.decimal_value_count ?? 0,
     caiContractCount: row?.cai_contract_count ?? 0,
     batchCount: batches.length,
     lastUploadAt: batches[0]?.createdAt ?? null,

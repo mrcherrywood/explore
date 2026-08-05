@@ -772,6 +772,8 @@ export interface Database {
           raw_value: string
           score: number | null
           status: string
+          decimal_score: number | null
+          decimal_source: string | null
           created_at: string
           updated_at: string
         }
@@ -791,6 +793,8 @@ export interface Database {
           raw_value: string
           score?: number | null
           status: string
+          decimal_score?: number | null
+          decimal_source?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -810,6 +814,8 @@ export interface Database {
           raw_value?: string
           score?: number | null
           status?: string
+          decimal_score?: number | null
+          decimal_source?: string | null
           created_at?: string
           updated_at?: string
         }

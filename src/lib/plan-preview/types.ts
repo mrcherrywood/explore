@@ -1,4 +1,11 @@
-export type PlanPreviewFileType = "measure_data" | "cai";
+export type PlanPreviewFileType =
+  | "measure_data"
+  | "cai"
+  | "cahps"
+  | "hedis"
+  | "snp_cm";
+
+export type PlanPreviewDecimalSource = "cahps" | "hedis" | "snp_cm";
 
 export type PlanPreviewMeasureStatus =
   | "scored"
@@ -21,6 +28,21 @@ export type ParsedPlanPreviewMeasureScore = {
   rawValue: string;
   score: number | null;
   status: PlanPreviewMeasureStatus;
+};
+
+export type ParsedPlanPreviewDecimalScore = {
+  sourceRowNumber: number;
+  contractId: string;
+  organizationMarketingName: string | null;
+  contractName: string | null;
+  parentOrganization: string | null;
+  measureCode: string;
+  measureName: string;
+  measureDisplayName: string;
+  measureNormalized: string;
+  metricCategory: "Part C" | "Part D" | "Other";
+  decimalScore: number;
+  decimalSource: PlanPreviewDecimalSource;
 };
 
 export type ParsedPlanPreviewCaiRow = {
@@ -68,6 +90,18 @@ export type PlanPreviewMeasureParseResult = {
   };
 };
 
+export type PlanPreviewDecimalParseResult = {
+  fileType: PlanPreviewDecimalSource;
+  sheetName: string;
+  detectedStarsYear: number | null;
+  rows: ParsedPlanPreviewDecimalScore[];
+  summary: {
+    rowCount: number;
+    contractCount: number;
+    measureCount: number;
+  };
+};
+
 export type PlanPreviewCaiParseResult = {
   fileType: "cai";
   sheetName: string;
@@ -81,7 +115,8 @@ export type PlanPreviewCaiParseResult = {
 
 export type PlanPreviewParseResult =
   | PlanPreviewMeasureParseResult
-  | PlanPreviewCaiParseResult;
+  | PlanPreviewCaiParseResult
+  | PlanPreviewDecimalParseResult;
 
 export type PlanPreviewBatchRecord = {
   id: string;
@@ -103,7 +138,22 @@ export type PlanPreviewAccrualSummary = {
   contractCount: number;
   measureCount: number;
   scoredValueCount: number;
+  decimalValueCount: number;
   caiContractCount: number;
   batchCount: number;
   lastUploadAt: string | null;
+};
+
+export type PlanPreviewExportRow = {
+  contractId: string;
+  organizationMarketingName: string | null;
+  contractName: string | null;
+  parentOrganization: string | null;
+  measureCode: string;
+  measureDisplayName: string;
+  rawValue: string;
+  score: number | null;
+  status: PlanPreviewMeasureStatus;
+  decimalScore: number | null;
+  decimalSource: string | null;
 };
