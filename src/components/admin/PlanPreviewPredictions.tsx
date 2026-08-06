@@ -343,7 +343,9 @@ function ContractPanel({
                       {measure.measureCode} — {measure.displayName}
                     </span>
                   </td>
-                  <td style={{ fontWeight: 700, color: "var(--fep-ink)" }}>{measure.score}</td>
+                  <td style={{ fontWeight: 700, color: "var(--fep-ink)" }}>
+                    {Number(measure.score).toFixed(2)}
+                  </td>
                   <td>
                     {measure.predictedStar !== null ? (
                       <span className="fep-pill">

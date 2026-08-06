@@ -126,19 +126,29 @@ function respectsSpecialCases(alias: string, measureNorm: string, codePrefix: st
 export function matchCutPointToMeasureName(
   measureName: string,
   codePrefix: string | null,
-  cutPoints: MeasureCutPoint[]
+  cutPoints: MeasureCutPoint[],
+  /**
+   * Already-aligned normalized name (e.g. PP1 D01 mistitled "(Part C)" but
+   * normalized to `… partd`). Tried before normalizing `measureName`.
+   */
+  preferredNormalized?: string | null
 ) {
-  const measureNorm = normalizeMeasureName(measureName);
+  const candidates = [
+    preferredNormalized?.trim().toLowerCase() || null,
+    normalizeMeasureName(measureName),
+  ].filter((value, index, all): value is string => Boolean(value) && all.indexOf(value) === index);
 
-  for (const cutPoint of cutPoints) {
-    const aliases = getAliasesForCutPoint(cutPoint.measureName);
-    if (
-      aliases.some((alias) => {
-        if (!respectsSpecialCases(alias, measureNorm, codePrefix)) return false;
-        return alias.includes(measureNorm) || measureNorm.includes(alias);
-      })
-    ) {
-      return cutPoint;
+  for (const measureNorm of candidates) {
+    for (const cutPoint of cutPoints) {
+      const aliases = getAliasesForCutPoint(cutPoint.measureName);
+      if (
+        aliases.some((alias) => {
+          if (!respectsSpecialCases(alias, measureNorm, codePrefix)) return false;
+          return alias.includes(measureNorm) || measureNorm.includes(alias);
+        })
+      ) {
+        return cutPoint;
+      }
     }
   }
 

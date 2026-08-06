@@ -55,6 +55,18 @@ export function alignNormalizedPartToCode(
   return measureNormalized;
 }
 
+/** Rewrite a mistitled "(Part C)/(Part D)" label to match the file measure code. */
+export function alignDisplayPartToCode(displayName: string, measureCode: string): string {
+  const upper = measureCode.toUpperCase();
+  if (upper.startsWith("D") && /\(\s*Part\s+C\s*\)/i.test(displayName)) {
+    return displayName.replace(/\(\s*Part\s+C\s*\)/i, "(Part D)");
+  }
+  if (upper.startsWith("C") && /\(\s*Part\s+D\s*\)/i.test(displayName)) {
+    return displayName.replace(/\(\s*Part\s+D\s*\)/i, "(Part C)");
+  }
+  return displayName;
+}
+
 const STOP_TOKENS = new Set([
   "care",
   "for",
@@ -146,7 +158,10 @@ export function resolveMeasureForPlanPreview(measureCode: string, measureName: s
     candidate.measureCode !== null &&
     isCompatibleUniverseMatch(measureName, candidate.normalizedName);
 
-  const displayName = trustUniverse ? candidate.displayName : measureName.trim();
+  const displayName = alignDisplayPartToCode(
+    trustUniverse ? candidate.displayName : measureName.trim(),
+    measureCode
+  );
   const normalizedName = alignNormalizedPartToCode(
     trustUniverse ? candidate.normalizedName : normalizeMeasureName(measureName),
     measureCode

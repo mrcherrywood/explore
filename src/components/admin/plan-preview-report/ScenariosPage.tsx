@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { formatMeasureAcronyms } from "@/lib/plan-preview/measure-acronyms";
 import type { PlanPreviewContractReport, ReportScenario } from "@/lib/plan-preview/report-data";
 
 import {
@@ -70,10 +71,10 @@ export function ScenariosPage({
     >
       <ReportSection
         title="Predicted Rating by Scenario"
-        note="Each scenario removes its measure set from every contract in the population, recomputes reward-factor thresholds, and re-scores the contract at the projected cut points."
+        note="Each scenario removes its measure set, recomputes reward-factor thresholds, and re-scores at the projected cut points."
       >
-        <div className="fep-report-panel" style={{ padding: "16px 10px 6px" }}>
-          <BarChart width={686} height={215} data={chartData} margin={{ top: 20, right: 16, left: -18, bottom: 0 }}>
+        <div className="fep-report-panel" style={{ padding: "10px 10px 2px" }}>
+          <BarChart width={686} height={175} data={chartData} margin={{ top: 18, right: 16, left: -18, bottom: 0 }}>
             <CartesianGrid stroke={REPORT_COLORS.grid} vertical={false} />
             <XAxis
               dataKey="name"
@@ -106,9 +107,9 @@ export function ScenariosPage({
         </div>
       </ReportSection>
 
-      <ReportSection title="Scenario Detail" style={{ marginTop: 16 }}>
-        <div className="fep-report-panel" style={{ padding: "12px 0 4px" }}>
-          <table className="fep-report-table">
+      <ReportSection title="Scenario Detail" style={{ marginTop: 12 }}>
+        <div className="fep-report-panel" style={{ padding: "8px 0 4px" }}>
+          <table className="fep-report-table compact">
             <thead>
               <tr>
                 <th className="l">Scenario</th>
@@ -167,31 +168,29 @@ export function ScenariosPage({
         </div>
       </ReportSection>
 
-      <ReportSection title="What Each Scenario Removes" style={{ marginTop: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <ReportSection title="What Each Scenario Removes" style={{ marginTop: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
           {scenarios
             .filter((scenario) => scenario.id !== "baseline")
             .map((scenario) => (
-              <div key={scenario.id} className="fep-report-panel" style={{ padding: "11px 14px" }}>
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: "var(--fep-ink)" }}>
+              <div key={scenario.id} className="fep-report-panel" style={{ padding: "8px 10px" }}>
+                <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, color: "var(--fep-ink)" }}>
                   {scenario.label}
                 </p>
-                <p style={{ margin: "4px 0 0", fontSize: 9.5, lineHeight: 1.45, color: "var(--fep-muted)" }}>
+                <p style={{ margin: "3px 0 0", fontSize: 8.5, lineHeight: 1.35, color: "var(--fep-muted)" }}>
                   {scenario.description}
                 </p>
-                <p style={{ margin: "6px 0 0", fontSize: 9.5, fontWeight: 700, color: "var(--fep-accent)" }}>
+                <p style={{ margin: "5px 0 0", fontSize: 8.5, fontWeight: 700, color: "var(--fep-accent)" }}>
                   {scenario.removedContractCodes.length > 0
-                    ? `Removed from this contract: ${scenario.removedContractCodes.join(", ")}`
-                    : "No accrued measures for this contract are affected."}
+                    ? `Removed here: ${formatMeasureAcronyms(scenario.removedContractCodes)}`
+                    : "No accrued measures affected."}
                 </p>
               </div>
             ))}
         </div>
-        <p className="fep-report-section-note" style={{ marginTop: 10 }}>
-          The Clover-style recalc produces a Part C summary rating, so the uploaded Part C CAI
-          applies instead of the Overall MA-PD CAI. Quality Improvement is not scored in plan
-          preview 1 and cannot be accurately estimated yet, so every scenario excludes the QI
-          measures.
+        <p className="fep-report-section-note" style={{ marginTop: 6 }}>
+          Clover-style recalc uses Part C CAI (Part C summary). QI is excluded from every scenario —
+          it is not scored in plan preview 1.
         </p>
       </ReportSection>
     </ReportPageFrame>

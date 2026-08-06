@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  alignDisplayPartToCode,
   alignNormalizedPartToCode,
   isCompatibleUniverseMatch,
   resolveMeasureForPlanPreview,
@@ -60,6 +61,32 @@ test("alignNormalizedPartToCode corrects Part C/D twins mistitled in the PP1 fil
     alignNormalizedPartToCode("members choosing to leave the plan partc", "C28"),
     "members choosing to leave the plan partc"
   );
+});
+
+test("alignDisplayPartToCode rewrites mistitled Part labels from the file code", () => {
+  assert.equal(
+    alignDisplayPartToCode(
+      "Call Center – Foreign Language Interpreter and TTY Availability (Part C)",
+      "D01"
+    ),
+    "Call Center – Foreign Language Interpreter and TTY Availability (Part D)"
+  );
+  assert.equal(
+    alignDisplayPartToCode(
+      "Call Center – Foreign Language Interpreter and TTY Availability (Part D)",
+      "C32"
+    ),
+    "Call Center – Foreign Language Interpreter and TTY Availability (Part C)"
+  );
+});
+
+test("resolveMeasureForPlanPreview corrects mistitled Part D Call Center label", () => {
+  const resolved = resolveMeasureForPlanPreview(
+    "D01",
+    "Call Center – Foreign Language Interpreter and TTY Availability (Part C)"
+  );
+  assert.match(resolved.displayName, /\(Part D\)/);
+  assert.match(resolved.normalizedName, /partd$/);
 });
 
 test("PP1 file names win over prior-year code fallbacks for replaced measures", () => {

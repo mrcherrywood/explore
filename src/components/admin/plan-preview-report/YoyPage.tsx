@@ -57,6 +57,8 @@ export function YoyPage({
 }) {
   const baseline = report.scenarios.find((scenario) => scenario.id === "baseline");
   const predictedRating = baseline?.score?.finalRating ?? null;
+  const predictedPartC = baseline?.score?.partCFinalRating ?? null;
+  const predictedPartD = baseline?.score?.partDFinalRating ?? null;
 
   const chartData = [
     ...report.history.map((point) => ({
@@ -69,8 +71,8 @@ export function YoyPage({
     {
       year: `${report.starsYear} (proj.)`,
       overall: predictedRating,
-      partC: null,
-      partD: null,
+      partC: predictedPartC,
+      partD: predictedPartD,
       predicted: true,
     },
   ];
@@ -92,7 +94,7 @@ export function YoyPage({
     >
       <ReportSection
         title="Overall Rating Trend"
-        note={`Published Overall, Part C, and Part D summary ratings by Star year; the final bar is this report's projected Stars ${report.starsYear} Overall rating.`}
+        note={`Published Overall, Part C, and Part D summary ratings by Star year; the final points are this report's projected Stars ${report.starsYear} Overall / Part C / Part D ratings.`}
       >
         <div className="fep-report-panel" style={{ padding: "10px 10px 2px" }}>
           <ComposedChart
@@ -133,7 +135,14 @@ export function YoyPage({
                 dataKey="overall"
                 position="top"
                 formatter={chartValueFormatter(1)}
-                style={{ fontSize: 11, fontWeight: 800, fill: REPORT_COLORS.ink }}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  fill: REPORT_COLORS.ink,
+                  paintOrder: "stroke",
+                  stroke: "#fdfbf6",
+                  strokeWidth: 3,
+                }}
               />
             </Bar>
             <Line
@@ -141,7 +150,8 @@ export function YoyPage({
               name="Part C summary"
               stroke={REPORT_COLORS.accentSoft}
               strokeWidth={2}
-              dot={{ r: 3, fill: REPORT_COLORS.accentSoft }}
+              strokeOpacity={0.35}
+              dot={{ r: 3, fill: REPORT_COLORS.accentSoft, fillOpacity: 0.45 }}
               isAnimationActive={false}
             />
             <Line
@@ -149,7 +159,8 @@ export function YoyPage({
               name="Part D summary"
               stroke={REPORT_COLORS.negative}
               strokeWidth={2}
-              dot={{ r: 3, fill: REPORT_COLORS.negative }}
+              strokeOpacity={0.35}
+              dot={{ r: 3, fill: REPORT_COLORS.negative, fillOpacity: 0.45 }}
               isAnimationActive={false}
             />
           </ComposedChart>

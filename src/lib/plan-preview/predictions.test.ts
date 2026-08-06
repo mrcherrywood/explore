@@ -154,6 +154,24 @@ test(
     }
     const withBaselineStar = h0885.measures.filter((m) => m.baselineOfficialStar !== null);
     assert.ok(withBaselineStar.length > 20, "expected baseline official stars for most measures");
+
+    // Stars 2027 weights: Call Center Part D is 2-wt (same as Part C); HOS
+    // Improving/Maintaining Physical & Mental Health are 3-wt.
+    const callCenterD = h0885.measures.find((m) => m.measureCode === "D01");
+    const callCenterC = h0885.measures.find((m) => /call center/i.test(m.displayName) && m.measureCode?.startsWith("C"));
+    const physical = h0885.measures.find((m) => m.measureCode === "C04");
+    const mental = h0885.measures.find((m) => m.measureCode === "C05");
+    assert.ok(callCenterD, "D01 Call Center missing");
+    assert.equal(callCenterD.weight, 2, "Part D Call Center should be 2-wt");
+    if (callCenterC) assert.equal(callCenterC.weight, 2, "Part C Call Center should be 2-wt");
+    assert.ok(physical, "C04 Physical Health missing");
+    assert.ok(mental, "C05 Mental Health missing");
+    assert.equal(physical.weight, 3, "Improving/Maintaining Physical Health should be 3-wt");
+    assert.equal(mental.weight, 3, "Improving/Maintaining Mental Health should be 3-wt");
+
+    const d01Cut = result.cutPoints.find((cp) => cp.measureCode === "D01");
+    assert.ok(d01Cut);
+    assert.equal(d01Cut.source, "workbook_forecast", "mistitled Part C label must still match Part D cut points");
   }
 );
 
@@ -167,10 +185,15 @@ test(
     const caiParsed = parsePlanPreviewWorkbook(
       readFileSync(CAI_PATH)
     ) as PlanPreviewCaiParseResult;
-    const cai = { overall: {} as Record<string, number>, partC: {} as Record<string, number> };
+    const cai = {
+      overall: {} as Record<string, number>,
+      partC: {} as Record<string, number>,
+      partD: {} as Record<string, number>,
+    };
     for (const row of caiParsed.rows) {
       if (row.overallCai !== null) cai.overall[row.contractId] = row.overallCai;
       if (row.partCCai !== null) cai.partC[row.contractId] = row.partCCai;
+      if (row.partDMapdCai !== null) cai.partD[row.contractId] = row.partDMapdCai;
     }
 
     const scenarios = buildPlanPreviewScenarios(predictions, cai);
@@ -205,6 +228,18 @@ test(
     assert.ok(
       h0885.finalRating !== null && h0885.finalRating >= 1 && h0885.finalRating <= 5,
       `final rating out of range: ${h0885.finalRating}`
+    );
+    assert.ok(
+      h0885.partCFinalRating !== null &&
+        h0885.partCFinalRating >= 1 &&
+        h0885.partCFinalRating <= 5,
+      `Part C projection missing/out of range: ${h0885.partCFinalRating}`
+    );
+    assert.ok(
+      h0885.partDFinalRating !== null &&
+        h0885.partDFinalRating >= 1 &&
+        h0885.partDFinalRating <= 5,
+      `Part D projection missing/out of range: ${h0885.partDFinalRating}`
     );
 
     // Each leg must decompose into clamp(base mean + RF) + CAI.

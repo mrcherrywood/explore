@@ -109,7 +109,7 @@ export function OverviewPage({
     >
       <ReportSection
         title="Predicted Overall Rating"
-        note={`Accrued plan preview scores rated at projected Stars ${report.starsYear} cut points, with reward factor and CAI applied using CMS Overall MA-PD methodology.`}
+        note={`Accrued plan preview scores rated at projected Stars ${report.starsYear} cut points. Overall uses MA-PD methodology; Part C and Part D use their own reward-factor thresholds and CAI.`}
       >
         <div style={{ display: "flex", gap: 14 }}>
           <div
@@ -144,6 +144,19 @@ export function OverviewPage({
             <p style={{ margin: "10px 0 0", fontSize: 10, fontWeight: 700, color: "var(--fep-muted)" }}>
               Final score {formatScore(score?.finalScoreRaw)}
             </p>
+            <p
+              style={{
+                margin: "8px 0 0",
+                fontSize: 10,
+                fontWeight: 700,
+                color: "var(--fep-faint)",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              Part C {formatStars(score?.partCFinalRating ?? null)}★
+              <span style={{ margin: "0 6px", fontWeight: 500 }}>·</span>
+              Part D {formatStars(score?.partDFinalRating ?? null)}★
+            </p>
           </div>
 
           <div className="fep-report-panel" style={{ flex: 1, padding: "14px 18px 10px" }}>
@@ -163,21 +176,17 @@ export function OverviewPage({
               emphasis
             />
             <p style={{ margin: "8px 0 0", fontSize: 9, color: "var(--fep-faint)" }}>
-              Quality Improvement is not scored in plan preview 1 and cannot be accurately estimated
-              yet, so the projection excludes the QI measures.
+              QI is not scored in plan preview 1, so the projection excludes those measures.
+              {report.measures.some((m) => m.starSource === "cahps_case_mix_reliability")
+                ? " CAHPS stars marked Adjusted use case-mix and reliability adjusted base stars."
+                : ""}
             </p>
-            {report.measures.some((m) => m.starSource === "cahps_case_mix_reliability") ? (
-              <p style={{ margin: "6px 0 0", fontSize: 9, color: "var(--fep-faint)" }}>
-                CAHPS measure stars marked Adjusted use case-mix and reliability adjusted base stars
-                from the MCAHPS final output (not cut-point banding of the unadjusted PP1 score).
-              </p>
-            ) : null}
           </div>
         </div>
       </ReportSection>
 
-      <ReportSection title="Projection Inputs" style={{ marginTop: 16 }}>
-        <div style={{ display: "flex", gap: 12 }}>
+      <ReportSection title="Projection Inputs" style={{ marginTop: 12 }}>
+        <div style={{ display: "flex", gap: 10 }}>
           <ReportStat
             label="Measures scored"
             value={report.measures.length}
@@ -213,11 +222,11 @@ export function OverviewPage({
 
       <ReportSection
         title="Predicted Measure Star Distribution"
-        note="Count of accrued measures at each whole-star rating. Non-CAHPS measures use projected cut points; CAHPS measures use case-mix/reliability adjusted base stars when that file is uploaded."
-        style={{ marginTop: 16 }}
+        note="Count of accrued measures at each whole-star rating. Non-CAHPS use projected cut points; CAHPS use adjusted base stars when uploaded."
+        style={{ marginTop: 12 }}
       >
-        <div className="fep-report-panel" style={{ padding: "16px 10px 6px" }}>
-          <BarChart width={686} height={205} data={distribution} margin={{ top: 18, right: 16, left: -14, bottom: 0 }}>
+        <div className="fep-report-panel" style={{ padding: "12px 10px 4px" }}>
+          <BarChart width={686} height={185} data={distribution} margin={{ top: 16, right: 16, left: -14, bottom: 0 }}>
             <CartesianGrid stroke={REPORT_COLORS.grid} vertical={false} />
             <XAxis
               dataKey="star"

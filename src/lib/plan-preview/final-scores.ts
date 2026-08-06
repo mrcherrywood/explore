@@ -15,6 +15,7 @@ import {
 } from "@/lib/reward-factor";
 import { loadMeasureStarsFromFile } from "@/lib/reward-factor/backtest";
 import { getMeasureRemovalForYear } from "@/lib/reward-factor/measure-removal-projection";
+import { formatMeasureAcronyms } from "./measure-acronyms";
 import { toBaselineMeasureCode } from "./measure-resolve";
 import type { PlanPreviewPredictionsResult } from "./predictions";
 
@@ -41,6 +42,10 @@ export type PlanPreviewFinalScore = {
   selectedLeg: "with_qi" | "without_qi" | null;
   finalScoreRaw: number | null;
   finalRating: number | null;
+  /** Part C summary rating (baseline scenario only); null otherwise. */
+  partCFinalRating: number | null;
+  /** Part D MA-PD summary rating (baseline scenario only); null otherwise. */
+  partDFinalRating: number | null;
   qualifiesOverall: boolean;
   reason: string | null;
 };
@@ -72,6 +77,7 @@ export type PlanPreviewFinalScoresResult = {
 export type PlanPreviewCaiRecords = {
   overall: Record<string, number>;
   partC: Record<string, number>;
+  partD: Record<string, number>;
 };
 
 function roundToHalf(value: number): number {
@@ -201,6 +207,42 @@ function buildLegScore(
   };
 }
 
+/** Part C / Part D summary legs over the anchored population (without QI). */
+function computeCategoryLeg(
+  population: Map<string, ContractMeasure[]>,
+  category: "Part C" | "Part D"
+): LegComputation {
+  const statsByContract = new Map<string, ReturnType<typeof calculateContractStats>>();
+  const stats = [];
+  for (const [contractId, measures] of population) {
+    const legMeasures = withoutCodes(
+      measures.filter((measure) => measure.category === category),
+      QI_MEASURE_CODES
+    );
+    const contractStats = calculateContractStats(contractId, legMeasures, null);
+    if (contractStats.measureCount <= 1) continue;
+    statsByContract.set(contractId, contractStats);
+    stats.push(contractStats);
+  }
+  return {
+    thresholds: stats.length > 0 ? computePercentileThresholds(stats) : null,
+    statsByContract,
+  };
+}
+
+function categoryFinalRating(
+  leg: LegComputation,
+  contractId: string,
+  caiValue: number | null,
+  ratingType: "part_c" | "part_d_mapd"
+): number | null {
+  const stats = leg.statsByContract.get(contractId);
+  if (!stats || !leg.thresholds) return null;
+  const result = calculateRewardFactor(stats, leg.thresholds, ratingType);
+  const raw = result.adjustedRating + (caiValue ?? 0);
+  return roundToHalf(Math.min(5, Math.max(1, raw)));
+}
+
 type ScenarioDef = {
   id: PlanPreviewScenarioId;
   label: string;
@@ -226,8 +268,11 @@ function scenarioDefs(): ScenarioDef[] {
       id: "removal2028",
       label: "Stars 2028 removals",
       description:
-        "CMS-announced Stars 2028 retirements removed before scoring: " +
-        (removal2028?.removedMeasures.map((m) => m.code).join(", ") ?? "—") + ".",
+        "CMS Stars 2028 retirements: " +
+        (removal2028
+          ? formatMeasureAcronyms(removal2028.removedMeasures.map((m) => m.code))
+          : "—") +
+        ".",
       removedCodes: removal2028?.removedCodes ?? new Set<string>(),
       caiSource: "overall",
       notes: [],
@@ -236,8 +281,11 @@ function scenarioDefs(): ScenarioDef[] {
       id: "removal2029",
       label: "Stars 2029 removals",
       description:
-        "CMS-announced Stars 2029 retirements removed before scoring: " +
-        (removal2029?.removedMeasures.map((m) => m.code).join(", ") ?? "—") + ".",
+        "CMS Stars 2029 retirements: " +
+        (removal2029
+          ? formatMeasureAcronyms(removal2029.removedMeasures.map((m) => m.code))
+          : "—") +
+        ".",
       removedCodes: removal2029?.removedCodes ?? new Set<string>(),
       caiSource: "overall",
       notes: [],
@@ -246,7 +294,7 @@ function scenarioDefs(): ScenarioDef[] {
       id: "cloverRecalc",
       label: "Clover-style recalc",
       description:
-        "Only Part C HEDIS/CAHPS/HOS measures survive (all Part D plus C07, C28, C29, C31, C32, C33 removed), mirroring CMS's June 2026 voluntary recalculation.",
+        "Part C HEDIS/CAHPS/HOS only — drops all Part D plus SNP, Complaints (C), MCL (C), Timely Appeals, Review Appeals, and Call Center (C).",
       removedCodes: OFFICIAL_RECALC_REMOVED_CODES,
       caiSource: "part_c",
       notes: [
@@ -266,6 +314,11 @@ function computeScenario(
   const caiByContract = scenario.caiSource === "part_c" ? cai.partC : cai.overall;
   const withQiLeg = computeLeg(population, scenario.removedCodes, false);
   const withoutQiLeg = computeLeg(population, scenario.removedCodes, true);
+  // Part C / Part D trend projections use the all-measures (baseline) population.
+  const partCLeg =
+    scenario.id === "baseline" ? computeCategoryLeg(population, "Part C") : null;
+  const partDLeg =
+    scenario.id === "baseline" ? computeCategoryLeg(population, "Part D") : null;
 
   const contracts: PlanPreviewFinalScore[] = [];
   for (const contract of predictions.contracts) {
@@ -281,6 +334,24 @@ function computeScenario(
       ? buildLegScore(withQiLeg, contract.contractId, caiValue)
       : null;
     const withoutQi = buildLegScore(withoutQiLeg, contract.contractId, caiValue);
+    const partCFinalRating =
+      partCLeg !== null
+        ? categoryFinalRating(
+            partCLeg,
+            contract.contractId,
+            cai.partC[contract.contractId] ?? null,
+            "part_c"
+          )
+        : null;
+    const partDFinalRating =
+      partDLeg !== null
+        ? categoryFinalRating(
+            partDLeg,
+            contract.contractId,
+            cai.partD[contract.contractId] ?? null,
+            "part_d_mapd"
+          )
+        : null;
 
     const base = {
       contractId: contract.contractId,
@@ -289,6 +360,8 @@ function computeScenario(
       caiValue,
       withQi,
       withoutQi,
+      partCFinalRating,
+      partDFinalRating,
     };
 
     if (!withQi && !withoutQi) {
@@ -385,5 +458,6 @@ export function buildPlanPreviewFinalScores(
   return buildPlanPreviewScenarios(predictions, {
     overall: caiByContract,
     partC: {},
+    partD: {},
   })[0];
 }

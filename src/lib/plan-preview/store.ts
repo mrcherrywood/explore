@@ -287,28 +287,35 @@ export async function getPlanPreviewScoredRows(
   return rows;
 }
 
-/** Overall MA-PD and Part C CAI per contract from the uploaded CAI file. */
+/** Overall MA-PD, Part C, and Part D MA-PD CAI per contract from the uploaded CAI file. */
 export async function getPlanPreviewCaiByContract(
   client: ServiceClient,
   starsYear: number
-): Promise<{ overall: Record<string, number>; partC: Record<string, number> }> {
+): Promise<{
+  overall: Record<string, number>;
+  partC: Record<string, number>;
+  partD: Record<string, number>;
+}> {
   const { data, error } = await client
     .from("plan_preview_cai")
-    .select("contract_id, overall_cai, part_c_cai")
+    .select("contract_id, overall_cai, part_c_cai, part_d_mapd_cai")
     .eq("stars_year", starsYear);
 
   if (error) throw new Error(error.message);
   const overall: Record<string, number> = {};
   const partC: Record<string, number> = {};
+  const partD: Record<string, number> = {};
   for (const row of (data ?? []) as Array<{
     contract_id: string;
     overall_cai: number | null;
     part_c_cai: number | null;
+    part_d_mapd_cai: number | null;
   }>) {
     if (row.overall_cai !== null) overall[row.contract_id] = Number(row.overall_cai);
     if (row.part_c_cai !== null) partC[row.contract_id] = Number(row.part_c_cai);
+    if (row.part_d_mapd_cai !== null) partD[row.contract_id] = Number(row.part_d_mapd_cai);
   }
-  return { overall, partC };
+  return { overall, partC, partD };
 }
 
 export async function getPlanPreviewAccrualSummary(

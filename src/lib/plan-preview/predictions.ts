@@ -196,7 +196,32 @@ function lookupBaselineCutPoint(
   if (baselineYear === null) return null;
   const cutPoints = ensureOfficialCutPoints().get(baselineYear) ?? [];
   const codePrefix = measureCode ? measureCode[0] : null;
-  return matchCutPointToMeasureName(displayName, codePrefix, cutPoints);
+  return matchCutPointToMeasureName(displayName, codePrefix, cutPoints, measureNormalized);
+}
+
+/** Stars-year workbook weight when present; else baseline published weight. */
+function lookupMeasureWeight(
+  measureNormalized: string,
+  displayName: string,
+  measureCode: string | null,
+  starsYear: number,
+  baselineYear: number | null
+): number {
+  const codePrefix = measureCode ? measureCode[0] : null;
+  const yearCutPoint = matchCutPointToMeasureName(
+    displayName,
+    codePrefix,
+    getWorkbookCutPointsForYear(starsYear),
+    measureNormalized
+  );
+  if (yearCutPoint?.weight != null && yearCutPoint.weight > 0) return yearCutPoint.weight;
+  const baselineCutPoint = lookupBaselineCutPoint(
+    measureNormalized,
+    displayName,
+    measureCode,
+    baselineYear
+  );
+  return baselineCutPoint?.weight ?? 1;
 }
 
 const THRESHOLD_ENTRIES: { key: MethodologyForecastThreshold["key"]; label: string }[] = [
@@ -285,7 +310,12 @@ export function buildPlanPreviewPredictions(
     const inverted = isInvertedMeasure(displayName);
     const isCahps = isCahpsMeasure(displayName);
     const codePrefix = measureCode ? measureCode[0] : null;
-    const workbookRow = matchCutPointToMeasureName(displayName, codePrefix, workbookCutPoints);
+    const workbookRow = matchCutPointToMeasureName(
+      displayName,
+      codePrefix,
+      workbookCutPoints,
+      measureNormalized
+    );
     const baselineCutPoint = lookupBaselineCutPoint(
       measureNormalized,
       displayName,
@@ -464,6 +494,7 @@ export function buildPlanPreviewPredictions(
     maRows,
     readyThresholds,
     predictionStatusByMeasure,
+    starsYear,
     baselineYear,
     adjustedByKey
   );
@@ -498,6 +529,7 @@ function buildContractPredictions(
   rows: AccruedMeasureScore[],
   readyThresholds: Map<string, { thresholds: ThresholdValuesShape; inverted: boolean }>,
   predictionStatusByMeasure: Map<string, PlanPreviewCutPointPrediction["status"]>,
+  starsYear: number,
   baselineYear: number | null,
   adjustedByKey: Map<string, number>
 ): PlanPreviewContractPrediction[] {
@@ -524,7 +556,13 @@ function buildContractPredictions(
         row.measureCode,
         baselineYear
       );
-      const weight = baselineCutPoint?.weight ?? 1;
+      const weight = lookupMeasureWeight(
+        row.measureNormalized,
+        row.measureDisplayName,
+        row.measureCode,
+        starsYear,
+        baselineYear
+      );
       const isCahps = isCahpsMeasure(row.measureDisplayName);
       const bandingScore = scoreForCutPointBanding(row.score, row.wholeScore, isCahps);
       const adjustedStar = adjustedByKey.get(`${contractId}|${row.measureNormalized}`) ?? null;
