@@ -30,6 +30,7 @@ export type ReportDomain = {
   measureCount: number;
   ratedMeasureCount: number;
   predictedMean: number | null;
+  /** Weighted mean of the contract's published baseline-year measure stars in this domain. */
   baselineMean: number | null;
 };
 
@@ -134,7 +135,66 @@ function weightedMean(
   return weightSum > 0 ? Math.round((sum / weightSum) * 100) / 100 : null;
 }
 
-function buildDomains(measures: ReportMeasure[]): ReportDomain[] {
+export type PublishedMeasureMeta = {
+  domain: string | null;
+  weight: number | null;
+};
+
+/**
+ * Weighted domain means using the same inputs as Contract Summary: published
+ * measure stars + `ma_measures` domain/weight for that year.
+ */
+export function computeWeightedDomainMeans(
+  starredMeasures: { code: string; star: number }[],
+  measureMetaByCode: Map<string, PublishedMeasureMeta>
+): Map<string, number | null> {
+  const byDomain = new Map<string, { star: number | null; weight: number }[]>();
+  for (const measure of starredMeasures) {
+    const meta = measureMetaByCode.get(measure.code.toUpperCase());
+    if (!meta?.domain) continue;
+    const weight = meta.weight;
+    if (weight === null || weight === undefined || !Number.isFinite(weight) || weight <= 0) {
+      continue;
+    }
+    if (!Number.isFinite(measure.star) || measure.star <= 0) continue;
+    const existing = byDomain.get(meta.domain);
+    const entry = { star: measure.star, weight };
+    if (existing) existing.push(entry);
+    else byDomain.set(meta.domain, [entry]);
+  }
+
+  const means = new Map<string, number | null>();
+  for (const [domain, items] of byDomain) {
+    means.set(domain, weightedMean(items));
+  }
+  return means;
+}
+
+/** Fallback when DB metrics are unavailable: JSON measure stars + cut-point weights. */
+function buildPublishedDomainMeansFromFile(
+  contractId: string,
+  baselineYear: number,
+  domainByCode: Map<string, string>
+): Map<string, number | null> {
+  const published = loadMeasureStarsFromFile(baselineYear).get(contractId) ?? [];
+  return computeWeightedDomainMeans(
+    published.map((measure) => ({ code: measure.code, star: measure.starValue })),
+    new Map(
+      published.map((measure) => [
+        measure.code.toUpperCase(),
+        {
+          domain: domainByCode.get(measure.code.toUpperCase()) ?? null,
+          weight: measure.weight,
+        },
+      ])
+    )
+  );
+}
+
+function buildDomains(
+  measures: ReportMeasure[],
+  publishedDomainMeans: Map<string, number | null>
+): ReportDomain[] {
   const byDomain = new Map<string, ReportMeasure[]>();
   for (const measure of measures) {
     const domain = measure.domain ?? "Other";
@@ -156,9 +216,11 @@ function buildDomains(measures: ReportMeasure[]): ReportDomain[] {
       predictedMean: weightedMean(
         domainMeasures.map((m) => ({ star: m.predictedStar, weight: m.weight }))
       ),
-      baselineMean: weightedMean(
-        domainMeasures.map((m) => ({ star: m.publishedBaselineStar, weight: m.weight }))
-      ),
+      baselineMean:
+        publishedDomainMeans.get(domain) ??
+        weightedMean(
+          domainMeasures.map((m) => ({ star: m.publishedBaselineStar, weight: m.weight }))
+        ),
     });
   }
 
@@ -221,6 +283,11 @@ export function buildPlanPreviewContractReport(options: {
   scenarios: PlanPreviewFinalScoresResult[];
   contract: PlanPreviewContractPrediction;
   domainByCode: Map<string, string>;
+  /**
+   * Preferred published domain means (Contract Summary methodology). When
+   * omitted, falls back to measure_stars JSON + cut-point workbook weights.
+   */
+  publishedDomainMeans?: Map<string, number | null>;
 }): PlanPreviewContractReport {
   const { predictions, scenarios, contract, domainByCode } = options;
   const { starsYear, baselineYear } = predictions;
@@ -260,6 +327,12 @@ export function buildPlanPreviewContractReport(options: {
     )
   );
 
+  const publishedDomainMeans =
+    options.publishedDomainMeans ??
+    (baselineYear !== null
+      ? buildPublishedDomainMeansFromFile(contractId, baselineYear, domainByCode)
+      : new Map<string, number | null>());
+
   return {
     starsYear,
     baselineYear,
@@ -274,7 +347,7 @@ export function buildPlanPreviewContractReport(options: {
       snp: baselineSummaryRow ? String(baselineSummaryRow.SNP ?? "").trim() || null : null,
     },
     measures,
-    domains: buildDomains(measures),
+    domains: buildDomains(measures, publishedDomainMeans),
     history: buildHistory(contractId, starsYear),
     yoySummary: buildYoySummary(measures),
     scenarios: buildScenarios(scenarios, contractId, contractCodes),

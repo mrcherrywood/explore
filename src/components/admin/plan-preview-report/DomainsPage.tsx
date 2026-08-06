@@ -55,7 +55,7 @@ export function DomainsPage({
     >
       <ReportSection
         title="Weighted Mean Stars by Domain"
-        note={`Predicted Stars ${report.starsYear} performance versus the same accrued scores rated at Stars ${report.baselineYear ?? "—"} official cut points — the gap isolates projected cut point movement.`}
+        note={`Predicted Stars ${report.starsYear} domain means versus this contract's published Stars ${report.baselineYear ?? "—"} domain stars (same weighted averages as Contract Summary).`}
       >
         <div className="fep-report-panel" style={{ padding: "14px 12px 4px" }}>
           <BarChart
@@ -63,7 +63,7 @@ export function DomainsPage({
             height={chartHeight}
             data={chartData}
             layout="vertical"
-            margin={{ top: 0, right: 52, left: 8, bottom: 0 }}
+            margin={{ top: 0, right: 48, left: 4, bottom: 0 }}
             barCategoryGap={10}
           >
             <CartesianGrid stroke={REPORT_COLORS.grid} horizontal={false} />
@@ -78,7 +78,7 @@ export function DomainsPage({
             <YAxis
               type="category"
               dataKey="name"
-              width={210}
+              width={96}
               tick={{ fontSize: 10, fontWeight: 600, fill: REPORT_COLORS.ink }}
               axisLine={false}
               tickLine={false}
@@ -89,10 +89,13 @@ export function DomainsPage({
               height={26}
               iconSize={9}
               wrapperStyle={{ fontSize: 10, fontWeight: 700 }}
+              formatter={(value) => (
+                <span style={{ color: REPORT_COLORS.ink, fontWeight: 700 }}>{value}</span>
+              )}
             />
             <Bar
               dataKey="baseline"
-              name={`At Stars ${report.baselineYear ?? "—"} cut points`}
+              name={`Stars ${report.baselineYear ?? "—"} published`}
               fill={REPORT_COLORS.band}
               radius={[0, 4, 4, 0]}
               barSize={14}
@@ -102,7 +105,7 @@ export function DomainsPage({
                 dataKey="baseline"
                 position="right"
                 formatter={chartValueFormatter(2)}
-                style={{ fontSize: 9, fontWeight: 700, fill: REPORT_COLORS.muted }}
+                style={{ fontSize: 9, fontWeight: 700, fill: REPORT_COLORS.ink }}
               />
             </Bar>
             <Bar
@@ -132,9 +135,9 @@ export function DomainsPage({
                 <th className="l">Domain</th>
                 <th className="l">Part</th>
                 <th>Measures rated</th>
-                <th>At Stars {report.baselineYear ?? "—"} cut points</th>
+                <th>Stars {report.baselineYear ?? "—"} published</th>
                 <th>Predicted Stars {report.starsYear}</th>
-                <th>Cut point impact</th>
+                <th>Change</th>
               </tr>
             </thead>
             <tbody>
@@ -176,11 +179,12 @@ export function DomainsPage({
           </table>
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 8 }}>
-          Domain groupings follow the CMS Stars {report.baselineYear ?? "—"} measure-to-domain
-          assignments; measures new to Stars {report.starsYear} (e.g. Polypharmacy Poly-ACH) are
-          assigned to their CMS domain. Domain means are weighted by each measure&apos;s Star
-          Ratings weight. When MCAHPS adjusted output is uploaded, CAHPS measure stars in these
-          means use case-mix and reliability adjusted base stars.
+          Stars {report.baselineYear ?? "—"} published domain means match Contract Summary: published
+          measure stars weighted by that year&apos;s measure weights. Predicted means use accrued
+          plan preview stars (MCAHPS adjusted base stars for CAHPS when uploaded) with Stars{" "}
+          {report.starsYear} weights. Domain groupings follow CMS Stars{" "}
+          {report.baselineYear ?? "—"} measure-to-domain assignments; measures new to Stars{" "}
+          {report.starsYear} (e.g. Polypharmacy Poly-ACH) are assigned to their CMS domain.
         </p>
       </ReportSection>
     </ReportPageFrame>

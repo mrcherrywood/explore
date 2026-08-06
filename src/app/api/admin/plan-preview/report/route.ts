@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { requireApprovedAdmin } from "@/lib/admin/require-approved-admin";
-import { buildPlanPreviewContractReport } from "@/lib/plan-preview/report-data";
+import {
+  buildPlanPreviewContractReport,
+  computeWeightedDomainMeans,
+  type PublishedMeasureMeta,
+} from "@/lib/plan-preview/report-data";
 import { getPlanPreviewRun } from "@/lib/plan-preview/run-cache";
 
 export const runtime = "nodejs";
@@ -34,13 +38,48 @@ export async function GET(request: Request) {
     }
 
     const domainByCode = new Map<string, string>();
+    const measureMetaByCode = new Map<string, PublishedMeasureMeta>();
+    let publishedDomainMeans: Map<string, number | null> | undefined;
+
     if (result.baselineYear !== null) {
-      const { data } = await admin.serviceClient
-        .from("ma_measures")
-        .select("code, domain")
-        .eq("year", result.baselineYear);
-      for (const row of (data ?? []) as { code: string; domain: string | null }[]) {
-        if (row.domain) domainByCode.set(row.code.toUpperCase(), row.domain);
+      const [{ data: measureRows }, { data: metricRows }] = await Promise.all([
+        admin.serviceClient
+          .from("ma_measures")
+          .select("code, domain, weight")
+          .eq("year", result.baselineYear),
+        admin.serviceClient
+          .from("ma_metrics")
+          .select("metric_code, star_rating")
+          .eq("contract_id", contractId)
+          .eq("year", result.baselineYear),
+      ]);
+
+      for (const row of (measureRows ?? []) as {
+        code: string;
+        domain: string | null;
+        weight: number | null;
+      }[]) {
+        const code = row.code.toUpperCase();
+        if (row.domain) domainByCode.set(code, row.domain);
+        measureMetaByCode.set(code, { domain: row.domain, weight: row.weight });
+      }
+
+      // Same published domain means as Contract Summary for this year.
+      const starredMeasures = ((metricRows ?? []) as {
+        metric_code: string | null;
+        star_rating: string | number | null;
+      })
+        .map((row) => {
+          const code = String(row.metric_code ?? "")
+            .trim()
+            .toUpperCase();
+          const star = Number(row.star_rating);
+          return { code, star };
+        })
+        .filter((row) => row.code && Number.isFinite(row.star) && row.star > 0);
+
+      if (starredMeasures.length > 0 && measureMetaByCode.size > 0) {
+        publishedDomainMeans = computeWeightedDomainMeans(starredMeasures, measureMetaByCode);
       }
     }
 
@@ -49,6 +88,7 @@ export async function GET(request: Request) {
       scenarios,
       contract,
       domainByCode,
+      publishedDomainMeans,
     });
 
     return NextResponse.json(report);
