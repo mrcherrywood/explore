@@ -70,7 +70,9 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
 
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload.error || "Failed to build year over year comparison");
+          throw new Error(
+            payload.error || "Failed to build year over year comparison",
+          );
         }
 
         const payload: YoYComparisonResponse = await response.json();
@@ -79,7 +81,11 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to build year over year comparison");
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to build year over year comparison",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -102,10 +108,15 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
   const sectionAnchors = useMemo<SectionAnchor[]>(() => {
     if (!data) return [];
 
-    const anchors: SectionAnchor[] = [{ id: "summary-overview", label: "Summary" }];
+    const anchors: SectionAnchor[] = [
+      { id: "summary-overview", label: "Summary" },
+    ];
 
     if (data.overallChart) {
-      anchors.push({ id: "overall-trend", label: data.overallChart.title || "Overall Trend" });
+      anchors.push({
+        id: "overall-trend",
+        label: data.overallChart.title || "Overall Trend",
+      });
     }
 
     data.domainCharts?.forEach((chart, index) => {
@@ -115,7 +126,10 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
 
     data.measureCharts?.forEach((chart, index) => {
       const label = chart.title || `Measure ${index + 1}`;
-      anchors.push({ id: `measure-${index + 1}-${slugifyLabel(label)}`, label });
+      anchors.push({
+        id: `measure-${index + 1}-${slugifyLabel(label)}`,
+        label,
+      });
     });
 
     return anchors;
@@ -139,7 +153,8 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
           .slice()
           .sort(
             (a, b) =>
-              Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top)
+              Math.abs(a.boundingClientRect.top) -
+              Math.abs(b.boundingClientRect.top),
           )[0];
 
         if (nearest) {
@@ -149,7 +164,7 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
       {
         rootMargin: "-45% 0px -45% 0px",
         threshold: [0.1, 0.5, 0.75],
-      }
+      },
     );
 
     sectionAnchors.forEach((anchor) => {
@@ -189,7 +204,11 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
   };
 
   const fourStarStats = useMemo(() => {
-    if (!data || selection.comparisonType !== "organization" || !data.fourStarMembership) {
+    if (
+      !data ||
+      selection.comparisonType !== "organization" ||
+      !data.fourStarMembership
+    ) {
       return null;
     }
 
@@ -204,15 +223,17 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
         acc.totalFourStar += row.fourStarCount;
         return acc;
       },
-      { totalMembers: 0, totalRated: 0, totalFourStar: 0 }
+      { totalMembers: 0, totalRated: 0, totalFourStar: 0 },
     );
 
-    const overallPercentOfTotal = summary.totalMembers > 0
-      ? (summary.totalFourStar / summary.totalMembers) * 100
-      : null;
-    const overallPercentOfRated = summary.totalRated > 0
-      ? (summary.totalFourStar / summary.totalRated) * 100
-      : null;
+    const overallPercentOfTotal =
+      summary.totalMembers > 0
+        ? (summary.totalFourStar / summary.totalMembers) * 100
+        : null;
+    const overallPercentOfRated =
+      summary.totalRated > 0
+        ? (summary.totalFourStar / summary.totalRated) * 100
+        : null;
 
     return {
       rows,
@@ -232,7 +253,11 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <div className="text-center text-sm text-muted-foreground">
-            Building year over year analysis for {selection.comparisonType === "contract" ? selection.contractId : selection.parentOrganization} across {selection.years.length} years
+            Building year over year analysis for{" "}
+            {selection.comparisonType === "contract"
+              ? selection.contractId
+              : selection.parentOrganization}{" "}
+            across {selection.years.length} years
           </div>
         </div>
       </section>
@@ -257,7 +282,9 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
   const headingLabel =
     selection.comparisonType === "organization"
       ? data.organizationMarketingName || selection.parentOrganization
-      : data.contractName || data.organizationMarketingName || selection.contractId;
+      : data.contractName ||
+        data.organizationMarketingName ||
+        selection.contractId;
   const yearRange = `${Math.min(...data.years)} - ${Math.max(...data.years)}`;
 
   return (
@@ -270,17 +297,29 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
-                {selection.comparisonType === "organization" ? "Selected Organization" : "Selected Contract"}
+                {selection.comparisonType === "organization"
+                  ? "Selected Organization"
+                  : "Selected Contract"}
               </p>
-              <h2 className="mt-2 text-2xl font-semibold text-foreground">{headingLabel}</h2>
+              <h2 className="mt-2 text-2xl font-semibold text-foreground">
+                {headingLabel}
+              </h2>
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
                 {selection.comparisonType === "contract" ? (
-                  <span className="rounded-full border border-border px-3 py-1">Contract {selection.contractId}</span>
+                  <span className="rounded-full border border-border px-3 py-1">
+                    Contract {selection.contractId}
+                  </span>
                 ) : (
-                  <span className="rounded-full border border-border px-3 py-1">Organization</span>
+                  <span className="rounded-full border border-border px-3 py-1">
+                    Organization
+                  </span>
                 )}
-                <span className="rounded-full border border-border px-3 py-1">{data.years.length} years</span>
-                <span className="rounded-full border border-border px-3 py-1">{yearRange}</span>
+                <span className="rounded-full border border-border px-3 py-1">
+                  {data.years.length} years
+                </span>
+                <span className="rounded-full border border-border px-3 py-1">
+                  {yearRange}
+                </span>
               </div>
 
               {selection.comparisonType === "organization" && fourStarStats && (
@@ -293,14 +332,25 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
                       <ExportCsvButton
                         fileName={`four-star-membership_${selection.parentOrganization.replace(/\s+/g, "-")}`}
                         getData={() => ({
-                          headers: ["Year", "Contracts", "Rated", "Four-Star+", "% of Contracts", "% of Rated"],
+                          headers: [
+                            "Year",
+                            "Contracts",
+                            "Rated",
+                            "Four-Star+",
+                            "% of Contracts",
+                            "% of Rated",
+                          ],
                           rows: fourStarStats!.rows.map((row) => [
                             String(row.year),
                             String(row.totalMembers),
                             String(row.ratedMembers),
                             String(row.fourStarCount),
-                            typeof row.percentageOfTotal === "number" ? row.percentageOfTotal.toFixed(1) : "",
-                            typeof row.percentageOfRated === "number" ? row.percentageOfRated.toFixed(1) : "",
+                            typeof row.percentageOfTotal === "number"
+                              ? row.percentageOfTotal.toFixed(1)
+                              : "",
+                            typeof row.percentageOfRated === "number"
+                              ? row.percentageOfRated.toFixed(1)
+                              : "",
                           ]),
                         })}
                       />
@@ -311,25 +361,45 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
                           <thead className="text-muted-foreground">
                             <tr>
                               <th className="px-3 py-2 font-medium">Year</th>
-                              <th className="px-3 py-2 font-medium">Contracts</th>
+                              <th className="px-3 py-2 font-medium">
+                                Contracts
+                              </th>
                               <th className="px-3 py-2 font-medium">Rated</th>
-                              <th className="px-3 py-2 font-medium">Four-Star+</th>
-                              <th className="px-3 py-2 font-medium">% of Contracts</th>
-                              <th className="px-3 py-2 font-medium">% of Rated</th>
+                              <th className="px-3 py-2 font-medium">
+                                Four-Star+
+                              </th>
+                              <th className="px-3 py-2 font-medium">
+                                % of Contracts
+                              </th>
+                              <th className="px-3 py-2 font-medium">
+                                % of Rated
+                              </th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border/60">
                             {fourStarStats.rows.map((row) => (
                               <tr key={row.year}>
-                                <td className="px-3 py-2 text-foreground">{row.year}</td>
-                                <td className="px-3 py-2">{row.totalMembers.toLocaleString()}</td>
-                                <td className="px-3 py-2">{row.ratedMembers.toLocaleString()}</td>
-                                <td className="px-3 py-2">{row.fourStarCount.toLocaleString()}</td>
-                                <td className="px-3 py-2">
-                                  {typeof row.percentageOfTotal === "number" ? `${row.percentageOfTotal.toFixed(1)}%` : "–"}
+                                <td className="px-3 py-2 text-foreground">
+                                  {row.year}
                                 </td>
                                 <td className="px-3 py-2">
-                                  {typeof row.percentageOfRated === "number" ? `${row.percentageOfRated.toFixed(1)}%` : "–"}
+                                  {row.totalMembers.toLocaleString()}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {row.ratedMembers.toLocaleString()}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {row.fourStarCount.toLocaleString()}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {typeof row.percentageOfTotal === "number"
+                                    ? `${row.percentageOfTotal.toFixed(1)}%`
+                                    : "–"}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {typeof row.percentageOfRated === "number"
+                                    ? `${row.percentageOfRated.toFixed(1)}%`
+                                    : "–"}
                                 </td>
                               </tr>
                             ))}
@@ -340,37 +410,47 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
                   </div>
                 </div>
               )}
-              {selection.comparisonType === "organization" && data.parentBreakdown && data.parentBreakdown.length > 0 && (
-                <div className="mt-4 space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-                    Parent Organization History
-                  </p>
-                  <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground">
-                    {data.parentBreakdown
-                      .slice()
-                      .sort((a, b) => a.year - b.year)
-                      .map((entry) => (
-                        <div key={entry.year} className="space-y-1">
-                          <div className="font-medium text-foreground">{entry.year}</div>
-                          <ul className="space-y-1 pl-4">
-                            {entry.parents.map((parent, index) => (
-                              <li key={`${entry.year}-${parent.name ?? "unknown"}-${index}`} className="list-disc">
-                                <span className="text-foreground">
-                                  {parent.name && parent.name.trim().length > 0 ? parent.name : "Unknown Parent"}
-                                </span>
-                                {parent.contractIds.length > 0 && (
-                                  <span className="ml-2 text-muted-foreground/80">
-                                    ({parent.contractIds.join(", ")})
+              {selection.comparisonType === "organization" &&
+                data.parentBreakdown &&
+                data.parentBreakdown.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                      Parent Organization History
+                    </p>
+                    <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground">
+                      {data.parentBreakdown
+                        .slice()
+                        .sort((a, b) => a.year - b.year)
+                        .map((entry) => (
+                          <div key={entry.year} className="space-y-1">
+                            <div className="font-medium text-foreground">
+                              {entry.year}
+                            </div>
+                            <ul className="space-y-1 pl-4">
+                              {entry.parents.map((parent, index) => (
+                                <li
+                                  key={`${entry.year}-${parent.name ?? "unknown"}-${index}`}
+                                  className="list-disc"
+                                >
+                                  <span className="text-foreground">
+                                    {parent.name &&
+                                    parent.name.trim().length > 0
+                                      ? parent.name
+                                      : "Unknown Parent"}
                                   </span>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
+                                  {parent.contractIds.length > 0 && (
+                                    <span className="ml-2 text-muted-foreground/80">
+                                      ({parent.contractIds.join(", ")})
+                                    </span>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
 
             {sectionAnchors.length > 1 && (
@@ -388,7 +468,10 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
         </div>
 
         {data.overallChart && (
-          <div id="overall-trend" className="rounded-3xl border border-border bg-card p-8">
+          <div
+            id="overall-trend"
+            className="rounded-3xl border border-border bg-card p-8"
+          >
             <h3 className="mb-6 text-lg font-semibold text-foreground">
               {selection.comparisonType === "organization"
                 ? "Average Overall Star Rating Trend"
@@ -404,7 +487,9 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
               <div className="flex items-center gap-3">
                 <div className="h-8 w-1 rounded-full bg-primary"></div>
                 <div>
-                  <h3 className="text-xl font-bold text-foreground">Domain Star Rating Trends</h3>
+                  <h3 className="text-xl font-bold text-foreground">
+                    Domain Star Rating Trends
+                  </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {selection.comparisonType === "organization"
                       ? "Average weighted star ratings by domain across all contracts over time"
@@ -423,7 +508,9 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
                   className="rounded-3xl border border-border bg-card p-8"
                 >
                   {chart.title && (
-                    <h3 className="mb-6 text-lg font-semibold text-foreground">{chart.title}</h3>
+                    <h3 className="mb-6 text-lg font-semibold text-foreground">
+                      {chart.title}
+                    </h3>
                   )}
                   <ChartRenderer spec={chart} />
                 </div>
@@ -438,7 +525,9 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
               <div className="flex items-center gap-3">
                 <div className="h-8 w-1 rounded-full bg-primary"></div>
                 <div>
-                  <h3 className="text-xl font-bold text-foreground">Individual Measure Performance Trends</h3>
+                  <h3 className="text-xl font-bold text-foreground">
+                    Individual Measure Performance Trends
+                  </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {selection.comparisonType === "organization"
                       ? "Average rate percentages and star ratings for individual measures across all contracts over time"
@@ -457,7 +546,9 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
                   className="rounded-3xl border border-border bg-card p-8"
                 >
                   {chart.title && (
-                    <h3 className="mb-6 text-lg font-semibold text-foreground">{chart.title}</h3>
+                    <h3 className="mb-6 text-lg font-semibold text-foreground">
+                      {chart.title}
+                    </h3>
                   )}
                   <ChartRenderer spec={chart} />
                 </div>
@@ -478,8 +569,12 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">Quick jump</p>
-                <h3 className="text-lg font-semibold text-foreground">Navigate to a section</h3>
+                <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
+                  Quick jump
+                </p>
+                <h3 className="text-lg font-semibold text-foreground">
+                  Navigate to a section
+                </h3>
               </div>
               <button
                 type="button"
@@ -506,8 +601,12 @@ export function YoYComparisonResults({ selection }: { selection: Selection }) {
                     }`}
                     title={anchor.label}
                   >
-                    <span className="max-w-xs truncate text-left md:max-w-sm">{shortenLabel(anchor.label, 48)}</span>
-                    {isActive && <Check className="ml-3 h-4 w-4 text-primary" />}
+                    <span className="max-w-xs truncate text-left md:max-w-sm">
+                      {shortenLabel(anchor.label, 48)}
+                    </span>
+                    {isActive && (
+                      <Check className="ml-3 h-4 w-4 text-primary" />
+                    )}
                   </button>
                 );
               })}

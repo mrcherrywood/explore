@@ -24,7 +24,6 @@ import {
   formatStars,
 } from "./report-shared";
 
-
 function BuildupRow({
   label,
   value,
@@ -44,7 +43,13 @@ function BuildupRow({
         borderTop: "1px solid var(--fep-row-border)",
       }}
     >
-      <span style={{ fontSize: 11, fontWeight: emphasis ? 800 : 600, color: emphasis ? "var(--fep-ink)" : "var(--fep-muted)" }}>
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: emphasis ? 800 : 600,
+          color: emphasis ? "var(--fep-ink)" : "var(--fep-muted)",
+        }}
+      >
         {label}
       </span>
       <span
@@ -72,18 +77,25 @@ export function OverviewPage({
   totalPages: number;
   pageRef?: Ref<HTMLDivElement>;
 }) {
-  const baseline = report.scenarios.find((scenario) => scenario.id === "baseline");
+  const baseline = report.scenarios.find(
+    (scenario) => scenario.id === "baseline",
+  );
   const score = baseline?.score ?? null;
   const leg =
-    score?.selectedLeg === "with_qi" ? score.withQi
-    : score?.selectedLeg === "without_qi" ? score.withoutQi
-    : null;
+    score?.selectedLeg === "with_qi"
+      ? score.withQi
+      : score?.selectedLeg === "without_qi"
+        ? score.withoutQi
+        : null;
   const thresholds =
-    score?.selectedLeg === "with_qi" ? baseline?.thresholds.withQi : baseline?.thresholds.withoutQi;
+    score?.selectedLeg === "with_qi"
+      ? baseline?.thresholds.withQi
+      : baseline?.thresholds.withoutQi;
 
   const distribution = [1, 2, 3, 4, 5].map((star) => ({
     star: `${star}★`,
-    count: report.measures.filter((measure) => measure.predictedStar === star).length,
+    count: report.measures.filter((measure) => measure.predictedStar === star)
+      .length,
   }));
 
   const contractLine = [
@@ -141,7 +153,14 @@ export function OverviewPage({
               {formatStars(score?.finalRating ?? null)}
             </p>
             <StarGlyphs value={score?.finalRating ?? null} size={19} />
-            <p style={{ margin: "10px 0 0", fontSize: 10, fontWeight: 700, color: "var(--fep-muted)" }}>
+            <p
+              style={{
+                margin: "10px 0 0",
+                fontSize: 10,
+                fontWeight: 700,
+                color: "var(--fep-muted)",
+              }}
+            >
               Final score {formatScore(score?.finalScoreRaw)}
             </p>
             <p
@@ -159,25 +178,53 @@ export function OverviewPage({
             </p>
           </div>
 
-          <div className="fep-report-panel" style={{ flex: 1, padding: "14px 18px 10px" }}>
+          <div
+            className="fep-report-panel"
+            style={{ flex: 1, padding: "14px 18px 10px" }}
+          >
             <p className="fep-label" style={{ fontSize: 8.5, marginBottom: 4 }}>
               Score buildup
-              <span className="fep-report-pill" style={{ marginLeft: 8, textTransform: "none" }}>
+              <span
+                className="fep-report-pill"
+                style={{ marginLeft: 8, textTransform: "none" }}
+              >
                 Without QI
               </span>
             </p>
-            <BuildupRow label={`Base mean (${leg?.measureCount ?? 0} measures, weighted)`} value={formatScore(leg?.baseMean)} />
-            <BuildupRow label="Reward factor" value={formatSigned(leg?.rewardFactor ?? null, 1)} />
-            <BuildupRow label="CAI adjustment" value={formatSigned(score?.caiValue ?? null, 6)} />
-            <BuildupRow label="Final score (unrounded)" value={formatScore(score?.finalScoreRaw)} emphasis />
+            <BuildupRow
+              label={`Base mean (${leg?.measureCount ?? 0} measures, weighted)`}
+              value={formatScore(leg?.baseMean)}
+            />
+            <BuildupRow
+              label="Reward factor"
+              value={formatSigned(leg?.rewardFactor ?? null, 1)}
+            />
+            <BuildupRow
+              label="CAI adjustment"
+              value={formatSigned(score?.caiValue ?? null, 6)}
+            />
+            <BuildupRow
+              label="Final score (unrounded)"
+              value={formatScore(score?.finalScoreRaw)}
+              emphasis
+            />
             <BuildupRow
               label="Predicted rating (rounded to half star)"
               value={`${formatStars(score?.finalRating ?? null)}★`}
               emphasis
             />
-            <p style={{ margin: "8px 0 0", fontSize: 9, color: "var(--fep-faint)" }}>
-              QI is not scored in plan preview 1, so the projection excludes those measures.
-              {report.measures.some((m) => m.starSource === "cahps_case_mix_reliability")
+            <p
+              style={{
+                margin: "8px 0 0",
+                fontSize: 9,
+                color: "var(--fep-faint)",
+              }}
+            >
+              QI is not scored in plan preview 1, so the projection excludes
+              those measures.
+              {report.measures.some(
+                (m) => m.starSource === "cahps_case_mix_reliability",
+              )
                 ? " CAHPS stars marked Adjusted use case-mix and reliability adjusted base stars."
                 : ""}
             </p>
@@ -191,7 +238,9 @@ export function OverviewPage({
             label="Measures scored"
             value={report.measures.length}
             detail={`${report.measures.filter((m) => m.predictedStar !== null).length} rated; ${
-              report.measures.filter((m) => m.starSource === "cahps_case_mix_reliability").length
+              report.measures.filter(
+                (m) => m.starSource === "cahps_case_mix_reliability",
+              ).length
             } CAHPS adjusted; ${leg?.measureCount ?? 0} enter Overall after Part C/D dedup`}
           />
           <ReportStat
@@ -226,7 +275,12 @@ export function OverviewPage({
         style={{ marginTop: 12 }}
       >
         <div className="fep-report-panel" style={{ padding: "12px 10px 4px" }}>
-          <BarChart width={686} height={185} data={distribution} margin={{ top: 16, right: 16, left: -14, bottom: 0 }}>
+          <BarChart
+            width={686}
+            height={185}
+            data={distribution}
+            margin={{ top: 16, right: 16, left: -14, bottom: 0 }}
+          >
             <CartesianGrid stroke={REPORT_COLORS.grid} vertical={false} />
             <XAxis
               dataKey="star"
@@ -240,17 +294,31 @@ export function OverviewPage({
               axisLine={false}
               tickLine={false}
             />
-            <Bar dataKey="count" radius={[5, 5, 0, 0]} isAnimationActive={false}>
+            <Bar
+              dataKey="count"
+              radius={[5, 5, 0, 0]}
+              isAnimationActive={false}
+            >
               {distribution.map((entry, index) => (
                 <Cell
                   key={entry.star}
-                  fill={index >= 3 ? REPORT_COLORS.accent : index === 2 ? REPORT_COLORS.accentSoft : REPORT_COLORS.negative}
+                  fill={
+                    index >= 3
+                      ? REPORT_COLORS.accent
+                      : index === 2
+                        ? REPORT_COLORS.accentSoft
+                        : REPORT_COLORS.negative
+                  }
                 />
               ))}
               <LabelList
                 dataKey="count"
                 position="top"
-                style={{ fontSize: 11, fontWeight: 800, fill: REPORT_COLORS.ink }}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  fill: REPORT_COLORS.ink,
+                }}
               />
             </Bar>
           </BarChart>

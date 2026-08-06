@@ -49,10 +49,7 @@ export function ExportCsvButton({
     }
 
     const csv = generateCsvString(data);
-    const timestamp = new Date()
-      .toISOString()
-      .slice(0, 19)
-      .replace(/:/g, "-");
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
     downloadCsvFile(csv, `${fileName}_${timestamp}.csv`);
 
     setIsExporting(false);

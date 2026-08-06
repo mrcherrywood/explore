@@ -10,16 +10,38 @@ import mapboxgl, {
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Loader2, MapPin, RefreshCw, Search, X } from "lucide-react";
 import { useTheme } from "next-themes";
-import { ENROLLMENT_LEVELS, formatEnrollment, type EnrollmentLevelId } from "@/lib/peer/enrollment-levels";
-import { SUPPORTED_ENROLLMENT_YEARS, DEFAULT_ENROLLMENT_YEAR } from "@/lib/leaderboard/constants";
-import { NATIONAL_STATE_CODE, NATIONAL_STATE_NAME, US_STATE_NAMES } from "@/lib/leaderboard/states";
-import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
+import {
+  ENROLLMENT_LEVELS,
+  formatEnrollment,
+  type EnrollmentLevelId,
+} from "@/lib/peer/enrollment-levels";
+import {
+  SUPPORTED_ENROLLMENT_YEARS,
+  DEFAULT_ENROLLMENT_YEAR,
+} from "@/lib/leaderboard/constants";
+import {
+  NATIONAL_STATE_CODE,
+  NATIONAL_STATE_NAME,
+  US_STATE_NAMES,
+} from "@/lib/leaderboard/states";
+import type {
+  Feature,
+  FeatureCollection,
+  MultiPolygon,
+  Polygon,
+} from "geojson";
 import { ExportCsvButton } from "@/components/data-browser/ExportCsvButton";
-import { DEFAULT_TABLE, type TableConfig, type TableColumnConfig } from "@/lib/data-browser/config";
+import {
+  DEFAULT_TABLE,
+  type TableConfig,
+  type TableColumnConfig,
+} from "@/lib/data-browser/config";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
-const NUMBER_FORMATTER = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+const NUMBER_FORMATTER = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 2,
+});
 const DEFAULT_CENTER = { lat: 39.5, lng: -98.35, zoom: 4.2 };
 
 type StateOption = {
@@ -38,7 +60,8 @@ type StateOption = {
   };
 };
 
-type MapContractResponse = import("@/app/api/maps/contracts/route").MapContractResponse;
+type MapContractResponse =
+  import("@/app/api/maps/contracts/route").MapContractResponse;
 
 type ContractSelection = {
   planTypeGroup: MapContractResponse["filters"]["planTypeGroup"];
@@ -91,7 +114,10 @@ type ValueRange = {
   max: number;
 };
 
-const STATE_CENTROIDS: Record<string, { lat: number; lng: number; zoom: number }> = {
+const STATE_CENTROIDS: Record<
+  string,
+  { lat: number; lng: number; zoom: number }
+> = {
   AL: { lat: 32.806671, lng: -86.79113, zoom: 5.8 },
   AK: { lat: 64.20084, lng: -149.49367, zoom: 3.5 },
   AZ: { lat: 34.048928, lng: -111.093731, zoom: 5.3 },
@@ -162,7 +188,9 @@ const CONTRACT_SERIES_OPTIONS: Array<{
   { id: "S_ONLY", label: "S-Series" },
 ];
 
-const ENROLLMENT_OPTIONS = ENROLLMENT_LEVELS.filter((bucket) => bucket.id !== "null").map((bucket) => ({
+const ENROLLMENT_OPTIONS = ENROLLMENT_LEVELS.filter(
+  (bucket) => bucket.id !== "null",
+).map((bucket) => ({
   id: bucket.id as EnrollmentLevelId,
   label: bucket.label,
 }));
@@ -189,7 +217,9 @@ const STAR_COLORS: Array<{ threshold: number; color: string }> = [
   { threshold: 0, color: "#b71c1c" },
 ];
 
-const STATE_NAME_TO_CODE = Object.entries(US_STATE_NAMES).reduce<Record<string, string>>((acc, [code, name]) => {
+const STATE_NAME_TO_CODE = Object.entries(US_STATE_NAMES).reduce<
+  Record<string, string>
+>((acc, [code, name]) => {
   acc[name.toLowerCase()] = code;
   return acc;
 }, {});
@@ -202,12 +232,17 @@ type StatePolygonFeature = Feature<
   }
 >;
 
-type StatePolygonCollection = FeatureCollection<StatePolygonFeature["geometry"], StatePolygonFeature["properties"]>;
+type StatePolygonCollection = FeatureCollection<
+  StatePolygonFeature["geometry"],
+  StatePolygonFeature["properties"]
+>;
 
-function resolveStateCode(properties: Record<string, unknown> | undefined): string | null {
+function resolveStateCode(
+  properties: Record<string, unknown> | undefined,
+): string | null {
   if (!properties) return null;
   const stringProps = Object.fromEntries(
-    Object.entries(properties).filter(([, value]) => typeof value === "string")
+    Object.entries(properties).filter(([, value]) => typeof value === "string"),
   ) as Record<string, string>;
 
   const codeCandidates = [
@@ -261,8 +296,16 @@ function colorForRating(value: number | null): string {
   return STAR_COLORS[STAR_COLORS.length - 1]?.color ?? "#9ca3af";
 }
 
-function colorForMeasure(value: number | null | undefined, range: ValueRange | null): string {
-  if (value === null || value === undefined || !Number.isFinite(value) || !range) {
+function colorForMeasure(
+  value: number | null | undefined,
+  range: ValueRange | null,
+): string {
+  if (
+    value === null ||
+    value === undefined ||
+    !Number.isFinite(value) ||
+    !range
+  ) {
     return "#9ca3af";
   }
   const { min, max } = range;
@@ -278,7 +321,7 @@ function colorForMeasure(value: number | null | undefined, range: ValueRange | n
 function formatMeasureValue(
   value: number | null,
   valueType: MeasureValueType,
-  unit: string | null
+  unit: string | null,
 ): string {
   if (value === null || !Number.isFinite(value)) {
     return "—";
@@ -301,7 +344,11 @@ function formatMeasureValue(
   }
 }
 
-function buildMeasureLegendStops(range: ValueRange | null, valueType: MeasureValueType, unit: string | null) {
+function buildMeasureLegendStops(
+  range: ValueRange | null,
+  valueType: MeasureValueType,
+  unit: string | null,
+) {
   if (!range) {
     return [] as Array<{ color: string; label: string }>;
   }
@@ -329,7 +376,8 @@ export function ContractsMapExplorer() {
   const [states, setStates] = useState<StateOption[]>([]);
   const [statesFetchState, setStatesFetchState] = useState<FetchState>("idle");
   const [stateFetchError, setStateFetchError] = useState<string | null>(null);
-  const [statePolygons, setStatePolygons] = useState<StatePolygonCollection | null>(null);
+  const [statePolygons, setStatePolygons] =
+    useState<StatePolygonCollection | null>(null);
 
   const [selection, setSelection] = useState<ContractSelection>({
     planTypeGroup: "ALL",
@@ -337,17 +385,25 @@ export function ContractsMapExplorer() {
     enrollmentLevel: "all",
     blueOnly: false,
   });
-  const [selectedYear, setSelectedYear] = useState<number>(DEFAULT_ENROLLMENT_YEAR);
-  const [selectedState, setSelectedState] = useState<string>(NATIONAL_STATE_CODE);
+  const [selectedYear, setSelectedYear] = useState<number>(
+    DEFAULT_ENROLLMENT_YEAR,
+  );
+  const [selectedState, setSelectedState] =
+    useState<string>(NATIONAL_STATE_CODE);
   const [targetContractId, setTargetContractId] = useState<string>("");
   const [contractSearchQuery, setContractSearchQuery] = useState<string>("");
-  const [isContractDropdownOpen, setIsContractDropdownOpen] = useState<boolean>(false);
+  const [isContractDropdownOpen, setIsContractDropdownOpen] =
+    useState<boolean>(false);
   const [selectedMeasure, setSelectedMeasure] = useState<string>("");
   const contractDropdownRef = useRef<HTMLDivElement | null>(null);
   const [measureOptions, setMeasureOptions] = useState<MeasureOption[]>([]);
-  const [measureOptionsFetchState, setMeasureOptionsFetchState] = useState<FetchState>("idle");
-  const [measureOptionsError, setMeasureOptionsError] = useState<string | null>(null);
-  const [statesMeasureMeta, setStatesMeasureMeta] = useState<StatesMeasureMeta>(null);
+  const [measureOptionsFetchState, setMeasureOptionsFetchState] =
+    useState<FetchState>("idle");
+  const [measureOptionsError, setMeasureOptionsError] = useState<string | null>(
+    null,
+  );
+  const [statesMeasureMeta, setStatesMeasureMeta] =
+    useState<StatesMeasureMeta>(null);
 
   const [dataFetchState, setDataFetchState] = useState<FetchState>("idle");
   const [dataError, setDataError] = useState<string | null>(null);
@@ -397,7 +453,9 @@ export function ContractsMapExplorer() {
               properties,
             } satisfies StatePolygonFeature;
           })
-          .filter((feature): feature is StatePolygonFeature => Boolean(feature));
+          .filter((feature): feature is StatePolygonFeature =>
+            Boolean(feature),
+          );
 
         if (!normalizedFeatures.length) {
           throw new Error("No usable state polygons were loaded");
@@ -434,16 +492,22 @@ export function ContractsMapExplorer() {
           throw new Error(payload.error ?? "Failed to load measures");
         }
 
-        const payload = (await response.json()) as { measures: MeasureOption[] };
+        const payload = (await response.json()) as {
+          measures: MeasureOption[];
+        };
         if (!isActive) return;
 
-        const sorted = (payload.measures ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
+        const sorted = (payload.measures ?? [])
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name));
         setMeasureOptions(sorted);
         setMeasureOptionsFetchState("loaded");
       } catch (error) {
         console.error("Measure options load failure", error);
         if (!isActive) return;
-        setMeasureOptionsError(error instanceof Error ? error.message : "Failed to load measures");
+        setMeasureOptionsError(
+          error instanceof Error ? error.message : "Failed to load measures",
+        );
         setMeasureOptionsFetchState("error");
       }
     }
@@ -464,7 +528,11 @@ export function ContractsMapExplorer() {
   }, [states]);
 
   const stateMeasureRange = useMemo<ValueRange | null>(() => {
-    if (!selectedMeasure || !statesMeasureMeta?.stats || !statesMeasureMeta.stats.count) {
+    if (
+      !selectedMeasure ||
+      !statesMeasureMeta?.stats ||
+      !statesMeasureMeta.stats.count
+    ) {
       return null;
     }
     const { min, max } = statesMeasureMeta.stats;
@@ -474,13 +542,20 @@ export function ContractsMapExplorer() {
     return { min, max };
   }, [selectedMeasure, statesMeasureMeta]);
 
-  const currentMeasureSummary = useMemo(() => payload?.measure?.summary ?? null, [payload]);
+  const currentMeasureSummary = useMemo(
+    () => payload?.measure?.summary ?? null,
+    [payload],
+  );
 
   const stateLegendStops = useMemo(() => {
     if (!selectedMeasure || !statesMeasureMeta || !stateMeasureRange) {
       return null;
     }
-    return buildMeasureLegendStops(stateMeasureRange, statesMeasureMeta.valueType, statesMeasureMeta.unit ?? null);
+    return buildMeasureLegendStops(
+      stateMeasureRange,
+      statesMeasureMeta.valueType,
+      statesMeasureMeta.unit ?? null,
+    );
   }, [selectedMeasure, statesMeasureMeta, stateMeasureRange]);
 
   const mapLegendTitle = useMemo(() => {
@@ -499,8 +574,16 @@ export function ContractsMapExplorer() {
   const stateColorExpression = useMemo<ExpressionSpecification>(() => {
     const expression: unknown[] = ["match", ["get", "stateCode"]];
     for (const state of states) {
-      if (selectedMeasure && stateMeasureRange && state.measure && typeof state.measure.average === "number") {
-        expression.push(state.code, colorForMeasure(state.measure.average, stateMeasureRange));
+      if (
+        selectedMeasure &&
+        stateMeasureRange &&
+        state.measure &&
+        typeof state.measure.average === "number"
+      ) {
+        expression.push(
+          state.code,
+          colorForMeasure(state.measure.average, stateMeasureRange),
+        );
       } else {
         expression.push(state.code, colorForRating(state.averageStarRating));
       }
@@ -512,7 +595,9 @@ export function ContractsMapExplorer() {
   const fillOpacityExpression = useMemo<ExpressionSpecification>(() => {
     const baseOpacity: unknown[] = ["match", ["get", "stateCode"]];
     for (const state of states) {
-      const hasRating = state.averageStarRating !== null && Number.isFinite(state.averageStarRating);
+      const hasRating =
+        state.averageStarRating !== null &&
+        Number.isFinite(state.averageStarRating);
       const measureAverage = state.measure?.average;
       const hasMeasure =
         Boolean(selectedMeasure && stateMeasureRange) &&
@@ -560,7 +645,13 @@ export function ContractsMapExplorer() {
       blueOnly: selection.blueOnly,
       year: selectedYear,
     }),
-    [selection.planTypeGroup, selection.contractSeries, selection.enrollmentLevel, selection.blueOnly, selectedYear]
+    [
+      selection.planTypeGroup,
+      selection.contractSeries,
+      selection.enrollmentLevel,
+      selection.blueOnly,
+      selectedYear,
+    ],
   );
 
   useEffect(() => {
@@ -612,21 +703,24 @@ export function ContractsMapExplorer() {
 
         const allStates = Object.entries(STATE_CENTROIDS).map(([code]) => {
           const existing = payload.states?.find((state) => state.code === code);
-          const measure = selectedMeasure && existing?.measure
-            ? {
-                average: existing.measure.average ?? null,
-                unit: existing.measure.unit ?? null,
-                valueType: existing.measure.valueType,
-                contractsWithMeasure: existing.measure.contractsWithMeasure ?? 0,
-              }
-            : undefined;
+          const measure =
+            selectedMeasure && existing?.measure
+              ? {
+                  average: existing.measure.average ?? null,
+                  unit: existing.measure.unit ?? null,
+                  valueType: existing.measure.valueType,
+                  contractsWithMeasure:
+                    existing.measure.contractsWithMeasure ?? 0,
+                }
+              : undefined;
           return {
             code,
             name: US_STATE_NAMES[code] ?? code,
             contractCount: existing?.contractCount ?? 0,
             totalEnrollment: existing?.totalEnrollment ?? null,
             formattedEnrollment:
-              existing?.formattedEnrollment ?? formatEnrollment(existing?.totalEnrollment ?? null),
+              existing?.formattedEnrollment ??
+              formatEnrollment(existing?.totalEnrollment ?? null),
             averageStarRating: existing?.averageStarRating ?? null,
             contractsWithStars: existing?.contractsWithStars ?? 0,
             measure,
@@ -636,21 +730,31 @@ export function ContractsMapExplorer() {
         const sorted = allStates.sort((a, b) => a.name.localeCompare(b.name));
 
         const nationalOption = (() => {
-          const totalContracts = (payload.states ?? []).reduce((sum, state) => sum + state.contractCount, 0);
+          const totalContracts = (payload.states ?? []).reduce(
+            (sum, state) => sum + state.contractCount,
+            0,
+          );
           const enrollmentSum = (payload.states ?? []).reduce(
             (sum, state) => sum + (state.totalEnrollment ?? 0),
-            0
+            0,
           );
           const hasEnrollment = (payload.states ?? []).some(
-            (state) => typeof state.totalEnrollment === "number" && state.totalEnrollment > 0
+            (state) =>
+              typeof state.totalEnrollment === "number" &&
+              state.totalEnrollment > 0,
           );
           const totalContractsWithStars = (payload.states ?? []).reduce(
             (sum, state) => sum + (state.contractsWithStars ?? 0),
-            0
+            0,
           );
           const starSum = (payload.states ?? []).reduce((sum, state) => {
-            if (typeof state.averageStarRating === "number" && Number.isFinite(state.averageStarRating)) {
-              return sum + state.averageStarRating * (state.contractsWithStars ?? 0);
+            if (
+              typeof state.averageStarRating === "number" &&
+              Number.isFinite(state.averageStarRating)
+            ) {
+              return (
+                sum + state.averageStarRating * (state.contractsWithStars ?? 0)
+              );
             }
             return sum;
           }, 0);
@@ -660,7 +764,11 @@ export function ContractsMapExplorer() {
 
           const measureTotals = (payload.states ?? []).reduce(
             (acc, state) => {
-              if (!state.measure || state.measure.average === null || !Number.isFinite(state.measure.average)) {
+              if (
+                !state.measure ||
+                state.measure.average === null ||
+                !Number.isFinite(state.measure.average)
+              ) {
                 return acc;
               }
               const count = state.measure.contractsWithMeasure ?? 0;
@@ -671,12 +779,14 @@ export function ContractsMapExplorer() {
               acc.count += count;
               return acc;
             },
-            { total: 0, count: 0 }
+            { total: 0, count: 0 },
           );
 
           const nationalMeasure = selectedMeasure
             ? {
-                average: measureTotals.count ? measureTotals.total / measureTotals.count : null,
+                average: measureTotals.count
+                  ? measureTotals.total / measureTotals.count
+                  : null,
                 unit: payload.measure?.unit ?? null,
                 valueType: payload.measure?.valueType ?? "numeric",
                 contractsWithMeasure: measureTotals.count,
@@ -705,12 +815,16 @@ export function ContractsMapExplorer() {
           }
           return NATIONAL_STATE_CODE;
         });
-        setStatesMeasureMeta(selectedMeasure ? payload.measure ?? null : null);
+        setStatesMeasureMeta(
+          selectedMeasure ? (payload.measure ?? null) : null,
+        );
         setStatesFetchState("loaded");
       } catch (error) {
         console.error("State load failure", error);
         if (!isActive) return;
-        setStateFetchError(error instanceof Error ? error.message : "Failed to load states");
+        setStateFetchError(
+          error instanceof Error ? error.message : "Failed to load states",
+        );
         setStatesFetchState("error");
       }
     }
@@ -749,9 +863,10 @@ export function ContractsMapExplorer() {
       const response = await fetch(`/api/maps/contracts?${params.toString()}`);
       if (response.status === 404) {
         const payload = await response.json().catch(() => ({}));
-        const message = typeof payload.error === "string" && payload.error.trim()
-          ? payload.error
-          : "No contracts match the requested filters";
+        const message =
+          typeof payload.error === "string" && payload.error.trim()
+            ? payload.error
+            : "No contracts match the requested filters";
         setPayload(null);
         setDataError(message);
         setDataFetchState("loaded");
@@ -763,14 +878,19 @@ export function ContractsMapExplorer() {
       }
       const json = (await response.json()) as MapContractResponse;
       setPayload(json);
-      if (json.targetContract?.contractId && json.targetContract.contractId !== targetContractId) {
+      if (
+        json.targetContract?.contractId &&
+        json.targetContract.contractId !== targetContractId
+      ) {
         setTargetContractId(json.targetContract.contractId);
       }
       setDataFetchState("loaded");
     } catch (error) {
       console.error("Map data fetch failed", error);
       setPayload(null);
-      setDataError(error instanceof Error ? error.message : "Failed to generate map data");
+      setDataError(
+        error instanceof Error ? error.message : "Failed to generate map data",
+      );
       setDataFetchState("error");
     }
   }, [
@@ -810,7 +930,11 @@ export function ContractsMapExplorer() {
       setMapLoaded(true);
     });
 
-    popupRef.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, maxWidth: "280px" });
+    popupRef.current = new mapboxgl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      maxWidth: "280px",
+    });
     mapRef.current = map;
 
     return () => {
@@ -849,8 +973,16 @@ export function ContractsMapExplorer() {
       };
       map.addLayer(fillLayer, "admin-1-boundary-bg");
     } else {
-      map.setPaintProperty(STATES_FILL_LAYER_ID, "fill-color", stateColorExpression);
-      map.setPaintProperty(STATES_FILL_LAYER_ID, "fill-opacity", fillOpacityExpression);
+      map.setPaintProperty(
+        STATES_FILL_LAYER_ID,
+        "fill-color",
+        stateColorExpression,
+      );
+      map.setPaintProperty(
+        STATES_FILL_LAYER_ID,
+        "fill-opacity",
+        fillOpacityExpression,
+      );
     }
 
     if (!map.getLayer(STATES_OUTLINE_LAYER_ID)) {
@@ -866,10 +998,26 @@ export function ContractsMapExplorer() {
       };
       map.addLayer(outlineLayer, "admin-1-boundary-bg");
     } else {
-      map.setPaintProperty(STATES_OUTLINE_LAYER_ID, "line-color", outlineColorExpression);
-      map.setPaintProperty(STATES_OUTLINE_LAYER_ID, "line-width", outlineWidthExpression);
+      map.setPaintProperty(
+        STATES_OUTLINE_LAYER_ID,
+        "line-color",
+        outlineColorExpression,
+      );
+      map.setPaintProperty(
+        STATES_OUTLINE_LAYER_ID,
+        "line-width",
+        outlineWidthExpression,
+      );
     }
-  }, [mapLoaded, states, statePolygons, stateColorExpression, fillOpacityExpression, outlineColorExpression, outlineWidthExpression]);
+  }, [
+    mapLoaded,
+    states,
+    statePolygons,
+    stateColorExpression,
+    fillOpacityExpression,
+    outlineColorExpression,
+    outlineWidthExpression,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -891,12 +1039,16 @@ export function ContractsMapExplorer() {
       if (!popup) return;
 
       const stateInfo = stateLookupRef.current.get(stateCode);
-      const displayName = stateInfo?.name ?? US_STATE_NAMES[stateCode] ?? stateCode;
+      const displayName =
+        stateInfo?.name ?? US_STATE_NAMES[stateCode] ?? stateCode;
       const contractCount = stateInfo?.contractCount ?? 0;
       const enrollmentText = stateInfo?.formattedEnrollment ?? "Enrollment N/A";
       const hasRating =
-        typeof stateInfo?.averageStarRating === "number" && Number.isFinite(stateInfo.averageStarRating);
-      const starRating = hasRating ? stateInfo!.averageStarRating!.toFixed(2) : "N/A";
+        typeof stateInfo?.averageStarRating === "number" &&
+        Number.isFinite(stateInfo.averageStarRating);
+      const starRating = hasRating
+        ? stateInfo!.averageStarRating!.toFixed(2)
+        : "N/A";
       const contractsWithStars = stateInfo?.contractsWithStars ?? 0;
       const measureHtml = (() => {
         if (!selectedMeasure || !stateInfo?.measure) {
@@ -906,8 +1058,16 @@ export function ContractsMapExplorer() {
         if (average === null || !Number.isFinite(average)) {
           return "";
         }
-        const unit = stateInfo.measure.unit ?? statesMeasureMeta?.unit ?? currentMeasureSummary?.unit ?? null;
-        const formatted = formatMeasureValue(average, stateInfo.measure.valueType, unit);
+        const unit =
+          stateInfo.measure.unit ??
+          statesMeasureMeta?.unit ??
+          currentMeasureSummary?.unit ??
+          null;
+        const formatted = formatMeasureValue(
+          average,
+          stateInfo.measure.valueType,
+          unit,
+        );
         return `<div class="text-muted-foreground">Measure: ${formatted} (${stateInfo.measure.contractsWithMeasure.toLocaleString()} with data)</div>`;
       })();
 
@@ -957,15 +1117,24 @@ export function ContractsMapExplorer() {
 
     const centroid = STATE_CENTROIDS[selectedState];
     if (centroid) {
-      map.flyTo({ center: [centroid.lng, centroid.lat] as [number, number], zoom: centroid.zoom, speed: 0.8 });
+      map.flyTo({
+        center: [centroid.lng, centroid.lat] as [number, number],
+        zoom: centroid.zoom,
+        speed: 0.8,
+      });
       return;
     }
 
-    map.flyTo({ center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat], zoom: DEFAULT_CENTER.zoom, speed: 0.8 });
+    map.flyTo({
+      center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat],
+      zoom: DEFAULT_CENTER.zoom,
+      speed: 0.8,
+    });
   }, [mapLoaded, selectedState]);
 
   const contractOptions = useMemo(() => {
-    if (!payload?.contracts) return [] as Array<{ value: string; label: string }>;
+    if (!payload?.contracts)
+      return [] as Array<{ value: string; label: string }>;
     return payload.contracts.map((contract) => ({
       value: contract.contractId,
       label: `${contract.contractId} • ${contract.label}`,
@@ -978,7 +1147,7 @@ export function ContractsMapExplorer() {
     return contractOptions.filter(
       (option) =>
         option.value.toLowerCase().includes(query) ||
-        option.label.toLowerCase().includes(query)
+        option.label.toLowerCase().includes(query),
     );
   }, [contractOptions, contractSearchQuery]);
 
@@ -1044,7 +1213,7 @@ export function ContractsMapExplorer() {
       const formatted = formatNumber(value);
       return formatted === "—" ? "" : formatted;
     },
-    [formatNumber]
+    [formatNumber],
   );
 
   const csvColumns = useMemo<TableColumnConfig[]>(() => {
@@ -1071,11 +1240,12 @@ export function ContractsMapExplorer() {
     () => ({
       name: DEFAULT_TABLE,
       label: "Contracts Map Export",
-      description: "Peer comparison export generated from Contracts Map Explorer",
+      description:
+        "Peer comparison export generated from Contracts Map Explorer",
       columns: csvColumns,
       searchableColumns: [],
     }),
-    [csvColumns]
+    [csvColumns],
   );
 
   const csvRows = useMemo<Record<string, unknown>[]>(() => {
@@ -1089,7 +1259,8 @@ export function ContractsMapExplorer() {
         contractName: contract.label,
         parentOrganization: contract.parentOrganization ?? "",
         totalEnrollment:
-          typeof contract.totalEnrollment === "number" && Number.isFinite(contract.totalEnrollment)
+          typeof contract.totalEnrollment === "number" &&
+          Number.isFinite(contract.totalEnrollment)
             ? contract.totalEnrollment
             : "",
         overall: formatCsvNumber(contract.metrics.overall.current),
@@ -1098,10 +1269,21 @@ export function ContractsMapExplorer() {
         partD: formatCsvNumber(contract.metrics.partD.current),
       };
 
-      if (selectedMeasure && csvColumns.some((column) => column.key === "measureValue")) {
-        if (contract.measure && contract.measure.value !== null && Number.isFinite(contract.measure.value)) {
+      if (
+        selectedMeasure &&
+        csvColumns.some((column) => column.key === "measureValue")
+      ) {
+        if (
+          contract.measure &&
+          contract.measure.value !== null &&
+          Number.isFinite(contract.measure.value)
+        ) {
           const measureUnit = contract.measure.unit ?? fallbackMeasureUnit;
-          const formattedMeasure = formatMeasureValue(contract.measure.value, contract.measure.valueType, measureUnit);
+          const formattedMeasure = formatMeasureValue(
+            contract.measure.value,
+            contract.measure.valueType,
+            measureUnit,
+          );
           row.measureValue = formattedMeasure === "—" ? "" : formattedMeasure;
         } else {
           row.measureValue = "";
@@ -1116,13 +1298,14 @@ export function ContractsMapExplorer() {
     const statePart = (selectedState ?? NATIONAL_STATE_CODE).toLowerCase();
     const measurePart = selectedMeasure ? selectedMeasure.toLowerCase() : null;
     const bluePart = selection.blueOnly ? "bcbs" : null;
-    return ["peer_comparison", statePart, measurePart, bluePart, selectedYear].filter(Boolean).join("_");
+    return ["peer_comparison", statePart, measurePart, bluePart, selectedYear]
+      .filter(Boolean)
+      .join("_");
   }, [selectedState, selectedMeasure, selection.blueOnly, selectedYear]);
 
   const toggleBlueOnly = () => {
     setSelection((prev) => ({ ...prev, blueOnly: !prev.blueOnly }));
   };
-
 
   return (
     <div ref={exportContainerRef} className="flex flex-col gap-6">
@@ -1130,17 +1313,25 @@ export function ContractsMapExplorer() {
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex flex-1 flex-col gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">Geographic Analysis</p>
-              <h2 className="mt-1 text-2xl font-semibold text-foreground">Compare Contracts Within a State</h2>
+              <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
+                Geographic Analysis
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold text-foreground">
+                Compare Contracts Within a State
+              </h2>
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                Select a geography and contract filters to explore how a plan performs against its peers. Hover over the map to
-                view cohort context, and inspect the comparison table for detailed metrics and percentile rankings.
+                Select a geography and contract filters to explore how a plan
+                performs against its peers. Hover over the map to view cohort
+                context, and inspect the comparison table for detailed metrics
+                and percentile rankings.
               </p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">State</label>
+                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  State
+                </label>
                 <div className="relative">
                   <select
                     value={selectedState}
@@ -1150,8 +1341,12 @@ export function ContractsMapExplorer() {
                     }}
                     className="w-full rounded-xl border border-border bg-muted px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
-                    {statesFetchState === "loading" && <option>Loading states…</option>}
-                    {statesFetchState === "error" && <option value="">Failed to load</option>}
+                    {statesFetchState === "loading" && (
+                      <option>Loading states…</option>
+                    )}
+                    {statesFetchState === "error" && (
+                      <option value="">Failed to load</option>
+                    )}
                     {statesFetchState === "loaded" &&
                       states.map((state) => (
                         <option key={state.code} value={state.code}>
@@ -1160,16 +1355,24 @@ export function ContractsMapExplorer() {
                       ))}
                   </select>
                 </div>
-                {stateFetchError && <p className="text-xs text-red-300">{stateFetchError}</p>}
+                {stateFetchError && (
+                  <p className="text-xs text-red-300">{stateFetchError}</p>
+                )}
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Year</label>
+                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Year
+                </label>
                 <select
                   value={selectedYear.toString()}
                   onChange={(event) => {
                     const nextYear = Number(event.target.value);
-                    setSelectedYear(Number.isFinite(nextYear) ? nextYear : DEFAULT_ENROLLMENT_YEAR);
+                    setSelectedYear(
+                      Number.isFinite(nextYear)
+                        ? nextYear
+                        : DEFAULT_ENROLLMENT_YEAR,
+                    );
                     setPayload(null);
                   }}
                   className="rounded-xl border border-border bg-muted px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -1183,11 +1386,19 @@ export function ContractsMapExplorer() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Plan type</label>
+                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Plan type
+                </label>
                 <div className="relative">
                   <select
                     value={selection.planTypeGroup}
-                    onChange={(event) => setSelection((prev) => ({ ...prev, planTypeGroup: event.target.value as ContractSelection["planTypeGroup"] }))}
+                    onChange={(event) =>
+                      setSelection((prev) => ({
+                        ...prev,
+                        planTypeGroup: event.target
+                          .value as ContractSelection["planTypeGroup"],
+                      }))
+                    }
                     className="w-full rounded-xl border border-border bg-muted px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
                     {PLAN_TYPE_OPTIONS.map((option) => (
@@ -1200,11 +1411,17 @@ export function ContractsMapExplorer() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Contract series</label>
+                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Contract series
+                </label>
                 <select
                   value={selection.contractSeries}
                   onChange={(event) =>
-                    setSelection((prev) => ({ ...prev, contractSeries: event.target.value as ContractSelection["contractSeries"] }))
+                    setSelection((prev) => ({
+                      ...prev,
+                      contractSeries: event.target
+                        .value as ContractSelection["contractSeries"],
+                    }))
                   }
                   className="rounded-xl border border-border bg-muted px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
@@ -1217,11 +1434,16 @@ export function ContractsMapExplorer() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Enrollment level</label>
+                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Enrollment level
+                </label>
                 <select
                   value={selection.enrollmentLevel}
                   onChange={(event) =>
-                    setSelection((prev) => ({ ...prev, enrollmentLevel: event.target.value as EnrollmentLevelId }))
+                    setSelection((prev) => ({
+                      ...prev,
+                      enrollmentLevel: event.target.value as EnrollmentLevelId,
+                    }))
                   }
                   className="rounded-xl border border-border bg-muted px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
@@ -1234,16 +1456,22 @@ export function ContractsMapExplorer() {
               </div>
 
               <div className="flex flex-col gap-2" ref={contractDropdownRef}>
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Target contract</label>
+                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Target contract
+                </label>
                 <div className="relative">
                   <button
                     type="button"
-                    onClick={() => setIsContractDropdownOpen(!isContractDropdownOpen)}
+                    onClick={() =>
+                      setIsContractDropdownOpen(!isContractDropdownOpen)
+                    }
                     className="w-full rounded-xl border border-border bg-muted px-4 py-2 text-left text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 flex items-center justify-between"
                   >
                     <span className="truncate">
                       {targetContractId
-                        ? contractOptions.find((opt) => opt.value === targetContractId)?.label || "None selected"
+                        ? contractOptions.find(
+                            (opt) => opt.value === targetContractId,
+                          )?.label || "None selected"
                         : "None selected"}
                     </span>
                     <Search className="h-4 w-4 text-muted-foreground flex-shrink-0 ml-2" />
@@ -1257,7 +1485,9 @@ export function ContractsMapExplorer() {
                             type="text"
                             placeholder="Search contracts..."
                             value={contractSearchQuery}
-                            onChange={(e) => setContractSearchQuery(e.target.value)}
+                            onChange={(e) =>
+                              setContractSearchQuery(e.target.value)
+                            }
                             className="w-full rounded-lg border border-border bg-muted pl-9 pr-9 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                             autoFocus
                           />
@@ -1281,7 +1511,9 @@ export function ContractsMapExplorer() {
                             setContractSearchQuery("");
                           }}
                           className={`w-full px-4 py-2 text-left text-sm hover:bg-muted/40 transition ${
-                            targetContractId === "" ? "bg-primary/5 text-primary" : "text-muted-foreground"
+                            targetContractId === ""
+                              ? "bg-primary/5 text-primary"
+                              : "text-muted-foreground"
                           }`}
                         >
                           None selected
@@ -1297,7 +1529,9 @@ export function ContractsMapExplorer() {
                                 setContractSearchQuery("");
                               }}
                               className={`w-full px-4 py-2 text-left text-sm hover:bg-muted/40 transition ${
-                                targetContractId === option.value ? "bg-primary/5 text-primary" : "text-foreground"
+                                targetContractId === option.value
+                                  ? "bg-primary/5 text-primary"
+                                  : "text-foreground"
                               }`}
                             >
                               {option.label}
@@ -1315,7 +1549,9 @@ export function ContractsMapExplorer() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Measure</label>
+                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Measure
+                </label>
                 <div className="relative">
                   <select
                     value={selectedMeasure}
@@ -1326,8 +1562,12 @@ export function ContractsMapExplorer() {
                     className="w-full rounded-xl border border-border bg-muted px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
                     <option value="">Star ratings (default)</option>
-                    {measureOptionsFetchState === "loading" && <option>Loading measures…</option>}
-                    {measureOptionsFetchState === "error" && <option value="">Failed to load measures</option>}
+                    {measureOptionsFetchState === "loading" && (
+                      <option>Loading measures…</option>
+                    )}
+                    {measureOptionsFetchState === "error" && (
+                      <option value="">Failed to load measures</option>
+                    )}
                     {measureOptionsFetchState === "loaded" &&
                       measureOptions.map((option) => (
                         <option key={option.code} value={option.code}>
@@ -1336,11 +1576,15 @@ export function ContractsMapExplorer() {
                       ))}
                   </select>
                 </div>
-                {measureOptionsError && <p className="text-xs text-red-300">{measureOptionsError}</p>}
+                {measureOptionsError && (
+                  <p className="text-xs text-red-300">{measureOptionsError}</p>
+                )}
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Blue focus</label>
+                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Blue focus
+                </label>
                 <button
                   onClick={toggleBlueOnly}
                   className={`rounded-xl border px-4 py-2 text-sm transition ${
@@ -1349,7 +1593,9 @@ export function ContractsMapExplorer() {
                       : "border-border bg-muted text-foreground hover:border-border/70"
                   }`}
                 >
-                  {selection.blueOnly ? "Filtering to Blue Cross Blue Shield" : "Include all organizations"}
+                  {selection.blueOnly
+                    ? "Filtering to Blue Cross Blue Shield"
+                    : "Include all organizations"}
                 </button>
               </div>
             </div>
@@ -1379,34 +1625,48 @@ export function ContractsMapExplorer() {
 
           {process.env.NEXT_PUBLIC_MAPBOX_TOKEN && (
             <div className="relative h-full w-full">
-              <div ref={mapContainerRef} className="h-full w-full rounded-2xl" />
+              <div
+                ref={mapContainerRef}
+                className="h-full w-full rounded-2xl"
+              />
               {!statePolygons && (
                 <div className="absolute inset-x-0 bottom-4 mx-4 rounded-xl border border-border bg-background/95 p-3 text-xs text-muted-foreground shadow-lg">
                   Loading state boundaries…
                 </div>
               )}
               <div className="absolute bottom-4 left-4 rounded-xl border border-border bg-card/90 p-3 text-[11px] shadow-lg backdrop-blur">
-                <p className="mb-2 font-medium text-foreground">{mapLegendTitle}</p>
+                <p className="mb-2 font-medium text-foreground">
+                  {mapLegendTitle}
+                </p>
                 <div className="flex flex-col gap-1">
                   {selectedMeasure ? (
                     stateLegendStops && stateLegendStops.length ? (
                       <>
                         {stateLegendStops.map((stop, index) => (
-                          <div key={`${stop.color}-${index}`} className="flex items-center gap-2">
+                          <div
+                            key={`${stop.color}-${index}`}
+                            className="flex items-center gap-2"
+                          >
                             <span
                               className="h-3 w-3 rounded-full border border-border/40"
                               style={{ backgroundColor: stop.color }}
                             />
-                            <span className="text-muted-foreground">{stop.label}</span>
+                            <span className="text-muted-foreground">
+                              {stop.label}
+                            </span>
                           </div>
                         ))}
                         <div className="flex items-center gap-2">
                           <span className="h-3 w-3 rounded-full border border-border/40 bg-[#9ca3af]" />
-                          <span className="text-muted-foreground">No measure data</span>
+                          <span className="text-muted-foreground">
+                            No measure data
+                          </span>
                         </div>
                       </>
                     ) : (
-                      <span className="text-muted-foreground">Measure data unavailable</span>
+                      <span className="text-muted-foreground">
+                        Measure data unavailable
+                      </span>
                     )
                   ) : (
                     <>
@@ -1416,18 +1676,25 @@ export function ContractsMapExplorer() {
                           ? `${entry.threshold.toFixed(1)} – ${(next.threshold - 0.1).toFixed(1)}`
                           : `${entry.threshold.toFixed(1)}+`;
                         return (
-                          <div key={entry.threshold} className="flex items-center gap-2">
+                          <div
+                            key={entry.threshold}
+                            className="flex items-center gap-2"
+                          >
                             <span
                               className="h-3 w-3 rounded-full border border-border/40"
                               style={{ backgroundColor: entry.color }}
                             />
-                            <span className="text-muted-foreground">{label}</span>
+                            <span className="text-muted-foreground">
+                              {label}
+                            </span>
                           </div>
                         );
                       })}
                       <div className="flex items-center gap-2">
                         <span className="h-3 w-3 rounded-full border border-border/40 bg-[#9ca3af]" />
-                        <span className="text-muted-foreground">No rating data</span>
+                        <span className="text-muted-foreground">
+                          No rating data
+                        </span>
                       </div>
                     </>
                   )}
@@ -1448,7 +1715,8 @@ export function ContractsMapExplorer() {
 
             {dataFetchState === "loading" && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Calculating cohort metrics…
+                <Loader2 className="h-4 w-4 animate-spin" /> Calculating cohort
+                metrics…
               </div>
             )}
 
@@ -1467,14 +1735,19 @@ export function ContractsMapExplorer() {
             {payload && cohortStats && (
               <div className="grid gap-4 sm:grid-cols-3">
                 {cohortStats.map((item) => (
-                  <div key={item.key} className="rounded-2xl border border-border bg-muted/30 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{item.title}</p>
+                  <div
+                    key={item.key}
+                    className="rounded-2xl border border-border bg-muted/30 p-4"
+                  >
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      {item.title}
+                    </p>
                     <p className="mt-2 text-2xl font-semibold text-foreground">
                       {item.key === "measure"
                         ? formatMeasureValue(
                             item.stats.average,
                             currentMeasureSummary?.valueType ?? "numeric",
-                            currentMeasureSummary?.unit ?? null
+                            currentMeasureSummary?.unit ?? null,
                           )
                         : formatNumber(item.stats.average)}
                     </p>
@@ -1486,7 +1759,7 @@ export function ContractsMapExplorer() {
                             ? formatMeasureValue(
                                 item.stats.median,
                                 currentMeasureSummary?.valueType ?? "numeric",
-                                currentMeasureSummary?.unit ?? null
+                                currentMeasureSummary?.unit ?? null,
                               )
                             : formatNumber(item.stats.median)}
                         </dd>
@@ -1498,11 +1771,11 @@ export function ContractsMapExplorer() {
                             ? `${formatMeasureValue(
                                 item.stats.q1,
                                 currentMeasureSummary?.valueType ?? "numeric",
-                                currentMeasureSummary?.unit ?? null
+                                currentMeasureSummary?.unit ?? null,
                               )} – ${formatMeasureValue(
                                 item.stats.q3,
                                 currentMeasureSummary?.valueType ?? "numeric",
-                                currentMeasureSummary?.unit ?? null
+                                currentMeasureSummary?.unit ?? null,
                               )}`
                             : `${formatNumber(item.stats.q1)} – ${formatNumber(item.stats.q3)}`}
                         </dd>
@@ -1514,11 +1787,11 @@ export function ContractsMapExplorer() {
                             ? `${formatMeasureValue(
                                 item.stats.min,
                                 currentMeasureSummary?.valueType ?? "numeric",
-                                currentMeasureSummary?.unit ?? null
+                                currentMeasureSummary?.unit ?? null,
                               )} – ${formatMeasureValue(
                                 item.stats.max,
                                 currentMeasureSummary?.valueType ?? "numeric",
-                                currentMeasureSummary?.unit ?? null
+                                currentMeasureSummary?.unit ?? null,
                               )}`
                             : `${formatNumber(item.stats.min)} – ${formatNumber(item.stats.max)}`}
                         </dd>
@@ -1532,12 +1805,16 @@ export function ContractsMapExplorer() {
 
           {targetContract && (
             <div className="rounded-3xl border border-border bg-card p-6">
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Target contract</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                Target contract
+              </p>
               <h3 className="mt-2 text-xl font-semibold text-foreground">
                 {targetContract.contractId} • {targetContract.label}
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {targetContract.parentOrganization ?? "Parent organization unknown"} • {selectedState}
+                {targetContract.parentOrganization ??
+                  "Parent organization unknown"}{" "}
+                • {selectedState}
               </p>
 
               <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -1565,16 +1842,24 @@ export function ContractsMapExplorer() {
                   cohortAverage={payload?.cohort.partD.average ?? null}
                   valueType="star"
                 />
-                {selectedMeasure && payload?.measure?.summary && targetContract.measure && (
-                  <MetricComparisonCard
-                    title={`${payload.measure.summary.name} (${payload.measure.summary.code})`}
-                    value={targetContract.measure.value}
-                    percentile={payload.measure.target?.percentile ?? null}
-                    cohortAverage={payload.measure.summary.stats.average ?? null}
-                    valueType={targetContract.measure.valueType}
-                    unit={targetContract.measure.unit ?? payload.measure.summary.unit ?? null}
-                  />
-                )}
+                {selectedMeasure &&
+                  payload?.measure?.summary &&
+                  targetContract.measure && (
+                    <MetricComparisonCard
+                      title={`${payload.measure.summary.name} (${payload.measure.summary.code})`}
+                      value={targetContract.measure.value}
+                      percentile={payload.measure.target?.percentile ?? null}
+                      cohortAverage={
+                        payload.measure.summary.stats.average ?? null
+                      }
+                      valueType={targetContract.measure.valueType}
+                      unit={
+                        targetContract.measure.unit ??
+                        payload.measure.summary.unit ??
+                        null
+                      }
+                    />
+                  )}
               </div>
             </div>
           )}
@@ -1584,15 +1869,25 @@ export function ContractsMapExplorer() {
       <section className="rounded-3xl border border-border bg-card p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Contract cohort</p>
-            <h3 className="text-lg font-semibold text-foreground">Peer comparison table</h3>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Contract cohort
+            </p>
+            <h3 className="text-lg font-semibold text-foreground">
+              Peer comparison table
+            </h3>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground">
-              {payload ? `${payload.contracts.length.toLocaleString()} records` : "—"}
+              {payload
+                ? `${payload.contracts.length.toLocaleString()} records`
+                : "—"}
             </span>
             {payload && (
-              <ExportCsvButton config={csvConfig} rows={csvRows} tableName={csvTableName} />
+              <ExportCsvButton
+                config={csvConfig}
+                rows={csvRows}
+                tableName={csvTableName}
+              />
             )}
           </div>
         </div>
@@ -1602,12 +1897,24 @@ export function ContractsMapExplorer() {
             <table className="min-w-full divide-y divide-border text-left text-sm">
               <thead className="bg-muted/40">
                 <tr>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Contract</th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Parent organization</th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Enrollment</th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Overall</th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Part C</th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Part D</th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">
+                    Contract
+                  </th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">
+                    Parent organization
+                  </th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">
+                    Enrollment
+                  </th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">
+                    Overall
+                  </th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">
+                    Part C
+                  </th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">
+                    Part D
+                  </th>
                   {selectedMeasure && payload.measure?.summary && (
                     <th className="px-4 py-3 font-medium text-muted-foreground">
                       {payload.measure.summary.name}
@@ -1617,21 +1924,29 @@ export function ContractsMapExplorer() {
               </thead>
               <tbody className="divide-y divide-border">
                 {payload.contracts.map((contract) => {
-                  const isTarget = targetContractId && contract.contractId === targetContractId;
+                  const isTarget =
+                    targetContractId &&
+                    contract.contractId === targetContractId;
                   return (
                     <tr
                       key={contract.contractId}
                       className={`transition hover:bg-muted/40 ${isTarget ? "bg-primary/5" : ""}`}
                     >
                       <td className="px-4 py-3">
-                        <div className="font-medium text-foreground">{contract.contractId}</div>
-                        <div className="text-xs text-muted-foreground">{contract.label}</div>
+                        <div className="font-medium text-foreground">
+                          {contract.contractId}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {contract.label}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">
                         {contract.parentOrganization ?? "—"}
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">
-                        {contract.totalEnrollment !== null ? contract.totalEnrollment.toLocaleString() : "—"}
+                        {contract.totalEnrollment !== null
+                          ? contract.totalEnrollment.toLocaleString()
+                          : "—"}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         {formatNumber(contract.metrics.overall.current)}
@@ -1641,8 +1956,8 @@ export function ContractsMapExplorer() {
                               contract.metrics.overall.delta > 0
                                 ? "text-emerald-400"
                                 : contract.metrics.overall.delta < 0
-                                ? "text-red-400"
-                                : "text-muted-foreground"
+                                  ? "text-red-400"
+                                  : "text-muted-foreground"
                             }`}
                           >
                             {contract.metrics.overall.delta > 0 ? "+" : ""}
@@ -1662,7 +1977,9 @@ export function ContractsMapExplorer() {
                             ? formatMeasureValue(
                                 contract.measure.value,
                                 contract.measure.valueType,
-                                contract.measure.unit ?? payload.measure.summary.unit ?? null
+                                contract.measure.unit ??
+                                  payload.measure.summary.unit ??
+                                  null,
                               )
                             : "—"}
                         </td>
@@ -1711,13 +2028,21 @@ function MetricComparisonCard({
 
   return (
     <div className="rounded-2xl border border-border bg-muted/30 p-4">
-      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{title}</p>
+      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        {title}
+      </p>
       <div className="mt-2 flex items-baseline gap-2">
-        <span className="text-2xl font-semibold text-foreground">{formatValue(value)}</span>
+        <span className="text-2xl font-semibold text-foreground">
+          {formatValue(value)}
+        </span>
         {delta !== null && (
           <span
             className={`text-xs ${
-              delta > 0 ? "text-emerald-400" : delta < 0 ? "text-red-400" : "text-muted-foreground"
+              delta > 0
+                ? "text-emerald-400"
+                : delta < 0
+                  ? "text-red-400"
+                  : "text-muted-foreground"
             }`}
           >
             {delta > 0 ? "+" : ""}

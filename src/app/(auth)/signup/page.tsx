@@ -1,13 +1,20 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { Mail, Lock, Loader2, CheckCircle2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { signup } from '@/lib/auth/actions';
+import { useState } from "react";
+import Link from "next/link";
+import { Mail, Lock, Loader2, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { signup } from "@/lib/auth/actions";
 
 export default function SignupPage() {
   const [formError, setFormError] = useState<string | null>(null);
@@ -19,28 +26,32 @@ export default function SignupPage() {
     setIsLoading(true);
     setFormError(null);
     setSuccessMessage(null);
-    
+
     const formData = new FormData(e.currentTarget);
     const result = await signup(formData);
-    
+
     if (result?.error) {
       setFormError(result.error);
     } else if (result?.success) {
-      setSuccessMessage(result.message || 'Check your email for a confirmation link.');
+      setSuccessMessage(
+        result.message || "Check your email for a confirmation link.",
+      );
     }
-    
+
     setIsLoading(false);
   }
 
   if (successMessage) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="flex min-h-dvh items-center justify-center px-4">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
-              <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+            <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-[var(--fep-band-bg)]">
+              <CheckCircle2 className="size-6 text-[var(--fep-accent)]" />
             </div>
-            <CardTitle className="text-2xl font-bold">Check your email</CardTitle>
+            <CardTitle className="text-[31px] font-medium">
+              Check your email
+            </CardTitle>
             <CardDescription className="text-base">
               {successMessage}
             </CardDescription>
@@ -58,13 +69,13 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="flex min-h-dvh items-center justify-center px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
-          <CardDescription>
-            Enter your details to get started
-          </CardDescription>
+          <CardTitle className="text-[31px] font-medium">
+            Create an account
+          </CardTitle>
+          <CardDescription>Enter your details to get started</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
@@ -132,12 +143,15 @@ export default function SignupPage() {
                   Creating account...
                 </>
               ) : (
-                'Create account'
+                "Create account"
               )}
             </Button>
             <p className="text-sm text-muted-foreground text-center">
-              Already have an account?{' '}
-              <Link href="/login" className="text-primary hover:underline font-medium">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="text-primary hover:underline font-medium"
+              >
                 Sign in
               </Link>
             </p>
@@ -147,11 +161,3 @@ export default function SignupPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-

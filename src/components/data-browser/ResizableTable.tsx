@@ -4,7 +4,13 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { TableConfig } from "@/lib/data-browser/config";
 
 type ResizableTableProps = {
@@ -18,7 +24,9 @@ type ResizableTableProps = {
 function formatCellValue(value: unknown, numeric?: boolean) {
   if (value === null || value === undefined) return "—";
   if (numeric && typeof value === "number") {
-    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
+    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(
+      value,
+    );
   }
   if (value instanceof Date) {
     return value.toISOString().slice(0, 10);
@@ -28,7 +36,7 @@ function formatCellValue(value: unknown, numeric?: boolean) {
 
 function buildQueryString(
   baseParams: Record<string, string>,
-  overrides: Record<string, string | undefined | null>
+  overrides: Record<string, string | undefined | null>,
 ) {
   const params = new URLSearchParams(baseParams);
   Object.entries(overrides).forEach(([key, value]) => {
@@ -48,7 +56,9 @@ export function ResizableTable({
   ascending,
   baseParams,
 }: ResizableTableProps) {
-  const [columnWidths, setColumnWidths] = React.useState<Record<string, number>>(() => {
+  const [columnWidths, setColumnWidths] = React.useState<
+    Record<string, number>
+  >(() => {
     // Initialize with default widths
     const widths: Record<string, number> = {};
     config.columns.forEach((col) => {
@@ -72,7 +82,7 @@ export function ResizableTable({
         startWidth: columnWidths[columnKey] || 150,
       });
     },
-    [columnWidths]
+    [columnWidths],
   );
 
   React.useEffect(() => {
@@ -104,7 +114,10 @@ export function ResizableTable({
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className="overflow-x-auto">
-        <table className="w-full caption-bottom text-sm" style={{ tableLayout: 'fixed' }}>
+        <table
+          className="w-full caption-bottom text-sm"
+          style={{ tableLayout: "fixed" }}
+        >
           <TableHeader>
             <TableRow className="border-border">
               {config.columns.map((column) => {
@@ -118,10 +131,10 @@ export function ResizableTable({
                   <TableHead
                     key={column.key}
                     className="relative whitespace-nowrap text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground"
-                    style={{ 
-                      width: `${columnWidths[column.key]}px`, 
+                    style={{
+                      width: `${columnWidths[column.key]}px`,
                       minWidth: `${columnWidths[column.key]}px`,
-                      maxWidth: `${columnWidths[column.key]}px`
+                      maxWidth: `${columnWidths[column.key]}px`,
                     }}
                   >
                     <div className="flex items-center justify-between pr-2">
@@ -143,8 +156,9 @@ export function ResizableTable({
                     </div>
                     <div
                       className={cn(
-                        "absolute right-0 top-0 h-full w-2 cursor-col-resize border-r-2 border-transparent hover:border-sky-400/50 z-10",
-                        resizing?.columnKey === column.key && "border-sky-400"
+                        "absolute right-0 top-0 h-full w-2 cursor-col-resize border-r-2 border-transparent hover:border-[var(--fep-accent)]/40 z-10",
+                        resizing?.columnKey === column.key &&
+                          "border-[var(--fep-accent)]",
                       )}
                       onMouseDown={(e) => handleMouseDown(e, column.key)}
                       onClick={(e) => e.preventDefault()}
@@ -157,24 +171,31 @@ export function ResizableTable({
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={config.columns.length} className="py-16 text-center text-sm text-muted-foreground">
+                <TableCell
+                  colSpan={config.columns.length}
+                  className="py-16 text-center text-sm text-muted-foreground"
+                >
                   No rows found for the current filters.
                 </TableCell>
               </TableRow>
             ) : (
               rows.map((row, index) => (
-                <TableRow key={`row-${index}`} className="border-border" data-index={index}>
+                <TableRow
+                  key={`row-${index}`}
+                  className="border-border"
+                  data-index={index}
+                >
                   {config.columns.map((column) => (
                     <TableCell
                       key={`${column.key}-${index}`}
                       className={cn(
                         "py-3 text-sm text-foreground overflow-hidden text-ellipsis text-left",
-                        column.numeric && "tabular-nums"
+                        column.numeric && "tabular-nums",
                       )}
-                      style={{ 
-                        width: `${columnWidths[column.key]}px`, 
+                      style={{
+                        width: `${columnWidths[column.key]}px`,
                         minWidth: `${columnWidths[column.key]}px`,
-                        maxWidth: `${columnWidths[column.key]}px`
+                        maxWidth: `${columnWidths[column.key]}px`,
                       }}
                     >
                       {formatCellValue(row[column.key], column.numeric)}

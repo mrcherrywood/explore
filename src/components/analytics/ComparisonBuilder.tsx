@@ -31,17 +31,23 @@ export function ComparisonBuilder({
   const searchParams = useSearchParams();
 
   const [step, setStep] = useState(1);
-  const [selectedContracts, setSelectedContracts] = useState<Set<string>>(new Set(initialContracts));
-  const [selectedMeasures, setSelectedMeasures] = useState<Set<string>>(new Set(initialMeasures));
-  const [selectedYears, setSelectedYears] = useState<Set<string>>(new Set(initialYears));
-  
+  const [selectedContracts, setSelectedContracts] = useState<Set<string>>(
+    new Set(initialContracts),
+  );
+  const [selectedMeasures, setSelectedMeasures] = useState<Set<string>>(
+    new Set(initialMeasures),
+  );
+  const [selectedYears, setSelectedYears] = useState<Set<string>>(
+    new Set(initialYears),
+  );
+
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [measures, setMeasures] = useState<Measure[]>([]);
   const [years, setYears] = useState<number[]>([]);
-  
+
   const [contractSearch, setContractSearch] = useState("");
   const [measureSearch, setMeasureSearch] = useState("");
-  
+
   const [isLoadingContracts, setIsLoadingContracts] = useState(true);
   const [isLoadingMeasures, setIsLoadingMeasures] = useState(true);
   const [isLoadingYears, setIsLoadingYears] = useState(true);
@@ -58,7 +64,7 @@ export function ComparisonBuilder({
       if (!error && data) {
         // Deduplicate by contract_id
         const uniqueContracts = Array.from(
-          new Map((data as Contract[]).map((c) => [c.contract_id, c])).values()
+          new Map((data as Contract[]).map((c) => [c.contract_id, c])).values(),
         );
         setContracts(uniqueContracts);
       }
@@ -80,7 +86,7 @@ export function ComparisonBuilder({
       if (!error && data) {
         // Deduplicate by code
         const uniqueMeasures = Array.from(
-          new Map((data as Measure[]).map((m) => [m.code, m])).values()
+          new Map((data as Measure[]).map((m) => [m.code, m])).values(),
         );
         setMeasures(uniqueMeasures);
       }
@@ -94,7 +100,7 @@ export function ComparisonBuilder({
   useEffect(() => {
     const fetchYears = async () => {
       const supabase = createClient();
-      
+
       // Get distinct years from ma_contracts which has more complete year data
       const { data, error } = await supabase
         .from("ma_contracts")
@@ -102,7 +108,11 @@ export function ComparisonBuilder({
         .order("year", { ascending: false });
 
       if (!error && data) {
-        const uniqueYears = Array.from(new Set((data as { year: number }[]).map((d) => d.year).filter(Boolean))).sort((a, b) => b - a);
+        const uniqueYears = Array.from(
+          new Set(
+            (data as { year: number }[]).map((d) => d.year).filter(Boolean),
+          ),
+        ).sort((a, b) => b - a);
         setYears(uniqueYears);
       }
       setIsLoadingYears(false);
@@ -143,19 +153,19 @@ export function ComparisonBuilder({
 
   const applyComparison = () => {
     const params = new URLSearchParams(searchParams.toString());
-    
+
     if (selectedContracts.size > 0) {
       params.set("contracts", Array.from(selectedContracts).join(","));
     } else {
       params.delete("contracts");
     }
-    
+
     if (selectedMeasures.size > 0) {
       params.set("measures", Array.from(selectedMeasures).join(","));
     } else {
       params.delete("measures");
     }
-    
+
     if (selectedYears.size > 0) {
       params.set("years", Array.from(selectedYears).join(","));
     } else {
@@ -173,35 +183,46 @@ export function ComparisonBuilder({
     router.push("/analytics");
   };
 
-  const filteredContracts = contracts.filter((c) =>
-    c.contract_id.toLowerCase().includes(contractSearch.toLowerCase()) ||
-    c.contract_name?.toLowerCase().includes(contractSearch.toLowerCase()) ||
-    c.organization_marketing_name?.toLowerCase().includes(contractSearch.toLowerCase())
+  const filteredContracts = contracts.filter(
+    (c) =>
+      c.contract_id.toLowerCase().includes(contractSearch.toLowerCase()) ||
+      c.contract_name?.toLowerCase().includes(contractSearch.toLowerCase()) ||
+      c.organization_marketing_name
+        ?.toLowerCase()
+        .includes(contractSearch.toLowerCase()),
   );
 
-  const filteredMeasures = measures.filter((m) =>
-    m.name.toLowerCase().includes(measureSearch.toLowerCase()) ||
-    m.code.toLowerCase().includes(measureSearch.toLowerCase())
+  const filteredMeasures = measures.filter(
+    (m) =>
+      m.name.toLowerCase().includes(measureSearch.toLowerCase()) ||
+      m.code.toLowerCase().includes(measureSearch.toLowerCase()),
   );
 
-  const canProceed = 
+  const canProceed =
     (step === 1 && selectedContracts.size > 0) ||
     (step === 2 && selectedMeasures.size > 0) ||
     (step === 3 && selectedYears.size > 0);
 
-  const canGenerate = selectedContracts.size > 0 && selectedMeasures.size > 0 && selectedYears.size > 0;
+  const canGenerate =
+    selectedContracts.size > 0 &&
+    selectedMeasures.size > 0 &&
+    selectedYears.size > 0;
 
   return (
     <section className="rounded-3xl border border-border bg-card p-8">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-foreground">Build Comparison</h2>
+          <h2 className="text-xl font-semibold text-foreground">
+            Build Comparison
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Follow the steps to select contracts, measures, and time periods
           </p>
         </div>
-        {(selectedContracts.size > 0 || selectedMeasures.size > 0 || selectedYears.size > 0) && (
+        {(selectedContracts.size > 0 ||
+          selectedMeasures.size > 0 ||
+          selectedYears.size > 0) && (
           <button
             onClick={clearAll}
             className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs text-muted-foreground transition hover:border-red-400/60 hover:text-red-200"
@@ -221,15 +242,20 @@ export function ComparisonBuilder({
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition ${
                 step === stepNum
                   ? "border-primary bg-primary/10 text-primary"
-                  : stepNum < step || (stepNum === 1 && selectedContracts.size > 0) || (stepNum === 2 && selectedMeasures.size > 0) || (stepNum === 3 && selectedYears.size > 0)
-                  ? "border-primary/40 bg-primary/5 text-primary"
-                  : "border-border bg-card text-muted-foreground"
+                  : stepNum < step ||
+                      (stepNum === 1 && selectedContracts.size > 0) ||
+                      (stepNum === 2 && selectedMeasures.size > 0) ||
+                      (stepNum === 3 && selectedYears.size > 0)
+                    ? "border-primary/40 bg-primary/5 text-primary"
+                    : "border-border bg-card text-muted-foreground"
               }`}
             >
               {stepNum}
             </button>
             <div className="flex-1">
-              <p className={`text-xs font-medium ${step === stepNum ? "text-foreground" : "text-muted-foreground"}`}>
+              <p
+                className={`text-xs font-medium ${step === stepNum ? "text-foreground" : "text-muted-foreground"}`}
+              >
                 {stepNum === 1 && "Select Contracts"}
                 {stepNum === 2 && "Choose Measures"}
                 {stepNum === 3 && "Pick Years"}
@@ -267,10 +293,14 @@ export function ComparisonBuilder({
             </div>
             <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
               {isLoadingContracts ? (
-                <p className="text-xs text-muted-foreground">Loading contracts...</p>
+                <p className="text-xs text-muted-foreground">
+                  Loading contracts...
+                </p>
               ) : (
                 filteredContracts.map((contract) => {
-                  const isSelected = selectedContracts.has(contract.contract_id);
+                  const isSelected = selectedContracts.has(
+                    contract.contract_id,
+                  );
                   return (
                     <button
                       key={contract.contract_id}
@@ -282,14 +312,20 @@ export function ComparisonBuilder({
                       }`}
                     >
                       <div className="flex-1">
-                        <p className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}>
+                        <p
+                          className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}
+                        >
                           {contract.contract_id}
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {contract.organization_marketing_name || contract.contract_name || "No name"}
+                          {contract.organization_marketing_name ||
+                            contract.contract_name ||
+                            "No name"}
                         </p>
                       </div>
-                      {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                      {isSelected && (
+                        <Check className="h-4 w-4 shrink-0 text-primary" />
+                      )}
                     </button>
                   );
                 })
@@ -316,7 +352,9 @@ export function ComparisonBuilder({
             </div>
             <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
               {isLoadingMeasures ? (
-                <p className="text-xs text-muted-foreground">Loading measures...</p>
+                <p className="text-xs text-muted-foreground">
+                  Loading measures...
+                </p>
               ) : (
                 filteredMeasures.map((measure) => {
                   const isSelected = selectedMeasures.has(measure.code);
@@ -331,14 +369,18 @@ export function ComparisonBuilder({
                       }`}
                     >
                       <div className="flex-1">
-                        <p className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}>
+                        <p
+                          className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}
+                        >
                           {measure.name}
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           Code: {measure.code}
                         </p>
                       </div>
-                      {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                      {isSelected && (
+                        <Check className="h-4 w-4 shrink-0 text-primary" />
+                      )}
                     </button>
                   );
                 })
@@ -355,7 +397,9 @@ export function ComparisonBuilder({
             </h3>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
               {isLoadingYears ? (
-                <p className="text-xs text-muted-foreground">Loading years...</p>
+                <p className="text-xs text-muted-foreground">
+                  Loading years...
+                </p>
               ) : (
                 years.map((year) => {
                   const yearStr = String(year);
@@ -393,7 +437,7 @@ export function ComparisonBuilder({
             </button>
           )}
         </div>
-        
+
         <div className="flex gap-2">
           {step < 3 ? (
             <button

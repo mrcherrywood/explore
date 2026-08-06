@@ -70,7 +70,9 @@ function average(values: Array<number | null>): number | null {
   return valid.reduce((sum, value) => sum + value, 0) / valid.length;
 }
 
-function buildParentOrgRows(contracts: CloverContractImpact[]): ParentOrgImpact[] {
+function buildParentOrgRows(
+  contracts: CloverContractImpact[],
+): ParentOrgImpact[] {
   const byParent = new Map<string, CloverContractImpact[]>();
 
   for (const contract of contracts) {
@@ -84,24 +86,50 @@ function buildParentOrgRows(contracts: CloverContractImpact[]): ParentOrgImpact[
     .map(([parentOrganization, group]) => ({
       parentOrganization,
       contractCount: group.length,
-      avgOfficial2026: average(group.map((contract) => contract.officialScores.stars2026)),
-      avgOfficialRecalc: average(group.map((contract) => contract.scores.officialRecalc)),
-      qbpImprovedContracts: group.filter((contract) => contract.qbp2027.ratingIncreased).length,
+      avgOfficial2026: average(
+        group.map((contract) => contract.officialScores.stars2026),
+      ),
+      avgOfficialRecalc: average(
+        group.map((contract) => contract.scores.officialRecalc),
+      ),
+      qbpImprovedContracts: group.filter(
+        (contract) => contract.qbp2027.ratingIncreased,
+      ).length,
       avgNoQI: average(group.map((contract) => contract.scores.s26NoQI)),
-      avgS29Removal: average(group.map((contract) => contract.scores.s29Removal)),
+      avgS29Removal: average(
+        group.map((contract) => contract.scores.s29Removal),
+      ),
       avgModel1: average(group.map((contract) => contract.scores.model1)),
       avgModel2: average(group.map((contract) => contract.scores.model2)),
-      avgModel1Change: average(group.map((contract) => contract.changesFromStars2026.model1)),
-      avgModel2Change: average(group.map((contract) => contract.changesFromStars2026.model2)),
-      model1Gainers: group.filter((contract) => (contract.changesFromStars2026.model1 ?? 0) > 0.01).length,
-      model1Losers: group.filter((contract) => (contract.changesFromStars2026.model1 ?? 0) < -0.01).length,
-      model2Gainers: group.filter((contract) => (contract.changesFromStars2026.model2 ?? 0) > 0.01).length,
-      model2Losers: group.filter((contract) => (contract.changesFromStars2026.model2 ?? 0) < -0.01).length,
+      avgModel1Change: average(
+        group.map((contract) => contract.changesFromStars2026.model1),
+      ),
+      avgModel2Change: average(
+        group.map((contract) => contract.changesFromStars2026.model2),
+      ),
+      model1Gainers: group.filter(
+        (contract) => (contract.changesFromStars2026.model1 ?? 0) > 0.01,
+      ).length,
+      model1Losers: group.filter(
+        (contract) => (contract.changesFromStars2026.model1 ?? 0) < -0.01,
+      ).length,
+      model2Gainers: group.filter(
+        (contract) => (contract.changesFromStars2026.model2 ?? 0) > 0.01,
+      ).length,
+      model2Losers: group.filter(
+        (contract) => (contract.changesFromStars2026.model2 ?? 0) < -0.01,
+      ).length,
     }))
-    .sort((a, b) => (b.avgModel1Change ?? -Infinity) - (a.avgModel1Change ?? -Infinity));
+    .sort(
+      (a, b) =>
+        (b.avgModel1Change ?? -Infinity) - (a.avgModel1Change ?? -Infinity),
+    );
 }
 
-function getSortValue(row: ParentOrgImpact, key: SortKey): string | number | null {
+function getSortValue(
+  row: ParentOrgImpact,
+  key: SortKey,
+): string | number | null {
   return row[key];
 }
 
@@ -131,13 +159,21 @@ function SortHeader({
     >
       {label}
       {activeSortKey === value ? (
-        sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+        sortDirection === "asc" ? (
+          <ChevronUp className="h-3 w-3" />
+        ) : (
+          <ChevronDown className="h-3 w-3" />
+        )
       ) : null}
     </button>
   );
 }
 
-export function CloverParentOrgTable({ contracts, selectedParent, onSelectParent }: Props) {
+export function CloverParentOrgTable({
+  contracts,
+  selectedParent,
+  onSelectParent,
+}: Props) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("avgModel1Change");
@@ -150,7 +186,9 @@ export function CloverParentOrgTable({ contracts, selectedParent, onSelectParent
   const filteredRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const filtered = query
-      ? parentRows.filter((row) => row.parentOrganization.toLowerCase().includes(query))
+      ? parentRows.filter((row) =>
+          row.parentOrganization.toLowerCase().includes(query),
+        )
       : parentRows;
 
     return [...filtered].sort((a, b) => {
@@ -162,7 +200,9 @@ export function CloverParentOrgTable({ contracts, selectedParent, onSelectParent
       if (bValue === null) return -1;
 
       if (typeof aValue === "string" && typeof bValue === "string") {
-        return sortDirection === "asc" ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+        return sortDirection === "asc"
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
       }
 
       return sortDirection === "asc"
@@ -173,7 +213,10 @@ export function CloverParentOrgTable({ contracts, selectedParent, onSelectParent
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const safePage = Math.min(page, totalPages);
-  const pageRows = filteredRows.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const pageRows = filteredRows.slice(
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
+  );
 
   const handleSort = (key: SortKey) => {
     setPage(1);
@@ -190,11 +233,18 @@ export function CloverParentOrgTable({ contracts, selectedParent, onSelectParent
     <section className="rounded-2xl border border-border bg-card">
       <div className="flex flex-col gap-3 border-b border-border p-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Parent Organization Scenario Table</h3>
-          <p className="text-xs text-muted-foreground">{filteredRows.length.toLocaleString()} parent organizations</p>
+          <h3 className="text-sm font-semibold text-foreground">
+            Parent Organization Scenario Table
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {filteredRows.length.toLocaleString()} parent organizations
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <ExportCsvButton tableRef={tableRef} fileName="clover-scenario-impact-parent-orgs" />
+          <ExportCsvButton
+            tableRef={tableRef}
+            fileName="clover-scenario-impact-parent-orgs"
+          />
           <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
             <Search className="h-4 w-4 text-muted-foreground" />
             <input
@@ -215,19 +265,137 @@ export function CloverParentOrgTable({ contracts, selectedParent, onSelectParent
         <table ref={tableRef} className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/30 text-xs text-muted-foreground">
-              <th className="px-4 py-3 text-left"><SortHeader label="Parent Organization" tooltip="Parent organization name. Click a row to select that parent above." value="parentOrganization" align="left" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Contracts" tooltip="Number of analyzed H+R MA-PD contracts under this parent organization." value="contractCount" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Official 2026" tooltip="Average official CMS 2026 overall Stars rating across contracts with a published rating." value="avgOfficial2026" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Official Recalc" tooltip="Average official Stars 2026 recalculation score (Part C HEDIS/CAHPS/HOS only, removing all Part D and six named Part C measures)." value="avgOfficialRecalc" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-center"><SortHeader label="S26 Improved" tooltip="Number of contracts whose hold-harmless Stars 2026 rating increases under the official recalculation (driving a higher 2027 QBP)." value="qbpImprovedContracts" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="No QI" tooltip="Average calculated score after removing the Quality Improvement measures." value="avgNoQI" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="S29 Removal" tooltip="Average calculated score after removing the S29 operations and CAHPS-style measure set." value="avgS29Removal" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Model 1" tooltip="Average calculated score after removing the ten Model 1 Clover measures." value="avgModel1" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Model 2" tooltip="Average calculated score after removing the full 20-measure Model 2 Clover set." value="avgModel2" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Model 1 Avg Change" tooltip="Average Model 1 score change versus official 2026 overall Stars." value="avgModel1Change" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-center"><SortHeader label="Model 1 G/L" tooltip="Count of contracts gaining / losing under Model 1 versus official 2026 overall Stars." value="model1Gainers" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Model 2 Avg Change" tooltip="Average Model 2 score change versus official 2026 overall Stars." value="avgModel2Change" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-center"><SortHeader label="Model 2 G/L" tooltip="Count of contracts gaining / losing under Model 2 versus official 2026 overall Stars." value="model2Gainers" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
+              <th className="px-4 py-3 text-left">
+                <SortHeader
+                  label="Parent Organization"
+                  tooltip="Parent organization name. Click a row to select that parent above."
+                  value="parentOrganization"
+                  align="left"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Contracts"
+                  tooltip="Number of analyzed H+R MA-PD contracts under this parent organization."
+                  value="contractCount"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Official 2026"
+                  tooltip="Average official CMS 2026 overall Stars rating across contracts with a published rating."
+                  value="avgOfficial2026"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Official Recalc"
+                  tooltip="Average official Stars 2026 recalculation score (Part C HEDIS/CAHPS/HOS only, removing all Part D and six named Part C measures)."
+                  value="avgOfficialRecalc"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-center">
+                <SortHeader
+                  label="S26 Improved"
+                  tooltip="Number of contracts whose hold-harmless Stars 2026 rating increases under the official recalculation (driving a higher 2027 QBP)."
+                  value="qbpImprovedContracts"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="No QI"
+                  tooltip="Average calculated score after removing the Quality Improvement measures."
+                  value="avgNoQI"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="S29 Removal"
+                  tooltip="Average calculated score after removing the S29 operations and CAHPS-style measure set."
+                  value="avgS29Removal"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Model 1"
+                  tooltip="Average calculated score after removing the ten Model 1 Clover measures."
+                  value="avgModel1"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Model 2"
+                  tooltip="Average calculated score after removing the full 20-measure Model 2 Clover set."
+                  value="avgModel2"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Model 1 Avg Change"
+                  tooltip="Average Model 1 score change versus official 2026 overall Stars."
+                  value="avgModel1Change"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-center">
+                <SortHeader
+                  label="Model 1 G/L"
+                  tooltip="Count of contracts gaining / losing under Model 1 versus official 2026 overall Stars."
+                  value="model1Gainers"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Model 2 Avg Change"
+                  tooltip="Average Model 2 score change versus official 2026 overall Stars."
+                  value="avgModel2Change"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-center">
+                <SortHeader
+                  label="Model 2 G/L"
+                  tooltip="Count of contracts gaining / losing under Model 2 versus official 2026 overall Stars."
+                  value="model2Gainers"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -235,7 +403,11 @@ export function CloverParentOrgTable({ contracts, selectedParent, onSelectParent
               <tr
                 key={row.parentOrganization}
                 className={`border-b border-border/50 transition hover:bg-muted/30 ${
-                  row.parentOrganization === selectedParent ? "bg-primary/10" : index % 2 === 0 ? "" : "bg-muted/10"
+                  row.parentOrganization === selectedParent
+                    ? "bg-primary/10"
+                    : index % 2 === 0
+                      ? ""
+                      : "bg-muted/10"
                 }`}
               >
                 <td className="px-4 py-3">
@@ -247,21 +419,39 @@ export function CloverParentOrgTable({ contracts, selectedParent, onSelectParent
                     {row.parentOrganization}
                   </button>
                 </td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{row.contractCount}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(row.avgOfficial2026)}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(row.avgOfficialRecalc)}</td>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {row.contractCount}
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {formatScore(row.avgOfficial2026)}
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {formatScore(row.avgOfficialRecalc)}
+                </td>
                 <td className="px-4 py-3 text-center font-mono text-xs">
                   {row.qbpImprovedContracts > 0 ? (
-                    <span className="text-emerald-500">{row.qbpImprovedContracts}</span>
+                    <span className="text-emerald-500">
+                      {row.qbpImprovedContracts}
+                    </span>
                   ) : (
                     <span className="text-muted-foreground">0</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(row.avgNoQI)}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(row.avgS29Removal)}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(row.avgModel1)}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(row.avgModel2)}</td>
-                <td className={`px-4 py-3 text-right font-mono text-xs font-semibold ${getChangeClass(row.avgModel1Change)}`}>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {formatScore(row.avgNoQI)}
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {formatScore(row.avgS29Removal)}
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {formatScore(row.avgModel1)}
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {formatScore(row.avgModel2)}
+                </td>
+                <td
+                  className={`px-4 py-3 text-right font-mono text-xs font-semibold ${getChangeClass(row.avgModel1Change)}`}
+                >
                   {formatChange(row.avgModel1Change)}
                 </td>
                 <td className="px-4 py-3 text-center text-xs">
@@ -269,7 +459,9 @@ export function CloverParentOrgTable({ contracts, selectedParent, onSelectParent
                   <span className="mx-1 text-muted-foreground">/</span>
                   <span className="text-rose-500">{row.model1Losers}</span>
                 </td>
-                <td className={`px-4 py-3 text-right font-mono text-xs font-semibold ${getChangeClass(row.avgModel2Change)}`}>
+                <td
+                  className={`px-4 py-3 text-right font-mono text-xs font-semibold ${getChangeClass(row.avgModel2Change)}`}
+                >
                   {formatChange(row.avgModel2Change)}
                 </td>
                 <td className="px-4 py-3 text-center text-xs">
@@ -286,8 +478,10 @@ export function CloverParentOrgTable({ contracts, selectedParent, onSelectParent
       <div className="flex flex-col gap-3 border-t border-border p-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span>
-            Showing {filteredRows.length === 0 ? 0 : (safePage - 1) * pageSize + 1}-
-            {Math.min(safePage * pageSize, filteredRows.length)} of {filteredRows.length}
+            Showing{" "}
+            {filteredRows.length === 0 ? 0 : (safePage - 1) * pageSize + 1}-
+            {Math.min(safePage * pageSize, filteredRows.length)} of{" "}
+            {filteredRows.length}
           </span>
           <label className="flex items-center gap-2">
             Per page
@@ -315,10 +509,14 @@ export function CloverParentOrgTable({ contracts, selectedParent, onSelectParent
           >
             Previous
           </button>
-          <span className="text-xs text-muted-foreground">Page {safePage} of {totalPages}</span>
+          <span className="text-xs text-muted-foreground">
+            Page {safePage} of {totalPages}
+          </span>
           <button
             type="button"
-            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+            onClick={() =>
+              setPage((current) => Math.min(totalPages, current + 1))
+            }
             disabled={safePage === totalPages}
             className="rounded border border-border bg-muted px-3 py-1 text-xs text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >

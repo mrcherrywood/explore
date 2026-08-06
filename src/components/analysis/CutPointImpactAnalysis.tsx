@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, Fragment } from "react";
-import { AlertTriangle, TrendingUp, Info, HelpCircle, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  TrendingUp,
+  Info,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 import {
@@ -108,14 +116,16 @@ type Props = {
 
 async function fetchMethodologyForecast(
   measure: string,
-  populationMode: ForecastPopulationMode
+  populationMode: ForecastPopulationMode,
 ): Promise<MethodologyForecast | null> {
   const params = new URLSearchParams({
     view: "methodology-forecast",
     measure,
     populationMode,
   });
-  const res = await fetch(`/api/analysis/band-movement?${params}`, { cache: "no-store" });
+  const res = await fetch(`/api/analysis/band-movement?${params}`, {
+    cache: "no-store",
+  });
   const payload = await res.json().catch(() => null);
   if (!payload?.status) return null;
   return {
@@ -181,7 +191,10 @@ function collectFromScoresForBand(band: CutPointImpactSummary): number[] {
   return [...set].sort((a, b) => b - a);
 }
 
-function lookupPerFromScore(dp: CutPointImpactRow | undefined, score: number): PerFromScoreRow | undefined {
+function lookupPerFromScore(
+  dp: CutPointImpactRow | undefined,
+  score: number,
+): PerFromScoreRow | undefined {
   return dp?.perFromScore?.find((r) => r.fromScore === score);
 }
 
@@ -189,7 +202,8 @@ export function CutPointImpactAnalysis({ measure, displayName }: Props) {
   const [data, setData] = useState<CutPointImpactResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [populationMode, setPopulationMode] = useState<ForecastPopulationMode>("full_market");
+  const [populationMode, setPopulationMode] =
+    useState<ForecastPopulationMode>("full_market");
   const [forecast, setForecast] = useState<MethodologyForecast | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -198,7 +212,10 @@ export function CutPointImpactAnalysis({ measure, displayName }: Props) {
     try {
       const params = new URLSearchParams({ view: "cut-point-impact", measure });
       const res = await fetch(`/api/analysis/band-movement?${params}`);
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to load");
+      if (!res.ok)
+        throw new Error(
+          (await res.json().catch(() => ({}))).error || "Failed to load",
+        );
       setData(await res.json());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load analysis");
@@ -228,13 +245,20 @@ export function CutPointImpactAnalysis({ measure, displayName }: Props) {
   }, [measure, populationMode]);
 
   if (isLoading) {
-    return <div className="rounded-2xl border border-border bg-card p-8 text-sm text-muted-foreground">Loading cut point impact analysis...</div>;
+    return (
+      <div className="rounded-2xl border border-border bg-card p-8 text-sm text-muted-foreground">
+        Loading cut point impact analysis...
+      </div>
+    );
   }
 
   if (error) {
     return (
       <div className="rounded-2xl border border-border bg-card p-8">
-        <div className="flex items-center gap-3 text-red-400"><AlertTriangle className="h-5 w-5" /><span className="font-medium">Failed to load.</span></div>
+        <div className="flex items-center gap-3 text-red-400">
+          <AlertTriangle className="h-5 w-5" />
+          <span className="font-medium">Failed to load.</span>
+        </div>
         <p className="mt-2 text-sm text-muted-foreground">{error}</p>
       </div>
     );
@@ -248,7 +272,11 @@ export function CutPointImpactAnalysis({ measure, displayName }: Props) {
     );
   }
 
-  const hasProjections = data.perBand.some((b) => b.projectedNextCutPoint !== null || b.projectionConfidence === "suppressed");
+  const hasProjections = data.perBand.some(
+    (b) =>
+      b.projectedNextCutPoint !== null ||
+      b.projectionConfidence === "suppressed",
+  );
 
   return (
     <div className="space-y-6">
@@ -294,20 +322,28 @@ function CaveatsBanner({ transitionCount }: { transitionCount: number }) {
       <div className="flex gap-3 p-4">
         <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
         <div className="flex-1 text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">Directional analysis only</p>
+          <p className="font-medium text-foreground">
+            Directional analysis only
+          </p>
           <p className="mt-1">
-            Based on {transitionCount} year-over-year transition{transitionCount !== 1 ? "s" : ""}.
-            With limited data points, correlations and projections are directional indicators,
-            not statistically robust predictions. CMS sets cut points based on the national
-            distribution and policy considerations beyond score movement alone.
+            Based on {transitionCount} year-over-year transition
+            {transitionCount !== 1 ? "s" : ""}. With limited data points,
+            correlations and projections are directional indicators, not
+            statistically robust predictions. CMS sets cut points based on the
+            national distribution and policy considerations beyond score
+            movement alone.
           </p>
           <button
             onClick={() => setShowMethodology(!showMethodology)}
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[#9a7415] hover:underline"
           >
             <HelpCircle className="h-3.5 w-3.5" />
             How is this calculated?
-            {showMethodology ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            {showMethodology ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
           </button>
         </div>
       </div>
@@ -316,93 +352,119 @@ function CaveatsBanner({ transitionCount }: { transitionCount: number }) {
         <div className="border-t border-amber-500/20 px-4 pb-5 pt-4">
           <div className="space-y-4 text-sm text-muted-foreground">
             <div>
-              <p className="font-semibold text-foreground">What this analysis does</p>
+              <p className="font-semibold text-foreground">
+                What this analysis does
+              </p>
               <p className="mt-1">
-                This view examines the historical relationship between how contract scores
-                move year-over-year and how CMS adjusts cut points. If contracts are
-                improving on a measure, CMS tends to raise the bar — this analysis
-                quantifies that pattern and uses it to project where cut points may head next.
+                This view examines the historical relationship between how
+                contract scores move year-over-year and how CMS adjusts cut
+                points. If contracts are improving on a measure, CMS tends to
+                raise the bar — this analysis quantifies that pattern and uses
+                it to project where cut points may head next.
               </p>
             </div>
 
             <div>
-              <p className="font-semibold text-foreground">Per-band cohort analysis</p>
+              <p className="font-semibold text-foreground">
+                Per-band cohort analysis
+              </p>
               <p className="mt-1">
-                For each star threshold (2★ through 5★), we take the cohort of H+R contracts
-                that held that star rating in the &ldquo;from&rdquo; year. We compute the
-                average score change for those contracts into the next year, then pair it
-                with how much the corresponding CMS cut point changed. This is done for each
+                For each star threshold (2★ through 5★), we take the cohort of
+                H+R contracts that held that star rating in the
+                &ldquo;from&rdquo; year. We compute the average score change for
+                those contracts into the next year, then pair it with how much
+                the corresponding CMS cut point changed. This is done for each
                 available transition (e.g. 2023→2024, 2024→2025, 2025→2026).
               </p>
             </div>
 
             <div>
-              <p className="font-semibold text-foreground">Score Movement vs Cut Point Change table</p>
+              <p className="font-semibold text-foreground">
+                Score Movement vs Cut Point Change table
+              </p>
               <p className="mt-1">
-                Each row is one star threshold. For each transition you see two values:
+                Each row is one star threshold. For each transition you see two
+                values:
               </p>
               <ul className="mt-1 ml-4 list-disc space-y-0.5">
-                <li><strong>Avg Δ Score</strong> — the weighted average score change across all
-                  contracts in that star band (improved + held + declined), with the
-                  cohort size in parentheses.</li>
-                <li><strong>Δ Cut Pt</strong> — how many points the CMS cut point for
-                  that threshold moved (green = decreased, red = increased).</li>
+                <li>
+                  <strong>Avg Δ Score</strong> — the weighted average score
+                  change across all contracts in that star band (improved + held
+                  + declined), with the cohort size in parentheses.
+                </li>
+                <li>
+                  <strong>Δ Cut Pt</strong> — how many points the CMS cut point
+                  for that threshold moved (green = decreased, red = increased).
+                </li>
               </ul>
             </div>
 
             <div>
-              <p className="font-semibold text-foreground">Score-level detail (expand rows)</p>
+              <p className="font-semibold text-foreground">
+                Score-level detail (expand rows)
+              </p>
               <p className="mt-1">
-                Each star band can be expanded to show average score change for contracts
-                grouped by their numeric score in the starting year (for example every
-                observed value in the 4★ band). Only contracts with a score in both years
-                are included; similar raw scores are rounded to one decimal for grouping.
+                Each star band can be expanded to show average score change for
+                contracts grouped by their numeric score in the starting year
+                (for example every observed value in the 4★ band). Only
+                contracts with a score in both years are included; similar raw
+                scores are rounded to one decimal for grouping.
               </p>
             </div>
 
             <div>
-              <p className="font-semibold text-foreground">Slope and r (correlation)</p>
+              <p className="font-semibold text-foreground">
+                Slope and r (correlation)
+              </p>
               <p className="mt-1">
-                A simple linear regression is fit to the data points (avg score change → cut
-                point delta). <strong>Slope</strong> tells you how much the cut point tends
-                to move for each 1-point shift in the cohort average — a slope of 0.5 means
-                &ldquo;for every +1 in avg score, the cut point moves +0.5.&rdquo;&ensp;
-                <strong>r</strong> (Pearson correlation) measures how tightly these two
-                variables track: values near ±1 indicate a strong linear relationship,
-                near 0 indicates little relationship. With only {transitionCount} data
-                point{transitionCount !== 1 ? "s" : ""}, treat these as directional.
+                A simple linear regression is fit to the data points (avg score
+                change → cut point delta). <strong>Slope</strong> tells you how
+                much the cut point tends to move for each 1-point shift in the
+                cohort average — a slope of 0.5 means &ldquo;for every +1 in avg
+                score, the cut point moves +0.5.&rdquo;&ensp;
+                <strong>r</strong> (Pearson correlation) measures how tightly
+                these two variables track: values near ±1 indicate a strong
+                linear relationship, near 0 indicates little relationship. With
+                only {transitionCount} data point
+                {transitionCount !== 1 ? "s" : ""}, treat these as directional.
               </p>
             </div>
 
             <div>
               <p className="font-semibold text-foreground">Scatter plots</p>
               <p className="mt-1">
-                Each chart plots the same data visually — every dot is one year-over-year
-                transition with avg score change on the X-axis and the corresponding cut
-                point delta on the Y-axis. The dashed line is the linear trend. If the dots
-                cluster tightly along the line, score movement is a strong signal for cut
-                point movement.
+                Each chart plots the same data visually — every dot is one
+                year-over-year transition with avg score change on the X-axis
+                and the corresponding cut point delta on the Y-axis. The dashed
+                line is the linear trend. If the dots cluster tightly along the
+                line, score movement is a strong signal for cut point movement.
               </p>
             </div>
 
             <div>
-              <p className="font-semibold text-foreground">Projected cut points</p>
+              <p className="font-semibold text-foreground">
+                Projected cut points
+              </p>
               <p className="mt-1">
-                Projections apply the fitted slope + intercept to the most recent
-                transition&apos;s avg score change, then add the resulting delta to the
-                current cut point value. If workbook forecasts exist for 2027/2028,
-                they are shown alongside for comparison.
+                Projections apply the fitted slope + intercept to the most
+                recent transition&apos;s avg score change, then add the
+                resulting delta to the current cut point value. If workbook
+                forecasts exist for 2027/2028, they are shown alongside for
+                comparison.
               </p>
             </div>
 
             <div>
-              <p className="font-semibold text-foreground">Historical cut point trend</p>
+              <p className="font-semibold text-foreground">
+                Historical cut point trend
+              </p>
               <p className="mt-1">
-                The line chart shows actual CMS cut points for this measure from 2016 through
-                2026, loaded from the cut points workbook. This provides context for the
-                longer-term trajectory of each threshold — whether cut points have been
-                steadily rising, flat, or volatile — independent of the score-movement
-                regression. Regression-based projections are shown as dashed extensions
+                The line chart shows actual CMS cut points for this measure from
+                2016 through 2026, loaded from the cut points workbook. This
+                provides context for the longer-term trajectory of each
+                threshold — whether cut points have been steadily rising, flat,
+                or volatile — independent of the score-movement regression.
+                Regression-based projections are shown as dashed extensions
                 beyond the last actual year.
               </p>
             </div>
@@ -410,14 +472,26 @@ function CaveatsBanner({ transitionCount }: { transitionCount: number }) {
             <div>
               <p className="font-semibold text-foreground">Limitations</p>
               <ul className="mt-1 ml-4 list-disc space-y-0.5">
-                <li>Only {transitionCount} transition{transitionCount !== 1 ? "s are" : " is"} available — too few for statistical significance.</li>
-                <li>CMS considers policy, measure specification changes, and clustering
-                  algorithms beyond raw score movement when setting cut points.</li>
-                <li>Inverted measures (complaints, readmissions) have scores that move in the
-                  opposite direction from &ldquo;better&rdquo; — the analysis uses raw deltas
-                  which may look counterintuitive for those measures.</li>
-                <li>Contracts that exited the market (&ldquo;dropped&rdquo;) are excluded
-                  from the cohort since they have no next-year score.</li>
+                <li>
+                  Only {transitionCount} transition
+                  {transitionCount !== 1 ? "s are" : " is"} available — too few
+                  for statistical significance.
+                </li>
+                <li>
+                  CMS considers policy, measure specification changes, and
+                  clustering algorithms beyond raw score movement when setting
+                  cut points.
+                </li>
+                <li>
+                  Inverted measures (complaints, readmissions) have scores that
+                  move in the opposite direction from &ldquo;better&rdquo; — the
+                  analysis uses raw deltas which may look counterintuitive for
+                  those measures.
+                </li>
+                <li>
+                  Contracts that exited the market (&ldquo;dropped&rdquo;) are
+                  excluded from the cohort since they have no next-year score.
+                </li>
               </ul>
             </div>
           </div>
@@ -444,14 +518,18 @@ function ClientDataControls({
     : forecast.status === "ready"
       ? `Applying the CMS methodology to ${forecast.populationMode === "client_only" ? "client-only" : "full-market overlaid"} projected ${forecast.forecastYear} scores${forecast.runStatus ? ` (${forecast.runStatus} run)` : ""}.`
       : forecast.status === "unsupported"
-        ? forecast.reason ?? "This measure is not supported for projected cut points."
-        : forecast.reason ?? "No approved projection run is available. Upload current client data under Admin → Forecast.";
+        ? (forecast.reason ??
+          "This measure is not supported for projected cut points.")
+        : (forecast.reason ??
+          "No approved projection run is available. Upload current client data under Admin → Forecast.");
 
   return (
     <section className="rounded-2xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-center gap-4">
         <div>
-          <p className="text-xs font-medium text-muted-foreground">Projected Population</p>
+          <p className="text-xs font-medium text-muted-foreground">
+            Projected Population
+          </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
@@ -477,28 +555,44 @@ function ClientDataControls({
             </button>
           </div>
         </div>
-        <p className={`flex items-start gap-1.5 text-xs ${ready ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400"}`}>
+        <p
+          className={`flex items-start gap-1.5 text-xs ${ready ? "text-muted-foreground" : "text-[#9a7415]"}`}
+        >
           {!ready && <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
-          <span>{displayName} · {statusText}</span>
+          <span>
+            {displayName} · {statusText}
+          </span>
         </p>
       </div>
     </section>
   );
 }
 
-function ProjectionCards({ perBand, displayName, projectionYear, forecast }: {
+function ProjectionCards({
+  perBand,
+  displayName,
+  projectionYear,
+  forecast,
+}: {
   perBand: CutPointImpactSummary[];
   displayName: string;
   projectionYear: number;
   forecast: MethodologyForecast | null;
 }) {
-  const showable = perBand.filter((b) => b.projectedNextCutPoint !== null || b.projectionConfidence === "suppressed");
+  const showable = perBand.filter(
+    (b) =>
+      b.projectedNextCutPoint !== null ||
+      b.projectionConfidence === "suppressed",
+  );
   if (showable.length === 0) return null;
 
   const methodologyByKey = new Map<ThresholdKey, MethodologyForecastThreshold>(
-    forecast?.status === "ready" ? forecast.thresholds.map((t) => [t.key, t]) : []
+    forecast?.status === "ready"
+      ? forecast.thresholds.map((t) => [t.key, t])
+      : [],
   );
-  const forecastYear = forecast?.status === "ready" ? forecast.forecastYear : null;
+  const forecastYear =
+    forecast?.status === "ready" ? forecast.forecastYear : null;
 
   const confidenceBorder: Record<ProjectionConfidence, string> = {
     reasonable: "border-border",
@@ -506,7 +600,10 @@ function ProjectionCards({ perBand, displayName, projectionYear, forecast }: {
     suppressed: "border-rose-500/30",
   };
 
-  const confidenceLabel: Record<ProjectionConfidence, { text: string; color: string }> = {
+  const confidenceLabel: Record<
+    ProjectionConfidence,
+    { text: string; color: string }
+  > = {
     reasonable: { text: "", color: "" },
     low: { text: "", color: "" },
     suppressed: { text: "Suppressed", color: "text-rose-500" },
@@ -516,7 +613,9 @@ function ProjectionCards({ perBand, displayName, projectionYear, forecast }: {
     <section className="space-y-3">
       <h3 className="text-base font-semibold text-foreground">
         Projected {projectionYear} Cut Points
-        <span className="ml-2 text-xs font-normal text-muted-foreground">{displayName}</span>
+        <span className="ml-2 text-xs font-normal text-muted-foreground">
+          {displayName}
+        </span>
       </h3>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {showable.map((band) => {
@@ -530,13 +629,18 @@ function ProjectionCards({ perBand, displayName, projectionYear, forecast }: {
               : null;
 
           return (
-            <div key={band.thresholdKey} className={`rounded-2xl border bg-muted/40 p-4 ${confidenceBorder[band.projectionConfidence]}`}>
+            <div
+              key={band.thresholdKey}
+              className={`rounded-2xl border bg-muted/40 p-4 ${confidenceBorder[band.projectionConfidence]}`}
+            >
               <div className="flex items-center justify-between">
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                   {band.thresholdLabel} Threshold — {projectionYear}
                 </p>
                 {badge.text && (
-                  <span className={`text-[10px] font-semibold uppercase tracking-wider ${badge.color}`}>
+                  <span
+                    className={`text-[10px] font-semibold uppercase tracking-wider ${badge.color}`}
+                  >
                     {badge.text}
                   </span>
                 )}
@@ -556,48 +660,72 @@ function ProjectionCards({ perBand, displayName, projectionYear, forecast }: {
 
               <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                 <p>
-                  Current ({projectionYear - 1}): {band.latestCutPoint?.toFixed(2)}
+                  Current ({projectionYear - 1}):{" "}
+                  {band.latestCutPoint?.toFixed(2)}
                   {!isSuppressed && band.projectedDelta != null && (
-                    <span className="ml-1">(Δ {fmtDelta(band.projectedDelta)})</span>
+                    <span className="ml-1">
+                      (Δ {fmtDelta(band.projectedDelta)})
+                    </span>
                   )}
                 </p>
-                {!isSuppressed && band.projectionMethod === "blended" && forecastCutPoint && (
-                  <p className="text-[11px]">
-                    Forecast: {forecastCutPoint.value.toFixed(2)} · Regression: {band.regressionOnlyProjection?.toFixed(2)}
-                  </p>
-                )}
-                {!isSuppressed && band.projectionMethod === "regression_only" && band.fit && (
-                  <p>Based on avg score change of {fmtDelta(band.latestAvgScoreChange)} pts (r={fmtR(band.fit.r)})</p>
-                )}
-                {!isSuppressed && band.projectionMethod === "forecast_only" && forecastCutPoint && (
-                  <p>Based on workbook forecast (no regression adjustment)</p>
-                )}
+                {!isSuppressed &&
+                  band.projectionMethod === "blended" &&
+                  forecastCutPoint && (
+                    <p className="text-[11px]">
+                      Forecast: {forecastCutPoint.value.toFixed(2)} ·
+                      Regression: {band.regressionOnlyProjection?.toFixed(2)}
+                    </p>
+                  )}
+                {!isSuppressed &&
+                  band.projectionMethod === "regression_only" &&
+                  band.fit && (
+                    <p>
+                      Based on avg score change of{" "}
+                      {fmtDelta(band.latestAvgScoreChange)} pts (r=
+                      {fmtR(band.fit.r)})
+                    </p>
+                  )}
+                {!isSuppressed &&
+                  band.projectionMethod === "forecast_only" &&
+                  forecastCutPoint && (
+                    <p>Based on workbook forecast (no regression adjustment)</p>
+                  )}
                 {isSuppressed && forecastCutPoint && (
-                  <p>Workbook forecast ({forecastCutPoint.year}): {forecastCutPoint.value.toFixed(2)}</p>
+                  <p>
+                    Workbook forecast ({forecastCutPoint.year}):{" "}
+                    {forecastCutPoint.value.toFixed(2)}
+                  </p>
                 )}
                 {methodology && (
                   <div className="mt-1.5 border-t border-border/60 pt-1.5">
                     <p className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-1 text-[11px] font-medium text-sky-600 dark:text-sky-400">
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-[var(--fep-accent)] ">
                         <Sparkles className="h-3 w-3" />
-                        CMS methodology{forecastYear ? ` (${forecastYear})` : ""}
+                        CMS methodology
+                        {forecastYear ? ` (${forecastYear})` : ""}
                       </span>
                       <span className="font-semibold tabular-nums text-foreground">
                         {methodology.projected.toFixed(2)}
                         {methodologyDelta !== null && (
-                          <span className="ml-1 font-normal text-muted-foreground">(Δ {fmtDelta(methodologyDelta)})</span>
+                          <span className="ml-1 font-normal text-muted-foreground">
+                            (Δ {fmtDelta(methodologyDelta)})
+                          </span>
                         )}
                       </span>
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      Clustering/CAHPS on projected client scores — independent of the score-movement regression above.
+                      Clustering/CAHPS on projected client scores — independent
+                      of the score-movement regression above.
                     </p>
                   </div>
                 )}
                 {band.projectionWarnings.length > 0 && (
                   <div className="mt-1.5 space-y-0.5">
                     {band.projectionWarnings.map((w) => (
-                      <p key={w.code} className="flex items-start gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                      <p
+                        key={w.code}
+                        className="flex items-start gap-1 text-[11px] text-[#9a7415]"
+                      >
                         <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
                         {w.message}
                       </p>
@@ -624,12 +752,13 @@ function HistoricalTrendChart({
   displayName: string;
   projectionYear: number;
 }) {
-  const THRESHOLD_META: { key: ThresholdKey; label: string; color: string }[] = [
-    { key: "twoStar", label: "2★", color: STAR_COLORS["2"] },
-    { key: "threeStar", label: "3★", color: STAR_COLORS["3"] },
-    { key: "fourStar", label: "4★", color: STAR_COLORS["4"] },
-    { key: "fiveStar", label: "5★", color: STAR_COLORS["5"] },
-  ];
+  const THRESHOLD_META: { key: ThresholdKey; label: string; color: string }[] =
+    [
+      { key: "twoStar", label: "2★", color: STAR_COLORS["2"] },
+      { key: "threeStar", label: "3★", color: STAR_COLORS["3"] },
+      { key: "fourStar", label: "4★", color: STAR_COLORS["4"] },
+      { key: "fiveStar", label: "5★", color: STAR_COLORS["5"] },
+    ];
 
   type ChartRow = Record<string, number | undefined> & { year: number };
   const rows: ChartRow[] = historicalCutPoints.map((h) => ({
@@ -640,7 +769,9 @@ function HistoricalTrendChart({
     fiveStar: h.thresholds.fiveStar,
   }));
 
-  const lastHistoricalYear = historicalCutPoints[historicalCutPoints.length - 1]?.year ?? projectionYear - 1;
+  const lastHistoricalYear =
+    historicalCutPoints[historicalCutPoints.length - 1]?.year ??
+    projectionYear - 1;
   const lastHistorical = rows[rows.length - 1];
 
   const projections = perBand.filter((b) => b.projectedNextCutPoint !== null);
@@ -662,17 +793,28 @@ function HistoricalTrendChart({
   return (
     <section className="rounded-2xl border border-border bg-card p-6">
       <div className="mb-4">
-        <h3 className="text-base font-semibold text-foreground">Historical Cut Point Trend</h3>
+        <h3 className="text-base font-semibold text-foreground">
+          Historical Cut Point Trend
+        </h3>
         <p className="text-xs text-muted-foreground">
-          {displayName} — actual CMS cut points {historicalCutPoints[0]?.year}–{lastHistoricalYear}
-          {projections.length > 0 && <>, with {projectionYear} projections (dashed)</>}
+          {displayName} — actual CMS cut points {historicalCutPoints[0]?.year}–
+          {lastHistoricalYear}
+          {projections.length > 0 && (
+            <>, with {projectionYear} projections (dashed)</>
+          )}
         </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-4 mb-3">
         {THRESHOLD_META.map((t) => (
-          <span key={t.key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.color }} />
+          <span
+            key={t.key}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+          >
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: t.color }}
+            />
             {t.label}
           </span>
         ))}
@@ -680,7 +822,10 @@ function HistoricalTrendChart({
 
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={rows} margin={{ top: 8, right: 24, bottom: 4, left: 0 }}>
+          <LineChart
+            data={rows}
+            margin={{ top: 8, right: 24, bottom: 4, left: 0 }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
             <XAxis
               dataKey="year"
@@ -695,7 +840,14 @@ function HistoricalTrendChart({
               tick={{ fontSize: 11 }}
               stroke="var(--color-muted-foreground)"
               tickFormatter={(v: number) => v.toFixed(1)}
-              label={{ value: "Cut Point", angle: -90, position: "insideLeft", offset: 10, fontSize: 10, fill: "var(--color-muted-foreground)" }}
+              label={{
+                value: "Cut Point",
+                angle: -90,
+                position: "insideLeft",
+                offset: 10,
+                fontSize: 10,
+                fill: "var(--color-muted-foreground)",
+              }}
             />
             <Tooltip
               content={({ payload, label }) => {
@@ -704,16 +856,23 @@ function HistoricalTrendChart({
                 const isProjection = yr === projectionYear;
                 return (
                   <div className="rounded-xl border border-border bg-card px-3 py-2 text-xs shadow-md">
-                    <p className="font-medium">{yr}{isProjection ? " (projected)" : ""}</p>
+                    <p className="font-medium">
+                      {yr}
+                      {isProjection ? " (projected)" : ""}
+                    </p>
                     {[...THRESHOLD_META].reverse().map((t) => {
                       const actual = payload.find((p) => p.dataKey === t.key);
-                      const proj = payload.find((p) => p.dataKey === `${t.key}Proj`);
+                      const proj = payload.find(
+                        (p) => p.dataKey === `${t.key}Proj`,
+                      );
                       const entry = actual?.value != null ? actual : proj;
                       if (!entry?.value) return null;
                       return (
                         <p key={t.key} style={{ color: t.color }}>
                           {t.label}: {Number(entry.value).toFixed(2)}
-                          {proj?.value != null && actual?.value == null ? " (proj)" : ""}
+                          {proj?.value != null && actual?.value == null
+                            ? " (proj)"
+                            : ""}
                         </p>
                       );
                     })}
@@ -741,20 +900,21 @@ function HistoricalTrendChart({
                 activeDot={{ r: 5 }}
               />
             ))}
-            {hasProjectionSegment && THRESHOLD_META.map((t) => (
-              <Line
-                key={`${t.key}Proj`}
-                type="monotone"
-                dataKey={`${t.key}Proj`}
-                stroke={t.color}
-                strokeWidth={2}
-                strokeDasharray="6 3"
-                dot={{ r: 3, fill: t.color, strokeDasharray: "none" }}
-                connectNulls
-                activeDot={{ r: 5 }}
-                legendType="none"
-              />
-            ))}
+            {hasProjectionSegment &&
+              THRESHOLD_META.map((t) => (
+                <Line
+                  key={`${t.key}Proj`}
+                  type="monotone"
+                  dataKey={`${t.key}Proj`}
+                  stroke={t.color}
+                  strokeWidth={2}
+                  strokeDasharray="6 3"
+                  dot={{ r: 3, fill: t.color, strokeDasharray: "none" }}
+                  connectNulls
+                  activeDot={{ r: 5 }}
+                  legendType="none"
+                />
+              ))}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -776,38 +936,78 @@ function CorrelationTable({ perBand }: { perBand: CutPointImpactSummary[] }) {
   };
 
   const allTransitions = perBand.flatMap((b) => b.dataPoints);
-  const transitionLabels = [...new Set(allTransitions.map((d) => `${d.fromYear}→${d.toYear}`))].sort();
+  const transitionLabels = [
+    ...new Set(allTransitions.map((d) => `${d.fromYear}→${d.toYear}`)),
+  ].sort();
   const noteColSpan = 1 + transitionLabels.length * 2 + 2;
 
   return (
     <section className="rounded-2xl border border-border bg-card p-6">
       <div className="mb-4 flex items-start justify-between">
         <div>
-          <h3 className="mb-1 text-base font-semibold text-foreground">Score Movement vs Cut Point Change</h3>
+          <h3 className="mb-1 text-base font-semibold text-foreground">
+            Score Movement vs Cut Point Change
+          </h3>
           <p className="text-xs text-muted-foreground">
-            Per-band cohort avg score change paired with the corresponding cut point delta.
-            Use the chevron on a row to see average change by starting score within that band.
+            Per-band cohort avg score change paired with the corresponding cut
+            point delta. Use the chevron on a row to see average change by
+            starting score within that band.
           </p>
         </div>
-        <ExportCsvButton tableRef={tableRef} fileName="cut-point-impact-correlation" />
+        <ExportCsvButton
+          tableRef={tableRef}
+          fileName="cut-point-impact-correlation"
+        />
       </div>
       <div className="overflow-x-auto">
         <table ref={tableRef} className="w-full text-sm">
           <thead>
             <tr className="text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="px-3 py-2 text-left" title="Star rating threshold (2★–5★)">Threshold</th>
+              <th
+                className="px-3 py-2 text-left"
+                title="Star rating threshold (2★–5★)"
+              >
+                Threshold
+              </th>
               {transitionLabels.map((label) => (
-                <th key={label} className="border-b border-muted-foreground/40 px-3 py-2 text-center" colSpan={2} title={`Score movement and cut point change for the ${label} transition`}>{label}</th>
+                <th
+                  key={label}
+                  className="border-b border-muted-foreground/40 px-3 py-2 text-center"
+                  colSpan={2}
+                  title={`Score movement and cut point change for the ${label} transition`}
+                >
+                  {label}
+                </th>
               ))}
-              <th className="px-3 py-2 text-right" title="Linear regression slope: predicted score change per 1-point cut point change. Negative slope means rising cut points correlate with declining scores.">Slope</th>
-              <th className="px-3 py-2 text-right" title="Pearson correlation coefficient between score changes and cut point changes. Values near ±1 indicate strong linear relationship.">r</th>
+              <th
+                className="px-3 py-2 text-right"
+                title="Linear regression slope: predicted score change per 1-point cut point change. Negative slope means rising cut points correlate with declining scores."
+              >
+                Slope
+              </th>
+              <th
+                className="px-3 py-2 text-right"
+                title="Pearson correlation coefficient between score changes and cut point changes. Values near ±1 indicate strong linear relationship."
+              >
+                r
+              </th>
             </tr>
             <tr className="border-b border-border text-xs text-muted-foreground">
               <th className="px-3 py-1" />
               {transitionLabels.map((label) => (
                 <Fragment key={label}>
-                  <th className="px-3 py-1 text-right font-normal" title="Average score change for contracts in this band (count in parentheses)">Avg Δ Score</th>
-                  <th className="px-3 py-1 text-right font-normal" title="Change in CMS cut point for this threshold (positive = harder to achieve)">Δ Cut Pt</th>
+                  <th
+                    className="px-3 py-1 text-right font-normal"
+                    title="Average score change for contracts in this band (count in parentheses)"
+                  >
+                    Avg Δ Score
+                  </th>
+                  <th
+                    className="px-3 py-1 text-right font-normal"
+                    title="Change in CMS cut point for this threshold (positive = harder to achieve)"
+                  >
+                    Δ Cut Pt
+                  </th>
                 </Fragment>
               ))}
               <th className="px-3 py-1" />
@@ -831,29 +1031,58 @@ function CorrelationTable({ perBand }: { perBand: CutPointImpactSummary[] }) {
                             onClick={() => toggleBand(band.thresholdKey)}
                             className="inline-flex shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                             aria-expanded={isOpen}
-                            aria-label={isOpen ? `Hide score breakdown for ${band.thresholdLabel}` : `Show score breakdown for ${band.thresholdLabel}`}
+                            aria-label={
+                              isOpen
+                                ? `Hide score breakdown for ${band.thresholdLabel}`
+                                : `Show score breakdown for ${band.thresholdLabel}`
+                            }
                           >
-                            <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+                            <ChevronDown
+                              className={cn(
+                                "h-4 w-4 transition-transform",
+                                isOpen && "rotate-180",
+                              )}
+                            />
                           </button>
                         ) : (
-                          <span className="inline-block w-6 shrink-0" aria-hidden />
+                          <span
+                            className="inline-block w-6 shrink-0"
+                            aria-hidden
+                          />
                         )}
-                        <span className="font-medium" style={{ color: STAR_COLORS[String(band.starLevel)] }}>
+                        <span
+                          className="font-medium"
+                          style={{ color: STAR_COLORS[String(band.starLevel)] }}
+                        >
                           {band.thresholdLabel}
                         </span>
                       </div>
                     </td>
                     {transitionLabels.map((label) => {
-                      const dp = band.dataPoints.find((d) => `${d.fromYear}→${d.toYear}` === label);
+                      const dp = band.dataPoints.find(
+                        (d) => `${d.fromYear}→${d.toYear}` === label,
+                      );
                       return (
                         <Fragment key={label}>
                           <td className="px-3 py-2 text-right">
                             {dp ? fmtDelta(dp.avgScoreChange) : "—"}
-                            {dp?.cohortSize != null && <span className="ml-1 text-xs text-muted-foreground">({dp.cohortSize})</span>}
+                            {dp?.cohortSize != null && (
+                              <span className="ml-1 text-xs text-muted-foreground">
+                                ({dp.cohortSize})
+                              </span>
+                            )}
                           </td>
-                          <td className={`px-3 py-2 text-right font-semibold ${
-                            dp ? (dp.cutPointDelta > 0 ? "text-rose-500" : dp.cutPointDelta < 0 ? "text-emerald-500" : "text-muted-foreground") : ""
-                          }`}>
+                          <td
+                            className={`px-3 py-2 text-right font-semibold ${
+                              dp
+                                ? dp.cutPointDelta > 0
+                                  ? "text-rose-500"
+                                  : dp.cutPointDelta < 0
+                                    ? "text-emerald-500"
+                                    : "text-muted-foreground"
+                                : ""
+                            }`}
+                          >
                             {dp ? fmtDelta(dp.cutPointDelta) : "—"}
                           </td>
                         </Fragment>
@@ -869,18 +1098,31 @@ function CorrelationTable({ perBand }: { perBand: CutPointImpactSummary[] }) {
                   {isOpen && hasScoreDetail && (
                     <>
                       <tr className="border-b border-border/40 bg-muted/25">
-                        <td colSpan={noteColSpan} className="px-3 py-2 text-xs text-muted-foreground">
-                          Average score change by starting score (contracts in this band in the from-year). Δ Cut Pt matches the band row above for each period.
+                        <td
+                          colSpan={noteColSpan}
+                          className="px-3 py-2 text-xs text-muted-foreground"
+                        >
+                          Average score change by starting score (contracts in
+                          this band in the from-year). Δ Cut Pt matches the band
+                          row above for each period.
                         </td>
                       </tr>
                       {fromScores.map((score) => (
-                        <tr key={score} className="border-b border-border/50 bg-muted/25">
+                        <tr
+                          key={score}
+                          className="border-b border-border/50 bg-muted/25"
+                        >
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-1.5">
-                              <span className="inline-block w-6 shrink-0" aria-hidden />
+                              <span
+                                className="inline-block w-6 shrink-0"
+                                aria-hidden
+                              />
                               <span
                                 className="font-mono text-sm tabular-nums"
-                                style={{ color: STAR_COLORS[String(band.starLevel)] }}
+                                style={{
+                                  color: STAR_COLORS[String(band.starLevel)],
+                                }}
                                 title="Numeric measure score in the from-year"
                               >
                                 {formatFromScoreLabel(score)}
@@ -888,18 +1130,27 @@ function CorrelationTable({ perBand }: { perBand: CutPointImpactSummary[] }) {
                             </div>
                           </td>
                           {transitionLabels.map((label) => {
-                            const dp = band.dataPoints.find((d) => `${d.fromYear}→${d.toYear}` === label);
+                            const dp = band.dataPoints.find(
+                              (d) => `${d.fromYear}→${d.toYear}` === label,
+                            );
                             const sub = lookupPerFromScore(dp, score);
                             return (
                               <Fragment key={label}>
-                                <td className="px-3 py-2 text-right tabular-nums text-sm" title={`Avg score change (${label}) for contracts that started at this score`}>
+                                <td
+                                  className="px-3 py-2 text-right tabular-nums text-sm"
+                                  title={`Avg score change (${label}) for contracts that started at this score`}
+                                >
                                   {sub ? (
                                     <>
                                       {fmtDelta(sub.avgScoreChange)}
-                                      <span className="ml-1 text-xs text-muted-foreground">({sub.cohortSize})</span>
+                                      <span className="ml-1 text-xs text-muted-foreground">
+                                        ({sub.cohortSize})
+                                      </span>
                                     </>
                                   ) : (
-                                    <span className="text-muted-foreground">—</span>
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
                                   )}
                                 </td>
                                 <td
@@ -919,8 +1170,12 @@ function CorrelationTable({ perBand }: { perBand: CutPointImpactSummary[] }) {
                               </Fragment>
                             );
                           })}
-                          <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">—</td>
-                          <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">—</td>
+                          <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
+                            —
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
+                            —
+                          </td>
                         </tr>
                       ))}
                     </>
@@ -939,17 +1194,27 @@ function EmptyDot() {
   return <circle r={0} />;
 }
 
-function ScatterPlots({ perBand, displayName }: { perBand: CutPointImpactSummary[]; displayName: string }) {
+function ScatterPlots({
+  perBand,
+  displayName,
+}: {
+  perBand: CutPointImpactSummary[];
+  displayName: string;
+}) {
   const bandsWithData = perBand.filter((b) => b.dataPoints.length >= 2);
   if (bandsWithData.length === 0) return null;
 
   return (
     <section className="rounded-2xl border border-border bg-card p-6">
       <div className="mb-4 flex items-center gap-3">
-        <TrendingUp className="h-5 w-5 text-sky-400" />
+        <TrendingUp className="h-5 w-5 text-[var(--fep-accent)]" />
         <div>
-          <h3 className="text-base font-semibold text-foreground">Score Change vs Cut Point Movement</h3>
-          <p className="text-xs text-muted-foreground">{displayName} — each dot is one year-over-year transition</p>
+          <h3 className="text-base font-semibold text-foreground">
+            Score Change vs Cut Point Movement
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {displayName} — each dot is one year-over-year transition
+          </p>
         </div>
       </div>
       <div className="grid gap-6 md:grid-cols-2">
@@ -989,7 +1254,10 @@ function ScatterPlots({ perBand, displayName }: { perBand: CutPointImpactSummary
 
           return (
             <div key={band.thresholdKey}>
-              <p className="mb-2 text-sm font-medium" style={{ color: STAR_COLORS[String(band.starLevel)] }}>
+              <p
+                className="mb-2 text-sm font-medium"
+                style={{ color: STAR_COLORS[String(band.starLevel)] }}
+              >
                 {band.thresholdLabel} Threshold
                 {band.fit && (
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
@@ -999,8 +1267,13 @@ function ScatterPlots({ perBand, displayName }: { perBand: CutPointImpactSummary
               </p>
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 20, right: 16, bottom: 4, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                  <ScatterChart
+                    margin={{ top: 20, right: 16, bottom: 4, left: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="var(--color-border)"
+                    />
                     <XAxis
                       type="number"
                       dataKey="x"
@@ -1009,7 +1282,13 @@ function ScatterPlots({ perBand, displayName }: { perBand: CutPointImpactSummary
                       tickFormatter={fmtTick}
                       tick={{ fontSize: 11 }}
                       stroke="var(--color-muted-foreground)"
-                      label={{ value: "Avg Score Change", position: "insideBottom", offset: -2, fontSize: 10, fill: "var(--color-muted-foreground)" }}
+                      label={{
+                        value: "Avg Score Change",
+                        position: "insideBottom",
+                        offset: -2,
+                        fontSize: 10,
+                        fill: "var(--color-muted-foreground)",
+                      }}
                     />
                     <YAxis
                       type="number"
@@ -1019,13 +1298,23 @@ function ScatterPlots({ perBand, displayName }: { perBand: CutPointImpactSummary
                       tickFormatter={fmtTick}
                       tick={{ fontSize: 11 }}
                       stroke="var(--color-muted-foreground)"
-                      label={{ value: "Cut Point Δ", angle: -90, position: "insideLeft", offset: 10, fontSize: 10, fill: "var(--color-muted-foreground)" }}
+                      label={{
+                        value: "Cut Point Δ",
+                        angle: -90,
+                        position: "insideLeft",
+                        offset: 10,
+                        fontSize: 10,
+                        fill: "var(--color-muted-foreground)",
+                      }}
                     />
                     <Tooltip
                       content={({ payload }) => {
                         if (!payload?.length) return null;
-                        const entry = payload.find((e) => (e.payload as { label?: string })?.label);
-                        const p = entry?.payload as { x: number; y: number; label: string } | undefined;
+                        const entry = payload.find(
+                          (e) => (e.payload as { label?: string })?.label,
+                        );
+                        const p = entry?.payload as
+                          { x: number; y: number; label: string } | undefined;
                         if (!p) return null;
                         return (
                           <div className="rounded-xl border border-border bg-card px-3 py-2 text-xs shadow-md">
@@ -1036,13 +1325,27 @@ function ScatterPlots({ perBand, displayName }: { perBand: CutPointImpactSummary
                         );
                       }}
                     />
-                    <ReferenceLine y={0} stroke="var(--color-muted-foreground)" strokeDasharray="3 3" strokeOpacity={0.5} />
-                    <ReferenceLine x={0} stroke="var(--color-muted-foreground)" strokeDasharray="3 3" strokeOpacity={0.5} />
+                    <ReferenceLine
+                      y={0}
+                      stroke="var(--color-muted-foreground)"
+                      strokeDasharray="3 3"
+                      strokeOpacity={0.5}
+                    />
+                    <ReferenceLine
+                      x={0}
+                      stroke="var(--color-muted-foreground)"
+                      strokeDasharray="3 3"
+                      strokeOpacity={0.5}
+                    />
                     {trendLinePoints.length === 2 && (
                       <Scatter
                         data={trendLinePoints}
                         fill="none"
-                        line={{ stroke: STAR_COLORS[String(band.starLevel)], strokeWidth: 1, strokeDasharray: "6 3" }}
+                        line={{
+                          stroke: STAR_COLORS[String(band.starLevel)],
+                          strokeWidth: 1,
+                          strokeDasharray: "6 3",
+                        }}
                         shape={<EmptyDot />}
                         legendType="none"
                         isAnimationActive={false}
@@ -1052,13 +1355,29 @@ function ScatterPlots({ perBand, displayName }: { perBand: CutPointImpactSummary
                       data={points}
                       fill={STAR_COLORS[String(band.starLevel)]}
                       fillOpacity={0.8}
-                      shape={(props: { cx?: number; cy?: number; payload?: { label?: string } }) => {
+                      shape={(props: {
+                        cx?: number;
+                        cy?: number;
+                        payload?: { label?: string };
+                      }) => {
                         const { cx = 0, cy = 0, payload } = props;
                         return (
                           <g>
-                            <circle cx={cx} cy={cy} r={6} fill={STAR_COLORS[String(band.starLevel)]} fillOpacity={0.8} />
+                            <circle
+                              cx={cx}
+                              cy={cy}
+                              r={6}
+                              fill={STAR_COLORS[String(band.starLevel)]}
+                              fillOpacity={0.8}
+                            />
                             {payload?.label && (
-                              <text x={cx} y={cy - 10} textAnchor="middle" fontSize={10} fill="var(--color-foreground)">
+                              <text
+                                x={cx}
+                                y={cy - 10}
+                                textAnchor="middle"
+                                fontSize={10}
+                                fill="var(--color-foreground)"
+                              >
                                 {payload.label}
                               </text>
                             )}
@@ -1076,4 +1395,3 @@ function ScatterPlots({ perBand, displayName }: { perBand: CutPointImpactSummary
     </section>
   );
 }
-

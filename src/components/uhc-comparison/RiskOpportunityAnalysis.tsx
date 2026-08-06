@@ -1,18 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { 
+import {
   Activity,
-  AlertTriangle, 
-  ChevronDown, 
-  ChevronRight, 
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
   Heart,
-  Loader2, 
+  Loader2,
   Pill,
-  TrendingDown, 
-  TrendingUp, 
+  TrendingDown,
+  TrendingUp,
   TriangleAlert,
-  Users
+  Users,
 } from "lucide-react";
 
 type ContractMeasureAnalysis = {
@@ -91,8 +91,12 @@ export function RiskOpportunityAnalysis() {
   const [data, setData] = useState<RiskOpportunitySummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedContracts, setExpandedContracts] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<"by-contract" | "by-measure">("by-contract");
+  const [expandedContracts, setExpandedContracts] = useState<Set<string>>(
+    new Set(),
+  );
+  const [viewMode, setViewMode] = useState<"by-contract" | "by-measure">(
+    "by-contract",
+  );
   const [filterDomain, setFilterDomain] = useState<string>("all");
 
   useEffect(() => {
@@ -103,7 +107,9 @@ export function RiskOpportunityAnalysis() {
         const response = await fetch("/api/uhc-comparison/risk-opportunity");
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload.error || "Failed to fetch risk/opportunity data");
+          throw new Error(
+            payload.error || "Failed to fetch risk/opportunity data",
+          );
         }
         const payload: RiskOpportunitySummary = await response.json();
         setData(payload);
@@ -128,15 +134,23 @@ export function RiskOpportunityAnalysis() {
 
   // Calculate HEDIS, HOS, and Pharmacy stats
   const measureTypeStats = useMemo(() => {
-    if (!data) return { hedisRisk: 0, hedisOpp: 0, hosRisk: 0, hosOpp: 0, pharmacyRisk: 0, pharmacyOpp: 0 };
-    
+    if (!data)
+      return {
+        hedisRisk: 0,
+        hedisOpp: 0,
+        hosRisk: 0,
+        hosOpp: 0,
+        pharmacyRisk: 0,
+        pharmacyOpp: 0,
+      };
+
     let hedisRisk = 0;
     let hedisOpp = 0;
     let hosRisk = 0;
     let hosOpp = 0;
     let pharmacyRisk = 0;
     let pharmacyOpp = 0;
-    
+
     data.byContract.forEach((c) => {
       c.riskMeasures.forEach((m) => {
         if (m.isHEDIS) hedisRisk++;
@@ -149,21 +163,24 @@ export function RiskOpportunityAnalysis() {
         if (m.isPharmacy) pharmacyOpp++;
       });
     });
-    
+
     return { hedisRisk, hedisOpp, hosRisk, hosOpp, pharmacyRisk, pharmacyOpp };
   }, [data]);
 
   // Filter function that handles special cases like excluding HOS from HEDIS
-  const matchesDomainFilter = useCallback((m: ContractMeasureAnalysis, domain: string): boolean => {
-    if (domain === "all") return true;
-    
-    // When filtering for HEDIS, exclude HOS measures
-    if (domain.toLowerCase() === "hedis") {
-      return m.domain?.toLowerCase() === "hedis" && !m.isHOS;
-    }
-    
-    return m.domain === domain;
-  }, []);
+  const matchesDomainFilter = useCallback(
+    (m: ContractMeasureAnalysis, domain: string): boolean => {
+      if (domain === "all") return true;
+
+      // When filtering for HEDIS, exclude HOS measures
+      if (domain.toLowerCase() === "hedis") {
+        return m.domain?.toLowerCase() === "hedis" && !m.isHOS;
+      }
+
+      return m.domain === domain;
+    },
+    [],
+  );
 
   const filteredData = useMemo(() => {
     if (!data) return null;
@@ -171,35 +188,48 @@ export function RiskOpportunityAnalysis() {
 
     return {
       ...data,
-      byContract: data.byContract.map((c) => ({
-        ...c,
-        riskMeasures: c.riskMeasures.filter((m) => matchesDomainFilter(m, filterDomain)),
-        opportunityMeasures: c.opportunityMeasures.filter((m) => matchesDomainFilter(m, filterDomain)),
-        totalRiskCount: c.riskMeasures.filter((m) => matchesDomainFilter(m, filterDomain)).length,
-        totalOpportunityCount: c.opportunityMeasures.filter((m) => matchesDomainFilter(m, filterDomain)).length,
-      })).filter((c) => c.totalRiskCount > 0 || c.totalOpportunityCount > 0),
+      byContract: data.byContract
+        .map((c) => ({
+          ...c,
+          riskMeasures: c.riskMeasures.filter((m) =>
+            matchesDomainFilter(m, filterDomain),
+          ),
+          opportunityMeasures: c.opportunityMeasures.filter((m) =>
+            matchesDomainFilter(m, filterDomain),
+          ),
+          totalRiskCount: c.riskMeasures.filter((m) =>
+            matchesDomainFilter(m, filterDomain),
+          ).length,
+          totalOpportunityCount: c.opportunityMeasures.filter((m) =>
+            matchesDomainFilter(m, filterDomain),
+          ).length,
+        }))
+        .filter((c) => c.totalRiskCount > 0 || c.totalOpportunityCount > 0),
     };
   }, [data, filterDomain, matchesDomainFilter]);
 
   // Group by measure for "by-measure" view
   const byMeasureData = useMemo(() => {
     if (!data) return [];
-    
-    const measureMap = new Map<string, {
-      measureCode: string;
-      measureName: string;
-      domain: string | null;
-      isHEDIS: boolean;
-      isHOS: boolean;
-      isPharmacy: boolean;
-      riskContracts: ContractMeasureAnalysis[];
-      opportunityContracts: ContractMeasureAnalysis[];
-    }>();
+
+    const measureMap = new Map<
+      string,
+      {
+        measureCode: string;
+        measureName: string;
+        domain: string | null;
+        isHEDIS: boolean;
+        isHOS: boolean;
+        isPharmacy: boolean;
+        riskContracts: ContractMeasureAnalysis[];
+        opportunityContracts: ContractMeasureAnalysis[];
+      }
+    >();
 
     data.byContract.forEach((contract) => {
       contract.riskMeasures.forEach((m) => {
         if (!matchesDomainFilter(m, filterDomain)) return;
-        
+
         if (!measureMap.has(m.measureCode)) {
           measureMap.set(m.measureCode, {
             measureCode: m.measureCode,
@@ -217,7 +247,7 @@ export function RiskOpportunityAnalysis() {
 
       contract.opportunityMeasures.forEach((m) => {
         if (!matchesDomainFilter(m, filterDomain)) return;
-        
+
         if (!measureMap.has(m.measureCode)) {
           measureMap.set(m.measureCode, {
             measureCode: m.measureCode,
@@ -234,11 +264,12 @@ export function RiskOpportunityAnalysis() {
       });
     });
 
-    return Array.from(measureMap.values())
-      .sort((a, b) => 
-        (b.riskContracts.length + b.opportunityContracts.length) - 
-        (a.riskContracts.length + a.opportunityContracts.length)
-      );
+    return Array.from(measureMap.values()).sort(
+      (a, b) =>
+        b.riskContracts.length +
+        b.opportunityContracts.length -
+        (a.riskContracts.length + a.opportunityContracts.length),
+    );
   }, [data, filterDomain, matchesDomainFilter]);
 
   const toggleContract = (contractId: string) => {
@@ -301,9 +332,11 @@ export function RiskOpportunityAnalysis() {
                 Risk & Opportunity Analysis
               </h2>
               <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
-                Identifies UnitedHealth measures where contract scores are within 2 points of the 
-                cut point boundaries. <strong className="text-red-400">Risk</strong> measures are 
-                close to dropping a star, while <strong className="text-green-400">Opportunity</strong> measures 
+                Identifies UnitedHealth measures where contract scores are
+                within 2 points of the cut point boundaries.{" "}
+                <strong className="text-red-400">Risk</strong> measures are
+                close to dropping a star, while{" "}
+                <strong className="text-green-400">Opportunity</strong> measures
                 are close to gaining a star.
               </p>
             </div>
@@ -312,52 +345,75 @@ export function RiskOpportunityAnalysis() {
           {/* Stats Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4">
-              <p className="text-xs text-muted-foreground">UHC Contracts Analyzed</p>
+              <p className="text-xs text-muted-foreground">
+                UHC Contracts Analyzed
+              </p>
               <p className="mt-2 text-2xl font-semibold text-primary">
                 {data.uhcContractCount}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">For {data.year}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                For {data.year}
+              </p>
             </div>
             <div className="rounded-2xl border border-blue-500/40 bg-blue-500/5 p-4">
-              <p className="text-xs text-muted-foreground">Total UHC Enrollment</p>
+              <p className="text-xs text-muted-foreground">
+                Total UHC Enrollment
+              </p>
               <p className="mt-2 text-2xl font-semibold text-blue-400">
                 {formatEnrollment(data.totalUHCEnrollment)}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">{formatEnrollmentFull(data.totalUHCEnrollment)} members</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formatEnrollmentFull(data.totalUHCEnrollment)} members
+              </p>
             </div>
             <div className="rounded-2xl border border-border bg-muted p-4">
-              <p className="text-xs text-muted-foreground">Measures with Cut Points</p>
+              <p className="text-xs text-muted-foreground">
+                Measures with Cut Points
+              </p>
               <p className="mt-2 text-2xl font-semibold text-foreground">
                 {data.totalMeasuresAnalyzed}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">Derived from data</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Derived from data
+              </p>
             </div>
             <div className="rounded-2xl border border-red-500/40 bg-red-500/5 p-4">
               <div className="flex items-center gap-2">
                 <TrendingDown className="h-4 w-4 text-red-500" />
-                <p className="text-xs text-muted-foreground">Total Risk Measures</p>
+                <p className="text-xs text-muted-foreground">
+                  Total Risk Measures
+                </p>
               </div>
               <p className="mt-2 text-2xl font-semibold text-red-500">
                 {data.totalRiskMeasures}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">Within 2 pts of lower cut point</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Within 2 pts of lower cut point
+              </p>
             </div>
             <div className="rounded-2xl border border-green-500/40 bg-green-500/5 p-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-green-500" />
-                <p className="text-xs text-muted-foreground">Total Opportunity Measures</p>
+                <p className="text-xs text-muted-foreground">
+                  Total Opportunity Measures
+                </p>
               </div>
               <p className="mt-2 text-2xl font-semibold text-green-500">
                 {data.totalOpportunityMeasures}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">Within 2 pts of upper cut point</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Within 2 pts of upper cut point
+              </p>
             </div>
           </div>
 
           {/* HEDIS, HOS & Pharmacy Breakdown */}
-          {(measureTypeStats.hedisRisk > 0 || measureTypeStats.hedisOpp > 0 || 
-            measureTypeStats.hosRisk > 0 || measureTypeStats.hosOpp > 0 ||
-            measureTypeStats.pharmacyRisk > 0 || measureTypeStats.pharmacyOpp > 0) && (
+          {(measureTypeStats.hedisRisk > 0 ||
+            measureTypeStats.hedisOpp > 0 ||
+            measureTypeStats.hosRisk > 0 ||
+            measureTypeStats.hosOpp > 0 ||
+            measureTypeStats.pharmacyRisk > 0 ||
+            measureTypeStats.pharmacyOpp > 0) && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {/* HEDIS */}
               <div className="rounded-2xl border border-pink-500/40 bg-pink-500/5 p-4">
@@ -368,14 +424,20 @@ export function RiskOpportunityAnalysis() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-xs text-muted-foreground">Risk</p>
-                    <p className="text-xl font-semibold text-pink-400">{measureTypeStats.hedisRisk}</p>
+                    <p className="text-xl font-semibold text-pink-400">
+                      {measureTypeStats.hedisRisk}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Opportunity</p>
-                    <p className="text-xl font-semibold text-pink-400">{measureTypeStats.hedisOpp}</p>
+                    <p className="text-xl font-semibold text-pink-400">
+                      {measureTypeStats.hedisOpp}
+                    </p>
                   </div>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">Clinical quality measures</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Clinical quality measures
+                </p>
               </div>
               {/* HOS */}
               <div className="rounded-2xl border border-cyan-500/40 bg-cyan-500/5 p-4">
@@ -386,32 +448,46 @@ export function RiskOpportunityAnalysis() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-xs text-muted-foreground">Risk</p>
-                    <p className="text-xl font-semibold text-cyan-400">{measureTypeStats.hosRisk}</p>
+                    <p className="text-xl font-semibold text-cyan-400">
+                      {measureTypeStats.hosRisk}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Opportunity</p>
-                    <p className="text-xl font-semibold text-cyan-400">{measureTypeStats.hosOpp}</p>
+                    <p className="text-xl font-semibold text-cyan-400">
+                      {measureTypeStats.hosOpp}
+                    </p>
                   </div>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">Health Outcomes Survey</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Health Outcomes Survey
+                </p>
               </div>
               {/* Pharmacy */}
               <div className="rounded-2xl border border-purple-500/40 bg-purple-500/5 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Pill className="h-4 w-4 text-purple-400" />
-                  <p className="text-sm font-medium text-purple-400">Pharmacy</p>
+                  <p className="text-sm font-medium text-purple-400">
+                    Pharmacy
+                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-xs text-muted-foreground">Risk</p>
-                    <p className="text-xl font-semibold text-purple-400">{measureTypeStats.pharmacyRisk}</p>
+                    <p className="text-xl font-semibold text-purple-400">
+                      {measureTypeStats.pharmacyRisk}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Opportunity</p>
-                    <p className="text-xl font-semibold text-purple-400">{measureTypeStats.pharmacyOpp}</p>
+                    <p className="text-xl font-semibold text-purple-400">
+                      {measureTypeStats.pharmacyOpp}
+                    </p>
                   </div>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">Medication adherence</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Medication adherence
+                </p>
               </div>
             </div>
           )}
@@ -444,7 +520,9 @@ export function RiskOpportunityAnalysis() {
             </div>
 
             <div className="relative">
-              <label className="block text-xs text-muted-foreground mb-1.5">Domain Filter</label>
+              <label className="block text-xs text-muted-foreground mb-1.5">
+                Domain Filter
+              </label>
               <div className="relative">
                 <select
                   value={filterDomain}
@@ -493,11 +571,15 @@ export function RiskOpportunityAnalysis() {
                     )}
                     <div>
                       <div className="flex items-center gap-3">
-                        <p className="font-semibold text-foreground">{contract.contractId}</p>
+                        <p className="font-semibold text-foreground">
+                          {contract.contractId}
+                        </p>
                         {contract.enrollment !== null && (
                           <div className="flex items-center gap-1 text-xs text-blue-400">
                             <Users className="h-3.5 w-3.5" />
-                            <span className="font-medium">{formatEnrollment(contract.enrollment)}</span>
+                            <span className="font-medium">
+                              {formatEnrollment(contract.enrollment)}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -539,11 +621,11 @@ export function RiskOpportunityAnalysis() {
                               <div
                                 key={`${m.measureCode}-${idx}`}
                                 className={`rounded-lg border p-3 ${
-                                  m.isHEDIS 
-                                    ? "border-pink-500/30 bg-gradient-to-r from-red-500/5 to-pink-500/10" 
+                                  m.isHEDIS
+                                    ? "border-pink-500/30 bg-gradient-to-r from-red-500/5 to-pink-500/10"
                                     : m.isHOS
                                       ? "border-cyan-500/30 bg-gradient-to-r from-red-500/5 to-cyan-500/10"
-                                      : m.isPharmacy 
+                                      : m.isPharmacy
                                         ? "border-purple-500/30 bg-gradient-to-r from-red-500/5 to-purple-500/10"
                                         : "border-red-500/20 bg-red-500/5"
                                 }`}
@@ -588,9 +670,14 @@ export function RiskOpportunityAnalysis() {
                                     <div className="flex items-center gap-1.5">
                                       <div
                                         className="h-3 w-3 rounded-full"
-                                        style={{ backgroundColor: STAR_COLORS[m.starRating] }}
+                                        style={{
+                                          backgroundColor:
+                                            STAR_COLORS[m.starRating],
+                                        }}
                                       />
-                                      <span className="text-sm font-semibold">{m.starRating}★</span>
+                                      <span className="text-sm font-semibold">
+                                        {m.starRating}★
+                                      </span>
                                     </div>
                                     <p className="text-xs text-muted-foreground mt-0.5">
                                       {m.score}%
@@ -599,7 +686,8 @@ export function RiskOpportunityAnalysis() {
                                 </div>
                                 <div className="mt-2 pt-2 border-t border-red-500/20 text-xs">
                                   <span className="text-red-400 font-medium">
-                                    Only {m.riskPoints} pts above {m.lowerCutPoint}% cut point
+                                    Only {m.riskPoints} pts above{" "}
+                                    {m.lowerCutPoint}% cut point
                                   </span>
                                 </div>
                               </div>
@@ -614,7 +702,8 @@ export function RiskOpportunityAnalysis() {
                           <div className="flex items-center gap-2 mb-3">
                             <TrendingUp className="h-4 w-4 text-green-500" />
                             <h4 className="text-sm font-semibold text-green-400">
-                              Opportunity Measures ({contract.totalOpportunityCount})
+                              Opportunity Measures (
+                              {contract.totalOpportunityCount})
                             </h4>
                           </div>
                           <div className="space-y-2">
@@ -622,11 +711,11 @@ export function RiskOpportunityAnalysis() {
                               <div
                                 key={`${m.measureCode}-${idx}`}
                                 className={`rounded-lg border p-3 ${
-                                  m.isHEDIS 
-                                    ? "border-pink-500/30 bg-gradient-to-r from-green-500/5 to-pink-500/10" 
+                                  m.isHEDIS
+                                    ? "border-pink-500/30 bg-gradient-to-r from-green-500/5 to-pink-500/10"
                                     : m.isHOS
                                       ? "border-cyan-500/30 bg-gradient-to-r from-green-500/5 to-cyan-500/10"
-                                      : m.isPharmacy 
+                                      : m.isPharmacy
                                         ? "border-purple-500/30 bg-gradient-to-r from-green-500/5 to-purple-500/10"
                                         : "border-green-500/20 bg-green-500/5"
                                 }`}
@@ -671,9 +760,14 @@ export function RiskOpportunityAnalysis() {
                                     <div className="flex items-center gap-1.5">
                                       <div
                                         className="h-3 w-3 rounded-full"
-                                        style={{ backgroundColor: STAR_COLORS[m.starRating] }}
+                                        style={{
+                                          backgroundColor:
+                                            STAR_COLORS[m.starRating],
+                                        }}
                                       />
-                                      <span className="text-sm font-semibold">{m.starRating}★</span>
+                                      <span className="text-sm font-semibold">
+                                        {m.starRating}★
+                                      </span>
                                     </div>
                                     <p className="text-xs text-muted-foreground mt-0.5">
                                       {m.score}%
@@ -682,7 +776,8 @@ export function RiskOpportunityAnalysis() {
                                 </div>
                                 <div className="mt-2 pt-2 border-t border-green-500/20 text-xs">
                                   <span className="text-green-400 font-medium">
-                                    Only {m.opportunityPoints} pts below {m.upperCutPoint}% for {m.starRating + 1}★
+                                    Only {m.opportunityPoints} pts below{" "}
+                                    {m.upperCutPoint}% for {m.starRating + 1}★
                                   </span>
                                 </div>
                               </div>
@@ -710,11 +805,11 @@ export function RiskOpportunityAnalysis() {
               <div
                 key={measure.measureCode}
                 className={`rounded-2xl border bg-card p-6 ${
-                  measure.isHEDIS 
-                    ? "border-pink-500/30" 
+                  measure.isHEDIS
+                    ? "border-pink-500/30"
                     : measure.isHOS
                       ? "border-cyan-500/30"
-                      : measure.isPharmacy 
+                      : measure.isPharmacy
                         ? "border-purple-500/30"
                         : "border-border"
                 }`}
@@ -790,9 +885,16 @@ export function RiskOpportunityAnalysis() {
                           </thead>
                           <tbody>
                             {measure.riskContracts.map((c, idx) => (
-                              <tr key={`${c.contractId}-${idx}`} className="border-b border-red-500/10">
-                                <td className="py-1.5 pr-3 font-medium">{c.contractId}</td>
-                                <td className="py-1.5 pr-3 text-right">{c.score}%</td>
+                              <tr
+                                key={`${c.contractId}-${idx}`}
+                                className="border-b border-red-500/10"
+                              >
+                                <td className="py-1.5 pr-3 font-medium">
+                                  {c.contractId}
+                                </td>
+                                <td className="py-1.5 pr-3 text-right">
+                                  {c.score}%
+                                </td>
                                 <td className="py-1.5 pr-3 text-right">
                                   <span
                                     className="inline-flex items-center gap-1"
@@ -830,9 +932,16 @@ export function RiskOpportunityAnalysis() {
                           </thead>
                           <tbody>
                             {measure.opportunityContracts.map((c, idx) => (
-                              <tr key={`${c.contractId}-${idx}`} className="border-b border-green-500/10">
-                                <td className="py-1.5 pr-3 font-medium">{c.contractId}</td>
-                                <td className="py-1.5 pr-3 text-right">{c.score}%</td>
+                              <tr
+                                key={`${c.contractId}-${idx}`}
+                                className="border-b border-green-500/10"
+                              >
+                                <td className="py-1.5 pr-3 font-medium">
+                                  {c.contractId}
+                                </td>
+                                <td className="py-1.5 pr-3 text-right">
+                                  {c.score}%
+                                </td>
                                 <td className="py-1.5 pr-3 text-right">
                                   <span
                                     className="inline-flex items-center gap-1"
@@ -862,7 +971,8 @@ export function RiskOpportunityAnalysis() {
       {viewMode === "by-contract" && filteredData.byContract.length === 0 && (
         <div className="rounded-3xl border border-border bg-card p-8">
           <div className="text-center text-muted-foreground py-10">
-            No contracts with risk or opportunity measures found for the selected domain.
+            No contracts with risk or opportunity measures found for the
+            selected domain.
           </div>
         </div>
       )}
@@ -870,7 +980,8 @@ export function RiskOpportunityAnalysis() {
       {viewMode === "by-measure" && byMeasureData.length === 0 && (
         <div className="rounded-3xl border border-border bg-card p-8">
           <div className="text-center text-muted-foreground py-10">
-            No measures with risk or opportunity contracts found for the selected domain.
+            No measures with risk or opportunity contracts found for the
+            selected domain.
           </div>
         </div>
       )}

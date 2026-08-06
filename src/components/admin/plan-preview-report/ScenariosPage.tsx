@@ -12,7 +12,10 @@ import {
 } from "recharts";
 
 import { formatMeasureAcronyms } from "@/lib/plan-preview/measure-acronyms";
-import type { PlanPreviewContractReport, ReportScenario } from "@/lib/plan-preview/report-data";
+import type {
+  PlanPreviewContractReport,
+  ReportScenario,
+} from "@/lib/plan-preview/report-data";
 
 import {
   REPORT_COLORS,
@@ -49,7 +52,8 @@ export function ScenariosPage({
   pageRef?: Ref<HTMLDivElement>;
 }) {
   const scenarios = report.scenarios;
-  const baselineRating = scenarios.find((s) => s.id === "baseline")?.score?.finalRating ?? null;
+  const baselineRating =
+    scenarios.find((s) => s.id === "baseline")?.score?.finalRating ?? null;
 
   const chartData = scenarios.map((scenario) => ({
     id: scenario.id,
@@ -74,11 +78,20 @@ export function ScenariosPage({
         note="Each scenario removes its measure set, recomputes reward-factor thresholds, and re-scores at the projected cut points."
       >
         <div className="fep-report-panel" style={{ padding: "10px 10px 2px" }}>
-          <BarChart width={686} height={175} data={chartData} margin={{ top: 18, right: 16, left: -18, bottom: 0 }}>
+          <BarChart
+            width={686}
+            height={175}
+            data={chartData}
+            margin={{ top: 18, right: 16, left: -18, bottom: 0 }}
+          >
             <CartesianGrid stroke={REPORT_COLORS.grid} vertical={false} />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 10.5, fontWeight: 700, fill: REPORT_COLORS.ink }}
+              tick={{
+                fontSize: 10.5,
+                fontWeight: 700,
+                fill: REPORT_COLORS.ink,
+              }}
               axisLine={{ stroke: REPORT_COLORS.grid }}
               tickLine={false}
             />
@@ -89,18 +102,31 @@ export function ScenariosPage({
               axisLine={false}
               tickLine={false}
             />
-            <Bar dataKey="rating" radius={[5, 5, 0, 0]} barSize={64} isAnimationActive={false}>
+            <Bar
+              dataKey="rating"
+              radius={[5, 5, 0, 0]}
+              barSize={64}
+              isAnimationActive={false}
+            >
               {chartData.map((entry) => (
                 <Cell
                   key={entry.id}
-                  fill={entry.id === "baseline" ? REPORT_COLORS.accent : REPORT_COLORS.accentSoft}
+                  fill={
+                    entry.id === "baseline"
+                      ? REPORT_COLORS.accent
+                      : REPORT_COLORS.accentSoft
+                  }
                 />
               ))}
               <LabelList
                 dataKey="rating"
                 position="top"
                 formatter={chartValueFormatter(1, "★", "n/a")}
-                style={{ fontSize: 12, fontWeight: 800, fill: REPORT_COLORS.ink }}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  fill: REPORT_COLORS.ink,
+                }}
               />
             </Bar>
           </BarChart>
@@ -128,12 +154,17 @@ export function ScenariosPage({
                 const leg = selectedLeg(scenario);
                 const rating = scenario.score?.finalRating ?? null;
                 const delta =
-                  rating !== null && baselineRating !== null && scenario.id !== "baseline"
+                  rating !== null &&
+                  baselineRating !== null &&
+                  scenario.id !== "baseline"
                     ? Math.round((rating - baselineRating) * 10) / 10
                     : null;
                 return (
                   <tr key={scenario.id}>
-                    <td className="l" style={{ fontWeight: 700, color: "var(--fep-ink)" }}>
+                    <td
+                      className="l"
+                      style={{ fontWeight: 700, color: "var(--fep-ink)" }}
+                    >
                       {scenario.label}
                     </td>
                     <td>{scenario.removedContractCodes.length}</td>
@@ -158,7 +189,9 @@ export function ScenariosPage({
                               : REPORT_COLORS.negative,
                       }}
                     >
-                      {scenario.id === "baseline" ? "—" : formatSigned(delta, 1)}
+                      {scenario.id === "baseline"
+                        ? "—"
+                        : formatSigned(delta, 1)}
                     </td>
                   </tr>
                 );
@@ -168,19 +201,53 @@ export function ScenariosPage({
         </div>
       </ReportSection>
 
-      <ReportSection title="What Each Scenario Removes" style={{ marginTop: 12 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+      <ReportSection
+        title="What Each Scenario Removes"
+        style={{ marginTop: 12 }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: 8,
+          }}
+        >
           {scenarios
             .filter((scenario) => scenario.id !== "baseline")
             .map((scenario) => (
-              <div key={scenario.id} className="fep-report-panel" style={{ padding: "8px 10px" }}>
-                <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, color: "var(--fep-ink)" }}>
+              <div
+                key={scenario.id}
+                className="fep-report-panel"
+                style={{ padding: "8px 10px" }}
+              >
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                    color: "var(--fep-ink)",
+                  }}
+                >
                   {scenario.label}
                 </p>
-                <p style={{ margin: "3px 0 0", fontSize: 8.5, lineHeight: 1.35, color: "var(--fep-muted)" }}>
+                <p
+                  style={{
+                    margin: "3px 0 0",
+                    fontSize: 8.5,
+                    lineHeight: 1.35,
+                    color: "var(--fep-muted)",
+                  }}
+                >
                   {scenario.description}
                 </p>
-                <p style={{ margin: "5px 0 0", fontSize: 8.5, fontWeight: 700, color: "var(--fep-accent)" }}>
+                <p
+                  style={{
+                    margin: "5px 0 0",
+                    fontSize: 8.5,
+                    fontWeight: 700,
+                    color: "var(--fep-accent)",
+                  }}
+                >
                   {scenario.removedContractCodes.length > 0
                     ? `Removed here: ${formatMeasureAcronyms(scenario.removedContractCodes)}`
                     : "No accrued measures affected."}
@@ -189,8 +256,8 @@ export function ScenariosPage({
             ))}
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 6 }}>
-          Clover-style recalc uses Part C CAI (Part C summary). QI is excluded from every scenario —
-          it is not scored in plan preview 1.
+          Clover-style recalc uses Part C CAI (Part C summary). QI is excluded
+          from every scenario — it is not scored in plan preview 1.
         </p>
       </ReportSection>
     </ReportPageFrame>

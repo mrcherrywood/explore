@@ -8,7 +8,8 @@ import type { CloverContractImpact } from "@/lib/clover-impact/analysis";
 
 const ESTIMATED_BENCHMARK_PMPM = 1200;
 const QUALITY_BONUS_RATE = 0.05;
-const ESTIMATED_ANNUAL_QBP_PER_MEMBER = ESTIMATED_BENCHMARK_PMPM * 12 * QUALITY_BONUS_RATE;
+const ESTIMATED_ANNUAL_QBP_PER_MEMBER =
+  ESTIMATED_BENCHMARK_PMPM * 12 * QUALITY_BONUS_RATE;
 const QBP_ELIGIBILITY_THRESHOLD = 4.0;
 
 type RecalcRow = {
@@ -54,26 +55,37 @@ function formatEnrollment(value: number | null): string {
 function formatCurrency(value: number): string {
   const sign = value < 0 ? "-" : "";
   const absoluteValue = Math.abs(value);
-  if (absoluteValue >= 1_000_000_000) return `${sign}$${(absoluteValue / 1_000_000_000).toFixed(1)}B`;
-  if (absoluteValue >= 1_000_000) return `${sign}$${(absoluteValue / 1_000_000).toFixed(1)}M`;
-  if (absoluteValue >= 1_000) return `${sign}$${(absoluteValue / 1_000).toFixed(0)}K`;
+  if (absoluteValue >= 1_000_000_000)
+    return `${sign}$${(absoluteValue / 1_000_000_000).toFixed(1)}B`;
+  if (absoluteValue >= 1_000_000)
+    return `${sign}$${(absoluteValue / 1_000_000).toFixed(1)}M`;
+  if (absoluteValue >= 1_000)
+    return `${sign}$${(absoluteValue / 1_000).toFixed(0)}K`;
   return `${sign}$${absoluteValue.toLocaleString()}`;
 }
 
 function buildRow(contract: CloverContractImpact): RecalcRow {
   const qbp = contract.qbp2027;
-  const originalEligible = qbp.originalRating !== null && qbp.originalRating >= QBP_ELIGIBILITY_THRESHOLD;
-  const finalEligible = qbp.finalRating !== null && qbp.finalRating >= QBP_ELIGIBILITY_THRESHOLD;
+  const originalEligible =
+    qbp.originalRating !== null &&
+    qbp.originalRating >= QBP_ELIGIBILITY_THRESHOLD;
+  const finalEligible =
+    qbp.finalRating !== null && qbp.finalRating >= QBP_ELIGIBILITY_THRESHOLD;
   const gainsBonus = qbp.ratingIncreased && !originalEligible && finalEligible;
   const enrollment = contract.totalEnrollment;
-  const estimatedAnnualGain = gainsBonus ? (enrollment ?? 0) * ESTIMATED_ANNUAL_QBP_PER_MEMBER : 0;
+  const estimatedAnnualGain = gainsBonus
+    ? (enrollment ?? 0) * ESTIMATED_ANNUAL_QBP_PER_MEMBER
+    : 0;
   const originalScore = contract.calculated2026HoldHarmless?.score ?? null;
   const roundsBelowOfficial =
-    originalScore !== null && qbp.originalRating !== null && roundToHalf(originalScore) < qbp.originalRating;
+    originalScore !== null &&
+    qbp.originalRating !== null &&
+    roundToHalf(originalScore) < qbp.originalRating;
 
   return {
     contractId: contract.contractId,
-    organizationName: contract.organizationMarketingName || contract.contractName || "Unknown",
+    organizationName:
+      contract.organizationMarketingName || contract.contractName || "Unknown",
     parentOrganization: contract.parentOrganization ?? "Unknown",
     enrollment,
     disasterPercent: contract.disasterPercent,
@@ -103,27 +115,35 @@ function SummaryCard({
   accent?: boolean;
 }) {
   return (
-    <div className={`rounded-xl border p-4 ${accent ? "border-emerald-500/20 bg-emerald-500/5" : "border-border bg-card/40"}`}>
+    <div
+      className={`rounded-xl border p-4 ${accent ? "border-emerald-500/20 bg-emerald-500/5" : "border-border bg-card/40"}`}
+    >
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold tabular-nums ${accent ? "text-emerald-400" : "text-foreground"}`}>{value}</p>
+      <p
+        className={`mt-1 text-2xl font-semibold tabular-nums ${accent ? "text-emerald-400" : "text-foreground"}`}
+      >
+        {value}
+      </p>
       <p className="mt-1 text-xs text-muted-foreground">{caption}</p>
     </div>
   );
 }
 
-export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContractImpact[] }) {
+export function CloverQbpRecalcAnalysis({
+  contracts,
+}: {
+  contracts: CloverContractImpact[];
+}) {
   const [parentFilter, setParentFilter] = useState<string>("all");
 
   const allRows = useMemo(
     () =>
-      contracts
-        .map(buildRow)
-        .sort((a, b) => {
-          const aChange = (a.finalRating ?? 0) - (a.originalRating ?? 0);
-          const bChange = (b.finalRating ?? 0) - (b.originalRating ?? 0);
-          if (bChange !== aChange) return bChange - aChange;
-          return (b.enrollment ?? 0) - (a.enrollment ?? 0);
-        }),
+      contracts.map(buildRow).sort((a, b) => {
+        const aChange = (a.finalRating ?? 0) - (a.originalRating ?? 0);
+        const bChange = (b.finalRating ?? 0) - (b.originalRating ?? 0);
+        if (bChange !== aChange) return bChange - aChange;
+        return (b.enrollment ?? 0) - (a.enrollment ?? 0);
+      }),
     [contracts],
   );
 
@@ -133,20 +153,33 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
   }, [allRows]);
 
   const filteredRows = useMemo(
-    () => (parentFilter === "all" ? allRows : allRows.filter((row) => row.parentOrganization === parentFilter)),
+    () =>
+      parentFilter === "all"
+        ? allRows
+        : allRows.filter((row) => row.parentOrganization === parentFilter),
     [allRows, parentFilter],
   );
 
   const summary = useMemo(() => {
     const improvedRows = allRows.filter((row) => row.ratingIncreased);
-    const improvedEnrollment = improvedRows.reduce((sum, row) => sum + (row.enrollment ?? 0), 0);
+    const improvedEnrollment = improvedRows.reduce(
+      (sum, row) => sum + (row.enrollment ?? 0),
+      0,
+    );
     const bonusRows = improvedRows.filter((row) => row.gainsBonus);
-    const bonusEnrollment = bonusRows.reduce((sum, row) => sum + (row.enrollment ?? 0), 0);
-    const bonusDollars = bonusRows.reduce((sum, row) => sum + row.estimatedAnnualGain, 0);
+    const bonusEnrollment = bonusRows.reduce(
+      (sum, row) => sum + (row.enrollment ?? 0),
+      0,
+    );
+    const bonusDollars = bonusRows.reduce(
+      (sum, row) => sum + row.estimatedAnnualGain,
+      0,
+    );
     const bidRows = improvedRows.filter((row) => row.bidResubmissionEligible);
     return {
       roundUpContracts: allRows.filter((row) => row.roundsBelowOfficial).length,
-      disasterContracts: allRows.filter((row) => (row.disasterPercent ?? 0) > 0).length,
+      disasterContracts: allRows.filter((row) => (row.disasterPercent ?? 0) > 0)
+        .length,
       improvedContracts: improvedRows.length,
       improvedEnrollment,
       bonusContracts: bonusRows.length,
@@ -178,7 +211,9 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
       row.organizationName,
       row.parentOrganization,
       row.enrollment === null ? "" : String(row.enrollment),
-      row.disasterPercent === null ? "" : String(Math.round(row.disasterPercent)),
+      row.disasterPercent === null
+        ? ""
+        : String(Math.round(row.disasterPercent)),
       formatRating(row.originalRating),
       formatScore(row.originalScore),
       row.roundsBelowOfficial ? "Yes" : "No",
@@ -197,13 +232,18 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
         <div className="flex items-start gap-3">
           <Scale className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
           <div>
-            <h3 className="text-base font-semibold text-foreground">Official Stars 2026 Recalculation Impact</h3>
+            <h3 className="text-base font-semibold text-foreground">
+              Official Stars 2026 Recalculation Impact
+            </h3>
             <p className="mt-1 max-w-3xl text-pretty text-xs text-muted-foreground">
-              CMS&apos;s June 17, 2026 voluntary recalculation is hold-harmless: a contract&apos;s final Stars 2026 rating (which
-              drives the 2027 QBP) is the higher of its original rating and the recalculated rating, so no contract is
-              downgraded. All contracts are shown. Dollar estimates are a ballpark for contracts newly reaching the{" "}
-              {QBP_ELIGIBILITY_THRESHOLD.toFixed(1)}-star QBP bonus: enrollment x ${ESTIMATED_BENCHMARK_PMPM.toLocaleString()}{" "}
-              PMPM x 12 x {(QUALITY_BONUS_RATE * 100).toFixed(0)}%.
+              CMS&apos;s June 17, 2026 voluntary recalculation is hold-harmless:
+              a contract&apos;s final Stars 2026 rating (which drives the 2027
+              QBP) is the higher of its original rating and the recalculated
+              rating, so no contract is downgraded. All contracts are shown.
+              Dollar estimates are a ballpark for contracts newly reaching the{" "}
+              {QBP_ELIGIBILITY_THRESHOLD.toFixed(1)}-star QBP bonus: enrollment
+              x ${ESTIMATED_BENCHMARK_PMPM.toLocaleString()} PMPM x 12 x{" "}
+              {(QUALITY_BONUS_RATE * 100).toFixed(0)}%.
             </p>
           </div>
         </div>
@@ -257,9 +297,15 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
           </select>
         </label>
         <p className="text-xs text-muted-foreground">
-          <span className="font-medium tabular-nums text-foreground">{filteredRows.length}</span> contracts shown
+          <span className="font-medium tabular-nums text-foreground">
+            {filteredRows.length}
+          </span>{" "}
+          contracts shown
           {" · "}
-          <span className="font-medium tabular-nums text-emerald-500">{summary.improvedContracts}</span> improved
+          <span className="font-medium tabular-nums text-emerald-500">
+            {summary.improvedContracts}
+          </span>{" "}
+          improved
         </p>
       </div>
 
@@ -271,11 +317,17 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
               <th className="px-3 py-2 text-left">Parent</th>
               <th className="px-3 py-2 text-right">Enrollment</th>
               <th className="px-3 py-2 text-right">Original 2026</th>
-              <th className="px-3 py-2 text-right" title="Calculated original Stars 2026 score (unrounded) over the full measure set, before the recalc, with the QI hold-harmless applied (higher of with/without improvement measures)">
+              <th
+                className="px-3 py-2 text-right"
+                title="Calculated original Stars 2026 score (unrounded) over the full measure set, before the recalc, with the QI hold-harmless applied (higher of with/without improvement measures)"
+              >
                 Original Calc Score
               </th>
               <th className="px-3 py-2 text-right">Recalc Score</th>
-              <th className="px-3 py-2 text-right" title="Published 2026 Part C CAI (Technical Notes Table 15), applied because the recalc removes all Part D measures">
+              <th
+                className="px-3 py-2 text-right"
+                title="Published 2026 Part C CAI (Technical Notes Table 15), applied because the recalc removes all Part D measures"
+              >
                 Part C CAI
               </th>
               <th className="px-3 py-2 text-right">Final 2026 (HH)</th>
@@ -299,11 +351,19 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
                     ) : null}
                   </td>
                   <td className="px-3 py-2">
-                    <p className="max-w-[240px] truncate text-foreground">{row.organizationName}</p>
-                    <p className="max-w-[240px] truncate text-xs text-muted-foreground">{row.parentOrganization}</p>
+                    <p className="max-w-[240px] truncate text-foreground">
+                      {row.organizationName}
+                    </p>
+                    <p className="max-w-[240px] truncate text-xs text-muted-foreground">
+                      {row.parentOrganization}
+                    </p>
                   </td>
-                  <td className="px-3 py-2 text-right font-mono text-xs">{formatEnrollment(row.enrollment)}</td>
-                  <td className="px-3 py-2 text-right font-mono text-xs">{formatRating(row.originalRating)}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">
+                    {formatEnrollment(row.enrollment)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">
+                    {formatRating(row.originalRating)}
+                  </td>
                   <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
                     {formatScore(row.originalScore)}
                     {row.roundsBelowOfficial ? (
@@ -315,17 +375,25 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
                       </span>
                     ) : null}
                   </td>
-                  <td className="px-3 py-2 text-right font-mono text-xs">{formatScore(row.recalcRaw)}</td>
-                  <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">{formatCai(row.partCCai)}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">
+                    {formatScore(row.recalcRaw)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
+                    {formatCai(row.partCCai)}
+                  </td>
                   <td
                     className={`px-3 py-2 text-right font-mono text-xs font-semibold ${
-                      row.ratingIncreased ? "text-emerald-500" : "text-foreground"
+                      row.ratingIncreased
+                        ? "text-emerald-500"
+                        : "text-foreground"
                     }`}
                   >
                     {formatRating(row.finalRating)}
                   </td>
                   <td className="px-3 py-2 text-right font-mono text-xs text-emerald-500">
-                    {row.estimatedAnnualGain > 0 ? formatCurrency(row.estimatedAnnualGain) : "-"}
+                    {row.estimatedAnnualGain > 0
+                      ? formatCurrency(row.estimatedAnnualGain)
+                      : "-"}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
@@ -335,7 +403,7 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
                             Gains QBP
                           </span>
                         ) : (
-                          <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-300">
+                          <span className="rounded-full bg-[var(--fep-band-bg)] px-2 py-0.5 text-xs font-medium text-[var(--fep-accent)]">
                             Higher rating
                           </span>
                         )
@@ -359,7 +427,10 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
               ))
             ) : (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                <td
+                  colSpan={10}
+                  className="px-3 py-6 text-center text-sm text-muted-foreground"
+                >
                   No contracts match the selected parent organization.
                 </td>
               </tr>
@@ -370,20 +441,29 @@ export function CloverQbpRecalcAnalysis({ contracts }: { contracts: CloverContra
 
       {summary.roundUpContracts > 0 ? (
         <p className="mt-3 text-xs text-muted-foreground">
-          <span className="font-semibold text-amber-500">*</span> Original Calc Score rounds below the official rating for{" "}
-          <span className="font-medium tabular-nums text-foreground">{summary.roundUpContracts}</span> contracts — CMS
-          rounded up beyond what the reconstructed score supports. This is almost always a reward factor we model as 0
-          because the reconstructed weighted variance (from integer measure stars with heavy ties) runs higher than CMS&apos;s.
+          <span className="font-semibold text-amber-500">*</span> Original Calc
+          Score rounds below the official rating for{" "}
+          <span className="font-medium tabular-nums text-foreground">
+            {summary.roundUpContracts}
+          </span>{" "}
+          contracts — CMS rounded up beyond what the reconstructed score
+          supports. This is almost always a reward factor we model as 0 because
+          the reconstructed weighted variance (from integer measure stars with
+          heavy ties) runs higher than CMS&apos;s.
         </p>
       ) : null}
 
       {summary.disasterContracts > 0 ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          <span className="font-semibold text-amber-500">&dagger;</span> Disaster-affected (extreme &amp; uncontrollable
-          circumstances) for{" "}
-          <span className="font-medium tabular-nums text-foreground">{summary.disasterContracts}</span> contracts. CMS
-          assigns each affected measure the higher of its current- and prior-year star, which our reconstruction does not
-          model — a common reason these contracts&apos; official rating exceeds our calculated score.
+          <span className="font-semibold text-amber-500">&dagger;</span>{" "}
+          Disaster-affected (extreme &amp; uncontrollable circumstances) for{" "}
+          <span className="font-medium tabular-nums text-foreground">
+            {summary.disasterContracts}
+          </span>{" "}
+          contracts. CMS assigns each affected measure the higher of its
+          current- and prior-year star, which our reconstruction does not model
+          — a common reason these contracts&apos; official rating exceeds our
+          calculated score.
         </p>
       ) : null}
     </section>

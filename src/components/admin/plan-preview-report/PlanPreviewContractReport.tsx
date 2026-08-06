@@ -31,15 +31,17 @@ export function PlanPreviewContractReport({
     setLoading(true);
     setError(null);
     fetch(
-      `/api/admin/plan-preview/report?starsYear=${starsYear}&contractId=${encodeURIComponent(contractId)}`
+      `/api/admin/plan-preview/report?starsYear=${starsYear}&contractId=${encodeURIComponent(contractId)}`,
     )
       .then(async (response) => {
         const body = await response.json();
-        if (!response.ok) throw new Error(body.error ?? "Failed to load the contract report.");
+        if (!response.ok)
+          throw new Error(body.error ?? "Failed to load the contract report.");
         if (!cancelled) setReport(body as ReportData);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled)
+          setError(err instanceof Error ? err.message : String(err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -53,7 +55,7 @@ export function PlanPreviewContractReport({
     const container = pagesRef.current;
     if (!container || exporting) return;
     const pages = Array.from(
-      container.querySelectorAll<HTMLElement>("[data-report-page]")
+      container.querySelectorAll<HTMLElement>("[data-report-page]"),
     );
     if (pages.length === 0) return;
 
@@ -65,7 +67,9 @@ export function PlanPreviewContractReport({
       });
     } catch (err) {
       console.error("Failed to export contract report PDF", err);
-      setError(err instanceof Error ? err.message : "Failed to export the report PDF.");
+      setError(
+        err instanceof Error ? err.message : "Failed to export the report PDF.",
+      );
     } finally {
       container.classList.remove("pdf-export-mode");
       setExporting(false);
@@ -81,8 +85,8 @@ export function PlanPreviewContractReport({
         <div>
           <h1 className="fep-title">Contract Report</h1>
           <p className="fep-subtitle">
-            {contractId} · Stars {starsYear} plan preview projection, formatted for 8.5×11 PDF
-            export.
+            {contractId} · Stars {starsYear} plan preview projection, formatted
+            for 8.5×11 PDF export.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -116,10 +120,22 @@ export function PlanPreviewContractReport({
           ref={pagesRef}
           className="flex flex-col items-center gap-7 px-[30px] pb-12"
         >
-          <OverviewPage report={report} pageNumber={1} totalPages={TOTAL_PAGES} />
-          <DomainsPage report={report} pageNumber={2} totalPages={TOTAL_PAGES} />
+          <OverviewPage
+            report={report}
+            pageNumber={1}
+            totalPages={TOTAL_PAGES}
+          />
+          <DomainsPage
+            report={report}
+            pageNumber={2}
+            totalPages={TOTAL_PAGES}
+          />
           <YoyPage report={report} pageNumber={3} totalPages={TOTAL_PAGES} />
-          <ScenariosPage report={report} pageNumber={4} totalPages={TOTAL_PAGES} />
+          <ScenariosPage
+            report={report}
+            pageNumber={4}
+            totalPages={TOTAL_PAGES}
+          />
         </div>
       ) : null}
     </div>

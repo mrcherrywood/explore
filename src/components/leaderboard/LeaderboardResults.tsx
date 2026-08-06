@@ -3,30 +3,50 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Trophy, TrendingDown, TrendingUp, X } from "lucide-react";
 import Link from "next/link";
-import type { LeaderboardEntry, LeaderboardResponse, LeaderboardSection } from "@/lib/leaderboard/types";
+import type {
+  LeaderboardEntry,
+  LeaderboardResponse,
+  LeaderboardSection,
+} from "@/lib/leaderboard/types";
 import { US_STATE_NAMES } from "@/lib/leaderboard/states";
 
-function formatDelta(entry: LeaderboardEntry, metricType: LeaderboardSection["metricType"]): string {
+function formatDelta(
+  entry: LeaderboardEntry,
+  metricType: LeaderboardSection["metricType"],
+): string {
   if (entry.delta === null || entry.delta === undefined) {
     return "";
   }
   const sign = entry.delta > 0 ? "+" : "";
-  const value = metricType === "rate" ? `${entry.delta.toFixed(1)}%` : entry.delta.toFixed(1);
+  const value =
+    metricType === "rate"
+      ? `${entry.delta.toFixed(1)}%`
+      : entry.delta.toFixed(1);
   return `${sign}${value}`;
 }
 
-function formatValue(entry: LeaderboardEntry, metricType: LeaderboardSection["metricType"]): string {
+function formatValue(
+  entry: LeaderboardEntry,
+  metricType: LeaderboardSection["metricType"],
+): string {
   if (entry.value === null || entry.value === undefined) {
     return "—";
   }
-  return metricType === "rate" ? `${entry.value.toFixed(1)}%` : entry.value.toFixed(1);
+  return metricType === "rate"
+    ? `${entry.value.toFixed(1)}%`
+    : entry.value.toFixed(1);
 }
 
-function formatPrior(entry: LeaderboardEntry, metricType: LeaderboardSection["metricType"]): string {
+function formatPrior(
+  entry: LeaderboardEntry,
+  metricType: LeaderboardSection["metricType"],
+): string {
   if (entry.priorValue === null || entry.priorValue === undefined) {
     return "—";
   }
-  return metricType === "rate" ? `${entry.priorValue.toFixed(1)}%` : entry.priorValue.toFixed(1);
+  return metricType === "rate"
+    ? `${entry.priorValue.toFixed(1)}%`
+    : entry.priorValue.toFixed(1);
 }
 
 const slugifyLabel = (value: string) =>
@@ -73,25 +93,38 @@ function LeaderboardList({
                       {entry.rank}
                     </span>
                     <div className="flex flex-col">
-                      <p className="text-sm font-semibold text-foreground">{entry.entityLabel}</p>
-                      {showInlineRate && metricType === "rate" && entry.value !== null && (
+                      <p className="text-sm font-semibold text-foreground">
+                        {entry.entityLabel}
+                      </p>
+                      {showInlineRate &&
+                        metricType === "rate" &&
+                        entry.value !== null && (
+                          <p className="text-[0.65rem] text-muted-foreground">
+                            Measure rate {entry.valueLabel}
+                            {entry.reportYear ? ` (${entry.reportYear})` : ""}
+                          </p>
+                        )}
+                      {entry.totalEnrollment && (
                         <p className="text-[0.65rem] text-muted-foreground">
-                          Measure rate {entry.valueLabel}
-                          {entry.reportYear ? ` (${entry.reportYear})` : ""}
+                          {entry.totalEnrollment.toLocaleString()} enrolled
                         </p>
                       )}
-                      {entry.totalEnrollment && (
-                        <p className="text-[0.65rem] text-muted-foreground">{entry.totalEnrollment.toLocaleString()} enrolled</p>
-                      )}
                       {entry.parentOrganization && (
-                        <p className="text-[0.65rem] text-muted-foreground">Parent Org {entry.parentOrganization}</p>
+                        <p className="text-[0.65rem] text-muted-foreground">
+                          Parent Org {entry.parentOrganization}
+                        </p>
                       )}
                       {entry.isBlueCrossBlueShield && (
-                        <p className="text-[0.65rem] text-primary">Blue Cross Blue Shield</p>
+                        <p className="text-[0.65rem] text-primary">
+                          Blue Cross Blue Shield
+                        </p>
                       )}
                       {entry.contractId && entry.dominantState && (
                         <p className="text-[0.65rem] text-muted-foreground">
-                          Dominant {entry.dominantState} • {(entry.dominantShare ?? 0) > 0 ? `${((entry.dominantShare ?? 0) * 100).toFixed(1)}%` : "<40%"}
+                          Dominant {entry.dominantState} •{" "}
+                          {(entry.dominantShare ?? 0) > 0
+                            ? `${((entry.dominantShare ?? 0) * 100).toFixed(1)}%`
+                            : "<40%"}
                         </p>
                       )}
                     </div>
@@ -100,7 +133,9 @@ function LeaderboardList({
                     <span className="font-semibold text-foreground">
                       {formatValue(entry, metricType)}
                       {entry.reportYear ? (
-                        <span className="ml-2 text-[0.65rem] font-normal text-muted-foreground">({entry.reportYear})</span>
+                        <span className="ml-2 text-[0.65rem] font-normal text-muted-foreground">
+                          ({entry.reportYear})
+                        </span>
                       ) : null}
                     </span>
                     <span className="text-[0.65rem] text-muted-foreground">
@@ -112,12 +147,22 @@ function LeaderboardList({
                 {entry.delta !== null && entry.delta !== undefined && (
                   <div className="flex items-center justify-between text-xs">
                     <span>
-                      {entry.metadata?.contractCount ? `${entry.metadata.contractCount} contracts` : ""}
+                      {entry.metadata?.contractCount
+                        ? `${entry.metadata.contractCount} contracts`
+                        : ""}
                       {entry.metadata?.blueContractCount
                         ? `${entry.metadata?.contractCount ? " • " : ""}${entry.metadata.blueContractCount} Blue`
                         : ""}
                     </span>
-                    <span className={entry.delta > 0 ? "text-green-400" : entry.delta < 0 ? "text-red-400" : "text-muted-foreground"}>
+                    <span
+                      className={
+                        entry.delta > 0
+                          ? "text-green-400"
+                          : entry.delta < 0
+                            ? "text-red-400"
+                            : "text-muted-foreground"
+                      }
+                    >
                       {formatDelta(entry, metricType)}
                     </span>
                   </div>
@@ -125,8 +170,11 @@ function LeaderboardList({
               </>
             );
 
-            const baseClasses = "flex flex-col gap-1 rounded-xl border border-border/60 bg-muted/50 p-3";
-            const linkClasses = entry.contractId ? "transition-all hover:border-primary/40 hover:bg-muted/70 hover:shadow-sm" : "";
+            const baseClasses =
+              "flex flex-col gap-1 rounded-xl border border-border/60 bg-muted/50 p-3";
+            const linkClasses = entry.contractId
+              ? "transition-all hover:border-primary/40 hover:bg-muted/70 hover:shadow-sm"
+              : "";
 
             return (
               <li key={`${title}-${entry.entityId}`}>
@@ -153,27 +201,33 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
   const summaryChips = useMemo(() => {
     const chips: string[] = [];
     if (data.mode === "contract") {
-      const contractFilters = data.filters as import("@/lib/leaderboard/types").ContractLeaderboardFilters;
+      const contractFilters =
+        data.filters as import("@/lib/leaderboard/types").ContractLeaderboardFilters;
       chips.push(
         contractFilters.stateOption === "all"
           ? "All Contracts"
-          : `State ${(contractFilters.state && (US_STATE_NAMES[String(contractFilters.state)] ?? contractFilters.state)) || "Unknown"}`
+          : `State ${(contractFilters.state && (US_STATE_NAMES[String(contractFilters.state)] ?? contractFilters.state)) || "Unknown"}`,
       );
       chips.push(
         contractFilters.planTypeGroup === "ALL"
           ? "All Plan Types"
           : contractFilters.planTypeGroup === "SNP"
-          ? "SNP Plans"
-          : "Non-SNP Plans"
+            ? "SNP Plans"
+            : "Non-SNP Plans",
       );
-      chips.push(contractFilters.contractSeries === "H_ONLY" ? "H-Series Contracts" : "S-Series Contracts");
+      chips.push(
+        contractFilters.contractSeries === "H_ONLY"
+          ? "H-Series Contracts"
+          : "S-Series Contracts",
+      );
       chips.push(`Enrollment ${contractFilters.enrollmentLevel}`);
       chips.push(`Top ${contractFilters.topLimit ?? 10}`);
       if (contractFilters.blueOnly) {
         chips.push("Blue Cross Blue Shield Only");
       }
     } else {
-      const orgFilters = data.filters as import("@/lib/leaderboard/types").OrganizationLeaderboardFilters;
+      const orgFilters =
+        data.filters as import("@/lib/leaderboard/types").OrganizationLeaderboardFilters;
       const bucketLabels: Record<string, string> = {
         all: "All Parent Orgs",
         lt5: "< 5 Contracts",
@@ -200,11 +254,16 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const sectionAnchors = useMemo(() => {
-    const anchors: { id: string; label: string }[] = [{ id: "leaderboard-summary", label: "Summary" }];
+    const anchors: { id: string; label: string }[] = [
+      { id: "leaderboard-summary", label: "Summary" },
+    ];
 
     data.sections.forEach((section, index) => {
       const title = section.title || `Section ${index + 1}`;
-      anchors.push({ id: `leaderboard-section-${index + 1}-${slugifyLabel(title)}`, label: title });
+      anchors.push({
+        id: `leaderboard-section-${index + 1}-${slugifyLabel(title)}`,
+        label: title,
+      });
     });
 
     return anchors;
@@ -226,7 +285,11 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
 
         const nearest = entries
           .slice()
-          .sort((a, b) => Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top))[0];
+          .sort(
+            (a, b) =>
+              Math.abs(a.boundingClientRect.top) -
+              Math.abs(b.boundingClientRect.top),
+          )[0];
 
         if (nearest) {
           setActiveSectionId(nearest.target.id);
@@ -235,7 +298,7 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
       {
         rootMargin: "-45% 0px -45% 0px",
         threshold: [0.1, 0.5, 0.75],
-      }
+      },
     );
 
     sectionAnchors.forEach((anchor) => {
@@ -285,10 +348,16 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
   return (
     <>
       <section className="flex flex-col gap-6">
-        <div id="leaderboard-summary" className="rounded-3xl border border-border bg-card p-8">
+        <div
+          id="leaderboard-summary"
+          className="rounded-3xl border border-border bg-card p-8"
+        >
           <div className="flex flex-wrap gap-3">
             {summaryChips.map((chip) => (
-              <span key={chip} className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+              <span
+                key={chip}
+                className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground"
+              >
                 {chip}
               </span>
             ))}
@@ -314,9 +383,15 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
             className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-8"
           >
             <div className="flex flex-col gap-1">
-              <h3 className="text-lg font-semibold text-foreground">{section.title}</h3>
+              <h3 className="text-lg font-semibold text-foreground">
+                {section.title}
+              </h3>
               <p className="text-xs text-muted-foreground">
-                Ranking based on {section.metricType === "rate" ? "rate percentage" : "star rating"} across the selected cohort
+                Ranking based on{" "}
+                {section.metricType === "rate"
+                  ? "rate percentage"
+                  : "star rating"}{" "}
+                across the selected cohort
                 {section.direction === "lower" ? " (lower is better)" : ""}.
               </p>
             </div>
@@ -358,8 +433,12 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">Quick jump</p>
-                <h3 className="text-lg font-semibold text-foreground">Navigate to a section</h3>
+                <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
+                  Quick jump
+                </p>
+                <h3 className="text-lg font-semibold text-foreground">
+                  Navigate to a section
+                </h3>
               </div>
               <button
                 type="button"
@@ -386,8 +465,12 @@ export function LeaderboardResults({ data }: { data: LeaderboardResponse }) {
                     }`}
                     title={anchor.label}
                   >
-                    <span className="max-w-xs truncate text-left md:max-w-sm">{shortenLabel(anchor.label, 48)}</span>
-                    {isActive && <Check className="ml-3 h-4 w-4 text-primary" />}
+                    <span className="max-w-xs truncate text-left md:max-w-sm">
+                      {shortenLabel(anchor.label, 48)}
+                    </span>
+                    {isActive && (
+                      <Check className="ml-3 h-4 w-4 text-primary" />
+                    )}
                   </button>
                 );
               })}

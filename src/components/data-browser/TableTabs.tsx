@@ -12,7 +12,11 @@ type TableTabsProps = {
   baseParams: URLSearchParams;
 };
 
-export function TableTabs({ tables, currentTable, baseParams }: TableTabsProps) {
+export function TableTabs({
+  tables,
+  currentTable,
+  baseParams,
+}: TableTabsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [loadingTable, setLoadingTable] = useState<string | null>(null);
@@ -52,7 +56,7 @@ export function TableTabs({ tables, currentTable, baseParams }: TableTabsProps) 
               isActive
                 ? "border-primary/70 bg-primary/10 text-primary"
                 : "border-border text-muted-foreground hover:border-border/60 hover:text-foreground",
-              (isLoading || isActive) && "cursor-default"
+              (isLoading || isActive) && "cursor-default",
             )}
           >
             {isLoading && <Loader2 className="h-3 w-3 animate-spin" />}

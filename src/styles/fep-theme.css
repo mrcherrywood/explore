@@ -4,6 +4,7 @@
 .fep {
   --fep-accent: #1a3673;
   --fep-accent-deep: #12264f;
+  --fep-navy: #1a3673;
   --fep-ink: #20302c;
   --fep-muted: #5d6a63;
   --fep-faint: #8a958d;
@@ -116,7 +117,8 @@
   cursor: not-allowed;
 }
 
-.fep-select {
+.fep-select,
+.fep select:not([multiple]) {
   appearance: none;
   border: 1px solid var(--fep-input-border);
   background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%238a958d' stroke-width='2'><path d='M2 4l4 4 4-4'/></svg>") no-repeat right 9px center;

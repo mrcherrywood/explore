@@ -4,45 +4,44 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --card: #fefefe;
-  --card-border: rgba(148, 163, 184, 0.16);
-  --muted: #fafafa;
-  --accent: #fafafa;
-  --radius: 0.625rem;
-  --background: #fcfcfc;
-  --foreground: #1e293b;
-  --card-foreground: #1e293b;
-  --popover: #ffffff;
-  --popover-foreground: #1e293b;
-  --primary: #334155;
-  --primary-foreground: #fafafa;
-  --secondary: #fafafa;
-  --secondary-foreground: #334155;
-  --muted-foreground: #64748b;
-  --accent-foreground: #334155;
-  --destructive: #ef4444;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #94a3b8;
-  --chart-1: #f59e0b;
-  --chart-2: #3b82f6;
-  --chart-3: #1e40af;
-  --chart-4: #eab308;
-  --chart-5: #f97316;
-  --sidebar: #fcfcfc;
-  --sidebar-foreground: #1e293b;
-  --sidebar-primary: #334155;
-  --sidebar-primary-foreground: #fafafa;
-  --sidebar-accent: #fafafa;
-  --sidebar-accent-foreground: #334155;
-  --sidebar-border: #e2e8f0;
-  --sidebar-ring: #94a3b8;
+  --card: #fffdf8;
+  --card-border: rgba(32, 48, 44, 0.08);
+  --muted: #f8f5ee;
+  --accent: #dbe5f4;
+  --radius: 0.875rem;
+  --background: #f3efe6;
+  --foreground: #20302c;
+  --card-foreground: #20302c;
+  --popover: #fffdf8;
+  --popover-foreground: #20302c;
+  --primary: #1a3673;
+  --primary-foreground: #ffffff;
+  --secondary: #f8f5ee;
+  --secondary-foreground: #20302c;
+  --muted-foreground: #5d6a63;
+  --accent-foreground: #1a3673;
+  --destructive: #c26a4c;
+  --border: #ece5d7;
+  --input: #e2dccd;
+  --ring: #7f9dd1;
+  --chart-1: #1a3673;
+  --chart-2: #7f9dd1;
+  --chart-3: #c26a4c;
+  --chart-4: #9a7415;
+  --chart-5: #5d6a63;
+  --sidebar: #f3efe6;
+  --sidebar-foreground: #20302c;
+  --sidebar-primary: #1a3673;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #dbe5f4;
+  --sidebar-accent-foreground: #1a3673;
+  --sidebar-border: #ece5d7;
+  --sidebar-ring: #7f9dd1;
 }
 
 body {
-  min-height: 100vh;
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui;
-  letter-spacing: 0.01em;
+  min-height: 100dvh;
+  font-family: var(--font-hanken), "Hanken Grotesk", system-ui, sans-serif;
 }
 
 a {
@@ -50,15 +49,8 @@ a {
 }
 
 ::selection {
-  background: rgba(100, 116, 139, 0.35);
-}
-
-:root ::selection {
-  color: #1e293b;
-}
-
-.dark ::selection {
-  color: #f8fafc;
+  background: rgba(26, 54, 115, 0.18);
+  color: #20302c;
 }
 
 ::-webkit-scrollbar {
@@ -71,12 +63,12 @@ a {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
+  background: rgba(154, 164, 156, 0.55);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.65);
+  background: rgba(93, 106, 99, 0.65);
 }
 
 ::-webkit-scrollbar-corner {
@@ -121,38 +113,39 @@ a {
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Light-only FEP: keep .dark aliased so leftover dark: utilities cannot flip the UI. */
 .dark {
-  --background: #0a0a0a;
-  --foreground: #fafafa;
-  --card: #141414;
-  --card-foreground: #fafafa;
-  --popover: #141414;
-  --popover-foreground: #fafafa;
-  --primary: #e5e5e5;
-  --primary-foreground: #141414;
-  --secondary: #1f1f1f;
-  --secondary-foreground: #fafafa;
-  --muted: #0f0f0f;
-  --muted-foreground: #94a3b8;
-  --accent: #1f1f1f;
-  --accent-foreground: #fafafa;
-  --destructive: #dc2626;
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.12);
-  --ring: #71717a;
-  --chart-1: #6366f1;
-  --chart-2: #22d3ee;
-  --chart-3: #f97316;
-  --chart-4: #a855f7;
-  --chart-5: #f43f5e;
-  --sidebar: #0a0a0a;
-  --sidebar-foreground: #fafafa;
-  --sidebar-primary: #6366f1;
-  --sidebar-primary-foreground: #fafafa;
-  --sidebar-accent: #1f1f1f;
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #71717a;
+  --background: #f3efe6;
+  --foreground: #20302c;
+  --card: #fffdf8;
+  --card-foreground: #20302c;
+  --popover: #fffdf8;
+  --popover-foreground: #20302c;
+  --primary: #1a3673;
+  --primary-foreground: #ffffff;
+  --secondary: #f8f5ee;
+  --secondary-foreground: #20302c;
+  --muted: #f8f5ee;
+  --muted-foreground: #5d6a63;
+  --accent: #dbe5f4;
+  --accent-foreground: #1a3673;
+  --destructive: #c26a4c;
+  --border: #ece5d7;
+  --input: #e2dccd;
+  --ring: #7f9dd1;
+  --chart-1: #1a3673;
+  --chart-2: #7f9dd1;
+  --chart-3: #c26a4c;
+  --chart-4: #9a7415;
+  --chart-5: #5d6a63;
+  --sidebar: #f3efe6;
+  --sidebar-foreground: #20302c;
+  --sidebar-primary: #1a3673;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #dbe5f4;
+  --sidebar-accent-foreground: #1a3673;
+  --sidebar-border: #ece5d7;
+  --sidebar-ring: #7f9dd1;
 }
 
 @layer base {
@@ -200,28 +193,29 @@ a {
 }
 
 .recharts-default-tooltip {
-  background: rgba(15, 23, 42, 0.95) !important;
-  border: 1px solid rgba(148, 163, 184, 0.4) !important;
+  background: #fffdf8 !important;
+  border: 1px solid #ece5d7 !important;
   border-radius: 12px !important;
   padding: 12px !important;
+  box-shadow: 0 8px 22px -12px rgba(90, 75, 50, 0.18) !important;
 }
 
 .recharts-tooltip-label {
-  color: #ffffff !important;
+  color: #20302c !important;
   font-weight: 600 !important;
   font-size: 14px !important;
   margin-bottom: 6px !important;
 }
 
 .recharts-tooltip-item {
-  color: #f8fafc !important;
+  color: #46524c !important;
   font-size: 13px !important;
 }
 
 .recharts-tooltip-item-name,
 .recharts-tooltip-item-separator,
 .recharts-tooltip-item-value {
-  color: #f8fafc !important;
+  color: #46524c !important;
 }
 
 /* Hide borders during PDF/image export (var()-based border colors can render

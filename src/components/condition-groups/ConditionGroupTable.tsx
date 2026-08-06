@@ -41,7 +41,7 @@ function getSortValue(
   measure: MeasureDetail,
   column: string,
   stateGroup: GroupDetail | undefined,
-  nationalGroup: GroupDetail | undefined
+  nationalGroup: GroupDetail | undefined,
 ): number | string | null {
   if (column === "name") return measure.name.toLowerCase();
   if (column === "weight") return measure.weight;
@@ -54,13 +54,19 @@ function getSortValue(
 
   const lookup = (group: GroupDetail | undefined) =>
     group?.measures.find(
-      (m) => m.code === measure.code || m.name.toLowerCase() === measure.name.toLowerCase()
+      (m) =>
+        m.code === measure.code ||
+        m.name.toLowerCase() === measure.name.toLowerCase(),
     );
 
-  if (prefix === "state_stars") return lookup(stateGroup)?.yearData[yearStr]?.avgStar ?? null;
-  if (prefix === "state_rate") return lookup(stateGroup)?.yearData[yearStr]?.avgRate ?? null;
-  if (prefix === "natl_stars") return lookup(nationalGroup)?.yearData[yearStr]?.avgStar ?? null;
-  if (prefix === "natl_rate") return lookup(nationalGroup)?.yearData[yearStr]?.avgRate ?? null;
+  if (prefix === "state_stars")
+    return lookup(stateGroup)?.yearData[yearStr]?.avgStar ?? null;
+  if (prefix === "state_rate")
+    return lookup(stateGroup)?.yearData[yearStr]?.avgRate ?? null;
+  if (prefix === "natl_stars")
+    return lookup(nationalGroup)?.yearData[yearStr]?.avgStar ?? null;
+  if (prefix === "natl_rate")
+    return lookup(nationalGroup)?.yearData[yearStr]?.avgRate ?? null;
 
   return null;
 }
@@ -68,12 +74,15 @@ function getSortValue(
 function compareValues(
   a: number | string | null,
   b: number | string | null,
-  direction: "asc" | "desc"
+  direction: "asc" | "desc",
 ): number {
   if (a === null && b === null) return 0;
   if (a === null) return 1;
   if (b === null) return -1;
-  const cmp = typeof a === "string" && typeof b === "string" ? a.localeCompare(b) : (a as number) - (b as number);
+  const cmp =
+    typeof a === "string" && typeof b === "string"
+      ? a.localeCompare(b)
+      : (a as number) - (b as number);
   return direction === "asc" ? cmp : -cmp;
 }
 
@@ -105,19 +114,26 @@ export function ConditionGroupTable({
     });
   }, [group.measures, sortKey, stateGroup, nationalGroup]);
 
-  const colsPerYear = 2 + (stateComparison ? 2 : 0) + (nationalComparison ? 2 : 0);
+  const colsPerYear =
+    2 + (stateComparison ? 2 : 0) + (nationalComparison ? 2 : 0);
   const mostRecentYear = years[years.length - 1];
   const visibleYears = expanded ? years : [mostRecentYear];
   const canExpand = years.length > 1;
 
-  const thButton = "cursor-pointer select-none hover:text-foreground transition";
+  const thButton =
+    "cursor-pointer select-none hover:text-foreground transition";
 
   return (
     <section className="rounded-3xl border border-border bg-card p-8">
       <div className="mb-4 flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: group.groupColor }} />
-          <h3 className="text-lg font-semibold text-foreground">{group.groupLabel}</h3>
+          <div
+            className="h-3 w-3 rounded-full"
+            style={{ backgroundColor: group.groupColor }}
+          />
+          <h3 className="text-lg font-semibold text-foreground">
+            {group.groupLabel}
+          </h3>
         </div>
         <ExportCsvButton
           fileName={`condition-group_${group.groupLabel.replace(/\s+/g, "-")}`}
@@ -125,23 +141,40 @@ export function ConditionGroupTable({
             const hdrs = ["Measure Code", "Measure Name", "Weight"];
             for (const y of visibleYears) {
               hdrs.push(`${y} Stars`, `${y} Rate %`);
-              if (stateComparison) hdrs.push(`${y} State Stars`, `${y} State Rate`);
-              if (nationalComparison) hdrs.push(`${y} Natl Stars`, `${y} Natl Rate`);
+              if (stateComparison)
+                hdrs.push(`${y} State Stars`, `${y} State Rate`);
+              if (nationalComparison)
+                hdrs.push(`${y} Natl Stars`, `${y} Natl Rate`);
             }
             const findMatch = (g: GroupDetail | undefined, m: MeasureDetail) =>
-              g?.measures.find((x) => x.code === m.code || x.name.toLowerCase() === m.name.toLowerCase());
+              g?.measures.find(
+                (x) =>
+                  x.code === m.code ||
+                  x.name.toLowerCase() === m.name.toLowerCase(),
+              );
             const csvRows = sortedMeasures.map((m) => {
               const row = [m.code, m.name, String(m.weight)];
               for (const y of visibleYears) {
                 const yd = m.yearData[y.toString()];
-                row.push(yd?.avgStar != null ? yd.avgStar.toFixed(1) : "", yd?.avgRate != null ? yd.avgRate.toFixed(1) : "");
+                row.push(
+                  yd?.avgStar != null ? yd.avgStar.toFixed(1) : "",
+                  yd?.avgRate != null ? yd.avgRate.toFixed(1) : "",
+                );
                 if (stateComparison) {
                   const syd = findMatch(stateGroup, m)?.yearData[y.toString()];
-                  row.push(syd?.avgStar != null ? syd.avgStar.toFixed(1) : "", syd?.avgRate != null ? syd.avgRate.toFixed(1) : "");
+                  row.push(
+                    syd?.avgStar != null ? syd.avgStar.toFixed(1) : "",
+                    syd?.avgRate != null ? syd.avgRate.toFixed(1) : "",
+                  );
                 }
                 if (nationalComparison) {
-                  const nyd = findMatch(nationalGroup, m)?.yearData[y.toString()];
-                  row.push(nyd?.avgStar != null ? nyd.avgStar.toFixed(1) : "", nyd?.avgRate != null ? nyd.avgRate.toFixed(1) : "");
+                  const nyd = findMatch(nationalGroup, m)?.yearData[
+                    y.toString()
+                  ];
+                  row.push(
+                    nyd?.avgStar != null ? nyd.avgStar.toFixed(1) : "",
+                    nyd?.avgRate != null ? nyd.avgRate.toFixed(1) : "",
+                  );
                 }
               }
               return row;
@@ -161,7 +194,9 @@ export function ConditionGroupTable({
               key={y}
               className="flex flex-col items-center rounded-xl border border-border bg-muted px-5 py-3"
             >
-              <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">{y}</span>
+              <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">
+                {y}
+              </span>
               <span className="text-lg font-bold text-foreground">
                 {score != null ? `★ ${score.toFixed(2)}` : "—"}
               </span>
@@ -202,17 +237,29 @@ export function ConditionGroupTable({
           <thead>
             <tr className="border-b border-border text-left">
               <th className="px-3 py-2 font-medium text-muted-foreground">
-                <button type="button" onClick={() => toggleSort("name")} className={thButton}>
+                <button
+                  type="button"
+                  onClick={() => toggleSort("name")}
+                  className={thButton}
+                >
                   Measure
                 </button>
               </th>
               <th className="px-3 py-2 text-center font-medium text-muted-foreground">
-                <button type="button" onClick={() => toggleSort("weight")} className={thButton}>
+                <button
+                  type="button"
+                  onClick={() => toggleSort("weight")}
+                  className={thButton}
+                >
                   Weight
                 </button>
               </th>
               {visibleYears.map((y) => (
-                <th key={y} className="px-3 py-2 text-center font-medium text-muted-foreground" colSpan={colsPerYear}>
+                <th
+                  key={y}
+                  className="px-3 py-2 text-center font-medium text-muted-foreground"
+                  colSpan={colsPerYear}
+                >
                   {y}
                 </th>
               ))}
@@ -223,28 +270,52 @@ export function ConditionGroupTable({
               {visibleYears.map((y) => (
                 <th key={y} colSpan={colsPerYear} className="px-1 pb-1">
                   <div className="flex text-[0.6rem] text-muted-foreground">
-                    <button type="button" onClick={() => toggleSort(`stars:${y}`)} className={`flex-1 text-center ${thButton}`}>
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(`stars:${y}`)}
+                      className={`flex-1 text-center ${thButton}`}
+                    >
                       Stars
                     </button>
-                    <button type="button" onClick={() => toggleSort(`rate:${y}`)} className={`flex-1 text-center ${thButton}`}>
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(`rate:${y}`)}
+                      className={`flex-1 text-center ${thButton}`}
+                    >
                       Rate %
                     </button>
                     {stateComparison && (
                       <>
-                        <button type="button" onClick={() => toggleSort(`state_stars:${y}`)} className={`flex-1 text-center ${thButton}`}>
+                        <button
+                          type="button"
+                          onClick={() => toggleSort(`state_stars:${y}`)}
+                          className={`flex-1 text-center ${thButton}`}
+                        >
                           State Stars
                         </button>
-                        <button type="button" onClick={() => toggleSort(`state_rate:${y}`)} className={`flex-1 text-center ${thButton}`}>
+                        <button
+                          type="button"
+                          onClick={() => toggleSort(`state_rate:${y}`)}
+                          className={`flex-1 text-center ${thButton}`}
+                        >
                           State Rate
                         </button>
                       </>
                     )}
                     {nationalComparison && (
                       <>
-                        <button type="button" onClick={() => toggleSort(`natl_stars:${y}`)} className={`flex-1 text-center ${thButton}`}>
+                        <button
+                          type="button"
+                          onClick={() => toggleSort(`natl_stars:${y}`)}
+                          className={`flex-1 text-center ${thButton}`}
+                        >
                           Natl Stars
                         </button>
-                        <button type="button" onClick={() => toggleSort(`natl_rate:${y}`)} className={`flex-1 text-center ${thButton}`}>
+                        <button
+                          type="button"
+                          onClick={() => toggleSort(`natl_rate:${y}`)}
+                          className={`flex-1 text-center ${thButton}`}
+                        >
                           Natl Rate
                         </button>
                       </>
@@ -258,7 +329,9 @@ export function ConditionGroupTable({
             {sortedMeasures.map((measure) => {
               const findMatch = (group: GroupDetail | undefined) =>
                 group?.measures.find(
-                  (m) => m.code === measure.code || m.name.toLowerCase() === measure.name.toLowerCase()
+                  (m) =>
+                    m.code === measure.code ||
+                    m.name.toLowerCase() === measure.name.toLowerCase(),
                 );
               const stateMeasure = findMatch(stateGroup);
               const nationalMeasure = findMatch(nationalGroup);
@@ -267,11 +340,18 @@ export function ConditionGroupTable({
                   key={`${measure.code}-${measure.name}`}
                   className="border-b border-border/30 transition hover:bg-accent/50"
                 >
-                  <td className="max-w-xs truncate px-3 py-2.5 text-foreground" title={measure.name}>
-                    <span className="mr-2 text-xs font-mono text-muted-foreground">{measure.code}</span>
+                  <td
+                    className="max-w-xs truncate px-3 py-2.5 text-foreground"
+                    title={measure.name}
+                  >
+                    <span className="mr-2 text-xs font-mono text-muted-foreground">
+                      {measure.code}
+                    </span>
                     {measure.name}
                   </td>
-                  <td className="px-3 py-2.5 text-center text-muted-foreground">{measure.weight}</td>
+                  <td className="px-3 py-2.5 text-center text-muted-foreground">
+                    {measure.weight}
+                  </td>
                   {visibleYears.map((y) => {
                     const yd = measure.yearData[y.toString()];
                     const syd = stateMeasure?.yearData[y.toString()];
@@ -283,25 +363,35 @@ export function ConditionGroupTable({
                             {yd?.avgStar != null ? yd.avgStar.toFixed(1) : "—"}
                           </span>
                           <span className="flex-1 text-center text-muted-foreground">
-                            {yd?.avgRate != null ? `${yd.avgRate.toFixed(1)}%` : "—"}
+                            {yd?.avgRate != null
+                              ? `${yd.avgRate.toFixed(1)}%`
+                              : "—"}
                           </span>
                           {stateComparison && (
                             <>
                               <span className="flex-1 text-center text-muted-foreground/50">
-                                {syd?.avgStar != null ? syd.avgStar.toFixed(1) : "—"}
+                                {syd?.avgStar != null
+                                  ? syd.avgStar.toFixed(1)
+                                  : "—"}
                               </span>
                               <span className="flex-1 text-center text-muted-foreground/50">
-                                {syd?.avgRate != null ? `${syd.avgRate.toFixed(1)}%` : "—"}
+                                {syd?.avgRate != null
+                                  ? `${syd.avgRate.toFixed(1)}%`
+                                  : "—"}
                               </span>
                             </>
                           )}
                           {nationalComparison && (
                             <>
                               <span className="flex-1 text-center text-muted-foreground/50">
-                                {nyd?.avgStar != null ? nyd.avgStar.toFixed(1) : "—"}
+                                {nyd?.avgStar != null
+                                  ? nyd.avgStar.toFixed(1)
+                                  : "—"}
                               </span>
                               <span className="flex-1 text-center text-muted-foreground/50">
-                                {nyd?.avgRate != null ? `${nyd.avgRate.toFixed(1)}%` : "—"}
+                                {nyd?.avgRate != null
+                                  ? `${nyd.avgRate.toFixed(1)}%`
+                                  : "—"}
                               </span>
                             </>
                           )}

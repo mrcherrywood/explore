@@ -13,21 +13,34 @@ export const REPORT_COLORS = {
   ink: "#20302c",
 };
 
-export function formatStars(value: number | null | undefined, digits = 1): string {
+export function formatStars(
+  value: number | null | undefined,
+  digits = 1,
+): string {
   return value === null || value === undefined ? "—" : value.toFixed(digits);
 }
 
-export function formatScore(value: number | null | undefined, digits = 3): string {
+export function formatScore(
+  value: number | null | undefined,
+  digits = 3,
+): string {
   return value === null || value === undefined ? "—" : value.toFixed(digits);
 }
 
-export function formatSigned(value: number | null | undefined, digits = 3): string {
+export function formatSigned(
+  value: number | null | undefined,
+  digits = 3,
+): string {
   if (value === null || value === undefined) return "—";
   return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
 }
 
 /** Recharts LabelList formatter that renders numeric labels with fixed digits. */
-export function chartValueFormatter(digits: number, suffix = "", fallback = "") {
+export function chartValueFormatter(
+  digits: number,
+  suffix = "",
+  fallback = "",
+) {
   return (label: ReactNode): ReactNode =>
     typeof label === "number" ? `${label.toFixed(digits)}${suffix}` : fallback;
 }
@@ -70,7 +83,13 @@ function ReportStar({
 }
 
 /** Full / half / empty star row that rasterizes cleanly for PDF export. */
-export function StarGlyphs({ value, size = 15 }: { value: number | null; size?: number }) {
+export function StarGlyphs({
+  value,
+  size = 15,
+}: {
+  value: number | null;
+  size?: number;
+}) {
   if (value === null) return null;
   const full = Math.floor(value);
   const half = value - full >= 0.5;
@@ -79,7 +98,12 @@ export function StarGlyphs({ value, size = 15 }: { value: number | null; size?: 
   return (
     <span
       aria-label={`${value} stars`}
-      style={{ display: "inline-flex", alignItems: "center", gap: 2, lineHeight: 1 }}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 2,
+        lineHeight: 1,
+      }}
     >
       {Array.from({ length: full }, (_, i) => (
         <ReportStar key={`full-${i}`} fill="full" size={size} />
@@ -102,7 +126,10 @@ export function ReportStat({
   detail?: ReactNode;
 }) {
   return (
-    <div className="fep-report-panel" style={{ padding: "10px 12px", flex: 1, minWidth: 0 }}>
+    <div
+      className="fep-report-panel"
+      style={{ padding: "10px 12px", flex: 1, minWidth: 0 }}
+    >
       <p className="fep-label" style={{ fontSize: 8.5 }}>
         {label}
       </p>
@@ -119,7 +146,14 @@ export function ReportStat({
         {value}
       </p>
       {detail ? (
-        <p style={{ margin: "3px 0 0", fontSize: 9.5, color: "var(--fep-faint)", fontWeight: 600 }}>
+        <p
+          style={{
+            margin: "3px 0 0",
+            fontSize: 9.5,
+            color: "var(--fep-faint)",
+            fontWeight: 600,
+          }}
+        >
           {detail}
         </p>
       ) : null}
@@ -183,9 +217,7 @@ export function ReportPageFrame({
         <div className="fep-report-header-copy">
           <p className="fep-report-eyebrow">{eyebrow}</p>
           <h1 className="fep-report-title">{title}</h1>
-          {subtitle ? (
-            <p className="fep-report-subtitle">{subtitle}</p>
-          ) : null}
+          {subtitle ? <p className="fep-report-subtitle">{subtitle}</p> : null}
         </div>
         {/* Raster asset preferred for reliable PDF capture with dom-to-image. */}
         <img
@@ -212,7 +244,8 @@ export function ReportPageFrame({
       <footer className="fep-report-footer">
         <div className="fep-report-footer-meta">
           <span>
-            {contractId} · Stars {starsYear} Plan Preview 1 projection · Generated {generatedLabel}
+            {contractId} · Stars {starsYear} Plan Preview 1 projection ·
+            Generated {generatedLabel}
           </span>
           <span>
             Page {pageNumber} of {totalPages}

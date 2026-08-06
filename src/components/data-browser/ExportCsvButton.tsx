@@ -10,7 +10,11 @@ type ExportCsvButtonProps = {
   tableName: string;
 };
 
-export function ExportCsvButton({ config, rows, tableName }: ExportCsvButtonProps) {
+export function ExportCsvButton({
+  config,
+  rows,
+  tableName,
+}: ExportCsvButtonProps) {
   return (
     <GenericExportCsvButton
       fileName={tableName}

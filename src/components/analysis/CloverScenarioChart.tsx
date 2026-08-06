@@ -1,10 +1,27 @@
 "use client";
 
 import { useRef } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  LabelList,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { ExportImageButton } from "@/components/shared/ExportImageButton";
-import type { CloverContractImpact, CloverImpactResult, CloverScenarioDetail } from "@/lib/clover-impact/analysis";
-import type { CloverChartScoreId, CloverComputedScenarioId } from "@/lib/clover-impact/scenarios";
+import type {
+  CloverContractImpact,
+  CloverImpactResult,
+  CloverScenarioDetail,
+} from "@/lib/clover-impact/analysis";
+import type {
+  CloverChartScoreId,
+  CloverComputedScenarioId,
+} from "@/lib/clover-impact/scenarios";
 
 type Props = {
   contract: CloverContractImpact;
@@ -25,11 +42,21 @@ type ChartDatum = {
   qbpLabel: string;
 };
 
-const COMPUTED_SCENARIO_IDS = new Set<CloverChartScoreId>(["s26NoQI", "s29Removal", "model1", "model2"]);
-const QBP_SCENARIO_IDS = new Set<CloverChartScoreId>(["s29Removal", "model1", "model2"]);
+const COMPUTED_SCENARIO_IDS = new Set<CloverChartScoreId>([
+  "s26NoQI",
+  "s29Removal",
+  "model1",
+  "model2",
+]);
+const QBP_SCENARIO_IDS = new Set<CloverChartScoreId>([
+  "s29Removal",
+  "model1",
+  "model2",
+]);
 const ESTIMATED_BENCHMARK_PMPM = 1200;
 const QUALITY_BONUS_RATE = 0.05;
-const ESTIMATED_ANNUAL_QBP_PER_MEMBER = ESTIMATED_BENCHMARK_PMPM * 12 * QUALITY_BONUS_RATE;
+const ESTIMATED_ANNUAL_QBP_PER_MEMBER =
+  ESTIMATED_BENCHMARK_PMPM * 12 * QUALITY_BONUS_RATE;
 
 function formatScore(value: number | null): string {
   return value === null ? "-" : value.toFixed(2);
@@ -40,7 +67,9 @@ function formatScoreWithStar(value: number): string {
 }
 
 function formatEnrollment(value: number | null): string {
-  return value === null ? "Enrollment unavailable" : `${value.toLocaleString()} members`;
+  return value === null
+    ? "Enrollment unavailable"
+    : `${value.toLocaleString()} members`;
 }
 
 function formatContribution(value: number | null): string {
@@ -52,15 +81,22 @@ function formatContribution(value: number | null): string {
 function formatCurrency(value: number): string {
   const sign = value < 0 ? "-" : value > 0 ? "+" : "";
   const absoluteValue = Math.abs(value);
-  if (absoluteValue >= 1_000_000) return `${sign}$${(absoluteValue / 1_000_000).toFixed(1)}M`;
-  if (absoluteValue >= 1_000) return `${sign}$${(absoluteValue / 1_000).toFixed(0)}K`;
+  if (absoluteValue >= 1_000_000)
+    return `${sign}$${(absoluteValue / 1_000_000).toFixed(1)}M`;
+  if (absoluteValue >= 1_000)
+    return `${sign}$${(absoluteValue / 1_000).toFixed(0)}K`;
   return `${sign}$${absoluteValue.toLocaleString()}`;
 }
 
-function getScoreDetail(contract: CloverContractImpact, scoreId: CloverChartScoreId): CloverScenarioDetail | null {
+function getScoreDetail(
+  contract: CloverContractImpact,
+  scoreId: CloverChartScoreId,
+): CloverScenarioDetail | null {
   if (scoreId === "s26WithQI") return contract.calculated2026Detail;
   if (COMPUTED_SCENARIO_IDS.has(scoreId)) {
-    return contract.scenarioDetails[scoreId as CloverComputedScenarioId] ?? null;
+    return (
+      contract.scenarioDetails[scoreId as CloverComputedScenarioId] ?? null
+    );
   }
   return null;
 }
@@ -69,7 +105,11 @@ function roundToHalf(value: number): number {
   return Math.round(value * 2) / 2;
 }
 
-function getQbpChange(contract: CloverContractImpact, scoreId: CloverChartScoreId, score: number | null): number | null {
+function getQbpChange(
+  contract: CloverContractImpact,
+  scoreId: CloverChartScoreId,
+  score: number | null,
+): number | null {
   if (score === null) return null;
 
   // Official recalc is hold-harmless: ratings only rise, so QBP can only be gained.
@@ -89,7 +129,9 @@ function getQbpChange(contract: CloverContractImpact, scoreId: CloverChartScoreI
   if (officialEligible === scenarioEligible) return 0;
 
   const enrollment = contract.totalEnrollment ?? 0;
-  return (scenarioEligible ? 1 : -1) * enrollment * ESTIMATED_ANNUAL_QBP_PER_MEMBER;
+  return (
+    (scenarioEligible ? 1 : -1) * enrollment * ESTIMATED_ANNUAL_QBP_PER_MEMBER
+  );
 }
 
 export function CloverScenarioChart({ contract, chartScores }: Props) {
@@ -106,11 +148,16 @@ export function CloverScenarioChart({ contract, chartScores }: Props) {
         rewardFactor: detail?.rewardFactor ?? null,
         caiValue: detail?.caiValue ?? null,
         qbpChange,
-        qbpLabel: qbpChange !== null && qbpChange !== 0 ? formatCurrency(qbpChange) : "",
+        qbpLabel:
+          qbpChange !== null && qbpChange !== 0
+            ? formatCurrency(qbpChange)
+            : "",
       };
     })
     .filter((score): score is ChartDatum => score.value !== null);
-  const rewardFactorEntries = chartData.filter((entry) => (entry.rewardFactor ?? 0) > 0);
+  const rewardFactorEntries = chartData.filter(
+    (entry) => (entry.rewardFactor ?? 0) > 0,
+  );
   const sectionRef = useRef<HTMLElement | null>(null);
 
   return (
@@ -121,133 +168,196 @@ export function CloverScenarioChart({ contract, chartScores }: Props) {
           fileName={`clover-scenario-chart-${contract.contractId}`}
         />
       </div>
-      <section ref={sectionRef} className="rounded-2xl border border-border bg-card p-6">
+      <section
+        ref={sectionRef}
+        className="rounded-2xl border border-border bg-card p-6"
+      >
         <div className="export-chart-header mb-4 pr-28">
           <h3 className="export-chart-header-title text-base font-semibold text-foreground">
             Historical and Scenario Overall Stars Scores
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            {contract.contractId} - {contract.organizationMarketingName || contract.contractName || "Unknown contract"}
+            {contract.contractId} -{" "}
+            {contract.organizationMarketingName ||
+              contract.contractName ||
+              "Unknown contract"}
           </p>
           <div className="export-chart-header-meta mt-2 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
             <span>
               Official 2026:{" "}
-              <span className="font-mono text-foreground">{formatScore(contract.officialScores.stars2026)}</span>
+              <span className="font-mono text-foreground">
+                {formatScore(contract.officialScores.stars2026)}
+              </span>
             </span>
             <span>
               Enrollment:{" "}
-              <span className="font-mono text-foreground">{formatEnrollment(contract.totalEnrollment)}</span>
+              <span className="font-mono text-foreground">
+                {formatEnrollment(contract.totalEnrollment)}
+              </span>
             </span>
           </div>
         </div>
 
-      <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 20, right: 16, bottom: 32, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-            <XAxis
-              dataKey="label"
-              interval={0}
-              angle={-12}
-              textAnchor="end"
-              tick={{ fontSize: 11 }}
-              stroke="var(--color-muted-foreground)"
-            />
-            <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
-            <Tooltip
-              content={({ payload, label }) => {
-                if (!payload?.length) return null;
-                const entry = payload[0]?.payload as ChartDatum | undefined;
-                if (!entry) return null;
-
-                return (
-                  <div className="rounded-xl border border-border bg-card p-3 text-xs shadow-lg">
-                    <p className="font-semibold text-foreground">{String(label)}</p>
-                    <p className="mt-2 text-muted-foreground">
-                      Score / Rounded Star: <span className="font-mono text-foreground">{formatScoreWithStar(entry.value)}</span>
-                    </p>
-                    {entry.baseMean !== null ? (
-                      <p className="mt-1 text-muted-foreground">
-                        Base Mean: <span className="font-mono text-foreground">{entry.baseMean.toFixed(2)}</span>
-                      </p>
-                    ) : null}
-                    {entry.rewardFactor !== null ? (
-                      <p className="mt-1 text-muted-foreground">
-                        Reward Factor: <span className="font-mono text-foreground">{formatContribution(entry.rewardFactor)}</span>
-                      </p>
-                    ) : null}
-                    {entry.caiValue !== null ? (
-                      <p className="mt-1 text-muted-foreground">
-                        CAI: <span className="font-mono text-foreground">{formatContribution(entry.caiValue)}</span>
-                      </p>
-                    ) : null}
-                    <p className="mt-1 text-muted-foreground">
-                      Enrollment: <span className="font-mono text-foreground">{formatEnrollment(entry.totalEnrollment)}</span>
-                    </p>
-                    {entry.qbpChange !== null ? (
-                      <p className="mt-1 text-muted-foreground">
-                        Est. QBP Swing: <span className="font-mono text-foreground">{formatCurrency(entry.qbpChange)}</span>
-                      </p>
-                    ) : null}
-                  </div>
-                );
-              }}
-              contentStyle={{
-                backgroundColor: "var(--color-card)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "12px",
-                fontSize: "13px",
-              }}
-            />
-            <Bar dataKey="value" name="Overall Score" radius={[6, 6, 0, 0]}>
-              <LabelList
-                dataKey="value"
-                position="top"
-                formatter={(value) => (typeof value === "number" ? formatScoreWithStar(value) : "")}
-                fill="var(--color-foreground)"
-                fontSize={11}
-                fontWeight={600}
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              margin={{ top: 20, right: 16, bottom: 32, left: 0 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="var(--color-border)"
               />
-              <LabelList
-                dataKey="qbpLabel"
-                position="insideTop"
-                fill="var(--color-background)"
-                fontSize={10}
-                fontWeight={700}
+              <XAxis
+                dataKey="label"
+                interval={0}
+                angle={-12}
+                textAnchor="end"
+                tick={{ fontSize: 11 }}
+                stroke="var(--color-muted-foreground)"
               />
-              {chartData.map((entry) => (
-                <Cell key={entry.id} fill={entry.color} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+              <YAxis
+                domain={[0, 5]}
+                tick={{ fontSize: 12 }}
+                stroke="var(--color-muted-foreground)"
+              />
+              <Tooltip
+                content={({ payload, label }) => {
+                  if (!payload?.length) return null;
+                  const entry = payload[0]?.payload as ChartDatum | undefined;
+                  if (!entry) return null;
 
-      <div className="export-reward-factor-strip mt-4 rounded-xl border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
-        {rewardFactorEntries.length > 0 ? (
-          <div className="export-reward-factor-list flex flex-wrap gap-2">
-            <span className="font-semibold text-foreground">Reward factor applied:</span>
-            {rewardFactorEntries.map((entry) => (
-              <span key={entry.id} className="export-reward-factor-item inline-flex items-center gap-1.5">
-                <span className="export-reward-factor-dot" style={{ color: entry.color }} aria-hidden="true">●</span>
-                {entry.label}{" "}
-                <span className="font-mono text-foreground">{formatContribution(entry.rewardFactor)}</span>
+                  return (
+                    <div className="rounded-xl border border-border bg-card p-3 text-xs shadow-lg">
+                      <p className="font-semibold text-foreground">
+                        {String(label)}
+                      </p>
+                      <p className="mt-2 text-muted-foreground">
+                        Score / Rounded Star:{" "}
+                        <span className="font-mono text-foreground">
+                          {formatScoreWithStar(entry.value)}
+                        </span>
+                      </p>
+                      {entry.baseMean !== null ? (
+                        <p className="mt-1 text-muted-foreground">
+                          Base Mean:{" "}
+                          <span className="font-mono text-foreground">
+                            {entry.baseMean.toFixed(2)}
+                          </span>
+                        </p>
+                      ) : null}
+                      {entry.rewardFactor !== null ? (
+                        <p className="mt-1 text-muted-foreground">
+                          Reward Factor:{" "}
+                          <span className="font-mono text-foreground">
+                            {formatContribution(entry.rewardFactor)}
+                          </span>
+                        </p>
+                      ) : null}
+                      {entry.caiValue !== null ? (
+                        <p className="mt-1 text-muted-foreground">
+                          CAI:{" "}
+                          <span className="font-mono text-foreground">
+                            {formatContribution(entry.caiValue)}
+                          </span>
+                        </p>
+                      ) : null}
+                      <p className="mt-1 text-muted-foreground">
+                        Enrollment:{" "}
+                        <span className="font-mono text-foreground">
+                          {formatEnrollment(entry.totalEnrollment)}
+                        </span>
+                      </p>
+                      {entry.qbpChange !== null ? (
+                        <p className="mt-1 text-muted-foreground">
+                          Est. QBP Swing:{" "}
+                          <span className="font-mono text-foreground">
+                            {formatCurrency(entry.qbpChange)}
+                          </span>
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                }}
+                contentStyle={{
+                  backgroundColor: "var(--color-card)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: "12px",
+                  fontSize: "13px",
+                }}
+              />
+              <Bar dataKey="value" name="Overall Score" radius={[6, 6, 0, 0]}>
+                <LabelList
+                  dataKey="value"
+                  position="top"
+                  formatter={(value) =>
+                    typeof value === "number" ? formatScoreWithStar(value) : ""
+                  }
+                  fill="var(--color-foreground)"
+                  fontSize={11}
+                  fontWeight={600}
+                />
+                <LabelList
+                  dataKey="qbpLabel"
+                  position="insideTop"
+                  fill="var(--color-background)"
+                  fontSize={10}
+                  fontWeight={700}
+                />
+                {chartData.map((entry) => (
+                  <Cell key={entry.id} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="export-reward-factor-strip mt-4 rounded-xl border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground">
+          {rewardFactorEntries.length > 0 ? (
+            <div className="export-reward-factor-list flex flex-wrap gap-2">
+              <span className="font-semibold text-foreground">
+                Reward factor applied:
               </span>
-            ))}
-          </div>
-        ) : (
-          <span>No reward factor applied to the calculated bars for this contract.</span>
-        )}
-      </div>
+              {rewardFactorEntries.map((entry) => (
+                <span
+                  key={entry.id}
+                  className="export-reward-factor-item inline-flex items-center gap-1.5"
+                >
+                  <span
+                    className="export-reward-factor-dot"
+                    style={{ color: entry.color }}
+                    aria-hidden="true"
+                  >
+                    ●
+                  </span>
+                  {entry.label}{" "}
+                  <span className="font-mono text-foreground">
+                    {formatContribution(entry.rewardFactor)}
+                  </span>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span>
+              No reward factor applied to the calculated bars for this contract.
+            </span>
+          )}
+        </div>
 
-      <div data-export-hide className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-        {chartData.map((entry) => (
-          <span key={entry.id} className="inline-flex items-center gap-1.5">
-            <span className="export-color-swatch h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: entry.color }} />
-            {entry.label}
-          </span>
-        ))}
-      </div>
+        <div
+          data-export-hide
+          className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground"
+        >
+          {chartData.map((entry) => (
+            <span key={entry.id} className="inline-flex items-center gap-1.5">
+              <span
+                className="export-color-swatch h-2.5 w-2.5 shrink-0 rounded-sm"
+                style={{ backgroundColor: entry.color }}
+              />
+              {entry.label}
+            </span>
+          ))}
+        </div>
       </section>
     </div>
   );

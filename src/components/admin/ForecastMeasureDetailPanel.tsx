@@ -1,15 +1,53 @@
 "use client";
 
 import { useMemo } from "react";
-import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceLine } from "recharts";
+import {
+  ComposedChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Legend,
+  ReferenceLine,
+} from "recharts";
 import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import type { ForecastProjectionDetailRecord } from "@/lib/cutpoint-forecast/types";
 
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Close"] as const;
-const YEAR_COLORS = ["#14b8a6", "#f97316", "#eab308", "#3b82f6", "#8b5cf6", "#ef4444"];
+const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+  "Close",
+] as const;
+const YEAR_COLORS = [
+  "#14b8a6",
+  "#f97316",
+  "#eab308",
+  "#3b82f6",
+  "#8b5cf6",
+  "#ef4444",
+];
 
 type Props = {
   detail: ForecastProjectionDetailRecord;
@@ -29,12 +67,21 @@ function formatOptional(value: number | null): string {
   return value === null ? "—" : value.toFixed(2);
 }
 
-export function ForecastMeasureDetailPanel({ detail, contractMetadata, manualTargetScore, onClose }: Props) {
+export function ForecastMeasureDetailPanel({
+  detail,
+  contractMetadata,
+  manualTargetScore,
+  onClose,
+}: Props) {
   const { projection, history } = detail;
   const contractContext = [
     contractMetadata?.contractName,
-    contractMetadata?.parentOrg ? `Parent Org: ${contractMetadata.parentOrg}` : null,
-  ].filter(Boolean).join(" · ");
+    contractMetadata?.parentOrg
+      ? `Parent Org: ${contractMetadata.parentOrg}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const contextScores = useMemo(() => {
     const forecastYear = projection.forecastYear;
@@ -47,7 +94,8 @@ export function ForecastMeasureDetailPanel({ detail, contractMetadata, manualTar
 
     const priorSameMonth =
       currentMonth !== null
-        ? priorYearPoints.find((p) => p.normalizedMonth === currentMonth)?.rate ?? null
+        ? (priorYearPoints.find((p) => p.normalizedMonth === currentMonth)
+            ?.rate ?? null)
         : null;
 
     const priorYearFinal = priorYearPoints.at(-1)?.rate ?? null;
@@ -59,12 +107,22 @@ export function ForecastMeasureDetailPanel({ detail, contractMetadata, manualTar
       priorYearFinal,
       priorYear: forecastYear - 1,
     };
-  }, [history, projection.forecastYear, projection.lastObservedMonth, projection.lastObservedScore]);
+  }, [
+    history,
+    projection.forecastYear,
+    projection.lastObservedMonth,
+    projection.lastObservedScore,
+  ]);
 
   const chart = useMemo(() => {
-    const years = [...new Set(history.map((point) => point.year))].sort((a, b) => a - b);
+    const years = [...new Set(history.map((point) => point.year))].sort(
+      (a, b) => a - b,
+    );
     const targetMonth =
-      history.some((point) => point.normalizedMonth === 13) || projection.lastObservedMonth === 13 ? 13 : 12;
+      history.some((point) => point.normalizedMonth === 13) ||
+      projection.lastObservedMonth === 13
+        ? 13
+        : 12;
 
     const rows = Array.from({ length: targetMonth }, (_, index) => ({
       normalizedMonth: index + 1,
@@ -88,27 +146,42 @@ export function ForecastMeasureDetailPanel({ detail, contractMetadata, manualTar
       row.manualTarget = null;
     }
 
-    if (projection.lastObservedMonth !== null && projection.lastObservedScore !== null) {
+    if (
+      projection.lastObservedMonth !== null &&
+      projection.lastObservedScore !== null
+    ) {
       const observedIndex = projection.lastObservedMonth - 1;
-      if (rows[observedIndex]) rows[observedIndex].projectedGlidepath = projection.lastObservedScore;
-      if (rows[targetMonth - 1]) rows[targetMonth - 1].projectedGlidepath = projection.modelScore;
+      if (rows[observedIndex])
+        rows[observedIndex].projectedGlidepath = projection.lastObservedScore;
+      if (rows[targetMonth - 1])
+        rows[targetMonth - 1].projectedGlidepath = projection.modelScore;
 
       if (manualTargetScore !== null) {
-        if (rows[observedIndex]) rows[observedIndex].manualTarget = projection.lastObservedScore;
-        if (rows[targetMonth - 1]) rows[targetMonth - 1].manualTarget = manualTargetScore;
+        if (rows[observedIndex])
+          rows[observedIndex].manualTarget = projection.lastObservedScore;
+        if (rows[targetMonth - 1])
+          rows[targetMonth - 1].manualTarget = manualTargetScore;
       }
     } else {
-      if (rows[targetMonth - 1]) rows[targetMonth - 1].projectedGlidepath = projection.modelScore;
+      if (rows[targetMonth - 1])
+        rows[targetMonth - 1].projectedGlidepath = projection.modelScore;
       if (manualTargetScore !== null && rows[targetMonth - 1]) {
         rows[targetMonth - 1].manualTarget = manualTargetScore;
       }
     }
 
     const numericValues = rows.flatMap((row) =>
-      Object.values(row).filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+      Object.values(row).filter(
+        (value): value is number =>
+          typeof value === "number" && Number.isFinite(value),
+      ),
     );
-    const minValue = numericValues.length ? Math.max(0, Math.floor((Math.min(...numericValues) - 5) / 5) * 5) : 0;
-    const maxValue = numericValues.length ? Math.min(100, Math.ceil((Math.max(...numericValues) + 5) / 5) * 5) : 100;
+    const minValue = numericValues.length
+      ? Math.max(0, Math.floor((Math.min(...numericValues) - 5) / 5) * 5)
+      : 0;
+    const maxValue = numericValues.length
+      ? Math.min(100, Math.ceil((Math.max(...numericValues) + 5) / 5) * 5)
+      : 100;
 
     return {
       rows,
@@ -117,7 +190,13 @@ export function ForecastMeasureDetailPanel({ detail, contractMetadata, manualTar
       maxValue,
       targetMonth,
     };
-  }, [history, manualTargetScore, projection.lastObservedMonth, projection.lastObservedScore, projection.modelScore]);
+  }, [
+    history,
+    manualTargetScore,
+    projection.lastObservedMonth,
+    projection.lastObservedScore,
+    projection.modelScore,
+  ]);
 
   return (
     <Card>
@@ -127,10 +206,17 @@ export function ForecastMeasureDetailPanel({ detail, contractMetadata, manualTar
             <CardTitle className="text-xl">{projection.contractId}</CardTitle>
             <CardDescription>{projection.measureDisplayName}</CardDescription>
             {contractContext && (
-              <div className="mt-1 text-sm text-muted-foreground">{contractContext}</div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                {contractContext}
+              </div>
             )}
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close detail panel">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label="Close detail panel"
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -162,15 +248,30 @@ export function ForecastMeasureDetailPanel({ detail, contractMetadata, manualTar
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chart.rows} margin={{ top: 12, right: 16, left: 4, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+              <ComposedChart
+                data={chart.rows}
+                margin={{ top: 12, right: 16, left: 4, bottom: 8 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--color-border)"
+                />
                 <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                <YAxis domain={[chart.minValue, chart.maxValue]} tick={{ fontSize: 12 }} />
+                <YAxis
+                  domain={[chart.minValue, chart.maxValue]}
+                  tick={{ fontSize: 12 }}
+                />
                 <Tooltip
                   formatter={(value, name) => {
-                    const normalizedValue = Array.isArray(value) ? value[0] : value;
+                    const normalizedValue = Array.isArray(value)
+                      ? value[0]
+                      : value;
                     const seriesName = String(name);
-                    if (normalizedValue === null || normalizedValue === undefined || normalizedValue === "") {
+                    if (
+                      normalizedValue === null ||
+                      normalizedValue === undefined ||
+                      normalizedValue === ""
+                    ) {
                       return ["—", seriesName];
                     }
                     const label = /^\d{4}$/.test(seriesName)
@@ -179,12 +280,15 @@ export function ForecastMeasureDetailPanel({ detail, contractMetadata, manualTar
                         ? "Projected Glidepath Rate"
                         : seriesName === "manualTarget"
                           ? "Manual Projection Rate"
-                        : "Manual Target";
+                          : "Manual Target";
                     return [Number(normalizedValue).toFixed(2), label];
                   }}
                 />
                 <Legend />
-                <ReferenceLine x={formatMonthLabel(chart.targetMonth)} stroke="var(--color-border)" />
+                <ReferenceLine
+                  x={formatMonthLabel(chart.targetMonth)}
+                  stroke="var(--color-border)"
+                />
                 {chart.years.map((year, index) => (
                   <Bar
                     key={year}
@@ -223,24 +327,49 @@ export function ForecastMeasureDetailPanel({ detail, contractMetadata, manualTar
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <MetaRow label="Last Observed" value={projection.lastObservedYear && projection.lastObservedMonth
-            ? `${projection.lastObservedYear}-${String(projection.lastObservedMonth).padStart(2, "0")} · ${formatOptional(projection.lastObservedScore)}`
-            : "—"} />
-          <MetaRow label="Confidence" value={`${projection.confidenceLabel} (${projection.confidence.toFixed(2)})`} />
-          <MetaRow label="Supporting Points" value={String(projection.supportingPoints)} />
-          <MetaRow label="Trend Slope" value={formatOptional(projection.trendSlope)} />
-          <MetaRow label="Seasonality Delta" value={formatOptional(projection.seasonalityDelta)} />
-          <MetaRow label="Measure Code / HL" value={`${projection.measureCode ?? "—"} / ${projection.hlCode ?? "—"}`} />
+          <MetaRow
+            label="Last Observed"
+            value={
+              projection.lastObservedYear && projection.lastObservedMonth
+                ? `${projection.lastObservedYear}-${String(projection.lastObservedMonth).padStart(2, "0")} · ${formatOptional(projection.lastObservedScore)}`
+                : "—"
+            }
+          />
+          <MetaRow
+            label="Confidence"
+            value={`${projection.confidenceLabel} (${projection.confidence.toFixed(2)})`}
+          />
+          <MetaRow
+            label="Supporting Points"
+            value={String(projection.supportingPoints)}
+          />
+          <MetaRow
+            label="Trend Slope"
+            value={formatOptional(projection.trendSlope)}
+          />
+          <MetaRow
+            label="Seasonality Delta"
+            value={formatOptional(projection.seasonalityDelta)}
+          />
+          <MetaRow
+            label="Measure Code / HL"
+            value={`${projection.measureCode ?? "—"} / ${projection.hlCode ?? "—"}`}
+          />
         </div>
 
         <div className="space-y-2">
           <h3 className="text-sm font-medium">Model Notes</h3>
           {projection.notes.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No model notes are available for this row.</div>
+            <div className="text-sm text-muted-foreground">
+              No model notes are available for this row.
+            </div>
           ) : (
             <ul className="space-y-2 text-sm text-muted-foreground">
               {projection.notes.map((note, index) => (
-                <li key={`${projection.id}-note-${index}`} className="rounded-md border border-border/70 bg-muted/30 px-3 py-2">
+                <li
+                  key={`${projection.id}-note-${index}`}
+                  className="rounded-md border border-border/70 bg-muted/30 px-3 py-2"
+                >
                   {note}
                 </li>
               ))}
@@ -252,11 +381,25 @@ export function ForecastMeasureDetailPanel({ detail, contractMetadata, manualTar
   );
 }
 
-function ScoreBox({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function ScoreBox({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
   return (
-    <div className={`rounded-lg border px-3 py-2 ${accent ? "border-sky-500/40 bg-sky-500/5" : "border-border/70 bg-muted/20"}`}>
+    <div
+      className={`rounded-lg border px-3 py-2 ${accent ? "border-[var(--fep-info-border)] bg-[var(--fep-info-bg)]" : "border-border/70 bg-muted/20"}`}
+    >
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={`text-lg font-semibold ${accent ? "text-sky-600" : ""}`}>{value}</div>
+      <div
+        className={`text-lg font-semibold ${accent ? "text-[var(--fep-accent)]" : ""}`}
+      >
+        {value}
+      </div>
     </div>
   );
 }

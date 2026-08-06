@@ -44,7 +44,10 @@ function getChangeClass(value: number | null): string {
   return "text-muted-foreground";
 }
 
-function getSortValue(contract: CloverContractImpact, key: SortKey): string | number | null {
+function getSortValue(
+  contract: CloverContractImpact,
+  key: SortKey,
+): string | number | null {
   switch (key) {
     case "contractId":
       return contract.contractId;
@@ -99,13 +102,21 @@ function SortHeader({
     >
       {label}
       {activeSortKey === value ? (
-        sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+        sortDirection === "asc" ? (
+          <ChevronUp className="h-3 w-3" />
+        ) : (
+          <ChevronDown className="h-3 w-3" />
+        )
       ) : null}
     </button>
   );
 }
 
-export function CloverImpactTable({ contracts, selectedContractId, onSelectContract }: Props) {
+export function CloverImpactTable({
+  contracts,
+  selectedContractId,
+  onSelectContract,
+}: Props) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [parentFilter, setParentFilter] = useState<string>("all");
@@ -116,7 +127,9 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
 
   const parentOptions = useMemo(() => {
     const parents = new Set(
-      contracts.map((contract) => contract.parentOrganization).filter((parent): parent is string => Boolean(parent)),
+      contracts
+        .map((contract) => contract.parentOrganization)
+        .filter((parent): parent is string => Boolean(parent)),
     );
     return Array.from(parents).sort((a, b) => a.localeCompare(b));
   }, [contracts]);
@@ -124,7 +137,8 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
   const filteredContracts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const filtered = contracts.filter((contract) => {
-      const matchesParent = parentFilter === "all" || contract.parentOrganization === parentFilter;
+      const matchesParent =
+        parentFilter === "all" || contract.parentOrganization === parentFilter;
       if (!matchesParent) return false;
       if (!query) return true;
       return (
@@ -144,7 +158,9 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
       if (bValue === null) return -1;
 
       if (typeof aValue === "string" && typeof bValue === "string") {
-        return sortDirection === "asc" ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+        return sortDirection === "asc"
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
       }
 
       return sortDirection === "asc"
@@ -153,9 +169,15 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
     });
   }, [contracts, parentFilter, searchQuery, sortDirection, sortKey]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredContracts.length / pageSize));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredContracts.length / pageSize),
+  );
   const safePage = Math.min(page, totalPages);
-  const pageContracts = filteredContracts.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const pageContracts = filteredContracts.slice(
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
+  );
 
   const handleSort = (key: SortKey) => {
     setPage(1);
@@ -166,7 +188,16 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
 
     setSortKey(key);
     setSortDirection(
-      ["officialRecalcChange", "officialRecalc", "qbpFinal", "model1Change", "model2Change", "s29Removal", "model1", "model2"].includes(key)
+      [
+        "officialRecalcChange",
+        "officialRecalc",
+        "qbpFinal",
+        "model1Change",
+        "model2Change",
+        "s29Removal",
+        "model1",
+        "model2",
+      ].includes(key)
         ? "desc"
         : "asc",
     );
@@ -176,11 +207,18 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
     <section className="rounded-2xl border border-border bg-card">
       <div className="flex flex-col gap-3 border-b border-border p-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Population Scenario Table</h3>
-          <p className="text-xs text-muted-foreground">{filteredContracts.length.toLocaleString()} H+R MA-PD contracts</p>
+          <h3 className="text-sm font-semibold text-foreground">
+            Population Scenario Table
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {filteredContracts.length.toLocaleString()} H+R MA-PD contracts
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <ExportCsvButton tableRef={tableRef} fileName="clover-scenario-impact" />
+          <ExportCsvButton
+            tableRef={tableRef}
+            fileName="clover-scenario-impact"
+          />
           <select
             value={parentFilter}
             onChange={(event) => {
@@ -217,18 +255,128 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
         <table ref={tableRef} className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/30 text-xs text-muted-foreground">
-              <th className="px-4 py-3 text-left"><SortHeader label="Contract" tooltip="CMS contract ID. Click a contract to update the chart above." value="contractId" align="left" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-left"><SortHeader label="Parent" tooltip="Organization marketing name and parent organization for the contract." value="parentOrganization" align="left" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="2025" tooltip="Official CMS 2025 overall Stars rating from the summary file, when available." value="stars2025" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="2026" tooltip="Official CMS Stars 2026 overall rating from the summary file. This rating drives the 2027 QBP." value="stars2026" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Official Recalc" tooltip="CMS June 17, 2026 Stars 2026 recalculation: Part C HEDIS/CAHPS/HOS only, removing all Part D and six named Part C measures (unrounded calculated score)." value="officialRecalc" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Recalc Change" tooltip="Official recalculation score minus the official Stars 2026 overall rating." value="officialRecalcChange" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Stars 2026 (HH)" tooltip="Final hold-harmless Stars 2026 rating (drives the 2027 QBP): the higher of the original rating and the rounded recalculation. No contract is downgraded." value="qbpFinal" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="S29 Removal" tooltip="Calculated score after removing the operations and CAHPS-style measures from the S29 removal scenario." value="s29Removal" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Model 1" tooltip="Calculated score after removing the ten 1395w-22(e) data-source measures from the Clover scenario." value="model1" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Model 2" tooltip="Calculated score after removing the full 20-measure Clover scenario set." value="model2" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Model 1 Change" tooltip="Model 1 score minus the official 2026 overall Stars rating." value="model1Change" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
-              <th className="px-4 py-3 text-right"><SortHeader label="Model 2 Change" tooltip="Model 2 score minus the official 2026 overall Stars rating." value="model2Change" activeSortKey={sortKey} sortDirection={sortDirection} onSort={handleSort} /></th>
+              <th className="px-4 py-3 text-left">
+                <SortHeader
+                  label="Contract"
+                  tooltip="CMS contract ID. Click a contract to update the chart above."
+                  value="contractId"
+                  align="left"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-left">
+                <SortHeader
+                  label="Parent"
+                  tooltip="Organization marketing name and parent organization for the contract."
+                  value="parentOrganization"
+                  align="left"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="2025"
+                  tooltip="Official CMS 2025 overall Stars rating from the summary file, when available."
+                  value="stars2025"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="2026"
+                  tooltip="Official CMS Stars 2026 overall rating from the summary file. This rating drives the 2027 QBP."
+                  value="stars2026"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Official Recalc"
+                  tooltip="CMS June 17, 2026 Stars 2026 recalculation: Part C HEDIS/CAHPS/HOS only, removing all Part D and six named Part C measures (unrounded calculated score)."
+                  value="officialRecalc"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Recalc Change"
+                  tooltip="Official recalculation score minus the official Stars 2026 overall rating."
+                  value="officialRecalcChange"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Stars 2026 (HH)"
+                  tooltip="Final hold-harmless Stars 2026 rating (drives the 2027 QBP): the higher of the original rating and the rounded recalculation. No contract is downgraded."
+                  value="qbpFinal"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="S29 Removal"
+                  tooltip="Calculated score after removing the operations and CAHPS-style measures from the S29 removal scenario."
+                  value="s29Removal"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Model 1"
+                  tooltip="Calculated score after removing the ten 1395w-22(e) data-source measures from the Clover scenario."
+                  value="model1"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Model 2"
+                  tooltip="Calculated score after removing the full 20-measure Clover scenario set."
+                  value="model2"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Model 1 Change"
+                  tooltip="Model 1 score minus the official 2026 overall Stars rating."
+                  value="model1Change"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
+              <th className="px-4 py-3 text-right">
+                <SortHeader
+                  label="Model 2 Change"
+                  tooltip="Model 2 score minus the official 2026 overall Stars rating."
+                  value="model2Change"
+                  activeSortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -236,7 +384,11 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
               <tr
                 key={contract.contractId}
                 className={`border-b border-border/50 transition hover:bg-muted/30 ${
-                  contract.contractId === selectedContractId ? "bg-primary/10" : index % 2 === 0 ? "" : "bg-muted/10"
+                  contract.contractId === selectedContractId
+                    ? "bg-primary/10"
+                    : index % 2 === 0
+                      ? ""
+                      : "bg-muted/10"
                 }`}
               >
                 <td className="px-4 py-3">
@@ -247,24 +399,47 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
                   >
                     {contract.contractId}
                   </button>
-                  <Link href={`/summary?contractId=${contract.contractId}&year=2026`} className="ml-2 text-[10px] text-muted-foreground hover:text-foreground">
+                  <Link
+                    href={`/summary?contractId=${contract.contractId}&year=2026`}
+                    className="ml-2 text-[10px] text-muted-foreground hover:text-foreground"
+                  >
                     view
                   </Link>
                 </td>
                 <td className="px-4 py-3">
                   <div className="max-w-[260px]">
-                    <p className="truncate text-foreground">{contract.organizationMarketingName || contract.contractName || "-"}</p>
-                    <p className="truncate text-xs text-muted-foreground">{contract.parentOrganization || "-"}</p>
+                    <p className="truncate text-foreground">
+                      {contract.organizationMarketingName ||
+                        contract.contractName ||
+                        "-"}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {contract.parentOrganization || "-"}
+                    </p>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.stars2025)}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.stars2026)}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.officialRecalc)}</td>
-                <td className={`px-4 py-3 text-right font-mono text-xs font-semibold ${getChangeClass(contract.changesFromStars2026.officialRecalc)}`}>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {formatScore(contract.scores.stars2025)}
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {formatScore(contract.scores.stars2026)}
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {formatScore(contract.scores.officialRecalc)}
+                </td>
+                <td
+                  className={`px-4 py-3 text-right font-mono text-xs font-semibold ${getChangeClass(contract.changesFromStars2026.officialRecalc)}`}
+                >
                   {formatChange(contract.changesFromStars2026.officialRecalc)}
                 </td>
                 <td className="px-4 py-3 text-right font-mono text-xs">
-                  <span className={contract.qbp2027.ratingIncreased ? "font-semibold text-emerald-500" : "text-foreground"}>
+                  <span
+                    className={
+                      contract.qbp2027.ratingIncreased
+                        ? "font-semibold text-emerald-500"
+                        : "text-foreground"
+                    }
+                  >
                     {formatScore(contract.qbp2027.finalRating)}
                   </span>
                   {contract.qbp2027.bidResubmissionEligible ? (
@@ -276,13 +451,23 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
                     </span>
                   ) : null}
                 </td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.s29Removal)}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.model1)}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatScore(contract.scores.model2)}</td>
-                <td className={`px-4 py-3 text-right font-mono text-xs font-semibold ${getChangeClass(contract.changesFromStars2026.model1)}`}>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {formatScore(contract.scores.s29Removal)}
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {formatScore(contract.scores.model1)}
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {formatScore(contract.scores.model2)}
+                </td>
+                <td
+                  className={`px-4 py-3 text-right font-mono text-xs font-semibold ${getChangeClass(contract.changesFromStars2026.model1)}`}
+                >
                   {formatChange(contract.changesFromStars2026.model1)}
                 </td>
-                <td className={`px-4 py-3 text-right font-mono text-xs font-semibold ${getChangeClass(contract.changesFromStars2026.model2)}`}>
+                <td
+                  className={`px-4 py-3 text-right font-mono text-xs font-semibold ${getChangeClass(contract.changesFromStars2026.model2)}`}
+                >
                   {formatChange(contract.changesFromStars2026.model2)}
                 </td>
               </tr>
@@ -294,8 +479,10 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
       <div className="flex flex-col gap-3 border-t border-border p-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span>
-            Showing {filteredContracts.length === 0 ? 0 : (safePage - 1) * pageSize + 1}-
-            {Math.min(safePage * pageSize, filteredContracts.length)} of {filteredContracts.length}
+            Showing{" "}
+            {filteredContracts.length === 0 ? 0 : (safePage - 1) * pageSize + 1}
+            -{Math.min(safePage * pageSize, filteredContracts.length)} of{" "}
+            {filteredContracts.length}
           </span>
           <label className="flex items-center gap-2">
             Per page
@@ -323,10 +510,14 @@ export function CloverImpactTable({ contracts, selectedContractId, onSelectContr
           >
             Previous
           </button>
-          <span className="text-xs text-muted-foreground">Page {safePage} of {totalPages}</span>
+          <span className="text-xs text-muted-foreground">
+            Page {safePage} of {totalPages}
+          </span>
           <button
             type="button"
-            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+            onClick={() =>
+              setPage((current) => Math.min(totalPages, current + 1))
+            }
             disabled={safePage === totalPages}
             className="rounded border border-border bg-muted px-3 py-1 text-xs text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >

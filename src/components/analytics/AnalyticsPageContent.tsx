@@ -11,7 +11,11 @@ type AnalyticsPageContentProps = {
   selectedYears: string[];
 };
 
-function buildFileName(contracts: string[], measures: string[], years: string[]) {
+function buildFileName(
+  contracts: string[],
+  measures: string[],
+  years: string[],
+) {
   const parts: string[] = ["analytics"];
   if (contracts.length > 0) {
     parts.push(contracts.slice(0, 3).join("-"));
@@ -34,17 +38,23 @@ export function AnalyticsPageContent({
   selectedYears,
 }: AnalyticsPageContentProps) {
   const exportContainerRef = useRef<HTMLDivElement | null>(null);
-  const hasSelections = selectedContracts.length > 0 && selectedMeasures.length > 0 && selectedYears.length > 0;
+  const hasSelections =
+    selectedContracts.length > 0 &&
+    selectedMeasures.length > 0 &&
+    selectedYears.length > 0;
 
   const fileName = useMemo(
     () => buildFileName(selectedContracts, selectedMeasures, selectedYears),
-    [selectedContracts, selectedMeasures, selectedYears]
+    [selectedContracts, selectedMeasures, selectedYears],
   );
 
   return (
     <div ref={exportContainerRef} className="flex flex-col gap-6">
       <div className="flex justify-end">
-        <ExportPdfButton targetRef={exportContainerRef} fileName={fileName || undefined} />
+        <ExportPdfButton
+          targetRef={exportContainerRef}
+          fileName={fileName || undefined}
+        />
       </div>
       <ComparisonBuilder
         selectedContracts={selectedContracts}

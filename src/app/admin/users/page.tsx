@@ -1,18 +1,24 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { Check, X, Clock, RefreshCw, Users, ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import Link from 'next/link';
+import { useEffect, useState } from "react";
+import { Check, X, Clock, RefreshCw, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
-import { AdminSubNav } from '@/components/admin/AdminSubNav';
+import { AdminSubNav } from "@/components/admin/AdminSubNav";
+import { AppShell } from "@/components/layout/AppShell";
 
 type UserApproval = {
   id: string;
   user_id: string;
   email: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: "pending" | "approved" | "rejected";
   requested_at: string;
   reviewed_at: string | null;
   notes: string | null;
@@ -28,15 +34,15 @@ export default function AdminUsersPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/admin/users');
+      const response = await fetch("/api/admin/users");
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to fetch users');
+        throw new Error(data.error || "Failed to fetch users");
       }
       const data = await response.json();
       setUsers(data.users || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch users');
+      setError(err instanceof Error ? err.message : "Failed to fetch users");
     } finally {
       setIsLoading(false);
     }
@@ -46,86 +52,81 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, []);
 
-  const handleApproval = async (userId: string, status: 'approved' | 'rejected') => {
+  const handleApproval = async (
+    userId: string,
+    status: "approved" | "rejected",
+  ) => {
     setActionLoading(userId);
     try {
-      const response = await fetch('/api/admin/users', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, status }),
       });
-      
+
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to update user');
+        throw new Error(data.error || "Failed to update user");
       }
-      
+
       // Refresh the list
       await fetchUsers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update user');
+      setError(err instanceof Error ? err.message : "Failed to update user");
     } finally {
       setActionLoading(null);
     }
   };
 
-  const pendingUsers = users.filter(u => u.status === 'pending');
-  const approvedUsers = users.filter(u => u.status === 'approved');
-  const rejectedUsers = users.filter(u => u.status === 'rejected');
+  const pendingUsers = users.filter((u) => u.status === "pending");
+  const approvedUsers = users.filter((u) => u.status === "approved");
+  const rejectedUsers = users.filter((u) => u.status === "rejected");
 
   const StatusBadge = ({ status }: { status: string }) => {
     const styles = {
-      pending: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-      approved: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-      rejected: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      pending: "bg-[#f7ecd2] text-[#9a7415]",
+      approved: "bg-[var(--fep-band-bg)] text-[var(--fep-accent)]",
+      rejected: "bg-[#f9efe9] text-[var(--fep-negative)]",
     };
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status as keyof typeof styles]}`}>
+      <span
+        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status as keyof typeof styles]}`}
+      >
         {status}
       </span>
     );
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/admin/forecast">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold">User Management</h1>
-              <p className="text-muted-foreground">Approve or reject user signups</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <AdminSubNav />
-            <Button onClick={fetchUsers} variant="outline" disabled={isLoading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
+    <AppShell
+      title="User Management"
+      subtitle="Approve or reject user signups."
+      actions={
+        <div className="flex flex-wrap items-center gap-3">
+          <AdminSubNav />
+          <Button onClick={fetchUsers} variant="outline" disabled={isLoading}>
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
         </div>
+      }
+    >
+      <div className="mx-auto w-full max-w-4xl">
+        {error && <div className="fep-banner-error mb-6">{error}</div>}
 
-        {error && (
-          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive">
-            {error}
-          </div>
-        )}
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="mb-8 grid grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/30">
-                  <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <div className="rounded-full bg-[#f7ecd2] p-2">
+                  <Clock className="h-5 w-5 text-[#9a7415]" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{pendingUsers.length}</p>
+                  <p className="fep-stat-value !mt-0 text-2xl">
+                    {pendingUsers.length}
+                  </p>
                   <p className="text-sm text-muted-foreground">Pending</p>
                 </div>
               </div>
@@ -134,11 +135,13 @@ export default function AdminUsersPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
-                  <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <div className="rounded-full bg-[var(--fep-band-bg)] p-2">
+                  <Check className="h-5 w-5 text-[var(--fep-accent)]" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{approvedUsers.length}</p>
+                  <p className="fep-stat-value !mt-0 text-2xl">
+                    {approvedUsers.length}
+                  </p>
                   <p className="text-sm text-muted-foreground">Approved</p>
                 </div>
               </div>
@@ -147,11 +150,13 @@ export default function AdminUsersPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-red-100 dark:bg-red-900/30">
-                  <X className="h-5 w-5 text-red-600 dark:text-red-400" />
+                <div className="rounded-full bg-[#f9efe9] p-2">
+                  <X className="h-5 w-5 text-[var(--fep-negative)]" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{rejectedUsers.length}</p>
+                  <p className="fep-stat-value !mt-0 text-2xl">
+                    {rejectedUsers.length}
+                  </p>
                   <p className="text-sm text-muted-foreground">Rejected</p>
                 </div>
               </div>
@@ -167,19 +172,22 @@ export default function AdminUsersPage() {
                 <Clock className="h-5 w-5 text-amber-500" />
                 Pending Approval ({pendingUsers.length})
               </CardTitle>
-              <CardDescription>These users are waiting for your approval</CardDescription>
+              <CardDescription>
+                These users are waiting for your approval
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {pendingUsers.map((user) => (
                   <div
                     key={user.id}
-                    className="flex items-center justify-between p-4 rounded-lg border border-border bg-card"
+                    className="flex items-center justify-between rounded-lg border border-border bg-card p-4"
                   >
                     <div>
                       <p className="font-medium">{user.email}</p>
                       <p className="text-sm text-muted-foreground">
-                        Requested {new Date(user.requested_at).toLocaleDateString()} at{' '}
+                        Requested{" "}
+                        {new Date(user.requested_at).toLocaleDateString()} at{" "}
                         {new Date(user.requested_at).toLocaleTimeString()}
                       </p>
                     </div>
@@ -187,20 +195,19 @@ export default function AdminUsersPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                        onClick={() => handleApproval(user.user_id, 'rejected')}
+                        className="text-[var(--fep-negative)] hover:bg-[#f9efe9] hover:text-[var(--fep-negative)]"
+                        onClick={() => handleApproval(user.user_id, "rejected")}
                         disabled={actionLoading === user.user_id}
                       >
-                        <X className="h-4 w-4 mr-1" />
+                        <X className="mr-1 h-4 w-4" />
                         Reject
                       </Button>
                       <Button
                         size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                        onClick={() => handleApproval(user.user_id, 'approved')}
+                        onClick={() => handleApproval(user.user_id, "approved")}
                         disabled={actionLoading === user.user_id}
                       >
-                        <Check className="h-4 w-4 mr-1" />
+                        <Check className="mr-1 h-4 w-4" />
                         Approve
                       </Button>
                     </div>
@@ -211,7 +218,6 @@ export default function AdminUsersPage() {
           </Card>
         )}
 
-        {/* All Users */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -221,15 +227,19 @@ export default function AdminUsersPage() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Loading users...</div>
+              <div className="py-8 text-center text-muted-foreground">
+                Loading users...
+              </div>
             ) : users.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">No users found</div>
+              <div className="py-8 text-center text-muted-foreground">
+                No users found
+              </div>
             ) : (
               <div className="space-y-2">
                 {users.map((user) => (
                   <div
                     key={user.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                    className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted/50"
                   >
                     <div className="flex items-center gap-3">
                       <StatusBadge status={user.status} />
@@ -239,21 +249,25 @@ export default function AdminUsersPage() {
                       <span className="text-sm text-muted-foreground">
                         {new Date(user.requested_at).toLocaleDateString()}
                       </span>
-                      {user.status !== 'approved' && (
+                      {user.status !== "approved" && (
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleApproval(user.user_id, 'approved')}
+                          onClick={() =>
+                            handleApproval(user.user_id, "approved")
+                          }
                           disabled={actionLoading === user.user_id}
                         >
                           <Check className="h-4 w-4" />
                         </Button>
                       )}
-                      {user.status !== 'rejected' && (
+                      {user.status !== "rejected" && (
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleApproval(user.user_id, 'rejected')}
+                          onClick={() =>
+                            handleApproval(user.user_id, "rejected")
+                          }
                           disabled={actionLoading === user.user_id}
                         >
                           <X className="h-4 w-4" />
@@ -267,14 +281,6 @@ export default function AdminUsersPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AppShell>
   );
 }
-
-
-
-
-
-
-
-

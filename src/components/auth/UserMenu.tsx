@@ -1,25 +1,23 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { LogOut } from 'lucide-react';
-import { useAuth } from './AuthProvider';
-import { logout } from '@/lib/auth/actions';
+import { useState } from "react";
+import { LogOut } from "lucide-react";
+import { useAuth } from "./AuthProvider";
+import { logout } from "@/lib/auth/actions";
 
 export function UserMenu() {
   const { user, isLoading } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   if (isLoading) {
-    return (
-      <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
-    );
+    return <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />;
   }
 
   if (!user) {
     return null;
   }
 
-  const userEmail = user.email || 'User';
+  const userEmail = user.email || "User";
   const userInitial = userEmail.charAt(0).toUpperCase();
 
   return (
@@ -47,8 +45,12 @@ export function UserMenu() {
                   {userInitial}
                 </div>
                 <div className="flex flex-col overflow-hidden">
-                  <span className="text-sm font-medium truncate">{userEmail}</span>
-                  <span className="text-xs text-muted-foreground">Signed in</span>
+                  <span className="text-sm font-medium truncate">
+                    {userEmail}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Signed in
+                  </span>
                 </div>
               </div>
             </div>
@@ -70,11 +72,3 @@ export function UserMenu() {
     </div>
   );
 }
-
-
-
-
-
-
-
-

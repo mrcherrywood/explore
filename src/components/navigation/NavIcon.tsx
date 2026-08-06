@@ -13,23 +13,34 @@ type NavIconProps = {
   expanded?: boolean;
 };
 
-export function NavIcon({ icon: Icon, label, href, active = false, expanded = false }: NavIconProps) {
+export function NavIcon({
+  icon: Icon,
+  label,
+  href,
+  active = false,
+  expanded = false,
+}: NavIconProps) {
   const className = cn(
-    "relative flex items-center rounded-xl border border-border bg-background text-muted-foreground transition focus:outline-none focus:ring-2 focus:ring-primary/40",
-    expanded ? "h-10 w-full gap-3 px-3" : "h-10 w-10 justify-center",
-    active ? "text-foreground" : "hover:text-foreground"
+    "relative flex items-center rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-[var(--fep-accent)]/30",
+    expanded ? "h-10 w-full gap-3 px-3" : "size-10 justify-center",
+    active
+      ? "border-[color-mix(in_srgb,var(--fep-accent)_22%,transparent)] bg-[var(--fep-band-bg)] text-[var(--fep-accent)]"
+      : "border-[var(--fep-border)] bg-[#fffdf8]/70 text-[var(--fep-muted)] hover:bg-[var(--fep-row-hover)] hover:text-[var(--fep-ink)]",
   );
 
   const indicator = active ? (
-    <span className="absolute inset-y-2 left-1 w-[3px] rounded-full bg-primary/70" aria-hidden />
+    <span
+      className="absolute inset-y-2 left-1 w-[3px] rounded-full bg-[var(--fep-accent)]"
+      aria-hidden
+    />
   ) : null;
 
   const content = (
     <>
       {indicator}
-      <Icon className="h-5 w-5 shrink-0" />
+      <Icon className="size-5 shrink-0" />
       {expanded && (
-        <span className="truncate text-sm font-medium">{label}</span>
+        <span className="truncate text-sm font-semibold">{label}</span>
       )}
     </>
   );

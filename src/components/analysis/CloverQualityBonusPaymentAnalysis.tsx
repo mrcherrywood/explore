@@ -40,7 +40,8 @@ type ScenarioImpact = {
 
 const ESTIMATED_BENCHMARK_PMPM = 1200;
 const QUALITY_BONUS_RATE = 0.05;
-const ESTIMATED_ANNUAL_QBP_PER_MEMBER = ESTIMATED_BENCHMARK_PMPM * 12 * QUALITY_BONUS_RATE;
+const ESTIMATED_ANNUAL_QBP_PER_MEMBER =
+  ESTIMATED_BENCHMARK_PMPM * 12 * QUALITY_BONUS_RATE;
 
 const SCENARIOS: Array<{ id: ScenarioId; label: string }> = [
   { id: "model1", label: "Model 1" },
@@ -96,7 +97,8 @@ function getStatusLabel(status: ImpactStatus): string {
 function getStatusClass(status: ImpactStatus): string {
   if (status === "gain") return "bg-emerald-500/10 text-emerald-400";
   if (status === "loss") return "bg-rose-500/10 text-rose-400";
-  if (status === "retained") return "bg-sky-500/10 text-sky-300";
+  if (status === "retained")
+    return "bg-[var(--fep-band-bg)] text-[var(--fep-accent)]";
   return "bg-muted text-muted-foreground";
 }
 
@@ -108,30 +110,40 @@ function sumEstimatedPayments(rows: ImpactRow[]): number {
   return rows.reduce((sum, row) => sum + row.estimatedAnnualPaymentChange, 0);
 }
 
-function buildScenarioImpact(contracts: CloverContractImpact[], scenario: { id: ScenarioId; label: string }): ScenarioImpact {
+function buildScenarioImpact(
+  contracts: CloverContractImpact[],
+  scenario: { id: ScenarioId; label: string },
+): ScenarioImpact {
   const rows = contracts.map((contract) => {
     const officialRating = contract.officialScores.stars2026;
     const scenarioScore = contract.scores[scenario.id];
-    const scenarioRounded = scenarioScore === null ? null : roundToHalf(scenarioScore);
+    const scenarioRounded =
+      scenarioScore === null ? null : roundToHalf(scenarioScore);
     const officialEligible = isBonusEligible(officialRating);
     const scenarioEligible = isBonusEligible(scenarioRounded);
-    const status: ImpactStatus = !officialEligible && scenarioEligible
-      ? "gain"
-      : officialEligible && !scenarioEligible
-        ? "loss"
-        : officialEligible && scenarioEligible
-          ? "retained"
-          : "notEligible";
+    const status: ImpactStatus =
+      !officialEligible && scenarioEligible
+        ? "gain"
+        : officialEligible && !scenarioEligible
+          ? "loss"
+          : officialEligible && scenarioEligible
+            ? "retained"
+            : "notEligible";
     const enrollment = contract.totalEnrollment;
     const estimatedAnnualPaymentChange =
-      status === "gain" ? (enrollment ?? 0) * ESTIMATED_ANNUAL_QBP_PER_MEMBER :
-      status === "loss" ? -(enrollment ?? 0) * ESTIMATED_ANNUAL_QBP_PER_MEMBER :
-      0;
+      status === "gain"
+        ? (enrollment ?? 0) * ESTIMATED_ANNUAL_QBP_PER_MEMBER
+        : status === "loss"
+          ? -(enrollment ?? 0) * ESTIMATED_ANNUAL_QBP_PER_MEMBER
+          : 0;
 
     return {
       contractId: contract.contractId,
       parentOrganization: contract.parentOrganization ?? "Unknown",
-      organizationName: contract.organizationMarketingName || contract.contractName || "Unknown",
+      organizationName:
+        contract.organizationMarketingName ||
+        contract.contractName ||
+        "Unknown",
       enrollment,
       officialRating,
       scenarioScore,
@@ -141,11 +153,17 @@ function buildScenarioImpact(contracts: CloverContractImpact[], scenario: { id: 
     };
   });
 
-  const officialEligibleRows = rows.filter((row) => isBonusEligible(row.officialRating));
-  const scenarioEligibleRows = rows.filter((row) => isBonusEligible(row.scenarioRounded));
+  const officialEligibleRows = rows.filter((row) =>
+    isBonusEligible(row.officialRating),
+  );
+  const scenarioEligibleRows = rows.filter((row) =>
+    isBonusEligible(row.scenarioRounded),
+  );
   const gainedRows = rows.filter((row) => row.status === "gain");
   const lostRows = rows.filter((row) => row.status === "loss");
-  const changedRows = [...gainedRows, ...lostRows].sort((a, b) => (b.enrollment ?? 0) - (a.enrollment ?? 0));
+  const changedRows = [...gainedRows, ...lostRows].sort(
+    (a, b) => (b.enrollment ?? 0) - (a.enrollment ?? 0),
+  );
 
   return {
     id: scenario.id,
@@ -167,45 +185,70 @@ function buildScenarioImpact(contracts: CloverContractImpact[], scenario: { id: 
 }
 
 function ImpactCard({ impact }: { impact: ScenarioImpact }) {
-  const netContracts = impact.scenarioEligibleContracts - impact.officialEligibleContracts;
-  const netEnrollment = impact.scenarioEligibleEnrollment - impact.officialEligibleEnrollment;
+  const netContracts =
+    impact.scenarioEligibleContracts - impact.officialEligibleContracts;
+  const netEnrollment =
+    impact.scenarioEligibleEnrollment - impact.officialEligibleEnrollment;
   const netIsPositive = impact.netEstimatedPayment >= 0;
 
   return (
     <div className="rounded-xl border border-border bg-muted/20 p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h4 className="text-sm font-semibold text-foreground">{impact.label}</h4>
-          <p className="mt-1 text-pretty text-xs text-muted-foreground">Scenario rounded stars vs official 2026 rounded stars.</p>
+          <h4 className="text-sm font-semibold text-foreground">
+            {impact.label}
+          </h4>
+          <p className="mt-1 text-pretty text-xs text-muted-foreground">
+            Scenario rounded stars vs official 2026 rounded stars.
+          </p>
         </div>
-        <span className={`rounded-full px-2.5 py-1 text-xs font-medium tabular-nums ${netContracts >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}>
+        <span
+          className={`rounded-full px-2.5 py-1 text-xs font-medium tabular-nums ${netContracts >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}
+        >
           {formatSigned(netContracts)} contracts
         </span>
       </div>
 
-      <div className={`mt-5 rounded-xl border p-4 ${netIsPositive ? "border-emerald-500/20 bg-emerald-500/5" : "border-rose-500/20 bg-rose-500/5"}`}>
-        <p className="text-xs font-medium text-muted-foreground">Estimated Annual QBP Swing</p>
-        <p className={`mt-1 text-3xl font-semibold tabular-nums ${netIsPositive ? "text-emerald-400" : "text-rose-400"}`}>
+      <div
+        className={`mt-5 rounded-xl border p-4 ${netIsPositive ? "border-emerald-500/20 bg-emerald-500/5" : "border-rose-500/20 bg-rose-500/5"}`}
+      >
+        <p className="text-xs font-medium text-muted-foreground">
+          Estimated Annual QBP Swing
+        </p>
+        <p
+          className={`mt-1 text-3xl font-semibold tabular-nums ${netIsPositive ? "text-emerald-400" : "text-rose-400"}`}
+        >
           {formatCurrency(impact.netEstimatedPayment)}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Net eligible enrollment: <span className="font-medium tabular-nums text-foreground">{formatSigned(netEnrollment)}</span>
+          Net eligible enrollment:{" "}
+          <span className="font-medium tabular-nums text-foreground">
+            {formatSigned(netEnrollment)}
+          </span>
         </p>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-border bg-card/40 p-3">
           <p className="text-xs text-muted-foreground">Eligible Contracts</p>
-          <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{impact.scenarioEligibleContracts.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground">from {impact.officialEligibleContracts.toLocaleString()}</p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+            {impact.scenarioEligibleContracts.toLocaleString()}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            from {impact.officialEligibleContracts.toLocaleString()}
+          </p>
         </div>
         <div className="rounded-lg border border-border bg-card/40 p-3">
           <p className="text-xs text-muted-foreground">Eligible Enrollment</p>
-          <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{formatSigned(netEnrollment)}</p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+            {formatSigned(netEnrollment)}
+          </p>
         </div>
         <div className="rounded-lg border border-border bg-card/40 p-3">
           <p className="text-xs text-muted-foreground">Per Member Assumption</p>
-          <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{formatCurrency(ESTIMATED_ANNUAL_QBP_PER_MEMBER)}</p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+            {formatCurrency(ESTIMATED_ANNUAL_QBP_PER_MEMBER)}
+          </p>
           <p className="text-xs text-muted-foreground">annual QBP proxy</p>
         </div>
       </div>
@@ -214,23 +257,39 @@ function ImpactCard({ impact }: { impact: ScenarioImpact }) {
         <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-medium text-emerald-400">Gaining QBP</p>
-            <p className="text-sm font-semibold tabular-nums text-emerald-400">{formatCurrency(impact.gainedEstimatedPayment)}</p>
+            <p className="text-sm font-semibold tabular-nums text-emerald-400">
+              {formatCurrency(impact.gainedEstimatedPayment)}
+            </p>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            <span className="font-medium tabular-nums text-foreground">{impact.gainedContracts.toLocaleString()}</span> contracts
+            <span className="font-medium tabular-nums text-foreground">
+              {impact.gainedContracts.toLocaleString()}
+            </span>{" "}
+            contracts
             <span className="mx-1">/</span>
-            <span className="font-medium tabular-nums text-foreground">{formatEnrollment(impact.gainedEnrollment)}</span> members
+            <span className="font-medium tabular-nums text-foreground">
+              {formatEnrollment(impact.gainedEnrollment)}
+            </span>{" "}
+            members
           </p>
         </div>
         <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-medium text-rose-400">Losing QBP</p>
-            <p className="text-sm font-semibold tabular-nums text-rose-400">{formatCurrency(-impact.lostEstimatedPayment)}</p>
+            <p className="text-sm font-semibold tabular-nums text-rose-400">
+              {formatCurrency(-impact.lostEstimatedPayment)}
+            </p>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            <span className="font-medium tabular-nums text-foreground">{impact.lostContracts.toLocaleString()}</span> contracts
+            <span className="font-medium tabular-nums text-foreground">
+              {impact.lostContracts.toLocaleString()}
+            </span>{" "}
+            contracts
             <span className="mx-1">/</span>
-            <span className="font-medium tabular-nums text-foreground">{formatEnrollment(impact.lostEnrollment)}</span> members
+            <span className="font-medium tabular-nums text-foreground">
+              {formatEnrollment(impact.lostEnrollment)}
+            </span>{" "}
+            members
           </p>
         </div>
       </div>
@@ -238,26 +297,49 @@ function ImpactCard({ impact }: { impact: ScenarioImpact }) {
   );
 }
 
-export function CloverQualityBonusPaymentAnalysis({ contracts }: { contracts: CloverContractImpact[] }) {
-  const impacts = useMemo(() => SCENARIOS.map((scenario) => buildScenarioImpact(contracts, scenario)), [contracts]);
+export function CloverQualityBonusPaymentAnalysis({
+  contracts,
+}: {
+  contracts: CloverContractImpact[];
+}) {
+  const impacts = useMemo(
+    () => SCENARIOS.map((scenario) => buildScenarioImpact(contracts, scenario)),
+    [contracts],
+  );
   const allChangedRows = useMemo(
-    () => impacts.flatMap((impact) => impact.changedRows.map((row) => ({ ...row, scenarioLabel: impact.label }))),
+    () =>
+      impacts.flatMap((impact) =>
+        impact.changedRows.map((row) => ({
+          ...row,
+          scenarioLabel: impact.label,
+        })),
+      ),
     [impacts],
   );
 
   const [parentFilter, setParentFilter] = useState<string>("all");
 
   const parentOptions = useMemo(() => {
-    const parents = new Set(allChangedRows.map((row) => row.parentOrganization));
+    const parents = new Set(
+      allChangedRows.map((row) => row.parentOrganization),
+    );
     return Array.from(parents).sort((a, b) => a.localeCompare(b));
   }, [allChangedRows]);
 
   const filteredChangedRows = useMemo(
-    () => (parentFilter === "all" ? allChangedRows : allChangedRows.filter((row) => row.parentOrganization === parentFilter)),
+    () =>
+      parentFilter === "all"
+        ? allChangedRows
+        : allChangedRows.filter(
+            (row) => row.parentOrganization === parentFilter,
+          ),
     [allChangedRows, parentFilter],
   );
 
-  const changedRows = useMemo(() => filteredChangedRows.slice(0, 25), [filteredChangedRows]);
+  const changedRows = useMemo(
+    () => filteredChangedRows.slice(0, 25),
+    [filteredChangedRows],
+  );
 
   const getCsvData = (): CsvData => ({
     headers: [
@@ -290,13 +372,18 @@ export function CloverQualityBonusPaymentAnalysis({ contracts }: { contracts: Cl
     <section className="rounded-2xl border border-border bg-card p-6">
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h3 className="text-base font-semibold text-foreground">QBP Sensitivity Models (Speculative)</h3>
+          <h3 className="text-base font-semibold text-foreground">
+            QBP Sensitivity Models (Speculative)
+          </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Speculative Model 1 / Model 2 measure-removal scenarios shown two-directionally (gains and losses) for sensitivity
-            only — unlike the official recalculation above, these are not hold-harmless. Uses the CMS 4.0+ overall Star
-            threshold as a QBP eligibility proxy. Dollar impact is a ballpark annual estimate:
-            enrollment x ${ESTIMATED_BENCHMARK_PMPM.toLocaleString()} benchmark PMPM x {(QUALITY_BONUS_RATE * 100).toFixed(0)}% QBP.
-            It does not adjust for county benchmarks, bids, rebates, or double-bonus counties.
+            Speculative Model 1 / Model 2 measure-removal scenarios shown
+            two-directionally (gains and losses) for sensitivity only — unlike
+            the official recalculation above, these are not hold-harmless. Uses
+            the CMS 4.0+ overall Star threshold as a QBP eligibility proxy.
+            Dollar impact is a ballpark annual estimate: enrollment x $
+            {ESTIMATED_BENCHMARK_PMPM.toLocaleString()} benchmark PMPM x{" "}
+            {(QUALITY_BONUS_RATE * 100).toFixed(0)}% QBP. It does not adjust for
+            county benchmarks, bids, rebates, or double-bonus counties.
           </p>
         </div>
         <ExportCsvButton
@@ -330,8 +417,15 @@ export function CloverQualityBonusPaymentAnalysis({ contracts }: { contracts: Cl
           </select>
         </label>
         <p className="text-xs text-muted-foreground">
-          Showing <span className="font-medium tabular-nums text-foreground">{changedRows.length}</span> of{" "}
-          <span className="font-medium tabular-nums text-foreground">{filteredChangedRows.length}</span> changed contracts
+          Showing{" "}
+          <span className="font-medium tabular-nums text-foreground">
+            {changedRows.length}
+          </span>{" "}
+          of{" "}
+          <span className="font-medium tabular-nums text-foreground">
+            {filteredChangedRows.length}
+          </span>{" "}
+          changed contracts
         </p>
       </div>
 
@@ -353,22 +447,45 @@ export function CloverQualityBonusPaymentAnalysis({ contracts }: { contracts: Cl
           <tbody>
             {changedRows.length > 0 ? (
               changedRows.map((row) => (
-                <tr key={`${row.scenarioLabel}-${row.contractId}`} className="border-b border-border/50">
-                  <td className="px-3 py-2 text-xs text-muted-foreground">{row.scenarioLabel}</td>
-                  <td className="px-3 py-2 font-mono text-xs text-primary">{row.contractId}</td>
-                  <td className="px-3 py-2">
-                    <p className="max-w-[260px] truncate text-foreground">{row.organizationName}</p>
-                    <p className="max-w-[260px] truncate text-xs text-muted-foreground">{row.parentOrganization}</p>
+                <tr
+                  key={`${row.scenarioLabel}-${row.contractId}`}
+                  className="border-b border-border/50"
+                >
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {row.scenarioLabel}
                   </td>
-                  <td className="px-3 py-2 text-right font-mono text-xs">{formatEnrollment(row.enrollment)}</td>
-                  <td className="px-3 py-2 text-right font-mono text-xs">{formatRoundedStar(row.officialRating)}</td>
-                  <td className="px-3 py-2 text-right font-mono text-xs">{formatScore(row.scenarioScore)}</td>
-                  <td className="px-3 py-2 text-right font-mono text-xs">{formatRoundedStar(row.scenarioRounded)}</td>
-                  <td className={`px-3 py-2 text-right font-mono text-xs ${row.estimatedAnnualPaymentChange >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  <td className="px-3 py-2 font-mono text-xs text-primary">
+                    {row.contractId}
+                  </td>
+                  <td className="px-3 py-2">
+                    <p className="max-w-[260px] truncate text-foreground">
+                      {row.organizationName}
+                    </p>
+                    <p className="max-w-[260px] truncate text-xs text-muted-foreground">
+                      {row.parentOrganization}
+                    </p>
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">
+                    {formatEnrollment(row.enrollment)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">
+                    {formatRoundedStar(row.officialRating)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">
+                    {formatScore(row.scenarioScore)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">
+                    {formatRoundedStar(row.scenarioRounded)}
+                  </td>
+                  <td
+                    className={`px-3 py-2 text-right font-mono text-xs ${row.estimatedAnnualPaymentChange >= 0 ? "text-emerald-400" : "text-rose-400"}`}
+                  >
                     {formatCurrency(row.estimatedAnnualPaymentChange)}
                   </td>
                   <td className="px-3 py-2">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getStatusClass(row.status)}`}>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${getStatusClass(row.status)}`}
+                    >
                       {getStatusLabel(row.status)}
                     </span>
                   </td>
@@ -376,7 +493,10 @@ export function CloverQualityBonusPaymentAnalysis({ contracts }: { contracts: Cl
               ))
             ) : (
               <tr>
-                <td colSpan={9} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                <td
+                  colSpan={9}
+                  className="px-3 py-6 text-center text-sm text-muted-foreground"
+                >
                   No contracts change QBP eligibility under Model 1 or Model 2.
                 </td>
               </tr>

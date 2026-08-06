@@ -35,7 +35,10 @@ export function DomainsPage({
 }) {
   const domains = report.domains;
   const chartData = domains.map((domain) => ({
-    name: domain.domain.length > 34 ? `${domain.domain.slice(0, 33)}…` : domain.domain,
+    name:
+      domain.domain.length > 34
+        ? `${domain.domain.slice(0, 33)}…`
+        : domain.domain,
     predicted: domain.predictedMean,
     baseline: domain.baselineMean,
   }));
@@ -90,7 +93,9 @@ export function DomainsPage({
               iconSize={9}
               wrapperStyle={{ fontSize: 10, fontWeight: 700 }}
               formatter={(value) => (
-                <span style={{ color: REPORT_COLORS.ink, fontWeight: 700 }}>{value}</span>
+                <span style={{ color: REPORT_COLORS.ink, fontWeight: 700 }}>
+                  {value}
+                </span>
               )}
             />
             <Bar
@@ -105,7 +110,11 @@ export function DomainsPage({
                 dataKey="baseline"
                 position="right"
                 formatter={chartValueFormatter(2)}
-                style={{ fontSize: 9, fontWeight: 700, fill: REPORT_COLORS.ink }}
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  fill: REPORT_COLORS.ink,
+                }}
               />
             </Bar>
             <Bar
@@ -120,7 +129,11 @@ export function DomainsPage({
                 dataKey="predicted"
                 position="right"
                 formatter={chartValueFormatter(2)}
-                style={{ fontSize: 9, fontWeight: 800, fill: REPORT_COLORS.accent }}
+                style={{
+                  fontSize: 9,
+                  fontWeight: 800,
+                  fill: REPORT_COLORS.accent,
+                }}
               />
             </Bar>
           </BarChart>
@@ -144,11 +157,20 @@ export function DomainsPage({
               {domains.map((domain) => {
                 const delta =
                   domain.predictedMean !== null && domain.baselineMean !== null
-                    ? Math.round((domain.predictedMean - domain.baselineMean) * 100) / 100
+                    ? Math.round(
+                        (domain.predictedMean - domain.baselineMean) * 100,
+                      ) / 100
                     : null;
                 return (
                   <tr key={domain.domain}>
-                    <td className="l" style={{ fontWeight: 600, color: "var(--fep-ink)", whiteSpace: "normal" }}>
+                    <td
+                      className="l"
+                      style={{
+                        fontWeight: 600,
+                        color: "var(--fep-ink)",
+                        whiteSpace: "normal",
+                      }}
+                    >
                       {domain.domain}
                     </td>
                     <td className="l">{domain.part}</td>
@@ -179,12 +201,14 @@ export function DomainsPage({
           </table>
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 8 }}>
-          Stars {report.baselineYear ?? "—"} published domain means match Contract Summary: published
-          measure stars weighted by that year&apos;s measure weights. Predicted means use accrued
-          plan preview stars (MCAHPS adjusted base stars for CAHPS when uploaded) with Stars{" "}
+          Stars {report.baselineYear ?? "—"} published domain means match
+          Contract Summary: published measure stars weighted by that year&apos;s
+          measure weights. Predicted means use accrued plan preview stars
+          (MCAHPS adjusted base stars for CAHPS when uploaded) with Stars{" "}
           {report.starsYear} weights. Domain groupings follow CMS Stars{" "}
-          {report.baselineYear ?? "—"} measure-to-domain assignments; measures new to Stars{" "}
-          {report.starsYear} (e.g. Polypharmacy Poly-ACH) are assigned to their CMS domain.
+          {report.baselineYear ?? "—"} measure-to-domain assignments; measures
+          new to Stars {report.starsYear} (e.g. Polypharmacy Poly-ACH) are
+          assigned to their CMS domain.
         </p>
       </ReportSection>
     </ReportPageFrame>

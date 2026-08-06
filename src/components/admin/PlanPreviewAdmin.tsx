@@ -1,10 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Download, FolderOpen, Loader2, RefreshCw, Trash2, Upload } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Download,
+  FolderOpen,
+  Loader2,
+  RefreshCw,
+  Trash2,
+  Upload,
+} from "lucide-react";
 
 import { PlanPreviewPredictions } from "@/components/admin/PlanPreviewPredictions";
-import type { PlanPreviewAccrualSummary, PlanPreviewBatchRecord } from "@/lib/plan-preview/types";
+import type {
+  PlanPreviewAccrualSummary,
+  PlanPreviewBatchRecord,
+} from "@/lib/plan-preview/types";
 
 type OverviewResponse = {
   starsYear: number;
@@ -23,11 +35,17 @@ const FILE_TYPE_LABELS: Record<string, string> = {
 };
 
 const DECIMAL_FILE_TYPES = new Set(["cahps", "hedis", "snp_cm"]);
-const MEASURE_COUNT_FILE_TYPES = new Set(["measure_data", "cahps", "hedis", "snp_cm", "cahps_adjusted"]);
+const MEASURE_COUNT_FILE_TYPES = new Set([
+  "measure_data",
+  "cahps",
+  "hedis",
+  "snp_cm",
+  "cahps_adjusted",
+]);
 
 /** Group upload batches by parent organization, most recent upload first. */
 function groupBatchesByParentOrg(
-  batches: PlanPreviewBatchRecord[]
+  batches: PlanPreviewBatchRecord[],
 ): { parentOrganization: string; batches: PlanPreviewBatchRecord[] }[] {
   const groups = new Map<string, PlanPreviewBatchRecord[]>();
   for (const batch of batches) {
@@ -40,21 +58,26 @@ function groupBatchesByParentOrg(
     .map(([parentOrganization, groupBatches]) => ({
       parentOrganization,
       batches: [...groupBatches].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       ),
     }))
     .sort(
       (a, b) =>
-        new Date(b.batches[0].createdAt).getTime() - new Date(a.batches[0].createdAt).getTime()
+        new Date(b.batches[0].createdAt).getTime() -
+        new Date(a.batches[0].createdAt).getTime(),
     );
 }
 
 async function fetchOverview(starsYear?: number): Promise<OverviewResponse> {
   const params = new URLSearchParams();
   if (starsYear) params.set("starsYear", String(starsYear));
-  const response = await fetch(`/api/admin/plan-preview/overview?${params}`, { cache: "no-store" });
+  const response = await fetch(`/api/admin/plan-preview/overview?${params}`, {
+    cache: "no-store",
+  });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error ?? "Failed to load plan preview data");
+  if (!response.ok)
+    throw new Error(payload.error ?? "Failed to load plan preview data");
   return payload;
 }
 
@@ -66,7 +89,9 @@ export function PlanPreviewAdmin() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(() => new Set());
+  const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(
+    () => new Set(),
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
@@ -87,7 +112,11 @@ export function PlanPreviewAdmin() {
       setOverview(data);
       setStarsYear(data.starsYear);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load plan preview data");
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Failed to load plan preview data",
+      );
     } finally {
       setLoading(false);
     }
@@ -99,7 +128,7 @@ export function PlanPreviewAdmin() {
 
   const batchGroups = useMemo(
     () => groupBatchesByParentOrg(overview?.batches ?? []),
-    [overview?.batches]
+    [overview?.batches],
   );
 
   const importFiles = async (allFiles: File[]) => {
@@ -107,7 +136,7 @@ export function PlanPreviewAdmin() {
 
     // Excel lock files (~$...) and non-workbook files are skipped up front.
     const workbooks = allFiles.filter(
-      (file) => /\.(xlsx|xls)$/i.test(file.name) && !file.name.startsWith("~$")
+      (file) => /\.(xlsx|xls)$/i.test(file.name) && !file.name.startsWith("~$"),
     );
     if (workbooks.length === 0) {
       setError("No .xlsx files found in the selection.");
@@ -142,18 +171,21 @@ export function PlanPreviewAdmin() {
               ? `${payload.summary?.rowCount ?? 0} decimal values across ${payload.summary?.measureCount ?? 0} measures`
               : `${payload.summary?.contractCount ?? 0} contracts`;
         imported.push(
-          `${file.name}: ${label} (${detail})` + (payload.warning ? ` — ${payload.warning}` : "")
+          `${file.name}: ${label} (${detail})` +
+            (payload.warning ? ` — ${payload.warning}` : ""),
         );
       } catch (uploadError) {
         skipped.push(
-          `${file.name} — ${uploadError instanceof Error ? uploadError.message : "upload failed"}`
+          `${file.name} — ${uploadError instanceof Error ? uploadError.message : "upload failed"}`,
         );
       }
     }
 
     const parts: string[] = [];
     if (imported.length > 0) {
-      parts.push(`Imported ${imported.length} file${imported.length === 1 ? "" : "s"}: ${imported.join(" · ")}`);
+      parts.push(
+        `Imported ${imported.length} file${imported.length === 1 ? "" : "s"}: ${imported.join(" · ")}`,
+      );
     }
     if (skipped.length > 0) {
       parts.push(`Skipped ${skipped.length}: ${skipped.join(" · ")}`);
@@ -187,7 +219,7 @@ export function PlanPreviewAdmin() {
   const handleClearYear = async () => {
     if (!starsYear) return;
     const confirmed = window.confirm(
-      `Delete all accrued Stars ${starsYear} plan preview data (uploads, measure scores, CAI)? This cannot be undone.`
+      `Delete all accrued Stars ${starsYear} plan preview data (uploads, measure scores, CAI)? This cannot be undone.`,
     );
     if (!confirmed) return;
 
@@ -201,13 +233,18 @@ export function PlanPreviewAdmin() {
         body: JSON.stringify({ starsYear }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error ?? "Failed to clear data");
+      if (!response.ok)
+        throw new Error(payload.error ?? "Failed to clear data");
       setNotice(
-        `Cleared Stars ${starsYear} plan preview data (${payload.deletedBatches ?? 0} uploads removed).`
+        `Cleared Stars ${starsYear} plan preview data (${payload.deletedBatches ?? 0} uploads removed).`,
       );
       await loadOverview(starsYear);
     } catch (clearError) {
-      setError(clearError instanceof Error ? clearError.message : "Failed to clear data");
+      setError(
+        clearError instanceof Error
+          ? clearError.message
+          : "Failed to clear data",
+      );
     } finally {
       setUploading(false);
     }
@@ -220,7 +257,7 @@ export function PlanPreviewAdmin() {
     try {
       const response = await fetch(
         `/api/admin/plan-preview/export?starsYear=${starsYear}`,
-        { cache: "no-store" }
+        { cache: "no-store" },
       );
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
@@ -237,14 +274,17 @@ export function PlanPreviewAdmin() {
       URL.revokeObjectURL(url);
       setNotice(`Exported measure data with decimals for Stars ${starsYear}.`);
     } catch (exportError) {
-      setError(exportError instanceof Error ? exportError.message : "Export failed");
+      setError(
+        exportError instanceof Error ? exportError.message : "Export failed",
+      );
     } finally {
       setExporting(false);
     }
   };
 
   const accrual = overview?.accrual ?? null;
-  const canExport = (accrual?.scoredValueCount ?? 0) > 0 || (accrual?.measureCount ?? 0) > 0;
+  const canExport =
+    (accrual?.scoredValueCount ?? 0) > 0 || (accrual?.measureCount ?? 0) > 0;
 
   return (
     <div className="flex flex-col gap-5">
@@ -252,17 +292,21 @@ export function PlanPreviewAdmin() {
         <div className="px-5 pb-4 pt-5">
           <p className="fep-label">Upload</p>
           <p className="fep-subtitle" style={{ marginTop: 4 }}>
-            Upload CMS plan preview master table exports (.xlsx) — measure data, CAI, domain
-            decimal files (CAHPS, HEDIS, SNP Care Management), and the MCAHPS enriched final
-            output (Adjusted_Base_Star) are detected automatically. Domain decimals overlay
-            whole-number measure scores when available; adjusted CAHPS stars replace cut-point
-            banding for matching contracts. Use Import folder to pull in a whole release folder at
-            once; files without usable scores (appeals, CTM, disenrollment, disaster) are skipped
-            with a note. Re-uploading a contract replaces its accrued rows for the selected Star
-            year.
+            Upload CMS plan preview master table exports (.xlsx) — measure data,
+            CAI, domain decimal files (CAHPS, HEDIS, SNP Care Management), and
+            the MCAHPS enriched final output (Adjusted_Base_Star) are detected
+            automatically. Domain decimals overlay whole-number measure scores
+            when available; adjusted CAHPS stars replace cut-point banding for
+            matching contracts. Use Import folder to pull in a whole release
+            folder at once; files without usable scores (appeals, CTM,
+            disenrollment, disaster) are skipped with a note. Re-uploading a
+            contract replaces its accrued rows for the selected Star year.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 border-t px-5 py-4" style={{ borderColor: "var(--fep-row-border)" }}>
+        <div
+          className="flex flex-wrap items-center gap-3 border-t px-5 py-4"
+          style={{ borderColor: "var(--fep-row-border)" }}
+        >
           <select
             className="fep-select"
             value={starsYear ?? ""}
@@ -298,7 +342,11 @@ export function PlanPreviewAdmin() {
             onClick={() => void handleUpload()}
             disabled={uploading || exporting || !starsYear}
           >
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {uploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
             Import
           </button>
           <button
@@ -307,16 +355,26 @@ export function PlanPreviewAdmin() {
             onClick={() => folderInputRef.current?.click()}
             disabled={uploading || exporting || !starsYear}
           >
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderOpen className="h-4 w-4" />}
+            {uploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FolderOpen className="h-4 w-4" />
+            )}
             Import folder
           </button>
           <button
             type="button"
             className="fep-btn-outline"
             onClick={() => void handleExport()}
-            disabled={loading || uploading || exporting || !starsYear || !canExport}
+            disabled={
+              loading || uploading || exporting || !starsYear || !canExport
+            }
           >
-            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
             Export measure data
           </button>
           <button
@@ -332,7 +390,13 @@ export function PlanPreviewAdmin() {
             type="button"
             className="fep-btn-outline"
             onClick={() => void handleClearYear()}
-            disabled={loading || uploading || exporting || !starsYear || (accrual?.batchCount ?? 0) === 0}
+            disabled={
+              loading ||
+              uploading ||
+              exporting ||
+              !starsYear ||
+              (accrual?.batchCount ?? 0) === 0
+            }
           >
             <Trash2 className="h-4 w-4" />
             Clear year
@@ -344,12 +408,36 @@ export function PlanPreviewAdmin() {
       {notice ? <div className="fep-banner-info">{notice}</div> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <SummaryCard label="Contracts accrued" value={accrual?.contractCount} loading={loading} />
-        <SummaryCard label="Measures covered" value={accrual?.measureCount} loading={loading} />
-        <SummaryCard label="Scored values" value={accrual?.scoredValueCount} loading={loading} />
-        <SummaryCard label="Decimal values" value={accrual?.decimalValueCount} loading={loading} />
-        <SummaryCard label="CAI contracts" value={accrual?.caiContractCount} loading={loading} />
-        <SummaryCard label="Uploads" value={accrual?.batchCount} loading={loading} />
+        <SummaryCard
+          label="Contracts accrued"
+          value={accrual?.contractCount}
+          loading={loading}
+        />
+        <SummaryCard
+          label="Measures covered"
+          value={accrual?.measureCount}
+          loading={loading}
+        />
+        <SummaryCard
+          label="Scored values"
+          value={accrual?.scoredValueCount}
+          loading={loading}
+        />
+        <SummaryCard
+          label="Decimal values"
+          value={accrual?.decimalValueCount}
+          loading={loading}
+        />
+        <SummaryCard
+          label="CAI contracts"
+          value={accrual?.caiContractCount}
+          loading={loading}
+        />
+        <SummaryCard
+          label="Uploads"
+          value={accrual?.batchCount}
+          loading={loading}
+        />
       </div>
 
       {starsYear !== null && (accrual?.contractCount ?? 0) > 0 ? (
@@ -359,19 +447,29 @@ export function PlanPreviewAdmin() {
       <section className="fep-card overflow-hidden">
         <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pb-4 pt-5">
           <p className="fep-label">Upload history</p>
-          <p className="text-xs font-medium" style={{ color: "var(--fep-faint)" }}>
+          <p
+            className="text-xs font-medium"
+            style={{ color: "var(--fep-faint)" }}
+          >
             {accrual?.lastUploadAt
               ? `Last upload ${new Date(accrual.lastUploadAt).toLocaleString()}`
               : "No uploads yet for this Star year."}
           </p>
         </div>
         {!loading && batchGroups.length === 0 ? (
-          <p className="px-5 pb-5 text-sm" style={{ color: "var(--fep-faint)" }}>
-            Upload the measure data, CAI, optional domain decimal files, and MCAHPS adjusted-star
-            output to start accruing Stars {starsYear ?? ""} plan preview scores.
+          <p
+            className="px-5 pb-5 text-sm"
+            style={{ color: "var(--fep-faint)" }}
+          >
+            Upload the measure data, CAI, optional domain decimal files, and
+            MCAHPS adjusted-star output to start accruing Stars{" "}
+            {starsYear ?? ""} plan preview scores.
           </p>
         ) : (
-          <div className="divide-y" style={{ borderColor: "var(--fep-row-border)" }}>
+          <div
+            className="divide-y"
+            style={{ borderColor: "var(--fep-row-border)" }}
+          >
             {batchGroups.map((group) => {
               const expanded = expandedOrgs.has(group.parentOrganization);
               return (
@@ -390,17 +488,33 @@ export function PlanPreviewAdmin() {
                     }}
                   >
                     {expanded ? (
-                      <ChevronDown className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--fep-faint)" }} />
+                      <ChevronDown
+                        className="h-3.5 w-3.5 shrink-0"
+                        style={{ color: "var(--fep-faint)" }}
+                      />
                     ) : (
-                      <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--fep-faint)" }} />
+                      <ChevronRight
+                        className="h-3.5 w-3.5 shrink-0"
+                        style={{ color: "var(--fep-faint)" }}
+                      />
                     )}
-                    <span className="min-w-0 truncate">{group.parentOrganization}</span>
-                    <span className="shrink-0 font-medium normal-case tracking-normal" style={{ color: "var(--fep-faint)" }}>
-                      {group.batches.length === 1 ? "1 upload" : `${group.batches.length} uploads`}
+                    <span className="min-w-0 truncate">
+                      {group.parentOrganization}
+                    </span>
+                    <span
+                      className="shrink-0 font-medium normal-case tracking-normal"
+                      style={{ color: "var(--fep-faint)" }}
+                    >
+                      {group.batches.length === 1
+                        ? "1 upload"
+                        : `${group.batches.length} uploads`}
                     </span>
                   </button>
                   {expanded ? (
-                    <div className="overflow-x-auto border-t" style={{ borderColor: "var(--fep-row-border)" }}>
+                    <div
+                      className="overflow-x-auto border-t"
+                      style={{ borderColor: "var(--fep-row-border)" }}
+                    >
                       <table className="fep-table">
                         <thead>
                           <tr>
@@ -416,11 +530,17 @@ export function PlanPreviewAdmin() {
                         <tbody>
                           {group.batches.map((batch) => (
                             <tr key={batch.id}>
-                              <td className="l max-w-[280px] truncate font-semibold" style={{ color: "var(--fep-ink)" }}>
+                              <td
+                                className="l max-w-[280px] truncate font-semibold"
+                                style={{ color: "var(--fep-ink)" }}
+                              >
                                 {batch.fileName}
                               </td>
                               <td className="l">
-                                <span className="fep-pill">{FILE_TYPE_LABELS[batch.fileType] ?? batch.fileType}</span>
+                                <span className="fep-pill">
+                                  {FILE_TYPE_LABELS[batch.fileType] ??
+                                    batch.fileType}
+                                </span>
                               </td>
                               <td>{batch.contractCount.toLocaleString()}</td>
                               <td>
@@ -430,7 +550,9 @@ export function PlanPreviewAdmin() {
                               </td>
                               <td>{batch.rowCount.toLocaleString()}</td>
                               <td>{batch.detectedStarsYear ?? "—"}</td>
-                              <td className="l">{new Date(batch.createdAt).toLocaleString()}</td>
+                              <td className="l">
+                                {new Date(batch.createdAt).toLocaleString()}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -459,7 +581,9 @@ function SummaryCard({
   return (
     <div className="fep-card px-5 py-4">
       <p className="fep-label">{label}</p>
-      <p className="fep-stat-value">{loading ? "…" : (value ?? 0).toLocaleString()}</p>
+      <p className="fep-stat-value">
+        {loading ? "…" : (value ?? 0).toLocaleString()}
+      </p>
     </div>
   );
 }

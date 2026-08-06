@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Loader2, Search, X } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Search,
+  X,
+} from "lucide-react";
 import { LeaderboardResults } from "./LeaderboardResults";
 import type {
   ContractLeaderboardSelection,
@@ -10,24 +17,75 @@ import type {
   LeaderboardResponse,
   OrganizationBucket,
 } from "@/lib/leaderboard/types";
-import { ENROLLMENT_LEVELS, type EnrollmentLevelId } from "@/lib/peer/enrollment-levels";
+import {
+  ENROLLMENT_LEVELS,
+  type EnrollmentLevelId,
+} from "@/lib/peer/enrollment-levels";
 
-const PLAN_TYPE_OPTIONS: Array<{ id: ContractLeaderboardSelection["planTypeGroup"]; label: string; description: string }> = [
-  { id: "ALL", label: "All Plan Types", description: "Include both SNP and non-SNP plans" },
-  { id: "SNP", label: "Special Needs (SNP)", description: "Plans focused on special needs populations" },
-  { id: "NOT", label: "Non-SNP Plans", description: "General population plans" },
+const PLAN_TYPE_OPTIONS: Array<{
+  id: ContractLeaderboardSelection["planTypeGroup"];
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "ALL",
+    label: "All Plan Types",
+    description: "Include both SNP and non-SNP plans",
+  },
+  {
+    id: "SNP",
+    label: "Special Needs (SNP)",
+    description: "Plans focused on special needs populations",
+  },
+  {
+    id: "NOT",
+    label: "Non-SNP Plans",
+    description: "General population plans",
+  },
 ];
 
-const CONTRACT_SERIES_OPTIONS: Array<{ id: ContractLeaderboardSelection["contractSeries"]; label: string; description: string }> = [
-  { id: "H_ONLY", label: "H-Series Contracts", description: "Exclude S-series employer or EGWP contracts" },
-  { id: "S_ONLY", label: "S-Series Contracts", description: "Focus only on S-series contracts" },
+const CONTRACT_SERIES_OPTIONS: Array<{
+  id: ContractLeaderboardSelection["contractSeries"];
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "H_ONLY",
+    label: "H-Series Contracts",
+    description: "Exclude S-series employer or EGWP contracts",
+  },
+  {
+    id: "S_ONLY",
+    label: "S-Series Contracts",
+    description: "Focus only on S-series contracts",
+  },
 ];
 
-const ORGANIZATION_BUCKETS: Array<{ id: OrganizationBucket; label: string; description: string }> = [
-  { id: "all", label: "All Parent Orgs", description: "Organizations with more than one contract" },
-  { id: "lt5", label: "Less than 5 contracts", description: "Smaller parent organizations" },
-  { id: "5to10", label: "5 - 10 contracts", description: "Mid-sized organizations" },
-  { id: "10to20", label: "11 - 20 contracts", description: "Large organizations" },
+const ORGANIZATION_BUCKETS: Array<{
+  id: OrganizationBucket;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "all",
+    label: "All Parent Orgs",
+    description: "Organizations with more than one contract",
+  },
+  {
+    id: "lt5",
+    label: "Less than 5 contracts",
+    description: "Smaller parent organizations",
+  },
+  {
+    id: "5to10",
+    label: "5 - 10 contracts",
+    description: "Mid-sized organizations",
+  },
+  {
+    id: "10to20",
+    label: "11 - 20 contracts",
+    description: "Large organizations",
+  },
   { id: "20plus", label: "21+ contracts", description: "Mega parents" },
 ];
 
@@ -45,13 +103,17 @@ type LeaderboardStateResponse = {
 
 export function LeaderboardBuilder() {
   const [mode, setMode] = useState<LeaderboardMode>("contract");
-  const [stateOption, setStateOption] = useState<ContractLeaderboardSelection["stateOption"]>("all");
+  const [stateOption, setStateOption] =
+    useState<ContractLeaderboardSelection["stateOption"]>("all");
   const [states, setStates] = useState<LeaderboardStateResponse["states"]>([]);
   const [stateSearch, setStateSearch] = useState("");
   const [selectedState, setSelectedState] = useState<string>("");
-  const [planTypeGroup, setPlanTypeGroup] = useState<ContractLeaderboardSelection["planTypeGroup"]>("ALL");
-  const [enrollmentLevel, setEnrollmentLevel] = useState<EnrollmentLevelId>("all");
-  const [contractSeries, setContractSeries] = useState<ContractLeaderboardSelection["contractSeries"]>("H_ONLY");
+  const [planTypeGroup, setPlanTypeGroup] =
+    useState<ContractLeaderboardSelection["planTypeGroup"]>("ALL");
+  const [enrollmentLevel, setEnrollmentLevel] =
+    useState<EnrollmentLevelId>("all");
+  const [contractSeries, setContractSeries] =
+    useState<ContractLeaderboardSelection["contractSeries"]>("H_ONLY");
   const [orgBucket, setOrgBucket] = useState<OrganizationBucket>("all");
   const [topLimit, setTopLimit] = useState<number>(DEFAULT_TOP_LIMIT);
   const [includeMeasures, setIncludeMeasures] = useState<boolean>(true);
@@ -83,7 +145,9 @@ export function LeaderboardBuilder() {
       } catch (err) {
         console.error("Leaderboard states fetch failed", err);
         setStates([]);
-        setStateFetchError(err instanceof Error ? err.message : "Failed to fetch states");
+        setStateFetchError(
+          err instanceof Error ? err.message : "Failed to fetch states",
+        );
       } finally {
         setIsFetchingStates(false);
       }
@@ -97,7 +161,11 @@ export function LeaderboardBuilder() {
       return states;
     }
     const term = stateSearch.toLowerCase();
-    return states.filter((state) => state.name.toLowerCase().includes(term) || state.code.toLowerCase().includes(term));
+    return states.filter(
+      (state) =>
+        state.name.toLowerCase().includes(term) ||
+        state.code.toLowerCase().includes(term),
+    );
   }, [states, stateSearch]);
 
   const [step, setStep] = useState(1);
@@ -130,9 +198,13 @@ export function LeaderboardBuilder() {
     }
   };
 
-  const canGenerate = mode === "contract"
-    ? (stateOption === "all" || Boolean(selectedState)) && Boolean(planTypeGroup) && Boolean(contractSeries) && Boolean(enrollmentLevel)
-    : Boolean(orgBucket);
+  const canGenerate =
+    mode === "contract"
+      ? (stateOption === "all" || Boolean(selectedState)) &&
+        Boolean(planTypeGroup) &&
+        Boolean(contractSeries) &&
+        Boolean(enrollmentLevel)
+      : Boolean(orgBucket);
 
   const resetSelections = () => {
     setStateOption("all");
@@ -199,7 +271,9 @@ export function LeaderboardBuilder() {
     } catch (err) {
       console.error("Leaderboard generation failed", err);
       setResults(null);
-      setError(err instanceof Error ? err.message : "Failed to generate leaderboard");
+      setError(
+        err instanceof Error ? err.message : "Failed to generate leaderboard",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -210,14 +284,22 @@ export function LeaderboardBuilder() {
       <section className="rounded-3xl border border-border bg-card p-8">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-foreground">Configure Leaderboard</h2>
+            <h2 className="text-xl font-semibold text-foreground">
+              Configure Leaderboard
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {mode === "contract"
                 ? "Rank Medicare Advantage contracts by state, plan type, and enrollment cohort."
                 : "Rank parent organizations by contract footprint and year-over-year momentum."}
             </p>
           </div>
-          {(stateOption !== "all" || selectedState || planTypeGroup !== "ALL" || enrollmentLevel !== "all" || orgBucket !== "all" || topLimit !== DEFAULT_TOP_LIMIT || blueOnly) && (
+          {(stateOption !== "all" ||
+            selectedState ||
+            planTypeGroup !== "ALL" ||
+            enrollmentLevel !== "all" ||
+            orgBucket !== "all" ||
+            topLimit !== DEFAULT_TOP_LIMIT ||
+            blueOnly) && (
             <button
               onClick={resetSelections}
               className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs text-muted-foreground transition hover:border-red-400/60 hover:text-red-200"
@@ -232,7 +314,9 @@ export function LeaderboardBuilder() {
           <button
             onClick={() => setMode("contract")}
             className={`flex-1 rounded-xl px-4 py-2 text-sm font-medium transition ${
-              mode === "contract" ? "bg-primary/10 text-primary border border-primary/40" : "text-muted-foreground hover:text-foreground"
+              mode === "contract"
+                ? "bg-primary/10 text-primary border border-primary/40"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Individual Contracts
@@ -240,7 +324,9 @@ export function LeaderboardBuilder() {
           <button
             onClick={() => setMode("organization")}
             className={`flex-1 rounded-xl px-4 py-2 text-sm font-medium transition ${
-              mode === "organization" ? "bg-primary/10 text-primary border border-primary/40" : "text-muted-foreground hover:text-foreground"
+              mode === "organization"
+                ? "bg-primary/10 text-primary border border-primary/40"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Parent Organizations
@@ -256,27 +342,51 @@ export function LeaderboardBuilder() {
                   step === stepNumber
                     ? "border-primary bg-primary/10 text-primary"
                     : stepNumber < step || canProceed(stepNumber)
-                    ? "border-primary/40 bg-primary/5 text-primary"
-                    : "border-border bg-card text-muted-foreground"
+                      ? "border-primary/40 bg-primary/5 text-primary"
+                      : "border-border bg-card text-muted-foreground"
                 }`}
               >
                 {stepNumber}
               </button>
               <div className="flex-1">
-                <p className={`text-xs font-medium ${step === stepNumber ? "text-foreground" : "text-muted-foreground"}`}>
-                  {mode === "contract" && stepNumber === 1 && "Select Geography"}
+                <p
+                  className={`text-xs font-medium ${step === stepNumber ? "text-foreground" : "text-muted-foreground"}`}
+                >
+                  {mode === "contract" &&
+                    stepNumber === 1 &&
+                    "Select Geography"}
                   {mode === "contract" && stepNumber === 2 && "Plan Type Group"}
-                  {mode === "contract" && stepNumber === 3 && "Contract Series & Enrollment"}
-                  {mode === "organization" && stepNumber === 1 && "Organization Size"}
+                  {mode === "contract" &&
+                    stepNumber === 3 &&
+                    "Contract Series & Enrollment"}
+                  {mode === "organization" &&
+                    stepNumber === 1 &&
+                    "Organization Size"}
                 </p>
                 <p className="text-[0.65rem] text-muted-foreground">
-                  {mode === "contract" && stepNumber === 1 && (stateOption === "all" ? "All Contracts" : selectedState || "Select a state")}
-                  {mode === "contract" && stepNumber === 2 && PLAN_TYPE_OPTIONS.find((option) => option.id === planTypeGroup)?.label}
-                  {mode === "contract" && stepNumber === 3 && `${CONTRACT_SERIES_OPTIONS.find((option) => option.id === contractSeries)?.label ?? ""} • ${ENROLLMENT_LEVELS.find((bucket) => bucket.id === enrollmentLevel)?.label ?? ""}`}
-                  {mode === "organization" && stepNumber === 1 && ORGANIZATION_BUCKETS.find((option) => option.id === orgBucket)?.label}
+                  {mode === "contract" &&
+                    stepNumber === 1 &&
+                    (stateOption === "all"
+                      ? "All Contracts"
+                      : selectedState || "Select a state")}
+                  {mode === "contract" &&
+                    stepNumber === 2 &&
+                    PLAN_TYPE_OPTIONS.find(
+                      (option) => option.id === planTypeGroup,
+                    )?.label}
+                  {mode === "contract" &&
+                    stepNumber === 3 &&
+                    `${CONTRACT_SERIES_OPTIONS.find((option) => option.id === contractSeries)?.label ?? ""} • ${ENROLLMENT_LEVELS.find((bucket) => bucket.id === enrollmentLevel)?.label ?? ""}`}
+                  {mode === "organization" &&
+                    stepNumber === 1 &&
+                    ORGANIZATION_BUCKETS.find(
+                      (option) => option.id === orgBucket,
+                    )?.label}
                 </p>
               </div>
-              {stepNumber < (mode === "contract" ? 3 : 1) && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+              {stepNumber < (mode === "contract" ? 3 : 1) && (
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              )}
             </div>
           ))}
         </div>
@@ -284,7 +394,9 @@ export function LeaderboardBuilder() {
         <div className="rounded-2xl border border-border bg-card p-6">
           {mode === "contract" && step === 1 && (
             <div>
-              <h3 className="mb-3 text-sm font-semibold text-foreground">Select Geography</h3>
+              <h3 className="mb-3 text-sm font-semibold text-foreground">
+                Select Geography
+              </h3>
               <div className="mb-4 flex items-center gap-2">
                 <label className="inline-flex items-center gap-2 text-sm text-foreground">
                   <input
@@ -325,13 +437,20 @@ export function LeaderboardBuilder() {
                   </div>
                   {isFetchingStates && (
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Loading states...
+                      <Loader2 className="h-4 w-4 animate-spin" /> Loading
+                      states...
                     </div>
                   )}
-                  {stateFetchError && <p className="text-xs text-red-400">{stateFetchError}</p>}
-                  {!isFetchingStates && !stateFetchError && filteredStates.length === 0 && (
-                    <p className="text-xs text-muted-foreground">No states found.</p>
+                  {stateFetchError && (
+                    <p className="text-xs text-red-400">{stateFetchError}</p>
                   )}
+                  {!isFetchingStates &&
+                    !stateFetchError &&
+                    filteredStates.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        No states found.
+                      </p>
+                    )}
                   <div className="mt-3 grid max-h-72 gap-2 overflow-y-auto md:grid-cols-2">
                     {filteredStates.map((state) => {
                       const isSelected = selectedState === state.code;
@@ -340,18 +459,26 @@ export function LeaderboardBuilder() {
                           key={state.code}
                           onClick={() => setSelectedState(state.code)}
                           className={`flex items-center justify-between rounded-lg px-4 py-3 text-left transition ${
-                            isSelected ? "bg-primary/10 border border-primary/40" : "hover:bg-accent border border-transparent"
+                            isSelected
+                              ? "bg-primary/10 border border-primary/40"
+                              : "hover:bg-accent border border-transparent"
                           }`}
                         >
                           <div>
-                            <p className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}>
+                            <p
+                              className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}
+                            >
                               {state.name}
                             </p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
-                              {state.code} • {state.contractCount.toLocaleString()} contracts • {state.formattedEnrollment}
+                              {state.code} •{" "}
+                              {state.contractCount.toLocaleString()} contracts •{" "}
+                              {state.formattedEnrollment}
                             </p>
                           </div>
-                          {isSelected && <Check className="h-4 w-4 text-primary" />}
+                          {isSelected && (
+                            <Check className="h-4 w-4 text-primary" />
+                          )}
                         </button>
                       );
                     })}
@@ -363,7 +490,9 @@ export function LeaderboardBuilder() {
 
           {mode === "contract" && step === 2 && (
             <div>
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Plan Type Group</h3>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Plan Type Group
+              </h3>
               <div className="grid gap-3 md:grid-cols-3">
                 {PLAN_TYPE_OPTIONS.map((option) => {
                   const isSelected = planTypeGroup === option.id;
@@ -372,11 +501,17 @@ export function LeaderboardBuilder() {
                       key={option.id}
                       onClick={() => setPlanTypeGroup(option.id)}
                       className={`flex h-full flex-col gap-2 rounded-xl border px-4 py-3 text-left transition ${
-                        isSelected ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-muted hover:border-border/70"
+                        isSelected
+                          ? "border-primary/40 bg-primary/10 text-primary"
+                          : "border-border bg-muted hover:border-border/70"
                       }`}
                     >
-                      <span className="text-sm font-semibold">{option.label}</span>
-                      <span className="text-xs text-muted-foreground">{option.description}</span>
+                      <span className="text-sm font-semibold">
+                        {option.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {option.description}
+                      </span>
                     </button>
                   );
                 })}
@@ -386,7 +521,9 @@ export function LeaderboardBuilder() {
 
           {mode === "contract" && step === 3 && (
             <div>
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Contract Series</h3>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Contract Series
+              </h3>
               <div className="mb-6 grid gap-3 md:grid-cols-2">
                 {CONTRACT_SERIES_OPTIONS.map((option) => {
                   const isSelected = contractSeries === option.id;
@@ -395,46 +532,63 @@ export function LeaderboardBuilder() {
                       key={option.id}
                       onClick={() => setContractSeries(option.id)}
                       className={`flex h-full flex-col gap-2 rounded-xl border px-4 py-3 text-left transition ${
-                        isSelected ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-muted hover:border-border/70"
+                        isSelected
+                          ? "border-primary/40 bg-primary/10 text-primary"
+                          : "border-border bg-muted hover:border-border/70"
                       }`}
                     >
-                      <span className="text-sm font-semibold">{option.label}</span>
-                      <span className="text-xs text-muted-foreground">{option.description}</span>
+                      <span className="text-sm font-semibold">
+                        {option.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {option.description}
+                      </span>
                     </button>
                   );
                 })}
               </div>
 
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Enrollment Level</h3>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Enrollment Level
+              </h3>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {ENROLLMENT_LEVELS.filter((bucket) => bucket.id !== "null").map((bucket) => {
-                  const isSelected = enrollmentLevel === bucket.id;
-                  return (
-                    <button
-                      key={bucket.id}
-                      onClick={() => setEnrollmentLevel(bucket.id)}
-                      className={`flex h-full flex-col gap-2 rounded-xl border px-4 py-3 text-left transition ${
-                        isSelected ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-muted hover:border-border/70"
-                      }`}
-                    >
-                      <span className="text-sm font-semibold">{bucket.label}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {bucket.id === "all"
-                          ? "Include contracts of all enrollment sizes"
-                          : bucket.min !== undefined || bucket.max !== undefined
-                          ? `${bucket.min?.toLocaleString() ?? "0"} - ${bucket.max?.toLocaleString() ?? "∞"}`
-                          : "Suppressed"}
-                      </span>
-                    </button>
-                  );
-                })}
+                {ENROLLMENT_LEVELS.filter((bucket) => bucket.id !== "null").map(
+                  (bucket) => {
+                    const isSelected = enrollmentLevel === bucket.id;
+                    return (
+                      <button
+                        key={bucket.id}
+                        onClick={() => setEnrollmentLevel(bucket.id)}
+                        className={`flex h-full flex-col gap-2 rounded-xl border px-4 py-3 text-left transition ${
+                          isSelected
+                            ? "border-primary/40 bg-primary/10 text-primary"
+                            : "border-border bg-muted hover:border-border/70"
+                        }`}
+                      >
+                        <span className="text-sm font-semibold">
+                          {bucket.label}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {bucket.id === "all"
+                            ? "Include contracts of all enrollment sizes"
+                            : bucket.min !== undefined ||
+                                bucket.max !== undefined
+                              ? `${bucket.min?.toLocaleString() ?? "0"} - ${bucket.max?.toLocaleString() ?? "∞"}`
+                              : "Suppressed"}
+                        </span>
+                      </button>
+                    );
+                  },
+                )}
               </div>
             </div>
           )}
 
           {mode === "organization" && step === 1 && (
             <div>
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Organization Size</h3>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Organization Size
+              </h3>
               <div className="grid gap-3 md:grid-cols-3">
                 {ORGANIZATION_BUCKETS.map((option) => {
                   const isSelected = orgBucket === option.id;
@@ -443,11 +597,17 @@ export function LeaderboardBuilder() {
                       key={option.id}
                       onClick={() => setOrgBucket(option.id)}
                       className={`flex h-full flex-col gap-2 rounded-xl border px-4 py-3 text-left transition ${
-                        isSelected ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-muted hover:border-border/70"
+                        isSelected
+                          ? "border-primary/40 bg-primary/10 text-primary"
+                          : "border-border bg-muted hover:border-border/70"
                       }`}
                     >
-                      <span className="text-sm font-semibold">{option.label}</span>
-                      <span className="text-xs text-muted-foreground">{option.description}</span>
+                      <span className="text-sm font-semibold">
+                        {option.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {option.description}
+                      </span>
                     </button>
                   );
                 })}
@@ -459,7 +619,9 @@ export function LeaderboardBuilder() {
         <div className="mt-6 flex flex-col gap-4 md:flex-row">
           <div className="flex flex-col gap-4 rounded-2xl border border-border bg-muted/40 p-4 md:basis-1/3 md:flex-1">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Leaderboard size</span>
+              <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                Leaderboard size
+              </span>
               <span className="text-sm text-foreground">Top {topLimit}</span>
             </div>
             <input
@@ -470,12 +632,16 @@ export function LeaderboardBuilder() {
               value={topLimit}
               onChange={(event) => setTopLimit(Number(event.target.value))}
             />
-            <p className="text-[0.65rem] text-muted-foreground">Adjust the number of entries returned for each leaderboard.</p>
+            <p className="text-[0.65rem] text-muted-foreground">
+              Adjust the number of entries returned for each leaderboard.
+            </p>
           </div>
 
           <div className="flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-4 md:basis-1/3 md:flex-1">
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Blue Cross Blue Shield Focus</span>
+              <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                Blue Cross Blue Shield Focus
+              </span>
               <p className="text-[0.65rem] text-muted-foreground">
                 {mode === "contract"
                   ? "Limit contract results to Blue Cross Blue Shield-affiliated contracts."
@@ -495,8 +661,13 @@ export function LeaderboardBuilder() {
 
           <div className="flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-4 md:basis-1/3 md:flex-1">
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Include Domain & Measure Statistics</span>
-              <p className="text-[0.65rem] text-muted-foreground">Show detailed performance breakdowns by domain and individual measures</p>
+              <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                Include Domain & Measure Statistics
+              </span>
+              <p className="text-[0.65rem] text-muted-foreground">
+                Show detailed performance breakdowns by domain and individual
+                measures
+              </p>
             </div>
             <label className="relative inline-flex cursor-pointer items-center">
               <input

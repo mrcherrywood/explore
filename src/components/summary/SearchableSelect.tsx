@@ -39,18 +39,21 @@ export function SearchableSelect({
     return options.filter(
       (option) =>
         option.value.toLowerCase().includes(normalized) ||
-        option.label.toLowerCase().includes(normalized)
+        option.label.toLowerCase().includes(normalized),
     );
   }, [options, query]);
 
   const selectedLabel = useMemo(
     () => options.find((option) => option.value === value)?.label ?? null,
-    [options, value]
+    [options, value],
   );
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
@@ -73,7 +76,9 @@ export function SearchableSelect({
           onClick={() => setIsOpen((open) => !open)}
           className={`rounded-full border border-border bg-muted px-4 py-2 text-sm text-foreground hover:bg-muted/80 transition flex items-center gap-2 ${minWidthClass}`}
         >
-          <span className="truncate flex-1 text-left">{selectedLabel || placeholder}</span>
+          <span className="truncate flex-1 text-left">
+            {selectedLabel || placeholder}
+          </span>
           <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         </button>
         {isOpen && (
@@ -112,14 +117,18 @@ export function SearchableSelect({
                       setQuery("");
                     }}
                     className={`w-full px-4 py-2 text-left text-sm hover:bg-muted/40 transition ${
-                      value === option.value ? "bg-primary/5 text-primary" : "text-foreground"
+                      value === option.value
+                        ? "bg-primary/5 text-primary"
+                        : "text-foreground"
                     }`}
                   >
                     {option.label}
                   </button>
                 ))
               ) : (
-                <div className="px-4 py-3 text-sm text-muted-foreground text-center">{emptyLabel}</div>
+                <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                  {emptyLabel}
+                </div>
               )}
             </div>
           </div>

@@ -71,12 +71,19 @@ type ApiResponse = {
 };
 
 const slugify = (value: string) =>
-  value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "section";
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "section";
 
 const shortenLabel = (value: string, maxLength = 48) =>
   value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 
-export function ConditionGroupsResults({ selection }: { selection: Selection }) {
+export function ConditionGroupsResults({
+  selection,
+}: {
+  selection: Selection;
+}) {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,13 +110,16 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
 
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload.error || "Failed to load condition group data");
+          throw new Error(
+            payload.error || "Failed to load condition group data",
+          );
         }
 
         const result: ApiResponse = await response.json();
         if (!cancelled) setData(result);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Unknown error");
+        if (!cancelled)
+          setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -150,8 +160,11 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
   }, [nationalComparison]);
 
   const hasChartData = useMemo(
-    () => chartData.some((row) => groups.some((g) => row[g.id] !== null && row[g.id] !== undefined)),
-    [chartData, groups]
+    () =>
+      chartData.some((row) =>
+        groups.some((g) => row[g.id] !== null && row[g.id] !== undefined),
+      ),
+    [chartData, groups],
   );
 
   const sectionAnchors = useMemo(() => {
@@ -163,24 +176,39 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
     }
 
     for (const group of groupDetails) {
-      anchors.push({ id: `cg-table-${slugify(group.groupId)}`, label: `${group.groupLabel} — Table` });
+      anchors.push({
+        id: `cg-table-${slugify(group.groupId)}`,
+        label: `${group.groupLabel} — Table`,
+      });
 
       const hasGroupChart = stateGroupCharts.some((c) =>
-        c.title?.toLowerCase().includes(group.groupLabel.toLowerCase())
+        c.title?.toLowerCase().includes(group.groupLabel.toLowerCase()),
       );
       if (hasGroupChart) {
-        anchors.push({ id: `cg-state-${slugify(group.groupId)}`, label: `${group.groupLabel} — State Comparison` });
+        anchors.push({
+          id: `cg-state-${slugify(group.groupId)}`,
+          label: `${group.groupLabel} — State Comparison`,
+        });
       }
 
       const measureCharts = stateMeasureChartsByGroup[group.groupId] ?? [];
       for (const chart of measureCharts) {
         const title = chart.title ?? "Measure";
-        anchors.push({ id: `cg-measure-${slugify(group.groupId)}-${slugify(title)}`, label: title });
+        anchors.push({
+          id: `cg-measure-${slugify(group.groupId)}-${slugify(title)}`,
+          label: title,
+        });
       }
     }
 
     return anchors;
-  }, [data, hasChartData, groupDetails, stateGroupCharts, stateMeasureChartsByGroup]);
+  }, [
+    data,
+    hasChartData,
+    groupDetails,
+    stateGroupCharts,
+    stateMeasureChartsByGroup,
+  ]);
 
   useEffect(() => {
     if (sectionAnchors.length === 0) return;
@@ -198,10 +226,14 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
 
         const nearest = entries
           .slice()
-          .sort((a, b) => Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top))[0];
+          .sort(
+            (a, b) =>
+              Math.abs(a.boundingClientRect.top) -
+              Math.abs(b.boundingClientRect.top),
+          )[0];
         if (nearest) setActiveSectionId(nearest.target.id);
       },
-      { rootMargin: "-45% 0px -45% 0px", threshold: [0.1, 0.5, 0.75] }
+      { rootMargin: "-45% 0px -45% 0px", threshold: [0.1, 0.5, 0.75] },
     );
 
     sectionAnchors.forEach((a) => {
@@ -220,7 +252,9 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
 
   useEffect(() => {
     if (!isDrawerOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setIsDrawerOpen(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsDrawerOpen(false);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [isDrawerOpen]);
@@ -236,7 +270,9 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
     return (
       <div className="flex items-center justify-center gap-3 py-20 text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin" />
-        <span className="text-sm">Analyzing condition group performance...</span>
+        <span className="text-sm">
+          Analyzing condition group performance...
+        </span>
       </div>
     );
   }
@@ -288,16 +324,22 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
         )}
 
         {hasChartData && (
-          <section id="cg-yoy-chart" className="rounded-3xl border border-border bg-card p-8">
+          <section
+            id="cg-yoy-chart"
+            className="rounded-3xl border border-border bg-card p-8"
+          >
             <h3 className="mb-1 text-lg font-semibold text-foreground">
               Weighted Star Scores by Condition Group
             </h3>
             <p className="mb-6 text-xs text-muted-foreground">
               Weighted average star rating per group across years
             </p>
-            <div className="w-full overflow-visible rounded-3xl border border-border/30 bg-slate-50/50 dark:bg-slate-900/40 px-5 pb-2 pt-5 shadow-sm">
+            <div className="w-full overflow-visible rounded-3xl border border-border/30 bg-[#fffdf8] px-5 pb-2 pt-5 shadow-sm">
               <ResponsiveContainer width="100%" height={420}>
-                <BarChart data={chartData} margin={{ top: 30, right: 20, left: 10, bottom: 5 }}>
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 30, right: 20, left: 10, bottom: 5 }}
+                >
                   <XAxis
                     dataKey="year"
                     stroke="#64748b"
@@ -321,7 +363,12 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
                       color: "#1e293b",
                       padding: 12,
                     }}
-                    labelStyle={{ color: "#1e293b", fontWeight: 600, fontSize: 14, marginBottom: 6 }}
+                    labelStyle={{
+                      color: "#1e293b",
+                      fontWeight: 600,
+                      fontSize: 14,
+                      marginBottom: 6,
+                    }}
                     itemStyle={{ color: "#475569", fontSize: 13 }}
                     formatter={(value: number) => value?.toFixed(2) ?? "N/A"}
                     cursor={false}
@@ -339,7 +386,11 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
                       <LabelList
                         dataKey={group.id}
                         position="top"
-                        style={{ fill: "#facc15", fontSize: 12, fontWeight: 700 }}
+                        style={{
+                          fill: "#facc15",
+                          fontSize: 12,
+                          fontWeight: 700,
+                        }}
                         formatter={(v: React.ReactNode) => {
                           const num = typeof v === "number" ? v : null;
                           return num != null ? `★ ${num.toFixed(2)}` : "";
@@ -355,7 +406,7 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
 
         {groupDetails.map((group) => {
           const groupChart = stateGroupCharts.find((c) =>
-            c.title?.toLowerCase().includes(group.groupLabel.toLowerCase())
+            c.title?.toLowerCase().includes(group.groupLabel.toLowerCase()),
           );
           const measureCharts = stateMeasureChartsByGroup[group.groupId] ?? [];
 
@@ -381,7 +432,8 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
                     {group.groupLabel} — State Comparison
                   </h3>
                   <p className="mb-6 text-xs text-muted-foreground">
-                    Individual contract weighted scores in {stateInfo?.stateName ?? "selected state"}
+                    Individual contract weighted scores in{" "}
+                    {stateInfo?.stateName ?? "selected state"}
                   </p>
                   <ChartRenderer spec={groupChart} />
                 </section>
@@ -394,7 +446,8 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
                       {group.groupLabel} — Individual Measures
                     </h4>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Per-measure performance across contracts in {stateInfo?.stateName ?? "selected state"}
+                      Per-measure performance across contracts in{" "}
+                      {stateInfo?.stateName ?? "selected state"}
                     </p>
                   </div>
                   {measureCharts.map((chart, idx) => (
@@ -429,8 +482,12 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">Quick jump</p>
-                <h3 className="text-lg font-semibold text-foreground">Navigate to a section</h3>
+                <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
+                  Quick jump
+                </p>
+                <h3 className="text-lg font-semibold text-foreground">
+                  Navigate to a section
+                </h3>
               </div>
               <button
                 type="button"
@@ -457,8 +514,12 @@ export function ConditionGroupsResults({ selection }: { selection: Selection }) 
                     }`}
                     title={anchor.label}
                   >
-                    <span className="max-w-xs truncate text-left md:max-w-sm">{shortenLabel(anchor.label)}</span>
-                    {isActive && <Check className="ml-3 h-4 w-4 text-primary" />}
+                    <span className="max-w-xs truncate text-left md:max-w-sm">
+                      {shortenLabel(anchor.label)}
+                    </span>
+                    {isActive && (
+                      <Check className="ml-3 h-4 w-4 text-primary" />
+                    )}
                   </button>
                 );
               })}

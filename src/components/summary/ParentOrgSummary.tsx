@@ -66,7 +66,8 @@ function formatMonthYear(year: number, month: number) {
 }
 
 export function ParentOrgSummary({ data, onSelectContract }: Props) {
-  const { parentOrg, contracts, statesEnrollment, totals, enrollmentPeriod } = data;
+  const { parentOrg, contracts, statesEnrollment, totals, enrollmentPeriod } =
+    data;
 
   if (!parentOrg) {
     return (
@@ -84,8 +85,9 @@ export function ParentOrgSummary({ data, onSelectContract }: Props) {
   });
 
   const maxStatePercent = statesEnrollment.reduce(
-    (max, entry) => (entry.percent !== null && entry.percent > max ? entry.percent : max),
-    0
+    (max, entry) =>
+      entry.percent !== null && entry.percent > max ? entry.percent : max,
+    0,
   );
 
   return (
@@ -94,13 +96,17 @@ export function ParentOrgSummary({ data, onSelectContract }: Props) {
       <div className="rounded-3xl border border-border bg-card px-8 py-6">
         <div className="flex items-start gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-muted">
-            <Building2 className="h-7 w-7 text-sky-400" />
+            <Building2 className="h-7 w-7 text-[var(--fep-accent)]" />
           </div>
           <div className="flex-1">
-            <h2 className="text-2xl font-semibold text-foreground">{parentOrg}</h2>
+            <h2 className="text-2xl font-semibold text-foreground">
+              {parentOrg}
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {totals?.contractCount ?? contracts.length} contract
-              {(totals?.contractCount ?? contracts.length) !== 1 ? "s" : ""} • {data.year} Star Year
+              {(totals?.contractCount ?? contracts.length) !== 1
+                ? "s"
+                : ""} • {data.year} Star Year
               {enrollmentPeriod
                 ? ` • Enrollment as of ${formatMonthYear(enrollmentPeriod.year, enrollmentPeriod.month)}`
                 : ""}
@@ -114,34 +120,45 @@ export function ParentOrgSummary({ data, onSelectContract }: Props) {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl border border-border bg-card p-6">
             <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-sky-400" />
+              <Building2 className="h-4 w-4 text-[var(--fep-accent)]" />
               <p className="text-xs text-muted-foreground">Contracts</p>
             </div>
-            <p className="mt-2 text-2xl font-bold text-foreground">{totals.contractCount.toLocaleString()}</p>
+            <p className="mt-2 text-2xl font-bold text-foreground">
+              {totals.contractCount.toLocaleString()}
+            </p>
           </div>
           <div className="rounded-2xl border border-border bg-card p-6">
             <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-sky-400" />
+              <Users className="h-4 w-4 text-[var(--fep-accent)]" />
               <p className="text-xs text-muted-foreground">Total Enrollment</p>
             </div>
-            <p className="mt-2 text-2xl font-bold text-foreground">{formatNumber(totals.totalEnrollment)}</p>
+            <p className="mt-2 text-2xl font-bold text-foreground">
+              {formatNumber(totals.totalEnrollment)}
+            </p>
           </div>
           <div className="rounded-2xl border border-border bg-card p-6">
             <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-sky-400" />
+              <MapPin className="h-4 w-4 text-[var(--fep-accent)]" />
               <p className="text-xs text-muted-foreground">States</p>
             </div>
-            <p className="mt-2 text-2xl font-bold text-foreground">{totals.statesServed.toLocaleString()}</p>
+            <p className="mt-2 text-2xl font-bold text-foreground">
+              {totals.statesServed.toLocaleString()}
+            </p>
           </div>
           <div className="rounded-2xl border border-border bg-card p-6">
             <div className="flex items-center gap-2">
               <Star className="h-4 w-4 text-yellow-400" />
-              <p className="text-xs text-muted-foreground">Avg Overall Rating</p>
+              <p className="text-xs text-muted-foreground">
+                Avg Overall Rating
+              </p>
             </div>
-            <p className="mt-2 text-2xl font-bold text-foreground">{formatRating(totals.avgOverall)}</p>
+            <p className="mt-2 text-2xl font-bold text-foreground">
+              {formatRating(totals.avgOverall)}
+            </p>
             {totals.enrollmentWeightedOverall !== null && (
               <p className="mt-1 text-xs text-muted-foreground">
-                {formatRating(totals.enrollmentWeightedOverall)} enrollment-weighted
+                {formatRating(totals.enrollmentWeightedOverall)}{" "}
+                enrollment-weighted
               </p>
             )}
           </div>
@@ -151,9 +168,12 @@ export function ParentOrgSummary({ data, onSelectContract }: Props) {
       {/* Individual Contract Performance */}
       <div className="rounded-3xl border border-border bg-card">
         <div className="border-b border-border px-8 py-5">
-          <h3 className="text-lg font-semibold text-foreground">Contract Performance</h3>
+          <h3 className="text-lg font-semibold text-foreground">
+            Contract Performance
+          </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            CMS summary ratings and enrollment for each contract under this parent organization
+            CMS summary ratings and enrollment for each contract under this
+            parent organization
           </p>
         </div>
         <div className="px-4 py-4 overflow-x-auto">
@@ -174,31 +194,54 @@ export function ParentOrgSummary({ data, onSelectContract }: Props) {
                 <tr
                   key={contract.contract_id}
                   className={`border-t border-border ${onSelectContract ? "cursor-pointer hover:bg-muted/40" : ""}`}
-                  onClick={onSelectContract ? () => onSelectContract(contract.contract_id) : undefined}
+                  onClick={
+                    onSelectContract
+                      ? () => onSelectContract(contract.contract_id)
+                      : undefined
+                  }
                 >
                   <td className="px-4 py-3">
                     <div className="font-medium text-foreground">
-                      {contract.organization_marketing_name || contract.contract_name || contract.contract_id}
+                      {contract.organization_marketing_name ||
+                        contract.contract_name ||
+                        contract.contract_id}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {contract.contract_id}
-                      {contract.snp_indicator && contract.snp_indicator.toLowerCase().startsWith("yes")
+                      {contract.snp_indicator &&
+                      contract.snp_indicator.toLowerCase().startsWith("yes")
                         ? " • SNP"
                         : ""}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold text-foreground">{formatRating(contract.overall)}</td>
-                  <td className="px-4 py-3 text-right text-muted-foreground">{formatRating(contract.partC)}</td>
-                  <td className="px-4 py-3 text-right text-muted-foreground">{formatRating(contract.partD)}</td>
-                  <td className="px-4 py-3 text-right text-foreground">{formatNumber(contract.enrollment)}</td>
-                  <td className="px-4 py-3 text-right text-muted-foreground">{formatPercent(contract.enrollmentPercent)}</td>
-                  <td className="px-4 py-3 text-right text-muted-foreground">{contract.statesServed.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right font-semibold text-foreground">
+                    {formatRating(contract.overall)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-muted-foreground">
+                    {formatRating(contract.partC)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-muted-foreground">
+                    {formatRating(contract.partD)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-foreground">
+                    {formatNumber(contract.enrollment)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-muted-foreground">
+                    {formatPercent(contract.enrollmentPercent)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-muted-foreground">
+                    {contract.statesServed.toLocaleString()}
+                  </td>
                 </tr>
               ))}
               {sortedContracts.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">
-                    No contracts found for this parent organization in {data.year}.
+                  <td
+                    colSpan={7}
+                    className="px-4 py-6 text-center text-muted-foreground"
+                  >
+                    No contracts found for this parent organization in{" "}
+                    {data.year}.
                   </td>
                 </tr>
               )}
@@ -210,10 +253,14 @@ export function ParentOrgSummary({ data, onSelectContract }: Props) {
       {/* Enrollment by State */}
       <div className="rounded-3xl border border-border bg-card">
         <div className="border-b border-border px-8 py-5">
-          <h3 className="text-lg font-semibold text-foreground">Population by State</h3>
+          <h3 className="text-lg font-semibold text-foreground">
+            Population by State
+          </h3>
           <p className="mt-1 text-xs text-muted-foreground">
             Share of total reported enrollment across all contracts, by state
-            {enrollmentPeriod ? ` (${formatMonthYear(enrollmentPeriod.year, enrollmentPeriod.month)})` : ""}
+            {enrollmentPeriod
+              ? ` (${formatMonthYear(enrollmentPeriod.year, enrollmentPeriod.month)})`
+              : ""}
           </p>
         </div>
         <div className="px-8 py-6">
@@ -226,11 +273,13 @@ export function ParentOrgSummary({ data, onSelectContract }: Props) {
                     : 0;
                 return (
                   <div key={entry.state} className="flex items-center gap-4">
-                    <div className="w-12 text-sm font-medium text-foreground">{entry.state}</div>
+                    <div className="w-12 text-sm font-medium text-foreground">
+                      {entry.state}
+                    </div>
                     <div className="flex-1">
                       <div className="h-6 w-full rounded-full bg-muted">
                         <div
-                          className="h-6 rounded-full bg-sky-400/70"
+                          className="h-6 rounded-full bg-[var(--fep-accent)]/70"
                           style={{ width: `${barWidth}%` }}
                         />
                       </div>
@@ -247,7 +296,8 @@ export function ParentOrgSummary({ data, onSelectContract }: Props) {
             </div>
           ) : (
             <div className="rounded-2xl border border-border bg-muted px-5 py-4 text-sm text-muted-foreground">
-              No geographic enrollment data is available for this parent organization.
+              No geographic enrollment data is available for this parent
+              organization.
             </div>
           )}
         </div>

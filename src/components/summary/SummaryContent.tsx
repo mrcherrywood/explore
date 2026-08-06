@@ -1,10 +1,22 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
-import { Star, TrendingUp, TrendingDown, Building2, MapPin, DollarSign, Users, Info } from "lucide-react";
+import {
+  Star,
+  TrendingUp,
+  TrendingDown,
+  Building2,
+  MapPin,
+  DollarSign,
+  Users,
+  Info,
+} from "lucide-react";
 import { ExportPdfButton } from "@/components/shared/ExportPdfButton";
 import { SearchableSelect } from "@/components/summary/SearchableSelect";
-import { ParentOrgSummary, type ParentOrgData } from "@/components/summary/ParentOrgSummary";
+import {
+  ParentOrgSummary,
+  type ParentOrgData,
+} from "@/components/summary/ParentOrgSummary";
 
 type SummaryData = {
   year: number;
@@ -68,7 +80,11 @@ type SummaryData = {
     reportedPlans: number;
     suppressedPlans: number;
     snpEnrollment: number | null;
-    planTypeSummary: Array<{ planType: string; plans: number; enrollment: number }>;
+    planTypeSummary: Array<{
+      planType: string;
+      plans: number;
+      enrollment: number;
+    }>;
     topPlans: Array<{
       plan_id: string;
       plan_type: string | null;
@@ -144,15 +160,31 @@ type Props = {
   initialParentOrg?: string;
 };
 
-export function SummaryContent({ initialYear, initialContractId, initialParentOrg }: Props) {
+export function SummaryContent({
+  initialYear,
+  initialContractId,
+  initialParentOrg,
+}: Props) {
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState(initialYear || "");
-  const [selectedContractId, setSelectedContractId] = useState(initialContractId || "");
-  const [viewMode, setViewMode] = useState<ViewMode>(initialParentOrg ? "parentOrg" : "contract");
-  const [selectedParentOrg, setSelectedParentOrg] = useState(initialParentOrg || "");
-  const [parentData, setParentData] = useState<ParentOrgData & { availableYears: number[]; availableParentOrgs: string[] } | null>(null);
+  const [selectedContractId, setSelectedContractId] = useState(
+    initialContractId || "",
+  );
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    initialParentOrg ? "parentOrg" : "contract",
+  );
+  const [selectedParentOrg, setSelectedParentOrg] = useState(
+    initialParentOrg || "",
+  );
+  const [parentData, setParentData] = useState<
+    | (ParentOrgData & {
+        availableYears: number[];
+        availableParentOrgs: string[];
+      })
+    | null
+  >(null);
   const [parentLoading, setParentLoading] = useState(false);
   const [parentError, setParentError] = useState<string | null>(null);
   const exportContainerRef = useRef<HTMLDivElement | null>(null);
@@ -167,7 +199,10 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
 
   const parentOrgOptions = useMemo(() => {
     if (!parentData?.availableParentOrgs) return [];
-    return parentData.availableParentOrgs.map((org) => ({ value: org, label: org }));
+    return parentData.availableParentOrgs.map((org) => ({
+      value: org,
+      label: org,
+    }));
   }, [parentData?.availableParentOrgs]);
 
   const availableYears = useMemo(() => {
@@ -222,7 +257,9 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
         if (selectedYear) params.set("year", selectedYear);
         if (selectedParentOrg) params.set("parentOrg", selectedParentOrg);
 
-        const response = await fetch(`/api/summary/parent-org?${params.toString()}`);
+        const response = await fetch(
+          `/api/summary/parent-org?${params.toString()}`,
+        );
         if (!response.ok) {
           throw new Error("Failed to fetch parent organization summary");
         }
@@ -240,7 +277,9 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
         }
       } catch (err) {
         if (!cancelled) {
-          setParentError(err instanceof Error ? err.message : "An error occurred");
+          setParentError(
+            err instanceof Error ? err.message : "An error occurred",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -261,10 +300,12 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
         <div className="flex items-center gap-2">
           <label className="text-sm text-muted-foreground">View:</label>
           <div className="inline-flex rounded-full border border-border bg-muted p-1">
-            {([
-              { key: "contract", label: "Contract" },
-              { key: "parentOrg", label: "Parent Organization" },
-            ] as const).map((option) => (
+            {(
+              [
+                { key: "contract", label: "Contract" },
+                { key: "parentOrg", label: "Parent Organization" },
+              ] as const
+            ).map((option) => (
               <button
                 key={option.key}
                 type="button"
@@ -339,11 +380,15 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
         {filtersCard}
         {parentLoading || (!parentData && !parentError) ? (
           <div className="flex items-center justify-center py-20">
-            <div className="text-muted-foreground">Loading parent organization summary...</div>
+            <div className="text-muted-foreground">
+              Loading parent organization summary...
+            </div>
           </div>
         ) : parentError || !parentData ? (
           <div className="flex items-center justify-center py-20">
-            <div className="text-red-400">{parentError || "No data available"}</div>
+            <div className="text-red-400">
+              {parentError || "No data available"}
+            </div>
           </div>
         ) : (
           <ParentOrgSummary
@@ -403,18 +448,18 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
 
   const formatMonthYear = (year: number, month: number) => {
     const date = new Date(Date.UTC(year, month - 1));
-    return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+    return date.toLocaleString("default", { month: "long", year: "numeric" });
   };
 
   const formatNumber = (value: number | null | undefined) => {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      return 'N/A';
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return "N/A";
     }
     return value.toLocaleString();
   };
 
   const formatPercentValue = (value: number | null | undefined) => {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
       return null;
     }
     const isWholeNumber = Number.isInteger(value);
@@ -422,64 +467,74 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
   };
 
   const formatSignedNumber = (value: number | null | undefined) => {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
       return null;
     }
     if (value === 0) {
-      return '0';
+      return "0";
     }
     const abs = Math.abs(value).toLocaleString();
-    const sign = value > 0 ? '+' : '-';
+    const sign = value > 0 ? "+" : "-";
     return `${sign}${abs}`;
   };
 
   const formatSignedPercent = (value: number | null | undefined) => {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
       return null;
     }
     if (value === 0) {
-      return '0%';
+      return "0%";
     }
     const abs = Math.abs(value);
     const formatted = Math.abs(abs) >= 10 ? abs.toFixed(0) : abs.toFixed(1);
-    const sign = value > 0 ? '+' : '-';
+    const sign = value > 0 ? "+" : "-";
     return `${sign}${formatted}%`;
   };
 
   const hasYoyEnrollmentData = Boolean(
     enrollmentSnapshot?.previousPeriod &&
-    (enrollmentSnapshot.yoyEnrollmentChange !== null || enrollmentSnapshot.yoyEnrollmentPercent !== null)
+    (enrollmentSnapshot.yoyEnrollmentChange !== null ||
+      enrollmentSnapshot.yoyEnrollmentPercent !== null),
   );
 
-  const enrollmentChangeDirection: 'up' | 'down' | 'flat' = (() => {
+  const enrollmentChangeDirection: "up" | "down" | "flat" = (() => {
     if (!hasYoyEnrollmentData) {
-      return 'flat';
+      return "flat";
     }
     const change = enrollmentSnapshot?.yoyEnrollmentChange ?? 0;
     if (change > 0) {
-      return 'up';
+      return "up";
     }
     if (change < 0) {
-      return 'down';
+      return "down";
     }
-    return 'flat';
+    return "flat";
   })();
 
-  const ChangeIcon = enrollmentChangeDirection === 'down' ? TrendingDown : TrendingUp;
-  const changeAccentClass = enrollmentChangeDirection === 'up'
-    ? 'text-emerald-500'
-    : enrollmentChangeDirection === 'down'
-    ? 'text-red-500'
-    : 'text-muted-foreground';
+  const ChangeIcon =
+    enrollmentChangeDirection === "down" ? TrendingDown : TrendingUp;
+  const changeAccentClass =
+    enrollmentChangeDirection === "up"
+      ? "text-emerald-500"
+      : enrollmentChangeDirection === "down"
+        ? "text-red-500"
+        : "text-muted-foreground";
 
-  const yoyChangeDisplay = formatSignedNumber(enrollmentSnapshot?.yoyEnrollmentChange);
-  const yoyPercentDisplay = formatSignedPercent(enrollmentSnapshot?.yoyEnrollmentPercent);
+  const yoyChangeDisplay = formatSignedNumber(
+    enrollmentSnapshot?.yoyEnrollmentChange,
+  );
+  const yoyPercentDisplay = formatSignedPercent(
+    enrollmentSnapshot?.yoyEnrollmentPercent,
+  );
   const previousPeriodLabel = enrollmentSnapshot?.previousPeriod
-    ? formatMonthYear(enrollmentSnapshot.previousPeriod.reportYear, enrollmentSnapshot.previousPeriod.reportMonth)
+    ? formatMonthYear(
+        enrollmentSnapshot.previousPeriod.reportYear,
+        enrollmentSnapshot.previousPeriod.reportMonth,
+      )
     : null;
 
   type RatingCardConfig = {
-    key: 'overall' | 'partC' | 'partD';
+    key: "overall" | "partC" | "partD";
     label: string;
     computed: number | null | undefined;
     cmsNumeric: number | null | undefined;
@@ -489,23 +544,23 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
 
   const ratingCards: RatingCardConfig[] = [
     {
-      key: 'overall',
-      label: 'Overall Rating',
+      key: "overall",
+      label: "Overall Rating",
       computed: data.computedRatings.overall,
       cmsNumeric: summaryRating?.overall_rating_numeric,
       cmsText: summaryRating?.overall_rating,
       fallback: overallStars.average,
     },
     {
-      key: 'partC',
-      label: 'Part C Summary',
+      key: "partC",
+      label: "Part C Summary",
       computed: data.computedRatings.partC,
       cmsNumeric: summaryRating?.part_c_summary_numeric,
       cmsText: summaryRating?.part_c_summary,
     },
     {
-      key: 'partD',
-      label: 'Part D Summary',
+      key: "partD",
+      label: "Part D Summary",
       computed: data.computedRatings.partD,
       cmsNumeric: summaryRating?.part_d_summary_numeric,
       cmsText: summaryRating?.part_d_summary,
@@ -514,9 +569,9 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
 
   const formatCmsValue = (
     cmsNumeric: number | null | undefined,
-    cmsText: string | null | undefined
+    cmsText: string | null | undefined,
   ) => {
-    if (typeof cmsNumeric === 'number' && Number.isFinite(cmsNumeric)) {
+    if (typeof cmsNumeric === "number" && Number.isFinite(cmsNumeric)) {
       return cmsNumeric.toFixed(1);
     }
     if (cmsText && cmsText.trim().length > 0) {
@@ -526,7 +581,7 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
   };
 
   const formatComputedValue = (computed: number | null | undefined) => {
-    if (typeof computed === 'number' && Number.isFinite(computed)) {
+    if (typeof computed === "number" && Number.isFinite(computed)) {
       return computed.toFixed(2);
     }
     return null;
@@ -559,29 +614,35 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
       <div className="rounded-3xl border border-border bg-card px-8 py-6">
         <div className="flex items-start gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-muted">
-            <Building2 className="h-7 w-7 text-sky-400" />
+            <Building2 className="h-7 w-7 text-[var(--fep-accent)]" />
           </div>
           <div className="flex-1">
             <h2 className="text-2xl font-semibold text-foreground">
-              {contract.organization_marketing_name || contract.contract_name || contract.contract_id}
+              {contract.organization_marketing_name ||
+                contract.contract_name ||
+                contract.contract_id}
             </h2>
             <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted-foreground">
               <div>
-                <span className="text-muted-foreground">Contract ID:</span> {contract.contract_id}
+                <span className="text-muted-foreground">Contract ID:</span>{" "}
+                {contract.contract_id}
               </div>
               {contract.parent_organization && (
                 <div>
-                  <span className="text-muted-foreground">Parent Org:</span> {contract.parent_organization}
+                  <span className="text-muted-foreground">Parent Org:</span>{" "}
+                  {contract.parent_organization}
                 </div>
               )}
               {contract.organization_type && (
                 <div>
-                  <span className="text-muted-foreground">Type:</span> {contract.organization_type}
+                  <span className="text-muted-foreground">Type:</span>{" "}
+                  {contract.organization_type}
                 </div>
               )}
               {contract.snp_indicator && (
                 <div>
-                  <span className="text-muted-foreground">SNP:</span> {contract.snp_indicator}
+                  <span className="text-muted-foreground">SNP:</span>{" "}
+                  {contract.snp_indicator}
                 </div>
               )}
             </div>
@@ -592,12 +653,15 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
       {/* Ratings Overview */}
       <div className="rounded-3xl border border-border bg-card">
         <div className="border-b border-border px-8 py-5">
-          <h3 className="text-lg font-semibold text-foreground">Contract Ratings Overview</h3>
+          <h3 className="text-lg font-semibold text-foreground">
+            Contract Ratings Overview
+          </h3>
           <p className="mt-1 text-xs text-muted-foreground">
             Latest CMS summary ratings with measure distribution context
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
-            Overall ratings exclude the Reward Factor, as CMS has discontinued this component of the Stars program.
+            Overall ratings exclude the Reward Factor, as CMS has discontinued
+            this component of the Stars program.
           </p>
         </div>
         <div className="px-8 py-6 space-y-6">
@@ -607,29 +671,61 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
               const computedDisplay = formatComputedValue(card.computed);
 
               const primaryRow = cmsDisplay
-                ? { label: 'CMS reported', value: cmsDisplay, source: 'cms' as const }
+                ? {
+                    label: "CMS reported",
+                    value: cmsDisplay,
+                    source: "cms" as const,
+                  }
                 : computedDisplay
-                ? { label: 'Calculated score', value: computedDisplay, source: 'computed' as const }
-                : { label: 'CMS reported', value: 'N/A', source: 'na' as const };
+                  ? {
+                      label: "Calculated score",
+                      value: computedDisplay,
+                      source: "computed" as const,
+                    }
+                  : {
+                      label: "CMS reported",
+                      value: "N/A",
+                      source: "na" as const,
+                    };
 
               const secondaryRows: Array<{ label: string; value: string }> = [];
 
-              if (primaryRow.source === 'cms' && computedDisplay && !valuesAreEqual(primaryRow.value, computedDisplay)) {
-                secondaryRows.push({ label: 'Calculated score', value: computedDisplay });
-              } else if (primaryRow.source !== 'computed' && computedDisplay && !valuesAreEqual(primaryRow.value, computedDisplay)) {
-                secondaryRows.push({ label: 'Calculated score', value: computedDisplay });
+              if (
+                primaryRow.source === "cms" &&
+                computedDisplay &&
+                !valuesAreEqual(primaryRow.value, computedDisplay)
+              ) {
+                secondaryRows.push({
+                  label: "Calculated score",
+                  value: computedDisplay,
+                });
+              } else if (
+                primaryRow.source !== "computed" &&
+                computedDisplay &&
+                !valuesAreEqual(primaryRow.value, computedDisplay)
+              ) {
+                secondaryRows.push({
+                  label: "Calculated score",
+                  value: computedDisplay,
+                });
               }
 
-
               return (
-                <div key={card.key} className="rounded-2xl border border-border bg-muted p-6">
+                <div
+                  key={card.key}
+                  className="rounded-2xl border border-border bg-muted p-6"
+                >
                   <p className="text-xs text-muted-foreground">{card.label}</p>
                   <div className="mt-3 flex items-center gap-3">
                     <Star className="h-7 w-7 text-yellow-400" />
                     <div>
-                      <p className="text-3xl font-bold text-foreground">{primaryRow.value}</p>
-                      {primaryRow.label && primaryRow.source !== 'cms' ? (
-                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{primaryRow.label}</p>
+                      <p className="text-3xl font-bold text-foreground">
+                        {primaryRow.value}
+                      </p>
+                      {primaryRow.label && primaryRow.source !== "cms" ? (
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                          {primaryRow.label}
+                        </p>
                       ) : null}
                     </div>
                   </div>
@@ -637,7 +733,10 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
                     <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                       {secondaryRows.map((row) => (
                         <p key={`${card.key}-${row.label}`}>
-                          {row.label}: <span className="font-medium text-foreground">{row.value}</span>
+                          {row.label}:{" "}
+                          <span className="font-medium text-foreground">
+                            {row.value}
+                          </span>
                         </p>
                       ))}
                     </div>
@@ -646,14 +745,19 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
               );
             })}
             <div className="rounded-2xl border border-border bg-muted p-6">
-              <p className="text-xs text-muted-foreground">Quality Improvement Measures</p>
+              <p className="text-xs text-muted-foreground">
+                Quality Improvement Measures
+              </p>
               <div className="mt-3 space-y-2 text-xs text-muted-foreground">
                 <p>
-                  Quality improvement measures are always included in the Part C and Part D summaries below. {data.qualityImprovement.thresholdMet
+                  Quality improvement measures are always included in the Part C
+                  and Part D summaries below.{" "}
+                  {data.qualityImprovement.thresholdMet
                     ? "For the overall rating, since the contract is >= 3.75, only measures that would lower the overall rating are excluded from it."
                     : "For the overall rating, since the contract is < 3.75, all quality improvement measures are included."}
                 </p>
-                {data.qualityImprovement.thresholdMet && data.qualityImprovement.excludedMeasures.length > 0 ? (
+                {data.qualityImprovement.thresholdMet &&
+                data.qualityImprovement.excludedMeasures.length > 0 ? (
                   <div>
                     <p>Excluded measures:</p>
                     <ul className="mt-1 list-disc space-y-1 pl-4 text-muted-foreground">
@@ -671,12 +775,18 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <p className="text-2xl font-bold text-foreground">
-                      {data.cai.cai_value > 0 ? '+' : ''}{data.cai.cai_value.toFixed(2)}
+                      {data.cai.cai_value > 0 ? "+" : ""}
+                      {data.cai.cai_value.toFixed(2)}
                     </p>
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1">
-                    <p>Before CAI: {data.cai.overallBeforeCAI?.toFixed(2) ?? 'N/A'}</p>
-                    <p>After CAI: {data.cai.overallAfterCAI?.toFixed(2) ?? 'N/A'}</p>
+                    <p>
+                      Before CAI:{" "}
+                      {data.cai.overallBeforeCAI?.toFixed(2) ?? "N/A"}
+                    </p>
+                    <p>
+                      After CAI: {data.cai.overallAfterCAI?.toFixed(2) ?? "N/A"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -684,26 +794,62 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
             <div className="rounded-2xl border border-border bg-muted p-4 md:col-span-2 xl:col-span-3">
               <div className="flex items-center justify-between gap-6">
                 <div className="flex-1">
-                  <p className="text-xs text-muted-foreground mb-3">Star Distribution</p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Star Distribution
+                  </p>
                   <div className="flex flex-wrap gap-4">
                     {[5, 4, 3, 2, 1].map((stars) => (
-                      <div key={stars} className="flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm">
-                        <span className="text-muted-foreground text-base">{stars}★</span>
-                        <span className="font-semibold text-foreground text-base">{overallStars.distribution[stars] || 0}</span>
+                      <div
+                        key={stars}
+                        className="flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm"
+                      >
+                        <span className="text-muted-foreground text-base">
+                          {stars}★
+                        </span>
+                        <span className="font-semibold text-foreground text-base">
+                          {overallStars.distribution[stars] || 0}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
-                {summaryRating && (summaryRating.disaster_percent_2021 || summaryRating.disaster_percent_2022 || summaryRating.disaster_percent_2023) ? (
+                {summaryRating &&
+                (summaryRating.disaster_percent_2021 ||
+                  summaryRating.disaster_percent_2022 ||
+                  summaryRating.disaster_percent_2023) ? (
                   <div className="border-l border-border pl-6">
-                    <p className="text-xs text-muted-foreground mb-3">Disaster Impact</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Disaster Impact
+                    </p>
                     <div className="flex flex-wrap gap-3">
-                      {[{ year: 2021, value: summaryRating.disaster_percent_2021 }, { year: 2022, value: summaryRating.disaster_percent_2022 }, { year: 2023, value: summaryRating.disaster_percent_2023 }]
-                        .filter(({ value }) => value !== null && value !== undefined)
+                      {[
+                        {
+                          year: 2021,
+                          value: summaryRating.disaster_percent_2021,
+                        },
+                        {
+                          year: 2022,
+                          value: summaryRating.disaster_percent_2022,
+                        },
+                        {
+                          year: 2023,
+                          value: summaryRating.disaster_percent_2023,
+                        },
+                      ]
+                        .filter(
+                          ({ value }) => value !== null && value !== undefined,
+                        )
                         .map(({ year, value }) => (
-                          <div key={year} className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs">
-                            <span className="text-muted-foreground">{year}:</span>
-                            <span className="font-medium text-foreground">{value}%</span>
+                          <div
+                            key={year}
+                            className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs"
+                          >
+                            <span className="text-muted-foreground">
+                              {year}:
+                            </span>
+                            <span className="font-medium text-foreground">
+                              {value}%
+                            </span>
                           </div>
                         ))}
                     </div>
@@ -719,7 +865,9 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
       {domainStars && domainStars.length > 0 && (
         <div className="rounded-3xl border border-border bg-card">
           <div className="border-b border-border px-8 py-5">
-            <h3 className="text-lg font-semibold text-foreground">Stars by Domain</h3>
+            <h3 className="text-lg font-semibold text-foreground">
+              Stars by Domain
+            </h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Weighted average star ratings across measure domains
             </p>
@@ -727,8 +875,13 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
           <div className="px-8 py-6">
             <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
               {domainStars.map((domain) => (
-                <div key={domain.domain} className="rounded-2xl border border-border bg-muted p-4">
-                  <p className="text-xs text-muted-foreground mb-3">{domain.domain}</p>
+                <div
+                  key={domain.domain}
+                  className="rounded-2xl border border-border bg-muted p-4"
+                >
+                  <p className="text-xs text-muted-foreground mb-3">
+                    {domain.domain}
+                  </p>
                   <div className="flex items-center gap-3">
                     <Star className="h-6 w-6 text-yellow-400" />
                     <p className="text-2xl font-bold text-foreground">
@@ -736,7 +889,8 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
                     </p>
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {domain.measureCount} measure{domain.measureCount !== 1 ? 's' : ''}
+                    {domain.measureCount} measure
+                    {domain.measureCount !== 1 ? "s" : ""}
                   </p>
                 </div>
               ))}
@@ -752,9 +906,13 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
           <div className="border-b border-border px-8 py-5">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-green-400" />
-              <h3 className="text-lg font-semibold text-foreground">Highest Performing Measures</h3>
+              <h3 className="text-lg font-semibold text-foreground">
+                Highest Performing Measures
+              </h3>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">Top 5 measures by star rating</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Top 5 measures by star rating
+            </p>
           </div>
           <div className="px-8 py-6">
             <div className="space-y-3">
@@ -768,7 +926,9 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
                       <p className="text-sm font-medium text-foreground">
                         {measure.metric_label || measure.metric_code}
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground">{measure.metric_category}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {measure.metric_category}
+                      </p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       {measure.star_rating && (
@@ -797,9 +957,13 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
           <div className="border-b border-border px-8 py-5">
             <div className="flex items-center gap-2">
               <TrendingDown className="h-5 w-5 text-red-400" />
-              <h3 className="text-lg font-semibold text-foreground">Lowest Performing Measures</h3>
+              <h3 className="text-lg font-semibold text-foreground">
+                Lowest Performing Measures
+              </h3>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">Bottom 5 measures by star rating</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Bottom 5 measures by star rating
+            </p>
           </div>
           <div className="px-8 py-6">
             <div className="space-y-3">
@@ -813,7 +977,9 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
                       <p className="text-sm font-medium text-foreground">
                         {measure.metric_label || measure.metric_code}
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground">{measure.metric_category}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {measure.metric_category}
+                      </p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       {measure.star_rating && (
@@ -842,7 +1008,9 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
       {disenrollment ? (
         <div className="rounded-3xl border border-border bg-card">
           <div className="border-b border-border px-8 py-5">
-            <h3 className="text-lg font-semibold text-foreground">Disenrollment Reasons</h3>
+            <h3 className="text-lg font-semibold text-foreground">
+              Disenrollment Reasons
+            </h3>
             <p className="mt-1 text-xs text-muted-foreground">
               CMS reported disenrollment categories for {disenrollment.year}
             </p>
@@ -853,13 +1021,20 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
                 {disenrollment.categories.map((category) => {
                   const percentDisplay = formatPercentValue(category.percent);
                   return (
-                    <div key={category.key} className="rounded-2xl border border-border bg-muted p-4 flex flex-col">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">{category.label}</p>
+                    <div
+                      key={category.key}
+                      className="rounded-2xl border border-border bg-muted p-4 flex flex-col"
+                    >
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+                        {category.label}
+                      </p>
                       <span className="text-2xl font-bold text-foreground mt-auto">
-                        {percentDisplay ?? category.note ?? 'N/A'}
+                        {percentDisplay ?? category.note ?? "N/A"}
                       </span>
                       {!percentDisplay && category.note ? (
-                        <p className="mt-1 text-xs text-muted-foreground">{category.note}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {category.note}
+                        </p>
                       ) : null}
                     </div>
                   );
@@ -867,7 +1042,8 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
               </div>
             ) : (
               <div className="rounded-2xl border border-border bg-muted px-5 py-4 text-sm text-muted-foreground">
-                CMS did not report disenrollment details for this contract in {disenrollment.year}.
+                CMS did not report disenrollment details for this contract in{" "}
+                {disenrollment.year}.
               </div>
             )}
           </div>
@@ -879,17 +1055,22 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
         <div className="border-b border-border px-8 py-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 className="text-lg font-semibold text-foreground">Enrollment & Plan Landscape</h3>
+              <h3 className="text-lg font-semibold text-foreground">
+                Enrollment & Plan Landscape
+              </h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                {enrollmentSnapshot 
+                {enrollmentSnapshot
                   ? `Latest enrollment as of ${formatMonthYear(enrollmentSnapshot.reportYear, enrollmentSnapshot.reportMonth)} with geographic coverage`
-                  : 'Geographic coverage and plan details'}
+                  : "Geographic coverage and plan details"}
               </p>
             </div>
             {enrollmentSnapshot && (
               <div className="flex items-center gap-2 rounded-full border border-border bg-muted px-4 py-2 text-xs text-muted-foreground">
-                <Users className="h-4 w-4 text-sky-400" />
-                <span>Total Enrollment: {formatNumber(enrollmentSnapshot.totalEnrollment)}</span>
+                <Users className="h-4 w-4 text-[var(--fep-accent)]" />
+                <span>
+                  Total Enrollment:{" "}
+                  {formatNumber(enrollmentSnapshot.totalEnrollment)}
+                </span>
               </div>
             )}
           </div>
@@ -901,8 +1082,10 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
               <>
                 <div className="rounded-2xl border border-border bg-muted p-4">
                   <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-sky-400" />
-                    <p className="text-xs text-muted-foreground">Total Enrollment</p>
+                    <Users className="h-4 w-4 text-[var(--fep-accent)]" />
+                    <p className="text-xs text-muted-foreground">
+                      Total Enrollment
+                    </p>
                   </div>
                   <p className="mt-2 text-2xl font-bold text-foreground">
                     {formatNumber(enrollmentSnapshot.totalEnrollment)}
@@ -912,15 +1095,23 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
                   <div className="rounded-2xl border border-border bg-muted p-4">
                     <div className="flex items-center gap-2">
                       <ChangeIcon className={`h-4 w-4 ${changeAccentClass}`} />
-                      <p className="text-xs text-muted-foreground">YoY Enrollment Change</p>
+                      <p className="text-xs text-muted-foreground">
+                        YoY Enrollment Change
+                      </p>
                     </div>
-                    <p className={`mt-2 text-2xl font-bold ${changeAccentClass}`}>
-                      {yoyChangeDisplay ?? 'N/A'}
+                    <p
+                      className={`mt-2 text-2xl font-bold ${changeAccentClass}`}
+                    >
+                      {yoyChangeDisplay ?? "N/A"}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {previousPeriodLabel ? `vs ${previousPeriodLabel}` : 'Prior year'}
+                      {previousPeriodLabel
+                        ? `vs ${previousPeriodLabel}`
+                        : "Prior year"}
                       {yoyPercentDisplay ? (
-                        <span className={`ml-2 font-semibold ${changeAccentClass}`}>
+                        <span
+                          className={`ml-2 font-semibold ${changeAccentClass}`}
+                        >
                           {yoyPercentDisplay}
                         </span>
                       ) : null}
@@ -928,12 +1119,15 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
                   </div>
                 ) : null}
                 <div className="rounded-2xl border border-border bg-muted p-4">
-                  <p className="text-xs text-muted-foreground">Reported Plans</p>
+                  <p className="text-xs text-muted-foreground">
+                    Reported Plans
+                  </p>
                   <p className="mt-2 text-2xl font-bold text-foreground">
                     {enrollmentSnapshot.reportedPlans.toLocaleString()}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {enrollmentSnapshot.suppressedPlans > 0 && `+${enrollmentSnapshot.suppressedPlans} suppressed`}
+                    {enrollmentSnapshot.suppressedPlans > 0 &&
+                      `+${enrollmentSnapshot.suppressedPlans} suppressed`}
                   </p>
                 </div>
               </>
@@ -944,29 +1138,40 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
                 <div className="group relative">
                   <Info className="h-3 w-3 text-muted-foreground/50 hover:text-muted-foreground cursor-help" />
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-popover border border-border rounded-lg shadow-lg text-xs text-popover-foreground z-50">
-                    <div className="text-center">Plan-county combinations. A single plan offered in multiple counties counts once per county.</div>
+                    <div className="text-center">
+                      Plan-county combinations. A single plan offered in
+                      multiple counties counts once per county.
+                    </div>
                   </div>
                 </div>
               </div>
-              <p className="mt-2 text-2xl font-bold text-foreground">{planLandscape.totalPlans}</p>
+              <p className="mt-2 text-2xl font-bold text-foreground">
+                {planLandscape.totalPlans}
+              </p>
             </div>
             <div className="rounded-2xl border border-border bg-muted p-4">
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-sky-400" />
+                <MapPin className="h-4 w-4 text-[var(--fep-accent)]" />
                 <p className="text-xs text-muted-foreground">States</p>
               </div>
-              <p className="mt-2 text-2xl font-bold text-foreground">{planLandscape.statesServed}</p>
+              <p className="mt-2 text-2xl font-bold text-foreground">
+                {planLandscape.statesServed}
+              </p>
             </div>
             <div className="rounded-2xl border border-border bg-muted p-4">
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-sky-400" />
+                <MapPin className="h-4 w-4 text-[var(--fep-accent)]" />
                 <p className="text-xs text-muted-foreground">Counties</p>
               </div>
-              <p className="mt-2 text-2xl font-bold text-foreground">{planLandscape.countiesServed}</p>
+              <p className="mt-2 text-2xl font-bold text-foreground">
+                {planLandscape.countiesServed}
+              </p>
             </div>
             <div className="rounded-2xl border border-border bg-muted p-4">
               <p className="text-xs text-muted-foreground">SNP Plans</p>
-              <p className="mt-2 text-2xl font-bold text-foreground">{planLandscape.snpPlans}</p>
+              <p className="mt-2 text-2xl font-bold text-foreground">
+                {planLandscape.snpPlans}
+              </p>
               {enrollmentSnapshot?.snpEnrollment && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   {formatNumber(enrollmentSnapshot.snpEnrollment)} members
@@ -980,7 +1185,9 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
             <div className="rounded-2xl border border-border bg-muted p-4">
               <div className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4 text-green-400" />
-                <p className="text-xs text-muted-foreground">Average Part C Premium</p>
+                <p className="text-xs text-muted-foreground">
+                  Average Part C Premium
+                </p>
               </div>
               <p className="mt-2 text-2xl font-bold text-foreground">
                 ${planLandscape.avgPartCPremium.toFixed(0)}
@@ -989,7 +1196,9 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
             <div className="rounded-2xl border border-border bg-muted p-4">
               <div className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4 text-green-400" />
-                <p className="text-xs text-muted-foreground">Average Part D Premium</p>
+                <p className="text-xs text-muted-foreground">
+                  Average Part D Premium
+                </p>
               </div>
               <p className="mt-2 text-2xl font-bold text-foreground">
                 ${planLandscape.avgPartDPremium.toFixed(0)}
@@ -998,29 +1207,43 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
           </div>
 
           {/* Enrollment by Plan Type */}
-          {enrollmentSnapshot && enrollmentSnapshot.planTypeSummary.length > 0 && (
-            <div className="rounded-2xl border border-border bg-muted p-6">
-              <p className="text-sm font-medium text-foreground mb-4">Enrollment by Plan Type</p>
-              <div className="space-y-3">
-                {enrollmentSnapshot.planTypeSummary.slice(0, 8).map((entry) => (
-                  <div key={entry.planType} className="flex items-center justify-between gap-4">
-                    <div className="text-sm text-foreground flex-1">{entry.planType}</div>
-                    <div className="flex items-center gap-6 text-xs">
-                      <span className="text-muted-foreground">{entry.plans.toLocaleString()} plans</span>
-                      <span className="font-semibold text-foreground min-w-[100px] text-right">
-                        {entry.enrollment.toLocaleString()} members
-                      </span>
-                    </div>
-                  </div>
-                ))}
+          {enrollmentSnapshot &&
+            enrollmentSnapshot.planTypeSummary.length > 0 && (
+              <div className="rounded-2xl border border-border bg-muted p-6">
+                <p className="text-sm font-medium text-foreground mb-4">
+                  Enrollment by Plan Type
+                </p>
+                <div className="space-y-3">
+                  {enrollmentSnapshot.planTypeSummary
+                    .slice(0, 8)
+                    .map((entry) => (
+                      <div
+                        key={entry.planType}
+                        className="flex items-center justify-between gap-4"
+                      >
+                        <div className="text-sm text-foreground flex-1">
+                          {entry.planType}
+                        </div>
+                        <div className="flex items-center gap-6 text-xs">
+                          <span className="text-muted-foreground">
+                            {entry.plans.toLocaleString()} plans
+                          </span>
+                          <span className="font-semibold text-foreground min-w-[100px] text-right">
+                            {entry.enrollment.toLocaleString()} members
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Top Plans by Enrollment */}
           {enrollmentSnapshot && enrollmentSnapshot.topPlans.length > 0 && (
             <div className="rounded-2xl border border-border bg-muted p-6">
-              <p className="text-sm font-medium text-foreground mb-4">Top Plans by Enrollment</p>
+              <p className="text-sm font-medium text-foreground mb-4">
+                Top Plans by Enrollment
+              </p>
               <div className="space-y-2">
                 {enrollmentSnapshot.topPlans.map((plan, index) => (
                   <div
@@ -1028,22 +1251,32 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
                     className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xs font-semibold text-muted-foreground">#{index + 1}</span>
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        #{index + 1}
+                      </span>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-foreground">Plan {plan.plan_id}</p>
+                          <p className="font-medium text-foreground">
+                            Plan {plan.plan_id}
+                          </p>
                           {plan.is_snp && (
-                            <span className="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-semibold text-purple-600 dark:text-purple-400">
+                            <span className="rounded-full bg-[var(--fep-band-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--fep-accent)]">
                               SNP
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground">{plan.plan_type || "Type not specified"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {plan.plan_type || "Type not specified"}
+                        </p>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
                       <div className="text-sm font-semibold text-foreground">
-                        {plan.enrollment !== null ? `${plan.enrollment.toLocaleString()} members` : plan.is_suppressed ? "Suppressed" : "N/A"}
+                        {plan.enrollment !== null
+                          ? `${plan.enrollment.toLocaleString()} members`
+                          : plan.is_suppressed
+                            ? "Suppressed"
+                            : "N/A"}
                       </div>
                       {(() => {
                         if (
@@ -1055,27 +1288,40 @@ export function SummaryContent({ initialYear, initialContractId, initialParentOr
 
                         if (plan.enrollment_percent_change === 0) {
                           return (
-                            <span className="text-muted-foreground">No change from prior year</span>
+                            <span className="text-muted-foreground">
+                              No change from prior year
+                            </span>
                           );
                         }
 
-                        const direction = plan.enrollment_change > 0 ? 'up' : 'down';
-                        const iconClass = direction === 'up' ? 'text-emerald-500' : 'text-red-500';
-                        const Icon = direction === 'up' ? TrendingUp : TrendingDown;
+                        const direction =
+                          plan.enrollment_change > 0 ? "up" : "down";
+                        const iconClass =
+                          direction === "up"
+                            ? "text-emerald-500"
+                            : "text-red-500";
+                        const Icon =
+                          direction === "up" ? TrendingUp : TrendingDown;
 
-                        const changeDisplay = formatSignedNumber(plan.enrollment_change);
-                        const percentDisplay = formatSignedPercent(plan.enrollment_percent_change);
+                        const changeDisplay = formatSignedNumber(
+                          plan.enrollment_change,
+                        );
+                        const percentDisplay = formatSignedPercent(
+                          plan.enrollment_percent_change,
+                        );
 
                         if (!changeDisplay && !percentDisplay) {
                           return null;
                         }
 
                         return (
-                          <div className={`flex items-center gap-2 ${iconClass}`}>
+                          <div
+                            className={`flex items-center gap-2 ${iconClass}`}
+                          >
                             <Icon className="h-3 w-3" />
                             <span className="font-semibold">
-                              {changeDisplay ?? 'N/A'}
-                              {percentDisplay ? ` (${percentDisplay})` : ''}
+                              {changeDisplay ?? "N/A"}
+                              {percentDisplay ? ` (${percentDisplay})` : ""}
                             </span>
                           </div>
                         );

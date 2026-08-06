@@ -13,7 +13,10 @@ import {
   YAxis,
 } from "recharts";
 
-import type { PlanPreviewContractReport, ReportMeasure } from "@/lib/plan-preview/report-data";
+import type {
+  PlanPreviewContractReport,
+  ReportMeasure,
+} from "@/lib/plan-preview/report-data";
 
 import {
   REPORT_COLORS,
@@ -27,19 +30,26 @@ import {
 /** Cap so the table fits a fixed letter page under the trend chart. */
 const MAX_MOVERS = 9;
 
-function moversFor(measures: ReportMeasure[]): (ReportMeasure & { delta: number })[] {
+function moversFor(
+  measures: ReportMeasure[],
+): (ReportMeasure & { delta: number })[] {
   return measures
     .filter(
-      (measure) => measure.predictedStar !== null && measure.publishedBaselineStar !== null
+      (measure) =>
+        measure.predictedStar !== null &&
+        measure.publishedBaselineStar !== null,
     )
     .map((measure) => ({
       ...measure,
-      delta: (measure.predictedStar as number) - (measure.publishedBaselineStar as number),
+      delta:
+        (measure.predictedStar as number) -
+        (measure.publishedBaselineStar as number),
     }))
     .filter((measure) => measure.delta !== 0)
     .sort(
       (left, right) =>
-        Math.abs(right.delta) - Math.abs(left.delta) || right.weight - left.weight
+        Math.abs(right.delta) - Math.abs(left.delta) ||
+        right.weight - left.weight,
     )
     .slice(0, MAX_MOVERS);
 }
@@ -55,7 +65,9 @@ export function YoyPage({
   totalPages: number;
   pageRef?: Ref<HTMLDivElement>;
 }) {
-  const baseline = report.scenarios.find((scenario) => scenario.id === "baseline");
+  const baseline = report.scenarios.find(
+    (scenario) => scenario.id === "baseline",
+  );
   const predictedRating = baseline?.score?.finalRating ?? null;
   const predictedPartC = baseline?.score?.partCFinalRating ?? null;
   const predictedPartD = baseline?.score?.partDFinalRating ?? null;
@@ -106,7 +118,11 @@ export function YoyPage({
             <CartesianGrid stroke={REPORT_COLORS.grid} vertical={false} />
             <XAxis
               dataKey="year"
-              tick={{ fontSize: 10.5, fontWeight: 700, fill: REPORT_COLORS.ink }}
+              tick={{
+                fontSize: 10.5,
+                fontWeight: 700,
+                fill: REPORT_COLORS.ink,
+              }}
               axisLine={{ stroke: REPORT_COLORS.grid }}
               tickLine={false}
             />
@@ -124,11 +140,19 @@ export function YoyPage({
               iconSize={9}
               wrapperStyle={{ fontSize: 10, fontWeight: 700 }}
             />
-            <Bar dataKey="overall" name="Overall" radius={[5, 5, 0, 0]} barSize={40} isAnimationActive={false}>
+            <Bar
+              dataKey="overall"
+              name="Overall"
+              radius={[5, 5, 0, 0]}
+              barSize={40}
+              isAnimationActive={false}
+            >
               {chartData.map((entry) => (
                 <Cell
                   key={entry.year}
-                  fill={entry.predicted ? REPORT_COLORS.accent : REPORT_COLORS.band}
+                  fill={
+                    entry.predicted ? REPORT_COLORS.accent : REPORT_COLORS.band
+                  }
                 />
               ))}
               <LabelList
@@ -173,13 +197,32 @@ export function YoyPage({
         style={{ marginTop: 12 }}
       >
         <div style={{ display: "flex", gap: 10 }}>
-          <ReportStat label="Declined" value={declined} detail="Predicted below published" />
-          <ReportStat label="Held" value={held} detail="Predicted equals published" />
-          <ReportStat label="Improved" value={improved} detail="Predicted above published" />
-          <ReportStat label="New / unrated" value={newOrUnrated} detail="No comparison available" />
+          <ReportStat
+            label="Declined"
+            value={declined}
+            detail="Predicted below published"
+          />
+          <ReportStat
+            label="Held"
+            value={held}
+            detail="Predicted equals published"
+          />
+          <ReportStat
+            label="Improved"
+            value={improved}
+            detail="Predicted above published"
+          />
+          <ReportStat
+            label="New / unrated"
+            value={newOrUnrated}
+            detail="No comparison available"
+          />
         </div>
 
-        <div className="fep-report-panel" style={{ marginTop: 10, padding: "10px 0 8px" }}>
+        <div
+          className="fep-report-panel"
+          style={{ marginTop: 10, padding: "10px 0 8px" }}
+        >
           <table className="fep-report-table compact">
             <thead>
               <tr>
@@ -193,23 +236,45 @@ export function YoyPage({
             <tbody>
               {movers.length === 0 ? (
                 <tr>
-                  <td className="l" colSpan={5} style={{ color: "var(--fep-faint)" }}>
+                  <td
+                    className="l"
+                    colSpan={5}
+                    style={{ color: "var(--fep-faint)" }}
+                  >
                     No rated measures moved versus the published baseline.
                   </td>
                 </tr>
               ) : (
                 movers.map((measure) => (
                   <tr key={measure.measureCode}>
-                    <td className="l" style={{ whiteSpace: "normal", maxWidth: 300 }}>
-                      <span style={{ fontWeight: 700, color: "var(--fep-ink)" }}>{measure.measureCode}</span>{" "}
-                      <span style={{ color: "var(--fep-muted)" }}>{measure.displayName}</span>
+                    <td
+                      className="l"
+                      style={{ whiteSpace: "normal", maxWidth: 300 }}
+                    >
+                      <span
+                        style={{ fontWeight: 700, color: "var(--fep-ink)" }}
+                      >
+                        {measure.measureCode}
+                      </span>{" "}
+                      <span style={{ color: "var(--fep-muted)" }}>
+                        {measure.displayName}
+                      </span>
                     </td>
                     <td>{measure.weight}</td>
                     <td>{formatStars(measure.publishedBaselineStar, 0)}★</td>
-                    <td style={{ fontWeight: 800, color: "var(--fep-ink)", whiteSpace: "nowrap" }}>
+                    <td
+                      style={{
+                        fontWeight: 800,
+                        color: "var(--fep-ink)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {formatStars(measure.predictedStar, 0)}★
                       {measure.starSource === "cahps_case_mix_reliability" ? (
-                        <span className="fep-report-pill" style={{ marginLeft: 5, textTransform: "none" }}>
+                        <span
+                          className="fep-report-pill"
+                          style={{ marginLeft: 5, textTransform: "none" }}
+                        >
                           Adjusted
                         </span>
                       ) : null}
@@ -217,7 +282,10 @@ export function YoyPage({
                     <td
                       style={{
                         fontWeight: 800,
-                        color: measure.delta > 0 ? REPORT_COLORS.accent : REPORT_COLORS.negative,
+                        color:
+                          measure.delta > 0
+                            ? REPORT_COLORS.accent
+                            : REPORT_COLORS.negative,
                       }}
                     >
                       {measure.delta > 0 ? "+" : ""}
@@ -230,9 +298,10 @@ export function YoyPage({
           </table>
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 6 }}>
-          Movement reflects score change and projected cut point movement. Showing the{" "}
-          {Math.min(movers.length, MAX_MOVERS)} largest changes by star delta, then weight. CAHPS
-          rows marked Adjusted use case-mix and reliability adjusted base stars.
+          Movement reflects score change and projected cut point movement.
+          Showing the {Math.min(movers.length, MAX_MOVERS)} largest changes by
+          star delta, then weight. CAHPS rows marked Adjusted use case-mix and
+          reliability adjusted base stars.
         </p>
       </ReportSection>
     </ReportPageFrame>

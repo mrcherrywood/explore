@@ -27,11 +27,17 @@ export function ComparisonFilters({
 }: ComparisonFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
-  const [selectedYears, setSelectedYears] = useState<Set<string>>(new Set(initialYears));
-  const [selectedContracts, setSelectedContracts] = useState<Set<string>>(new Set(initialContracts));
-  const [selectedMeasures, setSelectedMeasures] = useState<Set<string>>(new Set(initialMeasures));
-  
+
+  const [selectedYears, setSelectedYears] = useState<Set<string>>(
+    new Set(initialYears),
+  );
+  const [selectedContracts, setSelectedContracts] = useState<Set<string>>(
+    new Set(initialContracts),
+  );
+  const [selectedMeasures, setSelectedMeasures] = useState<Set<string>>(
+    new Set(initialMeasures),
+  );
+
   const [measures, setMeasures] = useState<Measure[]>([]);
   const [measureSearch, setMeasureSearch] = useState("");
   const [contractSearch, setContractSearch] = useState("");
@@ -49,7 +55,7 @@ export function ComparisonFilters({
       if (!error && data) {
         // Deduplicate by code
         const uniqueMeasures = Array.from(
-          new Map((data as Measure[]).map((m) => [m.code, m])).values()
+          new Map((data as Measure[]).map((m) => [m.code, m])).values(),
         );
         setMeasures(uniqueMeasures);
       }
@@ -91,19 +97,19 @@ export function ComparisonFilters({
 
   const applyFilters = () => {
     const params = new URLSearchParams(searchParams.toString());
-    
+
     if (selectedYears.size > 0) {
       params.set("years", Array.from(selectedYears).join(","));
     } else {
       params.delete("years");
     }
-    
+
     if (selectedContracts.size > 0) {
       params.set("contracts", Array.from(selectedContracts).join(","));
     } else {
       params.delete("contracts");
     }
-    
+
     if (selectedMeasures.size > 0) {
       params.set("measures", Array.from(selectedMeasures).join(","));
     } else {
@@ -121,22 +127,29 @@ export function ComparisonFilters({
   };
 
   const filteredContracts = availableContracts.filter((c) =>
-    c.toLowerCase().includes(contractSearch.toLowerCase())
+    c.toLowerCase().includes(contractSearch.toLowerCase()),
   );
 
-  const filteredMeasures = measures.filter((m) =>
-    m.name.toLowerCase().includes(measureSearch.toLowerCase()) ||
-    m.code.toLowerCase().includes(measureSearch.toLowerCase())
+  const filteredMeasures = measures.filter(
+    (m) =>
+      m.name.toLowerCase().includes(measureSearch.toLowerCase()) ||
+      m.code.toLowerCase().includes(measureSearch.toLowerCase()),
   );
 
-  const totalSelected = selectedYears.size + selectedContracts.size + selectedMeasures.size;
-  const canCompare = selectedYears.size > 0 && selectedContracts.size > 0 && selectedMeasures.size > 0;
+  const totalSelected =
+    selectedYears.size + selectedContracts.size + selectedMeasures.size;
+  const canCompare =
+    selectedYears.size > 0 &&
+    selectedContracts.size > 0 &&
+    selectedMeasures.size > 0;
 
   return (
     <section className="rounded-3xl border border-white/5 bg-[#080808] p-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-slate-100">Comparison Filters</h2>
+          <h2 className="text-xl font-semibold text-slate-100">
+            Comparison Filters
+          </h2>
           <p className="mt-1 text-sm text-slate-500">
             Select years, contracts, and measures to compare performance
           </p>
@@ -168,12 +181,14 @@ export function ComparisonFilters({
                   onClick={() => toggleYear(yearStr)}
                   className={`flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
                     isSelected
-                      ? "bg-sky-500/20 text-sky-200 border border-sky-400/40"
+                      ? "bg-[var(--fep-band-bg)] text-[var(--fep-accent)] border border-[var(--fep-info-border)]"
                       : "text-slate-400 hover:bg-white/5 hover:text-slate-300 border border-transparent"
                   }`}
                 >
                   <span>{year}</span>
-                  {isSelected && <Check className="h-4 w-4 text-sky-400" />}
+                  {isSelected && (
+                    <Check className="h-4 w-4 text-[var(--fep-accent)]" />
+                  )}
                 </button>
               );
             })}
@@ -204,12 +219,14 @@ export function ComparisonFilters({
                   onClick={() => toggleContract(contract)}
                   className={`flex items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
                     isSelected
-                      ? "bg-sky-500/20 text-sky-200 border border-sky-400/40"
+                      ? "bg-[var(--fep-band-bg)] text-[var(--fep-accent)] border border-[var(--fep-info-border)]"
                       : "text-slate-400 hover:bg-white/5 hover:text-slate-300 border border-transparent"
                   }`}
                 >
                   <span>{contract}</span>
-                  {isSelected && <Check className="h-4 w-4 text-sky-400" />}
+                  {isSelected && (
+                    <Check className="h-4 w-4 text-[var(--fep-accent)]" />
+                  )}
                 </button>
               );
             })}
@@ -243,14 +260,16 @@ export function ComparisonFilters({
                     onClick={() => toggleMeasure(measure.code)}
                     className={`flex items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition ${
                       isSelected
-                        ? "bg-sky-500/20 text-sky-200 border border-sky-400/40"
+                        ? "bg-[var(--fep-band-bg)] text-[var(--fep-accent)] border border-[var(--fep-info-border)]"
                         : "text-slate-400 hover:bg-white/5 hover:text-slate-300 border border-transparent"
                     }`}
                   >
                     <span className="flex-1 truncate" title={measure.name}>
                       {measure.name}
                     </span>
-                    {isSelected && <Check className="h-4 w-4 shrink-0 text-sky-400" />}
+                    {isSelected && (
+                      <Check className="h-4 w-4 shrink-0 text-[var(--fep-accent)]" />
+                    )}
                   </button>
                 );
               })
@@ -263,8 +282,11 @@ export function ComparisonFilters({
         <p className="text-xs text-slate-500">
           {totalSelected > 0 ? (
             <>
-              <span className="font-semibold text-slate-300">{totalSelected} filter{totalSelected !== 1 ? "s" : ""} selected</span>
-              {!canCompare && " • Select at least one from each category to compare"}
+              <span className="font-semibold text-slate-300">
+                {totalSelected} filter{totalSelected !== 1 ? "s" : ""} selected
+              </span>
+              {!canCompare &&
+                " • Select at least one from each category to compare"}
             </>
           ) : (
             "Select filters above to start comparing"
@@ -273,7 +295,7 @@ export function ComparisonFilters({
         <button
           onClick={applyFilters}
           disabled={!canCompare}
-          className="rounded-2xl border border-sky-500/70 bg-sky-500/10 px-6 py-3 text-sm font-medium text-sky-200 transition hover:border-sky-400/80 hover:bg-sky-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-2xl border border-[var(--fep-accent)]/50 bg-[var(--fep-band-bg)] px-6 py-3 text-sm font-medium text-[var(--fep-accent)] transition hover:border-[var(--fep-accent)]/50 hover:bg-[var(--fep-band-bg)] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Generate Comparison
         </button>

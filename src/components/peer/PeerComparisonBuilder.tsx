@@ -1,8 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Loader2, Search, X } from "lucide-react";
-import { ENROLLMENT_LEVELS, EnrollmentLevelId } from "@/lib/peer/enrollment-levels";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Search,
+  X,
+} from "lucide-react";
+import {
+  ENROLLMENT_LEVELS,
+  EnrollmentLevelId,
+} from "@/lib/peer/enrollment-levels";
 import { PeerComparisonResults } from "./PeerComparisonResults";
 import { ExportPdfButton } from "@/components/shared/ExportPdfButton";
 
@@ -48,25 +58,56 @@ type BuilderState = {
   enrollmentLevel: EnrollmentLevelId;
 };
 
-const PLAN_TYPE_OPTIONS: Array<{ id: "SNP" | "NOT" | "ALL"; label: string; description: string }> = [
-  { id: "ALL", label: "All Plans", description: "Combine SNP and Non-SNP peers" },
-  { id: "SNP", label: "Special Needs (SNP)", description: "Plans focused on special needs populations" },
-  { id: "NOT", label: "Non-SNP Plans", description: "General population plans" },
+const PLAN_TYPE_OPTIONS: Array<{
+  id: "SNP" | "NOT" | "ALL";
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "ALL",
+    label: "All Plans",
+    description: "Combine SNP and Non-SNP peers",
+  },
+  {
+    id: "SNP",
+    label: "Special Needs (SNP)",
+    description: "Plans focused on special needs populations",
+  },
+  {
+    id: "NOT",
+    label: "Non-SNP Plans",
+    description: "General population plans",
+  },
 ];
 
-const CONTRACT_SERIES_OPTIONS: Array<{ id: "H_ONLY" | "S_ONLY"; label: string; description: string }> = [
-  { id: "H_ONLY", label: "H-Series Contracts", description: "Exclude S-series employer or EGWP contracts" },
-  { id: "S_ONLY", label: "S-Series Contracts", description: "Focus only on S-series contracts" },
+const CONTRACT_SERIES_OPTIONS: Array<{
+  id: "H_ONLY" | "S_ONLY";
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "H_ONLY",
+    label: "H-Series Contracts",
+    description: "Exclude S-series employer or EGWP contracts",
+  },
+  {
+    id: "S_ONLY",
+    label: "S-Series Contracts",
+    description: "Focus only on S-series contracts",
+  },
 ];
 
 export function PeerComparisonBuilder() {
-  const [comparisonType, setComparisonType] = useState<ComparisonType>("contract");
+  const [comparisonType, setComparisonType] =
+    useState<ComparisonType>("contract");
   const [contracts, setContracts] = useState<ContractRow[]>([]);
   const [organizations, setOrganizations] = useState<OrganizationRow[]>([]);
   const [contractSearch, setContractSearch] = useState("");
   const [organizationSearch, setOrganizationSearch] = useState("");
   const [selectedContractId, setSelectedContractId] = useState<string>("");
-  const [selectedContractSeries, setSelectedContractSeries] = useState<"H_ONLY" | "S_ONLY">("H_ONLY");
+  const [selectedContractSeries, setSelectedContractSeries] = useState<
+    "H_ONLY" | "S_ONLY"
+  >("H_ONLY");
   const [selectedParentOrg, setSelectedParentOrg] = useState<string>("");
   const [selectedPeerOrgs, setSelectedPeerOrgs] = useState<string[]>([]);
   const [showBlueOnly, setShowBlueOnly] = useState(false);
@@ -74,13 +115,18 @@ export function PeerComparisonBuilder() {
   const [states, setStates] = useState<StateRow[]>([]);
   const [statesLoading, setStatesLoading] = useState(false);
   const [statesError, setStatesError] = useState<string | null>(null);
-  const [contractSummary, setContractSummary] = useState<ContractSummary | null>(null);
+  const [contractSummary, setContractSummary] =
+    useState<ContractSummary | null>(null);
 
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
-  const [selectedPlanType, setSelectedPlanType] = useState<"SNP" | "NOT" | "ALL" | null>(null);
-  const [selectedEnrollmentLevel, setSelectedEnrollmentLevel] = useState<EnrollmentLevelId | null>(null);
+  const [selectedPlanType, setSelectedPlanType] = useState<
+    "SNP" | "NOT" | "ALL" | null
+  >(null);
+  const [selectedEnrollmentLevel, setSelectedEnrollmentLevel] =
+    useState<EnrollmentLevelId | null>(null);
 
-  const [submittedSelection, setSubmittedSelection] = useState<BuilderState | null>(null);
+  const [submittedSelection, setSubmittedSelection] =
+    useState<BuilderState | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const exportContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -93,7 +139,11 @@ export function PeerComparisonBuilder() {
           throw new Error(payload.error || "Failed to load contracts");
         }
         const payload: { contracts: ContractRow[] } = await response.json();
-        const unique = Array.from(new Map((payload.contracts || []).map((row) => [row.contract_id, row])).values());
+        const unique = Array.from(
+          new Map(
+            (payload.contracts || []).map((row) => [row.contract_id, row]),
+          ).values(),
+        );
         setContracts(unique);
       } catch (error) {
         console.error("Failed to load contracts", error);
@@ -108,7 +158,8 @@ export function PeerComparisonBuilder() {
           const payload = await response.json().catch(() => ({}));
           throw new Error(payload.error || "Failed to load organizations");
         }
-        const payload: { organizations: OrganizationRow[] } = await response.json();
+        const payload: { organizations: OrganizationRow[] } =
+          await response.json();
         setOrganizations(payload.organizations || []);
       } catch (error) {
         console.error("Failed to load organizations", error);
@@ -173,19 +224,24 @@ export function PeerComparisonBuilder() {
 
   const blueOrganizations = useMemo(
     () => organizations.filter((org) => org.has_blue_contracts),
-    [organizations]
+    [organizations],
   );
 
   const availableBluePeers = useMemo(
-    () => blueOrganizations.filter((org) => org.parent_organization !== selectedParentOrg),
-    [blueOrganizations, selectedParentOrg]
+    () =>
+      blueOrganizations.filter(
+        (org) => org.parent_organization !== selectedParentOrg,
+      ),
+    [blueOrganizations, selectedParentOrg],
   );
 
   const handleSelectAllBluePeers = useCallback(() => {
     if (availableBluePeers.length === 0) {
       return;
     }
-    const bluePeerIds = availableBluePeers.map((org) => org.parent_organization);
+    const bluePeerIds = availableBluePeers.map(
+      (org) => org.parent_organization,
+    );
     setSelectedPeerOrgs(bluePeerIds);
   }, [availableBluePeers]);
 
@@ -235,7 +291,9 @@ export function PeerComparisonBuilder() {
         setSelectedEnrollmentLevel(null);
       } catch (error) {
         console.error("Peer states fetch failed", error);
-        setStatesError(error instanceof Error ? error.message : "Failed to fetch states");
+        setStatesError(
+          error instanceof Error ? error.message : "Failed to fetch states",
+        );
         setStates([]);
         setContractSummary(null);
       } finally {
@@ -249,13 +307,18 @@ export function PeerComparisonBuilder() {
   const availablePlanTypes = useMemo(() => PLAN_TYPE_OPTIONS, []);
 
   const selectedContractSeriesLabel = useMemo(() => {
-    const option = CONTRACT_SERIES_OPTIONS.find((entry) => entry.id === selectedContractSeries);
+    const option = CONTRACT_SERIES_OPTIONS.find(
+      (entry) => entry.id === selectedContractSeries,
+    );
     return option ? option.label : selectedContractSeries;
   }, [selectedContractSeries]);
 
   const selectedPlanTypeLabel = useMemo(() => {
     if (!selectedPlanType) return null;
-    return availablePlanTypes.find((option) => option.id === selectedPlanType)?.label ?? selectedPlanType;
+    return (
+      availablePlanTypes.find((option) => option.id === selectedPlanType)
+        ?.label ?? selectedPlanType
+    );
   }, [availablePlanTypes, selectedPlanType]);
 
   const canProceed = (step: number) => {
@@ -272,9 +335,15 @@ export function PeerComparisonBuilder() {
     return false;
   };
 
-  const canGenerate = comparisonType === "organization"
-    ? Boolean(selectedParentOrg && selectedPeerOrgs.length > 0)
-    : Boolean(selectedContractId && selectedStates.length > 0 && selectedPlanType && selectedEnrollmentLevel);
+  const canGenerate =
+    comparisonType === "organization"
+      ? Boolean(selectedParentOrg && selectedPeerOrgs.length > 0)
+      : Boolean(
+          selectedContractId &&
+          selectedStates.length > 0 &&
+          selectedPlanType &&
+          selectedEnrollmentLevel,
+        );
 
   const [step, setStep] = useState(1);
 
@@ -295,7 +364,10 @@ export function PeerComparisonBuilder() {
     if (!canGenerate || isSubmitting) {
       return;
     }
-    if (comparisonType === "contract" && (!selectedPlanType || !selectedEnrollmentLevel)) {
+    if (
+      comparisonType === "contract" &&
+      (!selectedPlanType || !selectedEnrollmentLevel)
+    ) {
       return;
     }
     setIsSubmitting(true);
@@ -326,20 +398,37 @@ export function PeerComparisonBuilder() {
   const exportFileName = useMemo(() => {
     if (comparisonType === "contract") {
       if (!selectedContractId) return null;
-      return ["peer-contract", selectedContractId, selectedPlanType ?? undefined, selectedEnrollmentLevel ?? undefined]
-        .filter((segment): segment is string => Boolean(segment && String(segment).trim().length > 0))
+      return [
+        "peer-contract",
+        selectedContractId,
+        selectedPlanType ?? undefined,
+        selectedEnrollmentLevel ?? undefined,
+      ]
+        .filter((segment): segment is string =>
+          Boolean(segment && String(segment).trim().length > 0),
+        )
         .join("_")
         .replace(/[^a-z0-9_\-]+/gi, "-")
         .toLowerCase();
     }
     if (!selectedParentOrg) return null;
-    const peersPart = selectedPeerOrgs.length > 0 ? `${selectedPeerOrgs.length}peers` : null;
+    const peersPart =
+      selectedPeerOrgs.length > 0 ? `${selectedPeerOrgs.length}peers` : null;
     return ["peer-organization", selectedParentOrg, peersPart]
-      .filter((segment): segment is string => Boolean(segment && segment.trim().length > 0))
+      .filter((segment): segment is string =>
+        Boolean(segment && segment.trim().length > 0),
+      )
       .join("_")
       .replace(/[^a-z0-9_\-]+/gi, "-")
       .toLowerCase();
-  }, [comparisonType, selectedContractId, selectedParentOrg, selectedPeerOrgs.length, selectedPlanType, selectedEnrollmentLevel]);
+  }, [
+    comparisonType,
+    selectedContractId,
+    selectedParentOrg,
+    selectedPeerOrgs.length,
+    selectedPlanType,
+    selectedEnrollmentLevel,
+  ]);
 
   useEffect(() => {
     if (comparisonType !== "contract") {
@@ -400,14 +489,21 @@ export function PeerComparisonBuilder() {
       <section className="rounded-3xl border border-border bg-card p-8">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-foreground">Select Peer Group Criteria</h2>
+            <h2 className="text-xl font-semibold text-foreground">
+              Select Peer Group Criteria
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {comparisonType === "contract" 
+              {comparisonType === "contract"
                 ? "Choose a contract, state, plan type grouping, and enrollment tier to compare against peers."
                 : "Choose a primary parent organization and peer organizations to compare performance."}
             </p>
           </div>
-          {(selectedContractId || selectedParentOrg || selectedPeerOrgs.length > 0 || selectedStates.length > 0 || selectedPlanType || selectedEnrollmentLevel) && (
+          {(selectedContractId ||
+            selectedParentOrg ||
+            selectedPeerOrgs.length > 0 ||
+            selectedStates.length > 0 ||
+            selectedPlanType ||
+            selectedEnrollmentLevel) && (
             <button
               onClick={resetSelection}
               className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs text-muted-foreground transition hover:border-red-400/60 hover:text-red-200"
@@ -466,64 +562,95 @@ export function PeerComparisonBuilder() {
         {comparisonType === "contract" && contractSummary && (
           <div className="mb-6 grid gap-4 rounded-2xl border border-border bg-muted p-4 md:grid-cols-3">
             <div>
-              <p className="text-xs text-muted-foreground">{comparisonType === "contract" ? "Contract" : "Organization"} Enrollment</p>
+              <p className="text-xs text-muted-foreground">
+                {comparisonType === "contract" ? "Contract" : "Organization"}{" "}
+                Enrollment
+              </p>
               <p className="mt-2 text-2xl font-semibold text-foreground">
                 {contractSummary.formattedTotal}
               </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Enrollment Level</p>
-              <p className="mt-2 text-lg font-medium text-foreground">{contractSummary.level}</p>
+              <p className="mt-2 text-lg font-medium text-foreground">
+                {contractSummary.level}
+              </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">States Loaded</p>
-              <p className="mt-2 text-lg font-medium text-foreground">{states.length}</p>
+              <p className="mt-2 text-lg font-medium text-foreground">
+                {states.length}
+              </p>
             </div>
           </div>
         )}
 
         <div className="mb-8 flex items-center gap-4">
-          {(comparisonType === "contract" ? [1, 2, 3, 4] : [1, 2]).map((stepNum) => (
-            <div key={stepNum} className="flex flex-1 items-center gap-3">
-              <button
-                onClick={() => setStep(stepNum)}
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition ${
-                  step === stepNum
-                    ? "border-primary bg-primary/10 text-primary"
-                    : stepNum < step || canProceed(stepNum)
-                    ? "border-primary/40 bg-primary/5 text-primary"
-                    : "border-border bg-card text-muted-foreground"
-                }`}
-              >
-                {stepNum}
-              </button>
-              <div className="flex-1">
-                <p className={`text-xs font-medium ${step === stepNum ? "text-foreground" : "text-muted-foreground"}`}>
-                  {stepNum === 1 && (comparisonType === "contract" ? "Select Contract" : "Select Primary Org")}
-                  {stepNum === 2 && (comparisonType === "contract" ? "Choose States" : "Select Peer Orgs")}
-                  {stepNum === 3 && "Plan Type Group"}
-                  {stepNum === 4 && "Enrollment Level"}
-                </p>
-                <p className="text-[0.65rem] text-muted-foreground">
-                  {stepNum === 1 && (comparisonType === "contract"
-                    ? `${selectedContractSeriesLabel}${selectedContractId ? " • 1 selected" : " • 0 selected"}`
-                    : (selectedParentOrg ? "1 selected" : "0 selected"))}
-                  {stepNum === 2 && (comparisonType === "contract" 
-                    ? (selectedStates.length > 0 ? `${selectedStates.length} selected` : "None selected")
-                    : (selectedPeerOrgs.length > 0 ? `${selectedPeerOrgs.length} selected` : "None selected"))}
-                  {stepNum === 3 && (selectedPlanTypeLabel || "None selected")}
-                  {stepNum === 4 && (selectedEnrollmentLevel || "None selected")}
-                </p>
+          {(comparisonType === "contract" ? [1, 2, 3, 4] : [1, 2]).map(
+            (stepNum) => (
+              <div key={stepNum} className="flex flex-1 items-center gap-3">
+                <button
+                  onClick={() => setStep(stepNum)}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition ${
+                    step === stepNum
+                      ? "border-primary bg-primary/10 text-primary"
+                      : stepNum < step || canProceed(stepNum)
+                        ? "border-primary/40 bg-primary/5 text-primary"
+                        : "border-border bg-card text-muted-foreground"
+                  }`}
+                >
+                  {stepNum}
+                </button>
+                <div className="flex-1">
+                  <p
+                    className={`text-xs font-medium ${step === stepNum ? "text-foreground" : "text-muted-foreground"}`}
+                  >
+                    {stepNum === 1 &&
+                      (comparisonType === "contract"
+                        ? "Select Contract"
+                        : "Select Primary Org")}
+                    {stepNum === 2 &&
+                      (comparisonType === "contract"
+                        ? "Choose States"
+                        : "Select Peer Orgs")}
+                    {stepNum === 3 && "Plan Type Group"}
+                    {stepNum === 4 && "Enrollment Level"}
+                  </p>
+                  <p className="text-[0.65rem] text-muted-foreground">
+                    {stepNum === 1 &&
+                      (comparisonType === "contract"
+                        ? `${selectedContractSeriesLabel}${selectedContractId ? " • 1 selected" : " • 0 selected"}`
+                        : selectedParentOrg
+                          ? "1 selected"
+                          : "0 selected")}
+                    {stepNum === 2 &&
+                      (comparisonType === "contract"
+                        ? selectedStates.length > 0
+                          ? `${selectedStates.length} selected`
+                          : "None selected"
+                        : selectedPeerOrgs.length > 0
+                          ? `${selectedPeerOrgs.length} selected`
+                          : "None selected")}
+                    {stepNum === 3 &&
+                      (selectedPlanTypeLabel || "None selected")}
+                    {stepNum === 4 &&
+                      (selectedEnrollmentLevel || "None selected")}
+                  </p>
+                </div>
+                {stepNum < (comparisonType === "contract" ? 4 : 2) && (
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
               </div>
-              {stepNum < (comparisonType === "contract" ? 4 : 2) && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-            </div>
-          ))}
+            ),
+          )}
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-6">
           {step === 1 && comparisonType === "contract" && (
             <div>
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Select Contract</h3>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Select Contract
+              </h3>
               <div className="mb-4 grid gap-3 md:grid-cols-2">
                 {CONTRACT_SERIES_OPTIONS.map((option) => {
                   const isSelected = selectedContractSeries === option.id;
@@ -537,8 +664,12 @@ export function PeerComparisonBuilder() {
                           : "border-border bg-muted hover:border-border/70"
                       }`}
                     >
-                      <span className="text-sm font-semibold">{option.label}</span>
-                      <span className="text-xs text-muted-foreground">{option.description}</span>
+                      <span className="text-sm font-semibold">
+                        {option.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {option.description}
+                      </span>
                     </button>
                   );
                 })}
@@ -555,20 +686,27 @@ export function PeerComparisonBuilder() {
               </div>
               <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
                 {filteredContracts.map((contract) => {
-                  const isSelected = selectedContractId === contract.contract_id;
+                  const isSelected =
+                    selectedContractId === contract.contract_id;
                   return (
                     <button
                       key={contract.contract_id}
-                      onClick={() => setSelectedContractId(contract.contract_id)}
+                      onClick={() =>
+                        setSelectedContractId(contract.contract_id)
+                      }
                       className={`flex items-start justify-between rounded-lg px-4 py-3 text-left transition ${
-                        isSelected ? "bg-primary/10 border border-primary/40" : "hover:bg-accent border border-transparent"
+                        isSelected
+                          ? "bg-primary/10 border border-primary/40"
+                          : "hover:bg-accent border border-transparent"
                       }`}
                     >
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className={`text-sm font-medium ${
-                            isSelected ? "text-primary" : "text-foreground"
-                          }`}>
+                          <p
+                            className={`text-sm font-medium ${
+                              isSelected ? "text-primary" : "text-foreground"
+                            }`}
+                          >
                             {contract.contract_id}
                           </p>
                           {contract.has_snp_plans && (
@@ -578,10 +716,14 @@ export function PeerComparisonBuilder() {
                           )}
                         </div>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {contract.organization_marketing_name || contract.contract_name || "No name"}
+                          {contract.organization_marketing_name ||
+                            contract.contract_name ||
+                            "No name"}
                         </p>
                       </div>
-                      {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                      {isSelected && (
+                        <Check className="h-4 w-4 shrink-0 text-primary" />
+                      )}
                     </button>
                   );
                 })}
@@ -591,7 +733,9 @@ export function PeerComparisonBuilder() {
 
           {step === 1 && comparisonType === "organization" && (
             <div>
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Select Primary Parent Organization</h3>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Select Primary Parent Organization
+              </h3>
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
                   <Search className="h-4 w-4 text-muted-foreground" />
@@ -618,20 +762,27 @@ export function PeerComparisonBuilder() {
               </div>
               <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
                 {filteredOrganizations.map((org) => {
-                  const isSelected = selectedParentOrg === org.parent_organization;
+                  const isSelected =
+                    selectedParentOrg === org.parent_organization;
                   return (
                     <button
                       key={org.parent_organization}
-                      onClick={() => setSelectedParentOrg(org.parent_organization)}
+                      onClick={() =>
+                        setSelectedParentOrg(org.parent_organization)
+                      }
                       className={`flex items-start justify-between rounded-lg px-4 py-3 text-left transition ${
-                        isSelected ? "bg-primary/10 border border-primary/40" : "hover:bg-accent border border-transparent"
+                        isSelected
+                          ? "bg-primary/10 border border-primary/40"
+                          : "hover:bg-accent border border-transparent"
                       }`}
                     >
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className={`text-sm font-medium ${
-                            isSelected ? "text-primary" : "text-foreground"
-                          }`}>
+                          <p
+                            className={`text-sm font-medium ${
+                              isSelected ? "text-primary" : "text-foreground"
+                            }`}
+                          >
                             {org.parent_organization}
                           </p>
                           {org.has_blue_contracts && (
@@ -646,11 +797,15 @@ export function PeerComparisonBuilder() {
                           )}
                         </div>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {org.contract_count} contract{org.contract_count !== 1 ? "s" : ""}
-                          {org.has_blue_contracts && ` • ${org.blue_contract_count} Blue`}
+                          {org.contract_count} contract
+                          {org.contract_count !== 1 ? "s" : ""}
+                          {org.has_blue_contracts &&
+                            ` • ${org.blue_contract_count} Blue`}
                         </p>
                       </div>
-                      {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                      {isSelected && (
+                        <Check className="h-4 w-4 shrink-0 text-primary" />
+                      )}
                     </button>
                   );
                 })}
@@ -660,8 +815,13 @@ export function PeerComparisonBuilder() {
 
           {step === 2 && comparisonType === "organization" && (
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-foreground">Select Peer Organizations</h3>
-              <p className="mb-4 text-xs text-muted-foreground">Choose one or more peer organizations to compare against {selectedParentOrg}.</p>
+              <h3 className="mb-2 text-sm font-semibold text-foreground">
+                Select Peer Organizations
+              </h3>
+              <p className="mb-4 text-xs text-muted-foreground">
+                Choose one or more peer organizations to compare against{" "}
+                {selectedParentOrg}.
+              </p>
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
                   <Search className="h-4 w-4 text-muted-foreground" />
@@ -696,28 +856,38 @@ export function PeerComparisonBuilder() {
               </div>
               <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
                 {filteredOrganizations
-                  .filter(org => org.parent_organization !== selectedParentOrg)
+                  .filter(
+                    (org) => org.parent_organization !== selectedParentOrg,
+                  )
                   .map((org) => {
-                    const isSelected = selectedPeerOrgs.includes(org.parent_organization);
+                    const isSelected = selectedPeerOrgs.includes(
+                      org.parent_organization,
+                    );
                     return (
                       <button
                         key={org.parent_organization}
                         onClick={() => {
-                          setSelectedPeerOrgs(prev => 
-                            isSelected 
-                              ? prev.filter(o => o !== org.parent_organization)
-                              : [...prev, org.parent_organization]
+                          setSelectedPeerOrgs((prev) =>
+                            isSelected
+                              ? prev.filter(
+                                  (o) => o !== org.parent_organization,
+                                )
+                              : [...prev, org.parent_organization],
                           );
                         }}
                         className={`flex items-start justify-between rounded-lg px-4 py-3 text-left transition ${
-                          isSelected ? "bg-primary/10 border border-primary/40" : "hover:bg-accent border border-transparent"
+                          isSelected
+                            ? "bg-primary/10 border border-primary/40"
+                            : "hover:bg-accent border border-transparent"
                         }`}
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <p className={`text-sm font-medium ${
-                              isSelected ? "text-primary" : "text-foreground"
-                            }`}>
+                            <p
+                              className={`text-sm font-medium ${
+                                isSelected ? "text-primary" : "text-foreground"
+                              }`}
+                            >
                               {org.parent_organization}
                             </p>
                             {org.has_blue_contracts && (
@@ -732,11 +902,15 @@ export function PeerComparisonBuilder() {
                             )}
                           </div>
                           <p className="mt-0.5 text-xs text-muted-foreground">
-                            {org.contract_count} contract{org.contract_count !== 1 ? "s" : ""}
-                            {org.has_blue_contracts && ` • ${org.blue_contract_count} Blue`}
+                            {org.contract_count} contract
+                            {org.contract_count !== 1 ? "s" : ""}
+                            {org.has_blue_contracts &&
+                              ` • ${org.blue_contract_count} Blue`}
                           </p>
                         </div>
-                        {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                        {isSelected && (
+                          <Check className="h-4 w-4 shrink-0 text-primary" />
+                        )}
                       </button>
                     );
                   })}
@@ -746,16 +920,24 @@ export function PeerComparisonBuilder() {
 
           {step === 2 && comparisonType === "contract" && (
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-foreground">Choose States (ranked by enrollment)</h3>
-              <p className="mb-2 text-xs text-muted-foreground">Select one or more states to include in the peer comparison.</p>
+              <h3 className="mb-2 text-sm font-semibold text-foreground">
+                Choose States (ranked by enrollment)
+              </h3>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Select one or more states to include in the peer comparison.
+              </p>
               {statesLoading && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" /> Loading states...
                 </div>
               )}
-              {statesError && <p className="text-xs text-red-400">{statesError}</p>}
+              {statesError && (
+                <p className="text-xs text-red-400">{statesError}</p>
+              )}
               {!statesLoading && states.length === 0 && !statesError && (
-                <p className="text-xs text-muted-foreground">No state enrollment data available for this contract.</p>
+                <p className="text-xs text-muted-foreground">
+                  No state enrollment data available for this contract.
+                </p>
               )}
               <div className="mt-3 flex max-h-96 flex-col gap-2 overflow-y-auto">
                 {states.map((state) => {
@@ -769,11 +951,17 @@ export function PeerComparisonBuilder() {
                           const code = normalizedCode;
                           const alreadySelected = previous.includes(code);
                           if (alreadySelected) {
-                            const next = previous.filter((value) => value !== code);
+                            const next = previous.filter(
+                              (value) => value !== code,
+                            );
                             setSelectedPlanType(null);
                             if (next.length === 1) {
-                              const remaining = states.find((row) => row.state.toUpperCase() === next[0]);
-                              setSelectedEnrollmentLevel(remaining?.enrollmentLevel ?? null);
+                              const remaining = states.find(
+                                (row) => row.state.toUpperCase() === next[0],
+                              );
+                              setSelectedEnrollmentLevel(
+                                remaining?.enrollmentLevel ?? null,
+                              );
                             } else {
                               setSelectedEnrollmentLevel(null);
                             }
@@ -791,13 +979,20 @@ export function PeerComparisonBuilder() {
                         });
                       }}
                       className={`flex items-center justify-between rounded-lg px-4 py-3 text-left transition ${
-                        isSelected ? "bg-primary/10 border border-primary/40" : "hover:bg-accent border border-transparent"
+                        isSelected
+                          ? "bg-primary/10 border border-primary/40"
+                          : "hover:bg-accent border border-transparent"
                       }`}
                     >
                       <div>
-                        <p className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}>{state.state}</p>
+                        <p
+                          className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}
+                        >
+                          {state.state}
+                        </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          Enrollment {state.formattedEnrollment} • Level {state.enrollmentLevel}
+                          Enrollment {state.formattedEnrollment} • Level{" "}
+                          {state.enrollmentLevel}
                         </p>
                       </div>
                       {isSelected && <Check className="h-4 w-4 text-primary" />}
@@ -810,10 +1005,13 @@ export function PeerComparisonBuilder() {
 
           {step === 3 && (
             <div>
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Plan Type Group</h3>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Plan Type Group
+              </h3>
               {availablePlanTypes.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  No plan types available for the selected states. Please adjust your selection.
+                  No plan types available for the selected states. Please adjust
+                  your selection.
                 </p>
               ) : (
                 <div className="grid gap-3 md:grid-cols-3">
@@ -829,8 +1027,12 @@ export function PeerComparisonBuilder() {
                             : "border-border bg-muted hover:border-border/70"
                         }`}
                       >
-                        <span className="text-sm font-semibold">{option.label}</span>
-                        <span className="text-xs text-muted-foreground">{option.description}</span>
+                        <span className="text-sm font-semibold">
+                          {option.label}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {option.description}
+                        </span>
                       </button>
                     );
                   })}
@@ -841,31 +1043,38 @@ export function PeerComparisonBuilder() {
 
           {step === 4 && (
             <div>
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Enrollment Level</h3>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Enrollment Level
+              </h3>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {ENROLLMENT_LEVELS.filter((bucket) => bucket.id !== "null").map((bucket) => {
-                  const isSelected = selectedEnrollmentLevel === bucket.id;
-                  return (
-                    <button
-                      key={bucket.id}
-                      onClick={() => setSelectedEnrollmentLevel(bucket.id)}
-                      className={`flex h-full flex-col gap-2 rounded-xl border px-4 py-3 text-left transition ${
-                        isSelected
-                          ? "border-primary/40 bg-primary/10 text-primary"
-                          : "border-border bg-muted hover:border-border/70"
-                      }`}
-                    >
-                      <span className="text-sm font-semibold">{bucket.label}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {bucket.id === "all"
-                          ? "Compare across all enrollment sizes"
-                          : bucket.min !== undefined || bucket.max !== undefined
-                          ? `${bucket.min?.toLocaleString() ?? "0"} - ${bucket.max?.toLocaleString() ?? "∞"}`
-                          : "Suppressed"}
-                      </span>
-                    </button>
-                  );
-                })}
+                {ENROLLMENT_LEVELS.filter((bucket) => bucket.id !== "null").map(
+                  (bucket) => {
+                    const isSelected = selectedEnrollmentLevel === bucket.id;
+                    return (
+                      <button
+                        key={bucket.id}
+                        onClick={() => setSelectedEnrollmentLevel(bucket.id)}
+                        className={`flex h-full flex-col gap-2 rounded-xl border px-4 py-3 text-left transition ${
+                          isSelected
+                            ? "border-primary/40 bg-primary/10 text-primary"
+                            : "border-border bg-muted hover:border-border/70"
+                        }`}
+                      >
+                        <span className="text-sm font-semibold">
+                          {bucket.label}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {bucket.id === "all"
+                            ? "Compare across all enrollment sizes"
+                            : bucket.min !== undefined ||
+                                bucket.max !== undefined
+                              ? `${bucket.min?.toLocaleString() ?? "0"} - ${bucket.max?.toLocaleString() ?? "∞"}`
+                              : "Suppressed"}
+                        </span>
+                      </button>
+                    );
+                  },
+                )}
               </div>
             </div>
           )}

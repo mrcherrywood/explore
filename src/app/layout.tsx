@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Hanken_Grotesk, Newsreader } from "next/font/google";
 import "./globals.css";
+import "@/styles/fep-theme.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/components/auth";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const hanken = Hanken_Grotesk({
   subsets: ["latin"],
+  variable: "--font-hanken",
+});
+
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-newsreader",
 });
 
 const geistMono = Geist_Mono({
@@ -38,17 +44,16 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`fep ${hanken.variable} ${newsreader.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
+          forcedTheme="light"
+          defaultTheme="light"
           enableSystem={false}
           disableTransitionOnChange
         >
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
       </body>
     </html>

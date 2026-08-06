@@ -1,53 +1,42 @@
-import { TrendingUp } from "lucide-react";
-import { DataPageNav } from "@/components/navigation/DataPageNav";
+import { AppShell } from "@/components/layout/AppShell";
 import { AnalyticsPageContent } from "@/components/analytics/AnalyticsPageContent";
 
 export const metadata = {
   title: "AI Analytics • Program Insight Studio",
   description: "Compare any variables across your Medicare Advantage data.",
 };
+
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function AnalyticsPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  // Parse selected filters from URL
   const contractsParam = params.contracts;
   const measuresParam = params.measures;
   const yearsParam = params.years;
 
-  const selectedContracts = typeof contractsParam === "string" ? contractsParam.split(",").filter(Boolean) : [];
-  const selectedMeasures = typeof measuresParam === "string" ? measuresParam.split(",").filter(Boolean) : [];
-  const selectedYears = typeof yearsParam === "string" ? yearsParam.split(",").filter(Boolean) : [];
+  const selectedContracts =
+    typeof contractsParam === "string"
+      ? contractsParam.split(",").filter(Boolean)
+      : [];
+  const selectedMeasures =
+    typeof measuresParam === "string"
+      ? measuresParam.split(",").filter(Boolean)
+      : [];
+  const selectedYears =
+    typeof yearsParam === "string" ? yearsParam.split(",").filter(Boolean) : [];
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="flex min-h-screen">
-        <DataPageNav />
-        <div className="flex min-h-screen flex-1 flex-col">
-          <header className="flex items-center justify-between border-b border-border px-10 py-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-lg font-semibold">
-                <TrendingUp className="h-5 w-5 text-foreground" />
-              </div>
-              <div>
-                <p className="text-[0.6rem] uppercase tracking-[0.55em] text-muted-foreground">Data Explorer</p>
-                <h1 className="text-2xl font-semibold text-foreground">Performance Comparisons</h1>
-              </div>
-            </div>
-            <div className="text-xs text-muted-foreground">{new Date().toLocaleString()}</div>
-          </header>
-
-          <main className="flex flex-1 flex-col gap-6 px-10 pb-10 pt-8">
-            <AnalyticsPageContent
-              selectedContracts={selectedContracts}
-              selectedMeasures={selectedMeasures}
-              selectedYears={selectedYears}
-            />
-          </main>
-        </div>
-      </div>
-    </div>
+    <AppShell
+      title="Performance Comparisons"
+      subtitle="Compare any variables across your Medicare Advantage data."
+    >
+      <AnalyticsPageContent
+        selectedContracts={selectedContracts}
+        selectedMeasures={selectedMeasures}
+        selectedYears={selectedYears}
+      />
+    </AppShell>
   );
 }

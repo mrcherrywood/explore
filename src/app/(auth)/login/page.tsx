@@ -1,18 +1,25 @@
-'use client';
+"use client";
 
-import { useState, Suspense } from 'react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { Mail, Lock, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { login } from '@/lib/auth/actions';
+import { useState, Suspense } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Mail, Lock, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { login } from "@/lib/auth/actions";
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const error = searchParams.get('error');
+  const error = searchParams.get("error");
   const [formError, setFormError] = useState<string | null>(error);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -20,10 +27,10 @@ function LoginForm() {
     e.preventDefault();
     setIsLoading(true);
     setFormError(null);
-    
+
     const formData = new FormData(e.currentTarget);
     const result = await login(formData);
-    
+
     if (result?.error) {
       setFormError(result.error);
       setIsLoading(false);
@@ -32,10 +39,12 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="flex min-h-dvh items-center justify-center px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+          <CardTitle className="text-[31px] font-medium">
+            Welcome back
+          </CardTitle>
           <CardDescription>
             Enter your credentials to access your account
           </CardDescription>
@@ -94,12 +103,15 @@ function LoginForm() {
                   Signing in...
                 </>
               ) : (
-                'Sign in'
+                "Sign in"
               )}
             </Button>
             <p className="text-sm text-muted-foreground text-center">
-              Don&apos;t have an account?{' '}
-              <Link href="/signup" className="text-primary hover:underline font-medium">
+              Don&apos;t have an account?{" "}
+              <Link
+                href="/signup"
+                className="text-primary hover:underline font-medium"
+              >
                 Sign up
               </Link>
             </p>
@@ -112,16 +124,14 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background px-4">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
       <LoginForm />
     </Suspense>
   );
 }
-
-
-
-

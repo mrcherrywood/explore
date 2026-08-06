@@ -20,7 +20,12 @@ type PredictionsResponse = Omit<PlanPreviewPredictionsResult, "contracts"> & {
   scenarios: PlanPreviewFinalScoresResult[];
 };
 
-const THRESHOLD_ORDER = ["fiveStar", "fourStar", "threeStar", "twoStar"] as const;
+const THRESHOLD_ORDER = [
+  "fiveStar",
+  "fourStar",
+  "threeStar",
+  "twoStar",
+] as const;
 const THRESHOLD_HEADERS: Record<(typeof THRESHOLD_ORDER)[number], string> = {
   fiveStar: "5★",
   fourStar: "4★",
@@ -30,15 +35,19 @@ const THRESHOLD_HEADERS: Record<(typeof THRESHOLD_ORDER)[number], string> = {
 
 async function fetchPredictions(
   starsYear: number,
-  contractId?: string
+  contractId?: string,
 ): Promise<PredictionsResponse> {
   const params = new URLSearchParams({ starsYear: String(starsYear) });
   if (contractId) params.set("contractId", contractId);
-  const response = await fetch(`/api/admin/plan-preview/predictions?${params}`, {
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `/api/admin/plan-preview/predictions?${params}`,
+    {
+      cache: "no-store",
+    },
+  );
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error ?? "Failed to build predictions");
+  if (!response.ok)
+    throw new Error(payload.error ?? "Failed to build predictions");
   return payload;
 }
 
@@ -61,12 +70,16 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
           setSelectedContractId(result.contractDetail?.contractId ?? "");
         }
       } catch (runError) {
-        setError(runError instanceof Error ? runError.message : "Failed to build predictions");
+        setError(
+          runError instanceof Error
+            ? runError.message
+            : "Failed to build predictions",
+        );
       } finally {
         setRunning(false);
       }
     },
-    [starsYear]
+    [starsYear],
   );
 
   useEffect(() => {
@@ -81,9 +94,10 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
         <div>
           <p className="fep-label">Predicted cut points</p>
           <p className="fep-subtitle" style={{ marginTop: 4 }}>
-            Workbook cut points are applied by default — official for CAHPS, forecast for the rest —
-            while the clustering / CAHPS percentile model re-predicts continuously as scores accrue
-            and flags divergence.
+            Workbook cut points are applied by default — official for CAHPS,
+            forecast for the rest — while the clustering / CAHPS percentile
+            model re-predicts continuously as scores accrue and flags
+            divergence.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -95,8 +109,17 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
               label="Download PDF"
             />
           ) : null}
-          <button type="button" className="fep-btn" onClick={() => void run()} disabled={running}>
-            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          <button
+            type="button"
+            className="fep-btn"
+            onClick={() => void run()}
+            disabled={running}
+          >
+            {running ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
             {data ? "Re-run predictions" : "Run predictions"}
           </button>
         </div>
@@ -111,21 +134,40 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
       {data ? (
         <>
           <div className="flex flex-wrap gap-2 px-5 pb-4 text-xs">
-            <span className="fep-pill">Baseline SY{data.baselineYear ?? "—"}</span>
+            <span className="fep-pill">
+              Baseline SY{data.baselineYear ?? "—"}
+            </span>
             <span className="fep-pill">{data.summary.readyCount} ready</span>
             <span className="fep-pill">
-              {data.cutPoints.filter((c) => c.source === "official").length} official ·{" "}
-              {data.cutPoints.filter((c) => c.source === "workbook_forecast").length} workbook ·{" "}
-              {data.cutPoints.filter((c) => c.source === "model" && c.status === "ready").length} model
+              {data.cutPoints.filter((c) => c.source === "official").length}{" "}
+              official ·{" "}
+              {
+                data.cutPoints.filter((c) => c.source === "workbook_forecast")
+                  .length
+              }{" "}
+              workbook ·{" "}
+              {
+                data.cutPoints.filter(
+                  (c) => c.source === "model" && c.status === "ready",
+                ).length
+              }{" "}
+              model
             </span>
             {data.summary.unavailableCount > 0 ? (
-              <span className="fep-pill">{data.summary.unavailableCount} unavailable</span>
+              <span className="fep-pill">
+                {data.summary.unavailableCount} unavailable
+              </span>
             ) : null}
             {data.summary.unsupportedCount > 0 ? (
-              <span className="fep-pill">{data.summary.unsupportedCount} excluded (QI)</span>
+              <span className="fep-pill">
+                {data.summary.unsupportedCount} excluded (QI)
+              </span>
             ) : null}
             {data.summary.warningCount > 0 ? (
-              <span className="fep-pill" style={{ background: "#f7ecd2", color: "#9a7415" }}>
+              <span
+                className="fep-pill"
+                style={{ background: "#f7ecd2", color: "#9a7415" }}
+              >
                 {data.summary.warningCount} movement warnings
               </span>
             ) : null}
@@ -152,7 +194,10 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
               </thead>
               <tbody>
                 {data.cutPoints.map((cutPoint) => (
-                  <CutPointRow key={cutPoint.measureNormalized} cutPoint={cutPoint} />
+                  <CutPointRow
+                    key={cutPoint.measureNormalized}
+                    cutPoint={cutPoint}
+                  />
                 ))}
               </tbody>
             </table>
@@ -168,7 +213,10 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
           />
         </>
       ) : (
-        <div className="px-5 pb-5 text-sm" style={{ color: "var(--fep-faint)" }}>
+        <div
+          className="px-5 pb-5 text-sm"
+          style={{ color: "var(--fep-faint)" }}
+        >
           {running
             ? "Clustering the anchored market for every accrued measure…"
             : "Run predictions once measure scores have accrued for this Star year."}
@@ -184,18 +232,25 @@ const SOURCE_LABELS: Record<PlanPreviewCutPointPrediction["source"], string> = {
   model: "Model",
 };
 
-function CutPointRow({ cutPoint }: { cutPoint: PlanPreviewCutPointPrediction }) {
+function CutPointRow({
+  cutPoint,
+}: {
+  cutPoint: PlanPreviewCutPointPrediction;
+}) {
   const thresholdByKey = new Map(
-    (cutPoint.thresholds ?? []).map((item) => [item.key, item] as const)
+    (cutPoint.thresholds ?? []).map((item) => [item.key, item] as const),
   );
   const modelByKey = new Map(
-    (cutPoint.modelThresholds ?? []).map((item) => [item.key, item] as const)
+    (cutPoint.modelThresholds ?? []).map((item) => [item.key, item] as const),
   );
   const showModelComparison = cutPoint.source === "workbook_forecast";
 
   return (
     <tr>
-      <td className="l" style={{ maxWidth: 260, whiteSpace: "normal", lineHeight: 1.35 }}>
+      <td
+        className="l"
+        style={{ maxWidth: 260, whiteSpace: "normal", lineHeight: 1.35 }}
+      >
         <span style={{ fontWeight: 600, color: "var(--fep-ink)" }}>
           {cutPoint.measureCode ? `${cutPoint.measureCode} — ` : ""}
           {cutPoint.displayName}
@@ -226,14 +281,26 @@ function CutPointRow({ cutPoint }: { cutPoint: PlanPreviewCutPointPrediction }) 
             const delta = threshold.deltaVsComparison;
             const model = showModelComparison ? modelByKey.get(key) : undefined;
             const modelDiffers =
-              model !== undefined && Math.round(model.projected) !== Math.round(threshold.projected);
+              model !== undefined &&
+              Math.round(model.projected) !== Math.round(threshold.projected);
             return (
               <td key={key}>
                 <span style={{ fontWeight: 700, color: "var(--fep-ink)" }}>
                   {threshold.projected}
                 </span>
                 {delta !== null ? (
-                  <span style={{ marginLeft: 5, fontSize: 10.5, color: delta === 0 ? "var(--fep-faint)" : delta > 0 ? "var(--fep-accent)" : "var(--fep-negative)" }}>
+                  <span
+                    style={{
+                      marginLeft: 5,
+                      fontSize: 10.5,
+                      color:
+                        delta === 0
+                          ? "var(--fep-faint)"
+                          : delta > 0
+                            ? "var(--fep-accent)"
+                            : "var(--fep-negative)",
+                    }}
+                  >
                     {delta > 0 ? "+" : ""}
                     {delta}
                   </span>
@@ -248,7 +315,10 @@ function CutPointRow({ cutPoint }: { cutPoint: PlanPreviewCutPointPrediction }) 
           })}
           <td>
             {cutPoint.warningCount > 0 ? (
-              <span className="fep-pill" style={{ background: "#f7ecd2", color: "#9a7415" }}>
+              <span
+                className="fep-pill"
+                style={{ background: "#f7ecd2", color: "#9a7415" }}
+              >
                 {cutPoint.warningCount}
               </span>
             ) : (
@@ -257,7 +327,11 @@ function CutPointRow({ cutPoint }: { cutPoint: PlanPreviewCutPointPrediction }) 
           </td>
         </>
       ) : (
-        <td className="l" colSpan={7} style={{ color: "var(--fep-faint)", whiteSpace: "normal" }}>
+        <td
+          className="l"
+          colSpan={7}
+          style={{ color: "var(--fep-faint)", whiteSpace: "normal" }}
+        >
           {cutPoint.status === "unsupported" ? "Excluded — " : "Unavailable — "}
           {cutPoint.reason}
         </td>
@@ -283,7 +357,10 @@ function ContractPanel({
       : null;
 
   return (
-    <div className="border-t px-5 py-5" style={{ borderColor: "var(--fep-row-border)" }}>
+    <div
+      className="border-t px-5 py-5"
+      style={{ borderColor: "var(--fep-row-border)" }}
+    >
       <div className="flex flex-wrap items-center gap-3">
         <p className="fep-label" style={{ marginRight: 6 }}>
           Contract predictions
@@ -307,8 +384,9 @@ function ContractPanel({
         {detail ? (
           <>
             <span className="fep-pill">
-              Base mean {detail.weightedMeanStar ?? "—"} · {detail.ratedMeasureCount}/
-              {detail.scoredMeasureCount} measures rated
+              Base mean {detail.weightedMeanStar ?? "—"} ·{" "}
+              {detail.ratedMeasureCount}/{detail.scoredMeasureCount} measures
+              rated
             </span>
             <a
               className="fep-link text-xs"
@@ -338,7 +416,14 @@ function ContractPanel({
             <tbody>
               {detail.measures.map((measure) => (
                 <tr key={measure.measureCode}>
-                  <td className="l" style={{ maxWidth: 280, whiteSpace: "normal", lineHeight: 1.35 }}>
+                  <td
+                    className="l"
+                    style={{
+                      maxWidth: 280,
+                      whiteSpace: "normal",
+                      lineHeight: 1.35,
+                    }}
+                  >
                     <span style={{ fontWeight: 600, color: "var(--fep-ink)" }}>
                       {measure.measureCode} — {measure.displayName}
                     </span>
@@ -350,25 +435,35 @@ function ContractPanel({
                     {measure.predictedStar !== null ? (
                       <span className="fep-pill">
                         {measure.predictedStar}★
-                        {measure.starSource === "cahps_case_mix_reliability" ? " · Adjusted" : ""}
+                        {measure.starSource === "cahps_case_mix_reliability"
+                          ? " · Adjusted"
+                          : ""}
                       </span>
                     ) : (
                       <span style={{ color: "var(--fep-faint)" }}>
-                        {measure.predictionStatus === "unsupported" ? "excluded" : "—"}
+                        {measure.predictionStatus === "unsupported"
+                          ? "excluded"
+                          : "—"}
                       </span>
                     )}
                   </td>
-                  <td>{measure.baselineOfficialStar !== null ? `${measure.baselineOfficialStar}★` : "—"}</td>
+                  <td>
+                    {measure.baselineOfficialStar !== null
+                      ? `${measure.baselineOfficialStar}★`
+                      : "—"}
+                  </td>
                   <td>{measure.weight}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="mt-3 text-xs" style={{ color: "var(--fep-faint)" }}>
-            Base mean is the weighted measure-star mean before reward factor and CAI. The SY
-            {data.baselineYear ?? "—"} column shows the star this score would earn at the latest
-            published official cut points. CAHPS rows marked Adjusted use case-mix and reliability
-            adjusted base stars from the uploaded MCAHPS final output.
+            Base mean is the weighted measure-star mean before reward factor and
+            CAI. The SY
+            {data.baselineYear ?? "—"} column shows the star this score would
+            earn at the latest published official cut points. CAHPS rows marked
+            Adjusted use case-mix and reliability adjusted base stars from the
+            uploaded MCAHPS final output.
           </p>
         </div>
       ) : null}

@@ -4,7 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
-import { ChartRenderer, parseChartSpecFromMarkdown } from "@/components/chart/ChartRenderer";
+import {
+  ChartRenderer,
+  parseChartSpecFromMarkdown,
+} from "@/components/chart/ChartRenderer";
 import type { ChartSpec } from "@/components/chart/ChartRenderer";
 import { DataPageNav } from "@/components/navigation/DataPageNav";
 import { Sparkle } from "lucide-react";
@@ -23,15 +26,18 @@ type MessageItemProps = {
 const quickPrompts: { title: string; prompt: string }[] = [
   {
     title: "Enrollment trend overview",
-    prompt: "Chart Medicare Advantage enrollment by month for the past year and summarize key inflection points.",
+    prompt:
+      "Chart Medicare Advantage enrollment by month for the past year and summarize key inflection points.",
   },
   {
     title: "Coverage gap analysis",
-    prompt: "Break down plan availability by county, highlight underserved regions, and return a bar chart of coverage gaps.",
+    prompt:
+      "Break down plan availability by county, highlight underserved regions, and return a bar chart of coverage gaps.",
   },
   {
     title: "Plan performance comparison",
-    prompt: "Compare CMS star ratings across leading Medicare Advantage plans and visualize the distribution by carrier.",
+    prompt:
+      "Compare CMS star ratings across leading Medicare Advantage plans and visualize the distribution by carrier.",
   },
 ];
 
@@ -63,7 +69,9 @@ export default function Chat() {
                 <Sparkle className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-[0.6rem] uppercase tracking-[0.55em] text-muted-foreground">Assistant</p>
+                <p className="text-[0.6rem] uppercase tracking-[0.55em] text-muted-foreground">
+                  Assistant
+                </p>
                 <h1 className="text-xl font-semibold">Medicare Insight AI</h1>
               </div>
             </div>
@@ -78,16 +86,26 @@ export default function Chat() {
                     {showPlaceholder ? (
                       <div className="flex min-h-[280px] flex-col items-center justify-center gap-6 text-center">
                         <div className="space-y-3">
-                          <p className="text-sm uppercase tracking-[0.35em] text-muted-foreground">Medicare Advantage</p>
-                          <h2 className="text-3xl font-semibold">What&apos;s on your mind today?</h2>
+                          <p className="text-sm uppercase tracking-[0.35em] text-muted-foreground">
+                            Medicare Advantage
+                          </p>
+                          <h2 className="text-3xl font-semibold">
+                            What&apos;s on your mind today?
+                          </h2>
                         </div>
                         <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-                          Explore enrollment trends, compare plan performance, or build quick visualizations. Ask a question to get started.
+                          Explore enrollment trends, compare plan performance,
+                          or build quick visualizations. Ask a question to get
+                          started.
                         </p>
                       </div>
                     ) : null}
                     {messages.map((m) => (
-                      <MessageItem key={m.id} role={m.role} content={m.content} />
+                      <MessageItem
+                        key={m.id}
+                        role={m.role}
+                        content={m.content}
+                      />
                     ))}
                     {isLoading ? (
                       <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -114,7 +132,11 @@ export default function Chat() {
                       e.preventDefault();
                       const trimmed = input.trim();
                       if (!trimmed || isLoading) return;
-                      const userMessage: ChatMessage = { id: crypto.randomUUID(), role: "user", content: trimmed };
+                      const userMessage: ChatMessage = {
+                        id: crypto.randomUUID(),
+                        role: "user",
+                        content: trimmed,
+                      };
                       const nextMessages = [...messages, userMessage];
                       setMessages(nextMessages);
                       setInput("");
@@ -124,19 +146,36 @@ export default function Chat() {
                         const resp = await fetch("/api/chat-sql", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ messages: nextMessages.map(({ role, content }) => ({ role, content })) }),
+                          body: JSON.stringify({
+                            messages: nextMessages.map(({ role, content }) => ({
+                              role,
+                              content,
+                            })),
+                          }),
                         });
                         if (!resp.ok) {
                           throw new Error(await resp.text());
                         }
                         const data = await resp.json();
-                        const assistant = data.message as { role: "assistant"; content: string };
+                        const assistant = data.message as {
+                          role: "assistant";
+                          content: string;
+                        };
                         setMessages((prev) => [
                           ...prev,
-                          { id: crypto.randomUUID(), role: assistant.role, content: assistant.content },
+                          {
+                            id: crypto.randomUUID(),
+                            role: assistant.role,
+                            content: assistant.content,
+                          },
                         ]);
                       } catch (err: unknown) {
-                        const message = err instanceof Error ? err.message : typeof err === "string" ? err : "Unknown error";
+                        const message =
+                          err instanceof Error
+                            ? err.message
+                            : typeof err === "string"
+                              ? err
+                              : "Unknown error";
                         setError(String(message));
                       } finally {
                         setIsLoading(false);
@@ -159,7 +198,10 @@ export default function Chat() {
                         aria-label="Send"
                       >
                         {isLoading ? (
-                          <span className="h-3 w-3 animate-spin rounded-full border border-primary-foreground/70 border-t-transparent" aria-hidden />
+                          <span
+                            className="h-3 w-3 animate-spin rounded-full border border-primary-foreground/70 border-t-transparent"
+                            aria-hidden
+                          />
                         ) : (
                           <span className="text-lg">↗</span>
                         )}
@@ -192,7 +234,10 @@ export default function Chat() {
 }
 
 function MessageItem({ role, content }: MessageItemProps) {
-  const chartSpec = useMemo<ChartSpec | null>(() => parseChartSpecFromMarkdown(content || ""), [content]);
+  const chartSpec = useMemo<ChartSpec | null>(
+    () => parseChartSpecFromMarkdown(content || ""),
+    [content],
+  );
   const isUser = role === "user";
   const markdownComponents = useMemo<Components>(() => {
     return {
@@ -218,12 +263,18 @@ function MessageItem({ role, content }: MessageItemProps) {
       table({ children }) {
         return (
           <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <table className="w-full border-collapse text-sm text-foreground/90">{children}</table>
+            <table className="w-full border-collapse text-sm text-foreground/90">
+              {children}
+            </table>
           </div>
         );
       },
       thead({ children }) {
-        return <thead className="bg-accent text-xs uppercase tracking-[0.2em] text-muted-foreground">{children}</thead>;
+        return (
+          <thead className="bg-accent text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            {children}
+          </thead>
+        );
       },
       tbody({ children }) {
         return <tbody className="divide-y divide-border">{children}</tbody>;
@@ -232,7 +283,11 @@ function MessageItem({ role, content }: MessageItemProps) {
         return <tr className="hover:bg-accent/50">{children}</tr>;
       },
       th({ children }) {
-        return <th className="px-4 py-3 text-left font-semibold text-foreground">{children}</th>;
+        return (
+          <th className="px-4 py-3 text-left font-semibold text-foreground">
+            {children}
+          </th>
+        );
       },
       td({ children }) {
         return <td className="px-4 py-3 text-muted-foreground">{children}</td>;
@@ -246,7 +301,9 @@ function MessageItem({ role, content }: MessageItemProps) {
   return (
     <div className="flex justify-center px-2">
       <div className={`w-full max-w-3xl`}>
-        <div className={`flex items-start gap-4 ${isUser ? "justify-end" : "justify-start"}`}>
+        <div
+          className={`flex items-start gap-4 ${isUser ? "justify-end" : "justify-start"}`}
+        >
           {!isUser ? (
             <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/70 bg-card/80 text-xs font-medium uppercase text-primary-foreground/80">
               AI
@@ -264,12 +321,19 @@ function MessageItem({ role, content }: MessageItemProps) {
             </div>
             <div className="mt-4 space-y-4">
               {chartSpec ? (
-                <div className={`overflow-hidden rounded-2xl border ${isUser ? "border-border/70" : "border-border/70"} bg-background p-3`}>
+                <div
+                  className={`overflow-hidden rounded-2xl border ${isUser ? "border-border/70" : "border-border/70"} bg-background p-3`}
+                >
                   <ChartRenderer spec={chartSpec as ChartSpec} />
                 </div>
               ) : null}
-              <div className={`prose max-w-none text-sm ${isUser ? "prose-invert" : "dark:prose-invert"}`}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+              <div
+                className={`prose max-w-none text-sm ${isUser ? "prose-invert" : "dark:prose-invert"}`}
+              >
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={markdownComponents}
+                >
                   {content}
                 </ReactMarkdown>
               </div>

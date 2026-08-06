@@ -2,7 +2,18 @@
 
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
-import { Loader2, TrendingUp, TrendingDown, Minus, Search, ChevronDown, ChevronUp, ChevronRight, Info, Shield } from "lucide-react";
+import {
+  Loader2,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  ChevronRight,
+  Info,
+  Shield,
+} from "lucide-react";
 import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 
 type DomainSummary = {
@@ -11,7 +22,12 @@ type DomainSummary = {
   removedMeasureCount: number;
   totalWeight: number;
   removedWeight: number;
-  measures: Array<{ code: string; name: string | null; weight: number; isBeingRemoved: boolean }>;
+  measures: Array<{
+    code: string;
+    name: string | null;
+    weight: number;
+    isBeingRemoved: boolean;
+  }>;
 };
 
 type RemovedMeasure = {
@@ -209,7 +225,11 @@ type AnalysisData = {
     finalBracketGainers: number;
     finalBracketLosers: number;
     bracketChangeDistribution: Record<string, number>;
-    bracketTransitions: Array<{ transition: string; count: number; direction: 'gain' | 'loss' | 'unchanged' }>;
+    bracketTransitions: Array<{
+      transition: string;
+      count: number;
+      direction: "gain" | "loss" | "unchanged";
+    }>;
     totalParentOrgs: number;
     contractsWithHoldHarmless?: number;
   };
@@ -222,8 +242,29 @@ type AnalysisData = {
   };
 };
 
-type SortKey = "contractId" | "organizationMarketingName" | "currentOverallRating" | "projectedOverallRating" | "finalProjectedOverall" | "rawProjectedMean" | "overallChange" | "finalOverallChange" | "starBracketChange" | "finalStarBracketChange" | "rFactorChange" | "holdHarmless";
-type OrgSortKey = "parentOrganization" | "contractCount" | "avgCurrentRating" | "avgProjectedRating" | "avgFinalProjectedRating" | "avgOverallChange" | "avgFinalOverallChange" | "contractsGaining" | "contractsLosing";
+type SortKey =
+  | "contractId"
+  | "organizationMarketingName"
+  | "currentOverallRating"
+  | "projectedOverallRating"
+  | "finalProjectedOverall"
+  | "rawProjectedMean"
+  | "overallChange"
+  | "finalOverallChange"
+  | "starBracketChange"
+  | "finalStarBracketChange"
+  | "rFactorChange"
+  | "holdHarmless";
+type OrgSortKey =
+  | "parentOrganization"
+  | "contractCount"
+  | "avgCurrentRating"
+  | "avgProjectedRating"
+  | "avgFinalProjectedRating"
+  | "avgOverallChange"
+  | "avgFinalOverallChange"
+  | "contractsGaining"
+  | "contractsLosing";
 type SortDirection = "asc" | "desc";
 type ViewMode = "contracts" | "organizations";
 
@@ -233,7 +274,9 @@ export function OperationsImpactAnalysis() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("finalOverallChange");
-  const [orgSortKey, setOrgSortKey] = useState<OrgSortKey>("avgFinalOverallChange");
+  const [orgSortKey, setOrgSortKey] = useState<OrgSortKey>(
+    "avgFinalOverallChange",
+  );
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const contractsTableRef = useRef<HTMLTableElement>(null);
   const orgsTableRef = useRef<HTMLTableElement>(null);
@@ -256,7 +299,9 @@ export function OperationsImpactAnalysis() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch("/api/analysis/operations-impact?year=2026");
+        const response = await fetch(
+          "/api/analysis/operations-impact?year=2026",
+        );
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.error || "Failed to fetch analysis data");
@@ -279,7 +324,14 @@ export function OperationsImpactAnalysis() {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortKey(key);
-      const descByDefault = ["overallChange", "finalOverallChange", "starBracketChange", "finalStarBracketChange", "rFactorChange", "holdHarmless"];
+      const descByDefault = [
+        "overallChange",
+        "finalOverallChange",
+        "starBracketChange",
+        "finalStarBracketChange",
+        "rFactorChange",
+        "holdHarmless",
+      ];
       setSortDirection(descByDefault.includes(key) ? "desc" : "asc");
     }
   };
@@ -289,24 +341,31 @@ export function OperationsImpactAnalysis() {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setOrgSortKey(key);
-      const descByDefault = ["avgOverallChange", "avgFinalOverallChange", "contractCount", "contractsGaining", "contractsLosing"];
+      const descByDefault = [
+        "avgOverallChange",
+        "avgFinalOverallChange",
+        "contractCount",
+        "contractsGaining",
+        "contractsLosing",
+      ];
       setSortDirection(descByDefault.includes(key) ? "desc" : "asc");
     }
   };
 
   const filteredAndSortedContracts = useMemo(() => {
     if (!data) return [];
-    
+
     let contracts = data.contracts;
-    
+
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      contracts = contracts.filter(c =>
-        c.contractId.toLowerCase().includes(query) ||
-        c.contractName?.toLowerCase().includes(query) ||
-        c.organizationMarketingName?.toLowerCase().includes(query) ||
-        c.parentOrganization?.toLowerCase().includes(query)
+      contracts = contracts.filter(
+        (c) =>
+          c.contractId.toLowerCase().includes(query) ||
+          c.contractName?.toLowerCase().includes(query) ||
+          c.organizationMarketingName?.toLowerCase().includes(query) ||
+          c.parentOrganization?.toLowerCase().includes(query),
       );
     }
 
@@ -372,11 +431,13 @@ export function OperationsImpactAnalysis() {
       if (bVal === null) return -1;
 
       if (typeof aVal === "string" && typeof bVal === "string") {
-        return sortDirection === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        return sortDirection === "asc"
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
       }
 
-      return sortDirection === "asc" 
-        ? (aVal as number) - (bVal as number) 
+      return sortDirection === "asc"
+        ? (aVal as number) - (bVal as number)
         : (bVal as number) - (aVal as number);
     });
 
@@ -385,14 +446,14 @@ export function OperationsImpactAnalysis() {
 
   const filteredAndSortedOrgs = useMemo(() => {
     if (!data) return [];
-    
+
     let orgs = data.parentOrganizations;
-    
+
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      orgs = orgs.filter(o =>
-        o.parentOrganization.toLowerCase().includes(query)
+      orgs = orgs.filter((o) =>
+        o.parentOrganization.toLowerCase().includes(query),
       );
     }
 
@@ -445,11 +506,13 @@ export function OperationsImpactAnalysis() {
       if (bVal === null) return -1;
 
       if (typeof aVal === "string" && typeof bVal === "string") {
-        return sortDirection === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        return sortDirection === "asc"
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
       }
 
-      return sortDirection === "asc" 
-        ? (aVal as number) - (bVal as number) 
+      return sortDirection === "asc"
+        ? (aVal as number) - (bVal as number)
         : (bVal as number) - (aVal as number);
     });
 
@@ -482,7 +545,7 @@ export function OperationsImpactAnalysis() {
   };
 
   const toggleOrgExpanded = (orgName: string) => {
-    setExpandedOrgs(prev => {
+    setExpandedOrgs((prev) => {
       const next = new Set(prev);
       if (next.has(orgName)) {
         next.delete(orgName);
@@ -495,12 +558,20 @@ export function OperationsImpactAnalysis() {
 
   const getContractsForOrg = (orgName: string): ContractAnalysis[] => {
     if (!data) return [];
-    return data.contracts.filter(c => 
-      (c.parentOrganization?.trim() || 'Unknown') === orgName
+    return data.contracts.filter(
+      (c) => (c.parentOrganization?.trim() || "Unknown") === orgName,
     );
   };
 
-  const SortHeader = ({ label, sortKeyValue, tooltip }: { label: string; sortKeyValue: SortKey; tooltip?: string }) => (
+  const SortHeader = ({
+    label,
+    sortKeyValue,
+    tooltip,
+  }: {
+    label: string;
+    sortKeyValue: SortKey;
+    tooltip?: string;
+  }) => (
     <button
       onClick={() => handleSort(sortKeyValue)}
       className="flex items-center gap-1 text-left font-medium hover:text-foreground transition-colors group"
@@ -508,11 +579,16 @@ export function OperationsImpactAnalysis() {
     >
       {label}
       {tooltip && (
-        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity ml-0.5">?</span>
+        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity ml-0.5">
+          ?
+        </span>
       )}
-      {sortKey === sortKeyValue && (
-        sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-      )}
+      {sortKey === sortKeyValue &&
+        (sortDirection === "asc" ? (
+          <ChevronUp className="h-3 w-3" />
+        ) : (
+          <ChevronDown className="h-3 w-3" />
+        ))}
     </button>
   );
 
@@ -520,7 +596,9 @@ export function OperationsImpactAnalysis() {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Analyzing impact of removing operations measures...</p>
+        <p className="text-sm text-muted-foreground">
+          Analyzing impact of removing operations measures...
+        </p>
       </div>
     );
   }
@@ -546,29 +624,56 @@ export function OperationsImpactAnalysis() {
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-border bg-card p-6">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Total Contracts Analyzed</p>
-          <p className="mt-2 text-3xl font-semibold text-foreground">{data.summary.totalContracts.toLocaleString()}</p>
-          <p className="mt-1 text-xs text-muted-foreground">With valid star ratings</p>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-6">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Avg Final Rating Change</p>
-          <p className={`mt-2 text-3xl font-semibold ${getChangeColor(data.summary.avgFinalOverallChange ?? data.summary.avgOverallChange)}`}>
-            {formatChange(data.summary.avgFinalOverallChange ?? data.summary.avgOverallChange)}
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            Total Contracts Analyzed
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">With measure removal + reward factor</p>
+          <p className="mt-2 text-3xl font-semibold text-foreground">
+            {data.summary.totalContracts.toLocaleString()}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            With valid star ratings
+          </p>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-6">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Contracts Gaining</p>
-          <p className="mt-2 text-3xl font-semibold text-emerald-500">{data.summary.finalContractsGaining.toLocaleString()}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{data.summary.finalBracketGainers} would gain a half-star</p>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            Avg Final Rating Change
+          </p>
+          <p
+            className={`mt-2 text-3xl font-semibold ${getChangeColor(data.summary.avgFinalOverallChange ?? data.summary.avgOverallChange)}`}
+          >
+            {formatChange(
+              data.summary.avgFinalOverallChange ??
+                data.summary.avgOverallChange,
+            )}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            With measure removal + reward factor
+          </p>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-6">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Contracts Losing</p>
-          <p className="mt-2 text-3xl font-semibold text-rose-500">{data.summary.finalContractsLosing.toLocaleString()}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{data.summary.finalBracketLosers} would lose a half-star</p>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            Contracts Gaining
+          </p>
+          <p className="mt-2 text-3xl font-semibold text-emerald-500">
+            {data.summary.finalContractsGaining.toLocaleString()}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {data.summary.finalBracketGainers} would gain a half-star
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            Contracts Losing
+          </p>
+          <p className="mt-2 text-3xl font-semibold text-rose-500">
+            {data.summary.finalContractsLosing.toLocaleString()}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {data.summary.finalBracketLosers} would lose a half-star
+          </p>
         </div>
       </div>
 
@@ -581,30 +686,63 @@ export function OperationsImpactAnalysis() {
           <div className="flex items-center gap-3">
             <Info className="h-5 w-5 text-muted-foreground" />
             <div>
-              <h3 className="text-sm font-semibold text-foreground">CMS Measures Being Removed</h3>
+              <h3 className="text-sm font-semibold text-foreground">
+                CMS Measures Being Removed
+              </h3>
               <p className="text-xs text-muted-foreground">
-                {data.removedMeasuresSummary?.count || 0} measures • Total weight: {data.removedMeasuresSummary?.totalWeight || 0}
+                {data.removedMeasuresSummary?.count || 0} measures • Total
+                weight: {data.removedMeasuresSummary?.totalWeight || 0}
               </p>
             </div>
           </div>
-          {showDomainsInfo ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+          {showDomainsInfo ? (
+            <ChevronUp className="h-5 w-5 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+          )}
         </button>
 
         {showDomainsInfo && (
           <div className="mt-4 space-y-4">
             <p className="text-xs text-muted-foreground">
-              Based on CMS announcements for 2028-2029 Star Ratings, the following measures are being excluded from the projected ratings:
+              Based on CMS announcements for 2028-2029 Star Ratings, the
+              following measures are being excluded from the projected ratings:
             </p>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground" title="CMS measure identifier code">Code</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground" title="Descriptive name of the measure being removed">Measure Name</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground" title="CMS Star Ratings domain the measure belongs to">Domain</th>
-                    <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground" title="Year in which CMS will remove this measure from Star Ratings">Removal Year</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground" title="CMS weighting factor currently applied to this measure">Weight</th>
+                    <th
+                      className="px-3 py-2 text-left text-xs font-medium text-muted-foreground"
+                      title="CMS measure identifier code"
+                    >
+                      Code
+                    </th>
+                    <th
+                      className="px-3 py-2 text-left text-xs font-medium text-muted-foreground"
+                      title="Descriptive name of the measure being removed"
+                    >
+                      Measure Name
+                    </th>
+                    <th
+                      className="px-3 py-2 text-left text-xs font-medium text-muted-foreground"
+                      title="CMS Star Ratings domain the measure belongs to"
+                    >
+                      Domain
+                    </th>
+                    <th
+                      className="px-3 py-2 text-center text-xs font-medium text-muted-foreground"
+                      title="Year in which CMS will remove this measure from Star Ratings"
+                    >
+                      Removal Year
+                    </th>
+                    <th
+                      className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
+                      title="CMS weighting factor currently applied to this measure"
+                    >
+                      Weight
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -613,25 +751,38 @@ export function OperationsImpactAnalysis() {
                       key={measure.code}
                       className={`border-b border-border/50 ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
                     >
-                      <td className="px-3 py-2 font-mono text-xs text-amber-400">{measure.code}</td>
-                      <td className="px-3 py-2 text-foreground">{measure.name || "—"}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{measure.domain}</td>
+                      <td className="px-3 py-2 font-mono text-xs text-amber-400">
+                        {measure.code}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {measure.name || "—"}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {measure.domain}
+                      </td>
                       <td className="px-3 py-2 text-center">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          measure.removalYear === 2028 
-                            ? "bg-rose-500/10 text-rose-400" 
-                            : "bg-amber-500/10 text-amber-400"
-                        }`}>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            measure.removalYear === 2028
+                              ? "bg-rose-500/10 text-rose-400"
+                              : "bg-amber-500/10 text-amber-400"
+                          }`}
+                        >
                           {measure.removalYear || "—"}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-right text-foreground">{measure.weight}</td>
+                      <td className="px-3 py-2 text-right text-foreground">
+                        {measure.weight}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-border bg-muted/30">
-                    <td colSpan={4} className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                    <td
+                      colSpan={4}
+                      className="px-3 py-2 text-xs font-medium text-muted-foreground"
+                    >
                       Total
                     </td>
                     <td className="px-3 py-2 text-right font-medium text-foreground">
@@ -643,10 +794,12 @@ export function OperationsImpactAnalysis() {
             </div>
 
             <div className="border-t border-border pt-4">
-              <p className="mb-2 text-xs font-medium text-muted-foreground">Impact by Domain</p>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">
+                Impact by Domain
+              </p>
               <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                 {data.domains
-                  .filter(d => d.removedMeasureCount > 0)
+                  .filter((d) => d.removedMeasureCount > 0)
                   .sort((a, b) => b.removedWeight - a.removedWeight)
                   .map((domain) => (
                     <div
@@ -662,7 +815,9 @@ export function OperationsImpactAnalysis() {
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {domain.removedMeasureCount} of {domain.measureCount} measures • Weight: {domain.removedWeight} of {domain.totalWeight}
+                        {domain.removedMeasureCount} of {domain.measureCount}{" "}
+                        measures • Weight: {domain.removedWeight} of{" "}
+                        {domain.totalWeight}
                       </p>
                     </div>
                   ))}
@@ -679,9 +834,12 @@ export function OperationsImpactAnalysis() {
             <Shield className="h-5 w-5 text-blue-400 mt-0.5" />
             <div className="flex-1">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-blue-400">Quality Improvement Hold Harmless Provision</h3>
+                <h3 className="text-sm font-semibold text-blue-400">
+                  Quality Improvement Hold Harmless Provision
+                </h3>
                 <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full font-medium">
-                  {data.holdHarmlessSummary.contractsWithHoldHarmless} contracts protected
+                  {data.holdHarmlessSummary.contractsWithHoldHarmless} contracts
+                  protected
                 </span>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
@@ -690,13 +848,18 @@ export function OperationsImpactAnalysis() {
               {data.qualityImprovementMeasures && (
                 <div className="mt-3 flex items-center gap-3 text-xs">
                   <span className="text-muted-foreground">QI Measures:</span>
-                  {data.qualityImprovementMeasures.codes.map(code => (
-                    <span key={code} className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-mono">
+                  {data.qualityImprovementMeasures.codes.map((code) => (
+                    <span
+                      key={code}
+                      className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-mono"
+                    >
                       {code}
                     </span>
                   ))}
                   <span className="text-muted-foreground">•</span>
-                  <span className="text-muted-foreground">Threshold: {data.qualityImprovementMeasures.threshold}★</span>
+                  <span className="text-muted-foreground">
+                    Threshold: {data.qualityImprovementMeasures.threshold}★
+                  </span>
                 </div>
               )}
             </div>
@@ -714,76 +877,160 @@ export function OperationsImpactAnalysis() {
             <div className="flex items-center gap-3">
               <TrendingUp className="h-5 w-5 text-muted-foreground" />
               <div>
-                <h3 className="text-sm font-semibold text-foreground">Reward Factor Threshold Impact</h3>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Reward Factor Threshold Impact
+                </h3>
                 <p className="text-xs text-muted-foreground">
-                  How percentile thresholds are expected to shift when measures are removed
+                  How percentile thresholds are expected to shift when measures
+                  are removed
                 </p>
               </div>
             </div>
-            {showRewardFactorInfo ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+            {showRewardFactorInfo ? (
+              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            )}
           </button>
 
           {showRewardFactorInfo && data.rewardFactorImpact && (
             <div className="mt-4 space-y-6">
               {/* Methodology Explanation */}
               <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-                <h4 className="text-sm font-medium text-foreground">How Projected Thresholds Are Calculated</h4>
+                <h4 className="text-sm font-medium text-foreground">
+                  How Projected Thresholds Are Calculated
+                </h4>
                 <div className="text-xs text-muted-foreground space-y-2">
                   <p>
-                    <strong className="text-foreground">Step 1: Calculate Current Stats</strong> — For each contract, we compute the 
-                    weighted mean (performance) and weighted variance (consistency) of their individual measure star ratings using CMS measure weights.
+                    <strong className="text-foreground">
+                      Step 1: Calculate Current Stats
+                    </strong>{" "}
+                    — For each contract, we compute the weighted mean
+                    (performance) and weighted variance (consistency) of their
+                    individual measure star ratings using CMS measure weights.
                   </p>
                   <p>
-                    <strong className="text-foreground">Step 2: Compute Current Thresholds</strong> — The 65th and 85th percentiles of weighted means 
-                    across all {data.summary.totalContracts} contracts determine performance categories. The 30th and 70th percentiles of weighted variances 
-                    determine consistency categories.
+                    <strong className="text-foreground">
+                      Step 2: Compute Current Thresholds
+                    </strong>{" "}
+                    — The 65th and 85th percentiles of weighted means across all{" "}
+                    {data.summary.totalContracts} contracts determine
+                    performance categories. The 30th and 70th percentiles of
+                    weighted variances determine consistency categories.
                   </p>
                   <p>
-                    <strong className="text-foreground">Step 3: Remove Measures</strong> — For each contract, we exclude the {data.removedMeasuresSummary?.count || 0} CMS-removed measures 
-                    and recalculate their weighted mean and variance using only the remaining measures.
+                    <strong className="text-foreground">
+                      Step 3: Remove Measures
+                    </strong>{" "}
+                    — For each contract, we exclude the{" "}
+                    {data.removedMeasuresSummary?.count || 0} CMS-removed
+                    measures and recalculate their weighted mean and variance
+                    using only the remaining measures.
                   </p>
                   <p>
-                    <strong className="text-foreground">Step 4: Compute Projected Thresholds</strong> — Using the new contract-level stats (after measure removal), 
-                    we recompute the percentile cutpoints across all contracts. The thresholds shift because every contract&apos;s mean and variance changes.
+                    <strong className="text-foreground">
+                      Step 4: Compute Projected Thresholds
+                    </strong>{" "}
+                    — Using the new contract-level stats (after measure
+                    removal), we recompute the percentile cutpoints across all
+                    contracts. The thresholds shift because every
+                    contract&apos;s mean and variance changes.
                   </p>
                   <p>
-                    <strong className="text-foreground">Step 5: Reclassify Contracts</strong> — Each contract is reclassified into mean and variance categories 
-                    using the new projected thresholds, which determines their new Reward Factor (0.0, 0.1, 0.2, 0.3, or 0.4).
+                    <strong className="text-foreground">
+                      Step 5: Reclassify Contracts
+                    </strong>{" "}
+                    — Each contract is reclassified into mean and variance
+                    categories using the new projected thresholds, which
+                    determines their new Reward Factor (0.0, 0.1, 0.2, 0.3, or
+                    0.4).
                   </p>
                 </div>
               </div>
 
               {/* Reward Factor Mapping Reference */}
               <div className="rounded-lg border border-border bg-muted/30 p-4">
-                <h4 className="text-sm font-medium text-foreground mb-3">Reward Factor Mapping Rules (CMS)</h4>
+                <h4 className="text-sm font-medium text-foreground mb-3">
+                  Reward Factor Mapping Rules (CMS)
+                </h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="px-2 py-1.5 text-left text-muted-foreground font-medium" title="Contract's performance category based on mean measure percentile">Mean Category</th>
-                        <th className="px-2 py-1.5 text-center text-muted-foreground font-medium" title="Reward factor when within-contract measure variance is at or below the 30th percentile">Low Variance<br/><span className="font-normal">(≤30th %ile)</span></th>
-                        <th className="px-2 py-1.5 text-center text-muted-foreground font-medium" title="Reward factor when within-contract measure variance is between the 30th and 70th percentiles">Medium Variance<br/><span className="font-normal">(30th-70th %ile)</span></th>
-                        <th className="px-2 py-1.5 text-center text-muted-foreground font-medium" title="Reward factor when within-contract measure variance is at or above the 70th percentile">High Variance<br/><span className="font-normal">(≥70th %ile)</span></th>
+                        <th
+                          className="px-2 py-1.5 text-left text-muted-foreground font-medium"
+                          title="Contract's performance category based on mean measure percentile"
+                        >
+                          Mean Category
+                        </th>
+                        <th
+                          className="px-2 py-1.5 text-center text-muted-foreground font-medium"
+                          title="Reward factor when within-contract measure variance is at or below the 30th percentile"
+                        >
+                          Low Variance
+                          <br />
+                          <span className="font-normal">(≤30th %ile)</span>
+                        </th>
+                        <th
+                          className="px-2 py-1.5 text-center text-muted-foreground font-medium"
+                          title="Reward factor when within-contract measure variance is between the 30th and 70th percentiles"
+                        >
+                          Medium Variance
+                          <br />
+                          <span className="font-normal">(30th-70th %ile)</span>
+                        </th>
+                        <th
+                          className="px-2 py-1.5 text-center text-muted-foreground font-medium"
+                          title="Reward factor when within-contract measure variance is at or above the 70th percentile"
+                        >
+                          High Variance
+                          <br />
+                          <span className="font-normal">(≥70th %ile)</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr className="border-b border-border/50">
-                        <td className="px-2 py-1.5 text-foreground">High (≥85th %ile)</td>
-                        <td className="px-2 py-1.5 text-center font-semibold text-emerald-500">+0.4</td>
-                        <td className="px-2 py-1.5 text-center font-semibold text-emerald-500">+0.3</td>
-                        <td className="px-2 py-1.5 text-center text-muted-foreground">0.0</td>
+                        <td className="px-2 py-1.5 text-foreground">
+                          High (≥85th %ile)
+                        </td>
+                        <td className="px-2 py-1.5 text-center font-semibold text-emerald-500">
+                          +0.4
+                        </td>
+                        <td className="px-2 py-1.5 text-center font-semibold text-emerald-500">
+                          +0.3
+                        </td>
+                        <td className="px-2 py-1.5 text-center text-muted-foreground">
+                          0.0
+                        </td>
                       </tr>
                       <tr className="border-b border-border/50">
-                        <td className="px-2 py-1.5 text-foreground">Relatively High (65th-85th %ile)</td>
-                        <td className="px-2 py-1.5 text-center font-semibold text-emerald-500">+0.2</td>
-                        <td className="px-2 py-1.5 text-center font-semibold text-emerald-500">+0.1</td>
-                        <td className="px-2 py-1.5 text-center text-muted-foreground">0.0</td>
+                        <td className="px-2 py-1.5 text-foreground">
+                          Relatively High (65th-85th %ile)
+                        </td>
+                        <td className="px-2 py-1.5 text-center font-semibold text-emerald-500">
+                          +0.2
+                        </td>
+                        <td className="px-2 py-1.5 text-center font-semibold text-emerald-500">
+                          +0.1
+                        </td>
+                        <td className="px-2 py-1.5 text-center text-muted-foreground">
+                          0.0
+                        </td>
                       </tr>
                       <tr>
-                        <td className="px-2 py-1.5 text-foreground">Below Threshold (&lt;65th %ile)</td>
-                        <td className="px-2 py-1.5 text-center text-muted-foreground">0.0</td>
-                        <td className="px-2 py-1.5 text-center text-muted-foreground">0.0</td>
-                        <td className="px-2 py-1.5 text-center text-muted-foreground">0.0</td>
+                        <td className="px-2 py-1.5 text-foreground">
+                          Below Threshold (&lt;65th %ile)
+                        </td>
+                        <td className="px-2 py-1.5 text-center text-muted-foreground">
+                          0.0
+                        </td>
+                        <td className="px-2 py-1.5 text-center text-muted-foreground">
+                          0.0
+                        </td>
+                        <td className="px-2 py-1.5 text-center text-muted-foreground">
+                          0.0
+                        </td>
                       </tr>
                     </tbody>
                   </table>
@@ -793,63 +1040,146 @@ export function OperationsImpactAnalysis() {
               {/* Overall Rating Thresholds - Two Scenarios */}
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium text-foreground">Projected Threshold Changes (Overall Rating)</h4>
+                  <h4 className="text-sm font-medium text-foreground">
+                    Projected Threshold Changes (Overall Rating)
+                  </h4>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Thresholds are calculated separately for contracts WITH Quality Improvement measures and those WITHOUT (Hold Harmless).
-                    Each contract uses the threshold set appropriate to their hold harmless status.
+                    Thresholds are calculated separately for contracts WITH
+                    Quality Improvement measures and those WITHOUT (Hold
+                    Harmless). Each contract uses the threshold set appropriate
+                    to their hold harmless status.
                   </p>
                 </div>
-                
+
                 {/* WITH QI Measures (No Hold Harmless) */}
                 <div className="rounded-lg border border-border bg-muted/30 p-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-semibold text-foreground">With QI Measures</span>
+                    <span className="text-xs font-semibold text-foreground">
+                      With QI Measures
+                    </span>
                     <span className="text-[10px] bg-muted px-2 py-0.5 rounded text-muted-foreground">
-                      {data.rewardFactorImpact.overall.summary.totalContractsWithQI} contracts → {data.rewardFactorImpact.overall.summary.contractsUsingWithQIThresholds} using
+                      {
+                        data.rewardFactorImpact.overall.summary
+                          .totalContractsWithQI
+                      }{" "}
+                      contracts →{" "}
+                      {
+                        data.rewardFactorImpact.overall.summary
+                          .contractsUsingWithQIThresholds
+                      }{" "}
+                      using
                     </span>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
-                      <p className="text-[10px] font-medium text-muted-foreground mb-2">Mean Thresholds</p>
+                      <p className="text-[10px] font-medium text-muted-foreground mb-2">
+                        Mean Thresholds
+                      </p>
                       <div className="space-y-1 text-xs">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">65th:</span>
                           <span className="font-mono">
-                            {data.rewardFactorImpact.overall.thresholds.current.withQI.mean65th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withQI.mean65th.toFixed(4)}
-                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withQI.mean65thChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                              ({data.rewardFactorImpact.overall.thresholds.changes.withQI.mean65thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withQI.mean65thChange.toFixed(4)})
+                            {data.rewardFactorImpact.overall.thresholds.current.withQI.mean65th.toFixed(
+                              4,
+                            )}{" "}
+                            →{" "}
+                            {data.rewardFactorImpact.overall.thresholds.projected.withQI.mean65th.toFixed(
+                              4,
+                            )}
+                            <span
+                              className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withQI.mean65thChange >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+                            >
+                              (
+                              {data.rewardFactorImpact.overall.thresholds
+                                .changes.withQI.mean65thChange >= 0
+                                ? "+"
+                                : ""}
+                              {data.rewardFactorImpact.overall.thresholds.changes.withQI.mean65thChange.toFixed(
+                                4,
+                              )}
+                              )
                             </span>
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">85th:</span>
                           <span className="font-mono">
-                            {data.rewardFactorImpact.overall.thresholds.current.withQI.mean85th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withQI.mean85th.toFixed(4)}
-                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withQI.mean85thChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                              ({data.rewardFactorImpact.overall.thresholds.changes.withQI.mean85thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withQI.mean85thChange.toFixed(4)})
+                            {data.rewardFactorImpact.overall.thresholds.current.withQI.mean85th.toFixed(
+                              4,
+                            )}{" "}
+                            →{" "}
+                            {data.rewardFactorImpact.overall.thresholds.projected.withQI.mean85th.toFixed(
+                              4,
+                            )}
+                            <span
+                              className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withQI.mean85thChange >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+                            >
+                              (
+                              {data.rewardFactorImpact.overall.thresholds
+                                .changes.withQI.mean85thChange >= 0
+                                ? "+"
+                                : ""}
+                              {data.rewardFactorImpact.overall.thresholds.changes.withQI.mean85thChange.toFixed(
+                                4,
+                              )}
+                              )
                             </span>
                           </span>
                         </div>
                       </div>
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium text-muted-foreground mb-2">Variance Thresholds</p>
+                      <p className="text-[10px] font-medium text-muted-foreground mb-2">
+                        Variance Thresholds
+                      </p>
                       <div className="space-y-1 text-xs">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">30th:</span>
                           <span className="font-mono">
-                            {data.rewardFactorImpact.overall.thresholds.current.withQI.variance30th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withQI.variance30th.toFixed(4)}
-                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withQI.variance30thChange >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                              ({data.rewardFactorImpact.overall.thresholds.changes.withQI.variance30thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withQI.variance30thChange.toFixed(4)})
+                            {data.rewardFactorImpact.overall.thresholds.current.withQI.variance30th.toFixed(
+                              4,
+                            )}{" "}
+                            →{" "}
+                            {data.rewardFactorImpact.overall.thresholds.projected.withQI.variance30th.toFixed(
+                              4,
+                            )}
+                            <span
+                              className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withQI.variance30thChange >= 0 ? "text-rose-500" : "text-emerald-500"}`}
+                            >
+                              (
+                              {data.rewardFactorImpact.overall.thresholds
+                                .changes.withQI.variance30thChange >= 0
+                                ? "+"
+                                : ""}
+                              {data.rewardFactorImpact.overall.thresholds.changes.withQI.variance30thChange.toFixed(
+                                4,
+                              )}
+                              )
                             </span>
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">70th:</span>
                           <span className="font-mono">
-                            {data.rewardFactorImpact.overall.thresholds.current.withQI.variance70th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withQI.variance70th.toFixed(4)}
-                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withQI.variance70thChange >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                              ({data.rewardFactorImpact.overall.thresholds.changes.withQI.variance70thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withQI.variance70thChange.toFixed(4)})
+                            {data.rewardFactorImpact.overall.thresholds.current.withQI.variance70th.toFixed(
+                              4,
+                            )}{" "}
+                            →{" "}
+                            {data.rewardFactorImpact.overall.thresholds.projected.withQI.variance70th.toFixed(
+                              4,
+                            )}
+                            <span
+                              className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withQI.variance70thChange >= 0 ? "text-rose-500" : "text-emerald-500"}`}
+                            >
+                              (
+                              {data.rewardFactorImpact.overall.thresholds
+                                .changes.withQI.variance70thChange >= 0
+                                ? "+"
+                                : ""}
+                              {data.rewardFactorImpact.overall.thresholds.changes.withQI.variance70thChange.toFixed(
+                                4,
+                              )}
+                              )
                             </span>
                           </span>
                         </div>
@@ -862,53 +1192,132 @@ export function OperationsImpactAnalysis() {
                 <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Shield className="h-3.5 w-3.5 text-blue-400" />
-                    <span className="text-xs font-semibold text-blue-400">Without QI Measures (Hold Harmless)</span>
+                    <span className="text-xs font-semibold text-blue-400">
+                      Without QI Measures (Hold Harmless)
+                    </span>
                     <span className="text-[10px] bg-blue-500/20 px-2 py-0.5 rounded text-blue-400">
-                      {data.rewardFactorImpact.overall.summary.totalContractsWithoutQI} contracts → {data.rewardFactorImpact.overall.summary.contractsUsingWithoutQIThresholds} using
+                      {
+                        data.rewardFactorImpact.overall.summary
+                          .totalContractsWithoutQI
+                      }{" "}
+                      contracts →{" "}
+                      {
+                        data.rewardFactorImpact.overall.summary
+                          .contractsUsingWithoutQIThresholds
+                      }{" "}
+                      using
                     </span>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
-                      <p className="text-[10px] font-medium text-muted-foreground mb-2">Mean Thresholds</p>
+                      <p className="text-[10px] font-medium text-muted-foreground mb-2">
+                        Mean Thresholds
+                      </p>
                       <div className="space-y-1 text-xs">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">65th:</span>
                           <span className="font-mono">
-                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.mean65th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withoutQI.mean65th.toFixed(4)}
-                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean65thChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                              ({data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean65thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean65thChange.toFixed(4)})
+                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.mean65th.toFixed(
+                              4,
+                            )}{" "}
+                            →{" "}
+                            {data.rewardFactorImpact.overall.thresholds.projected.withoutQI.mean65th.toFixed(
+                              4,
+                            )}
+                            <span
+                              className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean65thChange >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+                            >
+                              (
+                              {data.rewardFactorImpact.overall.thresholds
+                                .changes.withoutQI.mean65thChange >= 0
+                                ? "+"
+                                : ""}
+                              {data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean65thChange.toFixed(
+                                4,
+                              )}
+                              )
                             </span>
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">85th:</span>
                           <span className="font-mono">
-                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.mean85th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withoutQI.mean85th.toFixed(4)}
-                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean85thChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                              ({data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean85thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean85thChange.toFixed(4)})
+                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.mean85th.toFixed(
+                              4,
+                            )}{" "}
+                            →{" "}
+                            {data.rewardFactorImpact.overall.thresholds.projected.withoutQI.mean85th.toFixed(
+                              4,
+                            )}
+                            <span
+                              className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean85thChange >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+                            >
+                              (
+                              {data.rewardFactorImpact.overall.thresholds
+                                .changes.withoutQI.mean85thChange >= 0
+                                ? "+"
+                                : ""}
+                              {data.rewardFactorImpact.overall.thresholds.changes.withoutQI.mean85thChange.toFixed(
+                                4,
+                              )}
+                              )
                             </span>
                           </span>
                         </div>
                       </div>
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium text-muted-foreground mb-2">Variance Thresholds</p>
+                      <p className="text-[10px] font-medium text-muted-foreground mb-2">
+                        Variance Thresholds
+                      </p>
                       <div className="space-y-1 text-xs">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">30th:</span>
                           <span className="font-mono">
-                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.variance30th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withoutQI.variance30th.toFixed(4)}
-                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance30thChange >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                              ({data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance30thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance30thChange.toFixed(4)})
+                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.variance30th.toFixed(
+                              4,
+                            )}{" "}
+                            →{" "}
+                            {data.rewardFactorImpact.overall.thresholds.projected.withoutQI.variance30th.toFixed(
+                              4,
+                            )}
+                            <span
+                              className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance30thChange >= 0 ? "text-rose-500" : "text-emerald-500"}`}
+                            >
+                              (
+                              {data.rewardFactorImpact.overall.thresholds
+                                .changes.withoutQI.variance30thChange >= 0
+                                ? "+"
+                                : ""}
+                              {data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance30thChange.toFixed(
+                                4,
+                              )}
+                              )
                             </span>
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">70th:</span>
                           <span className="font-mono">
-                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.variance70th.toFixed(4)} → {data.rewardFactorImpact.overall.thresholds.projected.withoutQI.variance70th.toFixed(4)}
-                            <span className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance70thChange >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                              ({data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance70thChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance70thChange.toFixed(4)})
+                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.variance70th.toFixed(
+                              4,
+                            )}{" "}
+                            →{" "}
+                            {data.rewardFactorImpact.overall.thresholds.projected.withoutQI.variance70th.toFixed(
+                              4,
+                            )}
+                            <span
+                              className={`ml-1 ${data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance70thChange >= 0 ? "text-rose-500" : "text-emerald-500"}`}
+                            >
+                              (
+                              {data.rewardFactorImpact.overall.thresholds
+                                .changes.withoutQI.variance70thChange >= 0
+                                ? "+"
+                                : ""}
+                              {data.rewardFactorImpact.overall.thresholds.changes.withoutQI.variance70thChange.toFixed(
+                                4,
+                              )}
+                              )
                             </span>
                           </span>
                         </div>
@@ -920,107 +1329,187 @@ export function OperationsImpactAnalysis() {
 
               {/* Reward Factor Impact Summary */}
               <div className="space-y-3">
-                <h4 className="text-sm font-medium text-foreground">Reward Factor Impact Summary</h4>
+                <h4 className="text-sm font-medium text-foreground">
+                  Reward Factor Impact Summary
+                </h4>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="rounded-lg border border-border bg-muted/50 p-4 text-center">
-                    <p className="text-2xl font-bold text-emerald-500">{data.rewardFactorImpact.overall.summary.contractsGainingRFactor}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Contracts gaining Reward Factor</p>
-                  </div>
-                  <div className="rounded-lg border border-border bg-muted/50 p-4 text-center">
-                    <p className="text-2xl font-bold text-rose-500">{data.rewardFactorImpact.overall.summary.contractsLosingRFactor}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Contracts losing Reward Factor</p>
-                  </div>
-                  <div className="rounded-lg border border-border bg-muted/50 p-4 text-center">
-                    <p className={`text-2xl font-bold ${data.rewardFactorImpact.overall.summary.avgRFactorChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                      {data.rewardFactorImpact.overall.summary.avgRFactorChange >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.summary.avgRFactorChange.toFixed(4)}
+                    <p className="text-2xl font-bold text-emerald-500">
+                      {
+                        data.rewardFactorImpact.overall.summary
+                          .contractsGainingRFactor
+                      }
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Avg Reward Factor change</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Contracts gaining Reward Factor
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/50 p-4 text-center">
+                    <p className="text-2xl font-bold text-rose-500">
+                      {
+                        data.rewardFactorImpact.overall.summary
+                          .contractsLosingRFactor
+                      }
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Contracts losing Reward Factor
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/50 p-4 text-center">
+                    <p
+                      className={`text-2xl font-bold ${data.rewardFactorImpact.overall.summary.avgRFactorChange >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+                    >
+                      {data.rewardFactorImpact.overall.summary
+                        .avgRFactorChange >= 0
+                        ? "+"
+                        : ""}
+                      {data.rewardFactorImpact.overall.summary.avgRFactorChange.toFixed(
+                        4,
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Avg Reward Factor change
+                    </p>
                   </div>
                 </div>
               </div>
 
               {/* Reward Factor Change Distribution */}
               <div className="space-y-3">
-                <h4 className="text-sm font-medium text-foreground">Reward Factor Change Distribution</h4>
+                <h4 className="text-sm font-medium text-foreground">
+                  Reward Factor Change Distribution
+                </h4>
                 <p className="text-xs text-muted-foreground">
-                  How contracts moved between Reward Factor values due to threshold shifts:
+                  How contracts moved between Reward Factor values due to
+                  threshold shifts:
                 </p>
                 <div className="grid gap-2 md:grid-cols-4 lg:grid-cols-8">
                   <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-center">
-                    <p className="text-lg font-semibold text-emerald-500">{data.rewardFactorImpact.overall.distribution.gainsBy0_4}</p>
-                    <p className="text-[10px] text-muted-foreground">Gained +0.4</p>
+                    <p className="text-lg font-semibold text-emerald-500">
+                      {data.rewardFactorImpact.overall.distribution.gainsBy0_4}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Gained +0.4
+                    </p>
                   </div>
                   <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-center">
-                    <p className="text-lg font-semibold text-emerald-500">{data.rewardFactorImpact.overall.distribution.gainsBy0_3}</p>
-                    <p className="text-[10px] text-muted-foreground">Gained +0.3</p>
+                    <p className="text-lg font-semibold text-emerald-500">
+                      {data.rewardFactorImpact.overall.distribution.gainsBy0_3}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Gained +0.3
+                    </p>
                   </div>
                   <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-center">
-                    <p className="text-lg font-semibold text-emerald-500">{data.rewardFactorImpact.overall.distribution.gainsBy0_2}</p>
-                    <p className="text-[10px] text-muted-foreground">Gained +0.2</p>
+                    <p className="text-lg font-semibold text-emerald-500">
+                      {data.rewardFactorImpact.overall.distribution.gainsBy0_2}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Gained +0.2
+                    </p>
                   </div>
                   <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-center">
-                    <p className="text-lg font-semibold text-emerald-500">{data.rewardFactorImpact.overall.distribution.gainsBy0_1}</p>
-                    <p className="text-[10px] text-muted-foreground">Gained +0.1</p>
+                    <p className="text-lg font-semibold text-emerald-500">
+                      {data.rewardFactorImpact.overall.distribution.gainsBy0_1}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Gained +0.1
+                    </p>
                   </div>
                   <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-center">
-                    <p className="text-lg font-semibold text-rose-500">{data.rewardFactorImpact.overall.distribution.lossesBy0_1}</p>
-                    <p className="text-[10px] text-muted-foreground">Lost −0.1</p>
+                    <p className="text-lg font-semibold text-rose-500">
+                      {data.rewardFactorImpact.overall.distribution.lossesBy0_1}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Lost −0.1
+                    </p>
                   </div>
                   <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-center">
-                    <p className="text-lg font-semibold text-rose-500">{data.rewardFactorImpact.overall.distribution.lossesBy0_2}</p>
-                    <p className="text-[10px] text-muted-foreground">Lost −0.2</p>
+                    <p className="text-lg font-semibold text-rose-500">
+                      {data.rewardFactorImpact.overall.distribution.lossesBy0_2}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Lost −0.2
+                    </p>
                   </div>
                   <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-center">
-                    <p className="text-lg font-semibold text-rose-500">{data.rewardFactorImpact.overall.distribution.lossesBy0_3}</p>
-                    <p className="text-[10px] text-muted-foreground">Lost −0.3</p>
+                    <p className="text-lg font-semibold text-rose-500">
+                      {data.rewardFactorImpact.overall.distribution.lossesBy0_3}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Lost −0.3
+                    </p>
                   </div>
                   <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-center">
-                    <p className="text-lg font-semibold text-rose-500">{data.rewardFactorImpact.overall.distribution.lossesBy0_4}</p>
-                    <p className="text-[10px] text-muted-foreground">Lost −0.4</p>
+                    <p className="text-lg font-semibold text-rose-500">
+                      {data.rewardFactorImpact.overall.distribution.lossesBy0_4}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Lost −0.4
+                    </p>
                   </div>
                 </div>
               </div>
 
               {/* Top Gainers/Losers */}
-              {(data.rewardFactorImpact.overall.topGainers.length > 0 || data.rewardFactorImpact.overall.topLosers.length > 0) && (
+              {(data.rewardFactorImpact.overall.topGainers.length > 0 ||
+                data.rewardFactorImpact.overall.topLosers.length > 0) && (
                 <div className="grid gap-4 md:grid-cols-2">
                   {data.rewardFactorImpact.overall.topGainers.length > 0 && (
                     <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
-                      <p className="text-xs font-medium text-emerald-500 mb-3">Top Reward Factor Gainers</p>
+                      <p className="text-xs font-medium text-emerald-500 mb-3">
+                        Top Reward Factor Gainers
+                      </p>
                       <div className="space-y-2">
-                        {data.rewardFactorImpact.overall.topGainers.slice(0, 5).map((c) => (
-                          <div key={c.contractId} className="flex items-center justify-between text-xs">
-                            <Link 
-                              href={`/summary?contractId=${c.contractId}&year=2026`}
-                              className="font-mono text-primary hover:underline"
+                        {data.rewardFactorImpact.overall.topGainers
+                          .slice(0, 5)
+                          .map((c) => (
+                            <div
+                              key={c.contractId}
+                              className="flex items-center justify-between text-xs"
                             >
-                              {c.contractId}
-                            </Link>
-                            <span className="text-emerald-500">
-                              {c.currentRFactor.toFixed(1)} → {c.projectedRFactor.toFixed(1)} (+{c.change.toFixed(1)})
-                            </span>
-                          </div>
-                        ))}
+                              <Link
+                                href={`/summary?contractId=${c.contractId}&year=2026`}
+                                className="font-mono text-primary hover:underline"
+                              >
+                                {c.contractId}
+                              </Link>
+                              <span className="text-emerald-500">
+                                {c.currentRFactor.toFixed(1)} →{" "}
+                                {c.projectedRFactor.toFixed(1)} (+
+                                {c.change.toFixed(1)})
+                              </span>
+                            </div>
+                          ))}
                       </div>
                     </div>
                   )}
                   {data.rewardFactorImpact.overall.topLosers.length > 0 && (
                     <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-4">
-                      <p className="text-xs font-medium text-rose-500 mb-3">Top Reward Factor Losers</p>
+                      <p className="text-xs font-medium text-rose-500 mb-3">
+                        Top Reward Factor Losers
+                      </p>
                       <div className="space-y-2">
-                        {data.rewardFactorImpact.overall.topLosers.slice(0, 5).map((c) => (
-                          <div key={c.contractId} className="flex items-center justify-between text-xs">
-                            <Link 
-                              href={`/summary?contractId=${c.contractId}&year=2026`}
-                              className="font-mono text-primary hover:underline"
+                        {data.rewardFactorImpact.overall.topLosers
+                          .slice(0, 5)
+                          .map((c) => (
+                            <div
+                              key={c.contractId}
+                              className="flex items-center justify-between text-xs"
                             >
-                              {c.contractId}
-                            </Link>
-                            <span className="text-rose-500">
-                              {c.currentRFactor.toFixed(1)} → {c.projectedRFactor.toFixed(1)} ({c.change.toFixed(1)})
-                            </span>
-                          </div>
-                        ))}
+                              <Link
+                                href={`/summary?contractId=${c.contractId}&year=2026`}
+                                className="font-mono text-primary hover:underline"
+                              >
+                                {c.contractId}
+                              </Link>
+                              <span className="text-rose-500">
+                                {c.currentRFactor.toFixed(1)} →{" "}
+                                {c.projectedRFactor.toFixed(1)} (
+                                {c.change.toFixed(1)})
+                              </span>
+                            </div>
+                          ))}
                       </div>
                     </div>
                   )}
@@ -1028,101 +1517,278 @@ export function OperationsImpactAnalysis() {
               )}
 
               {/* Official Threshold Comparison */}
-              {data.rewardFactorImpact.overall.thresholds.officialComparison?.withQI && (
+              {data.rewardFactorImpact.overall.thresholds.officialComparison
+                ?.withQI && (
                 <div className="border-t border-border pt-4 space-y-4">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Comparison with Official CMS 2026 Thresholds</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Comparison with Official CMS 2026 Thresholds
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      Comparing calculated thresholds ({data.rewardFactorImpact.overall.summary.totalContractsWithQI} contracts) against official CMS published values.
+                      Comparing calculated thresholds (
+                      {
+                        data.rewardFactorImpact.overall.summary
+                          .totalContractsWithQI
+                      }{" "}
+                      contracts) against official CMS published values.
                     </p>
                   </div>
-                  
+
                   {/* With QI Comparison */}
                   <div>
                     <p className="text-[10px] font-medium text-muted-foreground mb-2">
-                      With QI Measures (vs CMS: improvementMeasures={String(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.matchedScenario?.improvementMeasuresIncluded ?? true)}, newMeasures={String(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.matchedScenario?.newMeasuresIncluded ?? true)})
+                      With QI Measures (vs CMS: improvementMeasures=
+                      {String(
+                        data.rewardFactorImpact.overall.thresholds
+                          .officialComparison.withQI.matchedScenario
+                          ?.improvementMeasuresIncluded ?? true,
+                      )}
+                      , newMeasures=
+                      {String(
+                        data.rewardFactorImpact.overall.thresholds
+                          .officialComparison.withQI.matchedScenario
+                          ?.newMeasuresIncluded ?? true,
+                      )}
+                      )
                     </p>
                     <div className="grid gap-2 md:grid-cols-4">
                       <div className="rounded-lg border border-border bg-muted/30 p-2 text-center">
-                        <p className="text-[10px] text-muted-foreground">Mean 65th</p>
-                        <p className="text-[9px] text-muted-foreground/70">
-                          {(data.rewardFactorImpact.overall.thresholds.current.withQI.mean65th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.official.mean65th.toFixed(4)}
+                        <p className="text-[10px] text-muted-foreground">
+                          Mean 65th
                         </p>
-                        <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean65th) < 2 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean65th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean65th.toFixed(2)}%
+                        <p className="text-[9px] text-muted-foreground/70">
+                          {data.rewardFactorImpact.overall.thresholds.current.withQI.mean65th.toFixed(
+                            4,
+                          )}{" "}
+                          vs{" "}
+                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.official.mean65th.toFixed(
+                            4,
+                          )}
+                        </p>
+                        <p
+                          className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean65th) < 2 ? "text-emerald-500" : "text-amber-500"}`}
+                        >
+                          {data.rewardFactorImpact.overall.thresholds
+                            .officialComparison.withQI.percentDifferences
+                            .mean65th >= 0
+                            ? "+"
+                            : ""}
+                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean65th.toFixed(
+                            2,
+                          )}
+                          %
                         </p>
                       </div>
                       <div className="rounded-lg border border-border bg-muted/30 p-2 text-center">
-                        <p className="text-[10px] text-muted-foreground">Mean 85th</p>
-                        <p className="text-[9px] text-muted-foreground/70">
-                          {(data.rewardFactorImpact.overall.thresholds.current.withQI.mean85th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.official.mean85th.toFixed(4)}
+                        <p className="text-[10px] text-muted-foreground">
+                          Mean 85th
                         </p>
-                        <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean85th) < 2 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean85th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean85th.toFixed(2)}%
+                        <p className="text-[9px] text-muted-foreground/70">
+                          {data.rewardFactorImpact.overall.thresholds.current.withQI.mean85th.toFixed(
+                            4,
+                          )}{" "}
+                          vs{" "}
+                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.official.mean85th.toFixed(
+                            4,
+                          )}
+                        </p>
+                        <p
+                          className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean85th) < 2 ? "text-emerald-500" : "text-amber-500"}`}
+                        >
+                          {data.rewardFactorImpact.overall.thresholds
+                            .officialComparison.withQI.percentDifferences
+                            .mean85th >= 0
+                            ? "+"
+                            : ""}
+                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.mean85th.toFixed(
+                            2,
+                          )}
+                          %
                         </p>
                       </div>
                       <div className="rounded-lg border border-border bg-muted/30 p-2 text-center">
-                        <p className="text-[10px] text-muted-foreground">Variance 30th</p>
-                        <p className="text-[9px] text-muted-foreground/70">
-                          {(data.rewardFactorImpact.overall.thresholds.current.withQI.variance30th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.official.variance30th.toFixed(4)}
+                        <p className="text-[10px] text-muted-foreground">
+                          Variance 30th
                         </p>
-                        <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance30th) < 5 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance30th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance30th.toFixed(2)}%
+                        <p className="text-[9px] text-muted-foreground/70">
+                          {data.rewardFactorImpact.overall.thresholds.current.withQI.variance30th.toFixed(
+                            4,
+                          )}{" "}
+                          vs{" "}
+                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.official.variance30th.toFixed(
+                            4,
+                          )}
+                        </p>
+                        <p
+                          className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance30th) < 5 ? "text-emerald-500" : "text-amber-500"}`}
+                        >
+                          {data.rewardFactorImpact.overall.thresholds
+                            .officialComparison.withQI.percentDifferences
+                            .variance30th >= 0
+                            ? "+"
+                            : ""}
+                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance30th.toFixed(
+                            2,
+                          )}
+                          %
                         </p>
                       </div>
                       <div className="rounded-lg border border-border bg-muted/30 p-2 text-center">
-                        <p className="text-[10px] text-muted-foreground">Variance 70th</p>
-                        <p className="text-[9px] text-muted-foreground/70">
-                          {(data.rewardFactorImpact.overall.thresholds.current.withQI.variance70th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.official.variance70th.toFixed(4)}
+                        <p className="text-[10px] text-muted-foreground">
+                          Variance 70th
                         </p>
-                        <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance70th) < 5 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance70th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance70th.toFixed(2)}%
+                        <p className="text-[9px] text-muted-foreground/70">
+                          {data.rewardFactorImpact.overall.thresholds.current.withQI.variance70th.toFixed(
+                            4,
+                          )}{" "}
+                          vs{" "}
+                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.official.variance70th.toFixed(
+                            4,
+                          )}
+                        </p>
+                        <p
+                          className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance70th) < 5 ? "text-emerald-500" : "text-amber-500"}`}
+                        >
+                          {data.rewardFactorImpact.overall.thresholds
+                            .officialComparison.withQI.percentDifferences
+                            .variance70th >= 0
+                            ? "+"
+                            : ""}
+                          {data.rewardFactorImpact.overall.thresholds.officialComparison.withQI.percentDifferences.variance70th.toFixed(
+                            2,
+                          )}
+                          %
                         </p>
                       </div>
                     </div>
                   </div>
 
                   {/* Without QI Comparison */}
-                  {data.rewardFactorImpact.overall.thresholds.officialComparison?.withoutQI && (
+                  {data.rewardFactorImpact.overall.thresholds.officialComparison
+                    ?.withoutQI && (
                     <div>
                       <p className="text-[10px] font-medium text-blue-400 mb-2">
-                        Without QI Measures (vs CMS: improvementMeasures={String(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.matchedScenario?.improvementMeasuresIncluded ?? false)}, newMeasures={String(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.matchedScenario?.newMeasuresIncluded ?? true)})
+                        Without QI Measures (vs CMS: improvementMeasures=
+                        {String(
+                          data.rewardFactorImpact.overall.thresholds
+                            .officialComparison.withoutQI.matchedScenario
+                            ?.improvementMeasuresIncluded ?? false,
+                        )}
+                        , newMeasures=
+                        {String(
+                          data.rewardFactorImpact.overall.thresholds
+                            .officialComparison.withoutQI.matchedScenario
+                            ?.newMeasuresIncluded ?? true,
+                        )}
+                        )
                       </p>
                       <div className="grid gap-2 md:grid-cols-4">
                         <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-2 text-center">
-                          <p className="text-[10px] text-muted-foreground">Mean 65th</p>
-                          <p className="text-[9px] text-muted-foreground/70">
-                            {(data.rewardFactorImpact.overall.thresholds.current.withoutQI.mean65th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.official.mean65th.toFixed(4)}
+                          <p className="text-[10px] text-muted-foreground">
+                            Mean 65th
                           </p>
-                          <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean65th) < 2 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean65th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean65th.toFixed(2)}%
+                          <p className="text-[9px] text-muted-foreground/70">
+                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.mean65th.toFixed(
+                              4,
+                            )}{" "}
+                            vs{" "}
+                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.official.mean65th.toFixed(
+                              4,
+                            )}
+                          </p>
+                          <p
+                            className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean65th) < 2 ? "text-emerald-500" : "text-amber-500"}`}
+                          >
+                            {data.rewardFactorImpact.overall.thresholds
+                              .officialComparison.withoutQI.percentDifferences
+                              .mean65th >= 0
+                              ? "+"
+                              : ""}
+                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean65th.toFixed(
+                              2,
+                            )}
+                            %
                           </p>
                         </div>
                         <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-2 text-center">
-                          <p className="text-[10px] text-muted-foreground">Mean 85th</p>
-                          <p className="text-[9px] text-muted-foreground/70">
-                            {(data.rewardFactorImpact.overall.thresholds.current.withoutQI.mean85th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.official.mean85th.toFixed(4)}
+                          <p className="text-[10px] text-muted-foreground">
+                            Mean 85th
                           </p>
-                          <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean85th) < 2 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean85th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean85th.toFixed(2)}%
+                          <p className="text-[9px] text-muted-foreground/70">
+                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.mean85th.toFixed(
+                              4,
+                            )}{" "}
+                            vs{" "}
+                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.official.mean85th.toFixed(
+                              4,
+                            )}
+                          </p>
+                          <p
+                            className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean85th) < 2 ? "text-emerald-500" : "text-amber-500"}`}
+                          >
+                            {data.rewardFactorImpact.overall.thresholds
+                              .officialComparison.withoutQI.percentDifferences
+                              .mean85th >= 0
+                              ? "+"
+                              : ""}
+                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.mean85th.toFixed(
+                              2,
+                            )}
+                            %
                           </p>
                         </div>
                         <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-2 text-center">
-                          <p className="text-[10px] text-muted-foreground">Variance 30th</p>
-                          <p className="text-[9px] text-muted-foreground/70">
-                            {(data.rewardFactorImpact.overall.thresholds.current.withoutQI.variance30th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.official.variance30th.toFixed(4)}
+                          <p className="text-[10px] text-muted-foreground">
+                            Variance 30th
                           </p>
-                          <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance30th) < 5 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance30th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance30th.toFixed(2)}%
+                          <p className="text-[9px] text-muted-foreground/70">
+                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.variance30th.toFixed(
+                              4,
+                            )}{" "}
+                            vs{" "}
+                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.official.variance30th.toFixed(
+                              4,
+                            )}
+                          </p>
+                          <p
+                            className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance30th) < 5 ? "text-emerald-500" : "text-amber-500"}`}
+                          >
+                            {data.rewardFactorImpact.overall.thresholds
+                              .officialComparison.withoutQI.percentDifferences
+                              .variance30th >= 0
+                              ? "+"
+                              : ""}
+                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance30th.toFixed(
+                              2,
+                            )}
+                            %
                           </p>
                         </div>
                         <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-2 text-center">
-                          <p className="text-[10px] text-muted-foreground">Variance 70th</p>
-                          <p className="text-[9px] text-muted-foreground/70">
-                            {(data.rewardFactorImpact.overall.thresholds.current.withoutQI.variance70th).toFixed(4)} vs {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.official.variance70th.toFixed(4)}
+                          <p className="text-[10px] text-muted-foreground">
+                            Variance 70th
                           </p>
-                          <p className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance70th) < 5 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance70th >= 0 ? '+' : ''}{data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance70th.toFixed(2)}%
+                          <p className="text-[9px] text-muted-foreground/70">
+                            {data.rewardFactorImpact.overall.thresholds.current.withoutQI.variance70th.toFixed(
+                              4,
+                            )}{" "}
+                            vs{" "}
+                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.official.variance70th.toFixed(
+                              4,
+                            )}
+                          </p>
+                          <p
+                            className={`text-xs font-mono ${Math.abs(data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance70th) < 5 ? "text-emerald-500" : "text-amber-500"}`}
+                          >
+                            {data.rewardFactorImpact.overall.thresholds
+                              .officialComparison.withoutQI.percentDifferences
+                              .variance70th >= 0
+                              ? "+"
+                              : ""}
+                            {data.rewardFactorImpact.overall.thresholds.officialComparison.withoutQI.percentDifferences.variance70th.toFixed(
+                              2,
+                            )}
+                            %
                           </p>
                         </div>
                       </div>
@@ -1137,66 +1803,101 @@ export function OperationsImpactAnalysis() {
 
       {/* Star Bracket Change Distribution */}
       <div className="rounded-2xl border border-border bg-card p-6">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">Star Rating Bracket Changes</h3>
-        
+        <h3 className="mb-4 text-sm font-semibold text-foreground">
+          Star Rating Bracket Changes
+        </h3>
+
         {/* Summary by half-star change */}
         <div className="mb-6">
-          <p className="mb-3 text-xs text-muted-foreground">Contracts by half-star change amount:</p>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Contracts by half-star change amount:
+          </p>
           <div className="grid gap-2 md:grid-cols-4 lg:grid-cols-7">
-            {Object.entries(data.summary.bracketChangeDistribution).map(([change, count]) => {
-              const isGain = change.startsWith('+');
-              const isLoss = change.startsWith('-');
-              return (
-                <div 
-                  key={change} 
-                  className={`rounded-lg border p-3 text-center ${
-                    isGain 
-                      ? 'border-emerald-500/30 bg-emerald-500/5' 
-                      : isLoss 
-                        ? 'border-rose-500/30 bg-rose-500/5' 
-                        : 'border-border bg-muted/50'
-                  }`}
-                >
-                  <p className={`text-lg font-semibold ${
-                    isGain ? 'text-emerald-500' : isLoss ? 'text-rose-500' : 'text-foreground'
-                  }`}>{count}</p>
-                  <p className="text-[10px] text-muted-foreground">{change}</p>
-                </div>
-              );
-            })}
+            {Object.entries(data.summary.bracketChangeDistribution).map(
+              ([change, count]) => {
+                const isGain = change.startsWith("+");
+                const isLoss = change.startsWith("-");
+                return (
+                  <div
+                    key={change}
+                    className={`rounded-lg border p-3 text-center ${
+                      isGain
+                        ? "border-emerald-500/30 bg-emerald-500/5"
+                        : isLoss
+                          ? "border-rose-500/30 bg-rose-500/5"
+                          : "border-border bg-muted/50"
+                    }`}
+                  >
+                    <p
+                      className={`text-lg font-semibold ${
+                        isGain
+                          ? "text-emerald-500"
+                          : isLoss
+                            ? "text-rose-500"
+                            : "text-foreground"
+                      }`}
+                    >
+                      {count}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {change}
+                    </p>
+                  </div>
+                );
+              },
+            )}
           </div>
         </div>
 
         {/* Detailed bracket transitions */}
         <div>
-          <p className="mb-3 text-xs text-muted-foreground">Top bracket transitions (current → projected):</p>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Top bracket transitions (current → projected):
+          </p>
           <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-5">
             {data.summary.bracketTransitions
-              .filter(t => t.direction !== 'unchanged')
+              .filter((t) => t.direction !== "unchanged")
               .slice(0, 10)
               .map((t) => (
-                <div 
-                  key={t.transition} 
+                <div
+                  key={t.transition}
                   className={`rounded-lg border p-3 ${
-                    t.direction === 'gain' 
-                      ? 'border-emerald-500/30 bg-emerald-500/5' 
-                      : 'border-rose-500/30 bg-rose-500/5'
+                    t.direction === "gain"
+                      ? "border-emerald-500/30 bg-emerald-500/5"
+                      : "border-rose-500/30 bg-rose-500/5"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`text-sm font-medium ${
-                      t.direction === 'gain' ? 'text-emerald-500' : 'text-rose-500'
-                    }`}>{t.transition}</span>
-                    <span className={`text-xs font-semibold ${
-                      t.direction === 'gain' ? 'text-emerald-400' : 'text-rose-400'
-                    }`}>{t.count}</span>
+                    <span
+                      className={`text-sm font-medium ${
+                        t.direction === "gain"
+                          ? "text-emerald-500"
+                          : "text-rose-500"
+                      }`}
+                    >
+                      {t.transition}
+                    </span>
+                    <span
+                      className={`text-xs font-semibold ${
+                        t.direction === "gain"
+                          ? "text-emerald-400"
+                          : "text-rose-400"
+                      }`}
+                    >
+                      {t.count}
+                    </span>
                   </div>
                 </div>
               ))}
           </div>
-          {data.summary.bracketTransitions.filter(t => t.direction === 'unchanged').length > 0 && (
+          {data.summary.bracketTransitions.filter(
+            (t) => t.direction === "unchanged",
+          ).length > 0 && (
             <p className="mt-3 text-xs text-muted-foreground">
-              {data.summary.bracketTransitions.find(t => t.direction === 'unchanged')?.count || 0} contracts remain at the same star bracket
+              {data.summary.bracketTransitions.find(
+                (t) => t.direction === "unchanged",
+              )?.count || 0}{" "}
+              contracts remain at the same star bracket
             </p>
           )}
         </div>
@@ -1229,14 +1930,24 @@ export function OperationsImpactAnalysis() {
           </div>
           <div className="flex items-center gap-3">
             <ExportCsvButton
-              tableRef={viewMode === "contracts" ? contractsTableRef : orgsTableRef}
-              fileName={viewMode === "contracts" ? "operations-impact-contracts" : "operations-impact-organizations"}
+              tableRef={
+                viewMode === "contracts" ? contractsTableRef : orgsTableRef
+              }
+              fileName={
+                viewMode === "contracts"
+                  ? "operations-impact-contracts"
+                  : "operations-impact-organizations"
+              }
             />
             <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
               <Search className="h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder={viewMode === "contracts" ? "Search contracts..." : "Search organizations..."}
+                placeholder={
+                  viewMode === "contracts"
+                    ? "Search contracts..."
+                    : "Search organizations..."
+                }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-48 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
@@ -1252,147 +1963,236 @@ export function OperationsImpactAnalysis() {
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                      <SortHeader label="Contract" sortKeyValue="contractId" tooltip="CMS contract ID (H = MA, S = PDP)" />
+                      <SortHeader
+                        label="Contract"
+                        sortKeyValue="contractId"
+                        tooltip="CMS contract ID (H = MA, S = PDP)"
+                      />
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                      <SortHeader label="Organization" sortKeyValue="organizationMarketingName" tooltip="Marketing name and parent organization" />
+                      <SortHeader
+                        label="Organization"
+                        sortKeyValue="organizationMarketingName"
+                        tooltip="Marketing name and parent organization"
+                      />
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                      <SortHeader label="Current" sortKeyValue="currentOverallRating" tooltip="Current CMS overall star rating (1-5 scale)" />
+                      <SortHeader
+                        label="Current"
+                        sortKeyValue="currentOverallRating"
+                        tooltip="Current CMS overall star rating (1-5 scale)"
+                      />
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                      <SortHeader label="Final Projected" sortKeyValue="finalProjectedOverall" tooltip="Projected rating after removing measures AND applying new Reward Factor" />
+                      <SortHeader
+                        label="Final Projected"
+                        sortKeyValue="finalProjectedOverall"
+                        tooltip="Projected rating after removing measures AND applying new Reward Factor"
+                      />
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                      <SortHeader label="Raw Score" sortKeyValue="rawProjectedMean" tooltip="Raw weighted mean of star ratings (unrounded, before reward factor). This is the exact calculated score from weighting all non-removed measures." />
+                      <SortHeader
+                        label="Raw Score"
+                        sortKeyValue="rawProjectedMean"
+                        tooltip="Raw weighted mean of star ratings (unrounded, before reward factor). This is the exact calculated score from weighting all non-removed measures."
+                      />
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                      <SortHeader label="Final Change" sortKeyValue="finalOverallChange" tooltip="Difference between final projected (with Reward Factor) and current rating (positive = improvement)" />
+                      <SortHeader
+                        label="Final Change"
+                        sortKeyValue="finalOverallChange"
+                        tooltip="Difference between final projected (with Reward Factor) and current rating (positive = improvement)"
+                      />
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">
-                      <SortHeader label="Rating Δ" sortKeyValue="finalStarBracketChange" tooltip="Change in rounded star rating including reward factor adjustment (e.g., +0.5★ means moving from 3.5 to 4.0 stars)" />
+                      <SortHeader
+                        label="Rating Δ"
+                        sortKeyValue="finalStarBracketChange"
+                        tooltip="Change in rounded star rating including reward factor adjustment (e.g., +0.5★ means moving from 3.5 to 4.0 stars)"
+                      />
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                      <SortHeader label="r-Factor Δ" sortKeyValue="rFactorChange" tooltip="Change in Reward Factor due to measure removal (current → projected)" />
+                      <SortHeader
+                        label="r-Factor Δ"
+                        sortKeyValue="rFactorChange"
+                        tooltip="Change in Reward Factor due to measure removal (current → projected)"
+                      />
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">
-                      <SortHeader label="Hold Harmless" sortKeyValue="holdHarmless" tooltip="Quality Improvement Hold Harmless: Contract protected from QI measure impact when rating without QI ≥ 4.0★ but with QI < 4.0★" />
+                      <SortHeader
+                        label="Hold Harmless"
+                        sortKeyValue="holdHarmless"
+                        tooltip="Quality Improvement Hold Harmless: Contract protected from QI measure impact when rating without QI ≥ 4.0★ but with QI < 4.0★"
+                      />
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground" title="Measures removed / Total measures for this contract. The total varies because not all plans report every measure.">
+                    <th
+                      className="px-4 py-3 text-right text-xs font-medium text-muted-foreground"
+                      title="Measures removed / Total measures for this contract. The total varies because not all plans report every measure."
+                    >
                       <span className="flex items-center gap-1 justify-end">
                         Removed
-                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground">?</span>
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground">
+                          ?
+                        </span>
                       </span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredAndSortedContracts
-                    .slice((contractsPage - 1) * pageSize, contractsPage * pageSize)
+                    .slice(
+                      (contractsPage - 1) * pageSize,
+                      contractsPage * pageSize,
+                    )
                     .map((contract, idx) => (
-                    <tr
-                      key={contract.contractId}
-                      className={`border-b border-border/50 transition-colors hover:bg-muted/30 ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
-                    >
-                      <td className="px-4 py-3 font-mono text-xs">
-                        <Link 
-                          href={`/summary?contractId=${contract.contractId}&year=2026`}
-                          className="text-primary hover:underline"
-                        >
-                          {contract.contractId}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="max-w-[240px]">
-                          <p className="truncate text-foreground">{contract.organizationMarketingName || contract.contractName || "—"}</p>
-                          {contract.parentOrganization && (
-                            <p className="truncate text-xs text-muted-foreground">{contract.parentOrganization}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-foreground">
-                        {formatRating(contract.currentOverallRating)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-foreground">
-                        <div className="flex flex-col items-end">
-                          <span>{formatRating(contract.finalProjectedOverall ?? contract.projectedOverallRating)}</span>
-                          {contract.finalProjectedOverall !== null && contract.projectedOverallRating !== null && (
-                            <span className="text-[10px] text-muted-foreground">
-                              ({formatRating(contract.projectedOverallRating)} + {contract.rewardFactor?.projectedRFactor?.toFixed(1) ?? '0'})
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">
-                        {contract.rewardFactor?.projectedMean !== undefined 
-                          ? contract.rewardFactor.projectedMean.toFixed(4) 
-                          : "—"
-                        }
-                      </td>
-                      <td className={`px-4 py-3 text-right font-medium ${getChangeColor(contract.finalOverallChange ?? contract.overallChange)}`}>
-                        <span className="flex items-center justify-end gap-1">
-                          {getChangeIcon(contract.finalOverallChange ?? contract.overallChange)}
-                          {formatChange(contract.finalOverallChange ?? contract.overallChange)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {contract.finalStarBracketChange !== 0 ? (
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                            contract.finalStarBracketChange > 0 
-                              ? "bg-emerald-500/10 text-emerald-500" 
-                              : "bg-rose-500/10 text-rose-500"
-                          }`}>
-                            {contract.finalStarBracketChange > 0 ? "+" : ""}{contract.finalStarBracketChange / 2}★
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right text-xs">
-                        {contract.rewardFactor ? (
-                          <div className="flex flex-col items-end">
-                            <span className={`font-medium ${
-                              contract.rewardFactor.rFactorChange > 0.001 
-                                ? "text-emerald-500" 
-                                : contract.rewardFactor.rFactorChange < -0.001 
-                                  ? "text-rose-500" 
-                                  : "text-muted-foreground"
-                            }`}>
-                              {contract.rewardFactor.rFactorChange >= 0 ? "+" : ""}{contract.rewardFactor.rFactorChange.toFixed(2)}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {contract.rewardFactor.currentRFactor.toFixed(1)} → {contract.rewardFactor.projectedRFactor.toFixed(1)}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center text-xs">
-                        {contract.holdHarmless?.applied ? (
-                          <span 
-                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-blue-500/10 text-blue-400 font-medium cursor-help"
-                            title={`Protected: Without QI measures = ${contract.holdHarmless.ratingWithoutQI?.toFixed(2)}★, With QI = ${contract.holdHarmless.ratingWithQI?.toFixed(2)}★. Excluded: ${contract.holdHarmless.excludedMeasures.join(', ')}`}
-                          >
-                            <Shield className="h-3 w-3" />
-                            Yes
-                          </span>
-                        ) : contract.holdHarmless ? (
-                          <span className="text-muted-foreground text-[10px]">No</span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td 
-                        className="px-4 py-3 text-right text-xs text-muted-foreground cursor-help"
-                        title={`${contract.operationsMeasuresExcluded} of ${contract.totalMeasuresUsed} measures removed for this contract.\n\nThe total varies by contract because not all plans report data for every measure. Only measures with valid star ratings are included in the calculation.`}
+                      <tr
+                        key={contract.contractId}
+                        className={`border-b border-border/50 transition-colors hover:bg-muted/30 ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
                       >
-                        <span className="underline decoration-dotted decoration-muted-foreground/50">
-                          {contract.operationsMeasuresExcluded} / {contract.totalMeasuresUsed}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                        <td className="px-4 py-3 font-mono text-xs">
+                          <Link
+                            href={`/summary?contractId=${contract.contractId}&year=2026`}
+                            className="text-primary hover:underline"
+                          >
+                            {contract.contractId}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="max-w-[240px]">
+                            <p className="truncate text-foreground">
+                              {contract.organizationMarketingName ||
+                                contract.contractName ||
+                                "—"}
+                            </p>
+                            {contract.parentOrganization && (
+                              <p className="truncate text-xs text-muted-foreground">
+                                {contract.parentOrganization}
+                              </p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium text-foreground">
+                          {formatRating(contract.currentOverallRating)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium text-foreground">
+                          <div className="flex flex-col items-end">
+                            <span>
+                              {formatRating(
+                                contract.finalProjectedOverall ??
+                                  contract.projectedOverallRating,
+                              )}
+                            </span>
+                            {contract.finalProjectedOverall !== null &&
+                              contract.projectedOverallRating !== null && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  (
+                                  {formatRating(
+                                    contract.projectedOverallRating,
+                                  )}{" "}
+                                  +{" "}
+                                  {contract.rewardFactor?.projectedRFactor?.toFixed(
+                                    1,
+                                  ) ?? "0"}
+                                  )
+                                </span>
+                              )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">
+                          {contract.rewardFactor?.projectedMean !== undefined
+                            ? contract.rewardFactor.projectedMean.toFixed(4)
+                            : "—"}
+                        </td>
+                        <td
+                          className={`px-4 py-3 text-right font-medium ${getChangeColor(contract.finalOverallChange ?? contract.overallChange)}`}
+                        >
+                          <span className="flex items-center justify-end gap-1">
+                            {getChangeIcon(
+                              contract.finalOverallChange ??
+                                contract.overallChange,
+                            )}
+                            {formatChange(
+                              contract.finalOverallChange ??
+                                contract.overallChange,
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {contract.finalStarBracketChange !== 0 ? (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                contract.finalStarBracketChange > 0
+                                  ? "bg-emerald-500/10 text-emerald-500"
+                                  : "bg-rose-500/10 text-rose-500"
+                              }`}
+                            >
+                              {contract.finalStarBracketChange > 0 ? "+" : ""}
+                              {contract.finalStarBracketChange / 2}★
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right text-xs">
+                          {contract.rewardFactor ? (
+                            <div className="flex flex-col items-end">
+                              <span
+                                className={`font-medium ${
+                                  contract.rewardFactor.rFactorChange > 0.001
+                                    ? "text-emerald-500"
+                                    : contract.rewardFactor.rFactorChange <
+                                        -0.001
+                                      ? "text-rose-500"
+                                      : "text-muted-foreground"
+                                }`}
+                              >
+                                {contract.rewardFactor.rFactorChange >= 0
+                                  ? "+"
+                                  : ""}
+                                {contract.rewardFactor.rFactorChange.toFixed(2)}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {contract.rewardFactor.currentRFactor.toFixed(
+                                  1,
+                                )}{" "}
+                                →{" "}
+                                {contract.rewardFactor.projectedRFactor.toFixed(
+                                  1,
+                                )}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs">
+                          {contract.holdHarmless?.applied ? (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-blue-500/10 text-blue-400 font-medium cursor-help"
+                              title={`Protected: Without QI measures = ${contract.holdHarmless.ratingWithoutQI?.toFixed(2)}★, With QI = ${contract.holdHarmless.ratingWithQI?.toFixed(2)}★. Excluded: ${contract.holdHarmless.excludedMeasures.join(", ")}`}
+                            >
+                              <Shield className="h-3 w-3" />
+                              Yes
+                            </span>
+                          ) : contract.holdHarmless ? (
+                            <span className="text-muted-foreground text-[10px]">
+                              No
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td
+                          className="px-4 py-3 text-right text-xs text-muted-foreground cursor-help"
+                          title={`${contract.operationsMeasuresExcluded} of ${contract.totalMeasuresUsed} measures removed for this contract.\n\nThe total varies by contract because not all plans report data for every measure. Only measures with valid star ratings are included in the calculation.`}
+                        >
+                          <span className="underline decoration-dotted decoration-muted-foreground/50">
+                            {contract.operationsMeasuresExcluded} /{" "}
+                            {contract.totalMeasuresUsed}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -1402,10 +2202,17 @@ export function OperationsImpactAnalysis() {
               <div className="border-t border-border p-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <span className="text-xs text-muted-foreground">
-                    Showing {((contractsPage - 1) * pageSize) + 1}–{Math.min(contractsPage * pageSize, filteredAndSortedContracts.length)} of {filteredAndSortedContracts.length} contracts
+                    Showing {(contractsPage - 1) * pageSize + 1}–
+                    {Math.min(
+                      contractsPage * pageSize,
+                      filteredAndSortedContracts.length,
+                    )}{" "}
+                    of {filteredAndSortedContracts.length} contracts
                   </span>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-muted-foreground">Per page:</label>
+                    <label className="text-xs text-muted-foreground">
+                      Per page:
+                    </label>
                     <select
                       value={pageSize}
                       onChange={(e) => {
@@ -1431,25 +2238,45 @@ export function OperationsImpactAnalysis() {
                     First
                   </button>
                   <button
-                    onClick={() => setContractsPage(p => Math.max(1, p - 1))}
+                    onClick={() => setContractsPage((p) => Math.max(1, p - 1))}
                     disabled={contractsPage === 1}
                     className="rounded border border-border bg-muted px-2 py-1 text-xs text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80"
                   >
                     Previous
                   </button>
                   <span className="text-xs text-muted-foreground px-2">
-                    Page {contractsPage} of {Math.ceil(filteredAndSortedContracts.length / pageSize)}
+                    Page {contractsPage} of{" "}
+                    {Math.ceil(filteredAndSortedContracts.length / pageSize)}
                   </span>
                   <button
-                    onClick={() => setContractsPage(p => Math.min(Math.ceil(filteredAndSortedContracts.length / pageSize), p + 1))}
-                    disabled={contractsPage >= Math.ceil(filteredAndSortedContracts.length / pageSize)}
+                    onClick={() =>
+                      setContractsPage((p) =>
+                        Math.min(
+                          Math.ceil(
+                            filteredAndSortedContracts.length / pageSize,
+                          ),
+                          p + 1,
+                        ),
+                      )
+                    }
+                    disabled={
+                      contractsPage >=
+                      Math.ceil(filteredAndSortedContracts.length / pageSize)
+                    }
                     className="rounded border border-border bg-muted px-2 py-1 text-xs text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80"
                   >
                     Next
                   </button>
                   <button
-                    onClick={() => setContractsPage(Math.ceil(filteredAndSortedContracts.length / pageSize))}
-                    disabled={contractsPage >= Math.ceil(filteredAndSortedContracts.length / pageSize)}
+                    onClick={() =>
+                      setContractsPage(
+                        Math.ceil(filteredAndSortedContracts.length / pageSize),
+                      )
+                    }
+                    disabled={
+                      contractsPage >=
+                      Math.ceil(filteredAndSortedContracts.length / pageSize)
+                    }
                     className="rounded border border-border bg-muted px-2 py-1 text-xs text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80"
                   >
                     Last
@@ -1477,10 +2304,15 @@ export function OperationsImpactAnalysis() {
                         title="Corporate parent organization name"
                       >
                         Parent Organization
-                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">?</span>
-                        {orgSortKey === "parentOrganization" && (
-                          sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                        )}
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">
+                          ?
+                        </span>
+                        {orgSortKey === "parentOrganization" &&
+                          (sortDirection === "asc" ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          ))}
                       </button>
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
@@ -1490,10 +2322,15 @@ export function OperationsImpactAnalysis() {
                         title="Number of contracts under this parent organization"
                       >
                         Contracts
-                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">?</span>
-                        {orgSortKey === "contractCount" && (
-                          sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                        )}
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">
+                          ?
+                        </span>
+                        {orgSortKey === "contractCount" &&
+                          (sortDirection === "asc" ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          ))}
                       </button>
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
@@ -1503,10 +2340,15 @@ export function OperationsImpactAnalysis() {
                         title="Average current CMS star rating across all contracts"
                       >
                         Avg Current
-                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">?</span>
-                        {orgSortKey === "avgCurrentRating" && (
-                          sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                        )}
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">
+                          ?
+                        </span>
+                        {orgSortKey === "avgCurrentRating" &&
+                          (sortDirection === "asc" ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          ))}
                       </button>
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
@@ -1516,10 +2358,15 @@ export function OperationsImpactAnalysis() {
                         title="Average final projected rating after measure removals + reward factor"
                       >
                         Avg Final Projected
-                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">?</span>
-                        {orgSortKey === "avgFinalProjectedRating" && (
-                          sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                        )}
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">
+                          ?
+                        </span>
+                        {orgSortKey === "avgFinalProjectedRating" &&
+                          (sortDirection === "asc" ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          ))}
                       </button>
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
@@ -1529,34 +2376,55 @@ export function OperationsImpactAnalysis() {
                         title="Average final rating change including reward factor (positive = improvement)"
                       >
                         Avg Final Δ
-                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">?</span>
-                        {orgSortKey === "avgFinalOverallChange" && (
-                          sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                        )}
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">
+                          ?
+                        </span>
+                        {orgSortKey === "avgFinalOverallChange" &&
+                          (sortDirection === "asc" ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          ))}
                       </button>
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground" title="Contracts that would improve; (★) = would cross a half-star bracket (e.g., 3.5 → 4.0)">
+                    <th
+                      className="px-4 py-3 text-center text-xs font-medium text-muted-foreground"
+                      title="Contracts that would improve; (★) = would cross a half-star bracket (e.g., 3.5 → 4.0)"
+                    >
                       <button
                         onClick={() => handleOrgSort("contractsGaining")}
                         className="group inline-flex items-center gap-1 justify-center cursor-pointer hover:text-foreground transition-colors"
                       >
                         Gaining
-                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">?</span>
-                        {orgSortKey === "contractsGaining" && (
-                          sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                        )}
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">
+                          ?
+                        </span>
+                        {orgSortKey === "contractsGaining" &&
+                          (sortDirection === "asc" ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          ))}
                       </button>
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground" title="Contracts that would decline; (★) = would cross a half-star bracket (e.g., 4.0 → 3.5)">
+                    <th
+                      className="px-4 py-3 text-center text-xs font-medium text-muted-foreground"
+                      title="Contracts that would decline; (★) = would cross a half-star bracket (e.g., 4.0 → 3.5)"
+                    >
                       <button
                         onClick={() => handleOrgSort("contractsLosing")}
                         className="group inline-flex items-center gap-1 justify-center cursor-pointer hover:text-foreground transition-colors"
                       >
                         Losing
-                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">?</span>
-                        {orgSortKey === "contractsLosing" && (
-                          sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-                        )}
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">
+                          ?
+                        </span>
+                        {orgSortKey === "contractsLosing" &&
+                          (sortDirection === "asc" ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          ))}
                       </button>
                     </th>
                   </tr>
@@ -1565,13 +2433,19 @@ export function OperationsImpactAnalysis() {
                   {filteredAndSortedOrgs
                     .slice((orgsPage - 1) * pageSize, orgsPage * pageSize)
                     .map((org, idx) => {
-                      const isExpanded = expandedOrgs.has(org.parentOrganization);
-                      const orgContracts = isExpanded ? getContractsForOrg(org.parentOrganization) : [];
+                      const isExpanded = expandedOrgs.has(
+                        org.parentOrganization,
+                      );
+                      const orgContracts = isExpanded
+                        ? getContractsForOrg(org.parentOrganization)
+                        : [];
                       return (
                         <React.Fragment key={org.parentOrganization}>
                           <tr
                             className={`border-b border-border/50 transition-colors hover:bg-muted/30 cursor-pointer ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
-                            onClick={() => toggleOrgExpanded(org.parentOrganization)}
+                            onClick={() =>
+                              toggleOrgExpanded(org.parentOrganization)
+                            }
                           >
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
@@ -1582,7 +2456,9 @@ export function OperationsImpactAnalysis() {
                                     <ChevronRight className="h-4 w-4" />
                                   )}
                                 </span>
-                                <p className="max-w-[280px] truncate text-foreground">{org.parentOrganization}</p>
+                                <p className="max-w-[280px] truncate text-foreground">
+                                  {org.parentOrganization}
+                                </p>
                               </div>
                             </td>
                             <td className="px-4 py-3 text-right font-medium text-foreground">
@@ -1592,76 +2468,114 @@ export function OperationsImpactAnalysis() {
                               {formatRating(org.avgCurrentRating)}
                             </td>
                             <td className="px-4 py-3 text-right font-medium text-foreground">
-                              {formatRating(org.avgFinalProjectedRating ?? org.avgProjectedRating)}
+                              {formatRating(
+                                org.avgFinalProjectedRating ??
+                                  org.avgProjectedRating,
+                              )}
                             </td>
-                            <td className={`px-4 py-3 text-right font-medium ${getChangeColor(org.avgFinalOverallChange ?? org.avgOverallChange)}`}>
+                            <td
+                              className={`px-4 py-3 text-right font-medium ${getChangeColor(org.avgFinalOverallChange ?? org.avgOverallChange)}`}
+                            >
                               <span className="flex items-center justify-end gap-1">
-                                {getChangeIcon(org.avgFinalOverallChange ?? org.avgOverallChange)}
-                                {formatChange(org.avgFinalOverallChange ?? org.avgOverallChange)}
+                                {getChangeIcon(
+                                  org.avgFinalOverallChange ??
+                                    org.avgOverallChange,
+                                )}
+                                {formatChange(
+                                  org.avgFinalOverallChange ??
+                                    org.avgOverallChange,
+                                )}
                               </span>
                             </td>
                             <td className="px-4 py-3 text-center">
-                              <span className="text-emerald-500">{org.contractsGaining}</span>
+                              <span className="text-emerald-500">
+                                {org.contractsGaining}
+                              </span>
                               {org.finalBracketGainers > 0 && (
-                                <span className="ml-1 text-xs text-muted-foreground">({org.finalBracketGainers}★)</span>
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({org.finalBracketGainers}★)
+                                </span>
                               )}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              <span className="text-rose-500">{org.contractsLosing}</span>
+                              <span className="text-rose-500">
+                                {org.contractsLosing}
+                              </span>
                               {org.finalBracketLosers > 0 && (
-                                <span className="ml-1 text-xs text-muted-foreground">({org.finalBracketLosers}★)</span>
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({org.finalBracketLosers}★)
+                                </span>
                               )}
                             </td>
                           </tr>
-                          {isExpanded && orgContracts.map((contract) => (
-                            <tr
-                              key={contract.contractId}
-                              className="border-b border-border/30 bg-muted/20"
-                            >
-                              <td className="px-4 py-2 pl-10">
-                                <div className="flex items-center gap-2">
-                                  <Link 
-                                    href={`/summary?contractId=${contract.contractId}&year=2026`}
-                                    className="font-mono text-xs text-primary hover:underline"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {contract.contractId}
-                                  </Link>
-                                  <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                                    {contract.organizationMarketingName || contract.contractName || "—"}
+                          {isExpanded &&
+                            orgContracts.map((contract) => (
+                              <tr
+                                key={contract.contractId}
+                                className="border-b border-border/30 bg-muted/20"
+                              >
+                                <td className="px-4 py-2 pl-10">
+                                  <div className="flex items-center gap-2">
+                                    <Link
+                                      href={`/summary?contractId=${contract.contractId}&year=2026`}
+                                      className="font-mono text-xs text-primary hover:underline"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {contract.contractId}
+                                    </Link>
+                                    <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                      {contract.organizationMarketingName ||
+                                        contract.contractName ||
+                                        "—"}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-2 text-right text-xs text-muted-foreground">
+                                  —
+                                </td>
+                                <td className="px-4 py-2 text-right text-xs text-foreground">
+                                  {formatRating(contract.currentOverallRating)}
+                                </td>
+                                <td className="px-4 py-2 text-right text-xs text-foreground">
+                                  {formatRating(
+                                    contract.finalProjectedOverall ??
+                                      contract.projectedOverallRating,
+                                  )}
+                                </td>
+                                <td
+                                  className={`px-4 py-2 text-right text-xs ${getChangeColor(contract.finalOverallChange ?? contract.overallChange)}`}
+                                >
+                                  <span className="flex items-center justify-end gap-1">
+                                    {formatChange(
+                                      contract.finalOverallChange ??
+                                        contract.overallChange,
+                                    )}
                                   </span>
-                                </div>
-                              </td>
-                              <td className="px-4 py-2 text-right text-xs text-muted-foreground">
-                                —
-                              </td>
-                              <td className="px-4 py-2 text-right text-xs text-foreground">
-                                {formatRating(contract.currentOverallRating)}
-                              </td>
-                              <td className="px-4 py-2 text-right text-xs text-foreground">
-                                {formatRating(contract.finalProjectedOverall ?? contract.projectedOverallRating)}
-                              </td>
-                              <td className={`px-4 py-2 text-right text-xs ${getChangeColor(contract.finalOverallChange ?? contract.overallChange)}`}>
-                                <span className="flex items-center justify-end gap-1">
-                                  {formatChange(contract.finalOverallChange ?? contract.overallChange)}
-                                </span>
-                              </td>
-                              <td className="px-4 py-2 text-center text-xs">
-                                {(contract.finalOverallChange ?? contract.overallChange ?? 0) > 0.01 ? (
-                                  <span className="text-emerald-500">✓</span>
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-2 text-center text-xs">
-                                {(contract.finalOverallChange ?? contract.overallChange ?? 0) < -0.01 ? (
-                                  <span className="text-rose-500">✓</span>
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                                <td className="px-4 py-2 text-center text-xs">
+                                  {(contract.finalOverallChange ??
+                                    contract.overallChange ??
+                                    0) > 0.01 ? (
+                                    <span className="text-emerald-500">✓</span>
+                                  ) : (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 text-center text-xs">
+                                  {(contract.finalOverallChange ??
+                                    contract.overallChange ??
+                                    0) < -0.01 ? (
+                                    <span className="text-rose-500">✓</span>
+                                  ) : (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
                         </React.Fragment>
                       );
                     })}
@@ -1674,10 +2588,17 @@ export function OperationsImpactAnalysis() {
               <div className="border-t border-border p-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <span className="text-xs text-muted-foreground">
-                    Showing {((orgsPage - 1) * pageSize) + 1}–{Math.min(orgsPage * pageSize, filteredAndSortedOrgs.length)} of {filteredAndSortedOrgs.length} organizations
+                    Showing {(orgsPage - 1) * pageSize + 1}–
+                    {Math.min(
+                      orgsPage * pageSize,
+                      filteredAndSortedOrgs.length,
+                    )}{" "}
+                    of {filteredAndSortedOrgs.length} organizations
                   </span>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-muted-foreground">Per page:</label>
+                    <label className="text-xs text-muted-foreground">
+                      Per page:
+                    </label>
                     <select
                       value={pageSize}
                       onChange={(e) => {
@@ -1703,25 +2624,43 @@ export function OperationsImpactAnalysis() {
                     First
                   </button>
                   <button
-                    onClick={() => setOrgsPage(p => Math.max(1, p - 1))}
+                    onClick={() => setOrgsPage((p) => Math.max(1, p - 1))}
                     disabled={orgsPage === 1}
                     className="rounded border border-border bg-muted px-2 py-1 text-xs text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80"
                   >
                     Previous
                   </button>
                   <span className="text-xs text-muted-foreground px-2">
-                    Page {orgsPage} of {Math.ceil(filteredAndSortedOrgs.length / pageSize)}
+                    Page {orgsPage} of{" "}
+                    {Math.ceil(filteredAndSortedOrgs.length / pageSize)}
                   </span>
                   <button
-                    onClick={() => setOrgsPage(p => Math.min(Math.ceil(filteredAndSortedOrgs.length / pageSize), p + 1))}
-                    disabled={orgsPage >= Math.ceil(filteredAndSortedOrgs.length / pageSize)}
+                    onClick={() =>
+                      setOrgsPage((p) =>
+                        Math.min(
+                          Math.ceil(filteredAndSortedOrgs.length / pageSize),
+                          p + 1,
+                        ),
+                      )
+                    }
+                    disabled={
+                      orgsPage >=
+                      Math.ceil(filteredAndSortedOrgs.length / pageSize)
+                    }
                     className="rounded border border-border bg-muted px-2 py-1 text-xs text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80"
                   >
                     Next
                   </button>
                   <button
-                    onClick={() => setOrgsPage(Math.ceil(filteredAndSortedOrgs.length / pageSize))}
-                    disabled={orgsPage >= Math.ceil(filteredAndSortedOrgs.length / pageSize)}
+                    onClick={() =>
+                      setOrgsPage(
+                        Math.ceil(filteredAndSortedOrgs.length / pageSize),
+                      )
+                    }
+                    disabled={
+                      orgsPage >=
+                      Math.ceil(filteredAndSortedOrgs.length / pageSize)
+                    }
                     className="rounded border border-border bg-muted px-2 py-1 text-xs text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80"
                   >
                     Last
@@ -1741,4 +2680,3 @@ export function OperationsImpactAnalysis() {
     </div>
   );
 }
-

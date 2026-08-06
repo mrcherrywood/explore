@@ -45,20 +45,33 @@ export function ExportImageButton({
       await onBeforeExport?.();
 
       // Let layout settle after any pre-export DOM changes.
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
 
-      targetRef.current.classList.add("export-hide-borders", "export-capture-mode");
+      targetRef.current.classList.add(
+        "export-hide-borders",
+        "export-capture-mode",
+      );
       void targetRef.current.offsetHeight;
 
       await exportElementToPng(targetRef.current, { fileName, scale });
 
-      targetRef.current.classList.remove("export-hide-borders", "export-capture-mode");
+      targetRef.current.classList.remove(
+        "export-hide-borders",
+        "export-capture-mode",
+      );
 
       onAfterExport?.();
     } catch (error) {
       console.error("Failed to export image", error);
-      targetRef.current?.classList.remove("export-hide-borders", "export-capture-mode");
+      targetRef.current?.classList.remove(
+        "export-hide-borders",
+        "export-capture-mode",
+      );
       onAfterExport?.(error);
     } finally {
       setIsExporting(false);

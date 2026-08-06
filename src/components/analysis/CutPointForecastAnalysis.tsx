@@ -110,7 +110,7 @@ type Props = {
 async function fetchForecast(
   measure: string,
   forecastYear: number | null,
-  populationMode: ForecastPopulationMode
+  populationMode: ForecastPopulationMode,
 ): Promise<ForecastResponse> {
   const params = new URLSearchParams({
     view: "methodology-forecast",
@@ -153,7 +153,11 @@ export function CutPointForecastAnalysis({ measure, displayName }: Props) {
     setIsLoading(true);
     setError(null);
     try {
-      const payload = await fetchForecast(measure, selectedYear, populationMode);
+      const payload = await fetchForecast(
+        measure,
+        selectedYear,
+        populationMode,
+      );
       setData(payload);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load forecast");
@@ -178,7 +182,7 @@ export function CutPointForecastAnalysis({ measure, displayName }: Props) {
     if (!data || data.status !== "ready") return [];
     const order = ["fiveStar", "fourStar", "threeStar", "twoStar"];
     return [...data.thresholds].sort(
-      (left, right) => order.indexOf(left.key) - order.indexOf(right.key)
+      (left, right) => order.indexOf(left.key) - order.indexOf(right.key),
     );
   }, [data]);
 
@@ -215,7 +219,9 @@ export function CutPointForecastAnalysis({ measure, displayName }: Props) {
       <section className="rounded-2xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-center gap-4">
           <div>
-            <p className="text-xs font-medium text-muted-foreground">Forecast Year</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Forecast Year
+            </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {(data.availableForecastYears ?? []).map((year) => (
                 <button
@@ -234,7 +240,9 @@ export function CutPointForecastAnalysis({ measure, displayName }: Props) {
             </div>
           </div>
           <div>
-            <p className="text-xs font-medium text-muted-foreground">Population</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Population
+            </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <button
                 type="button"
@@ -262,7 +270,9 @@ export function CutPointForecastAnalysis({ measure, displayName }: Props) {
           </div>
           <p className="text-xs text-muted-foreground">
             {displayName}
-            {data.status === "ready" && data.baselineYear !== null && populationMode === "full_market"
+            {data.status === "ready" &&
+            data.baselineYear !== null &&
+            populationMode === "full_market"
               ? ` · overlaying projected client scores onto the ${data.baselineYear} market baseline`
               : ""}
           </p>
@@ -277,7 +287,9 @@ export function CutPointForecastAnalysis({ measure, displayName }: Props) {
               <h3 className="text-base font-semibold text-foreground">
                 Forecast unavailable for this measure
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">{data.reason}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {data.reason}
+              </p>
             </div>
           </div>
         </div>
@@ -286,12 +298,14 @@ export function CutPointForecastAnalysis({ measure, displayName }: Props) {
       {data.status === "unavailable" && (
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="flex items-start gap-3">
-            <Info className="mt-0.5 h-5 w-5 shrink-0 text-sky-500" />
+            <Info className="mt-0.5 h-5 w-5 shrink-0 text-[var(--fep-accent)]" />
             <div>
               <h3 className="text-base font-semibold text-foreground">
                 No approved forecast is ready yet
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">{data.reason}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {data.reason}
+              </p>
             </div>
           </div>
         </div>
@@ -311,12 +325,18 @@ export function CutPointForecastAnalysis({ measure, displayName }: Props) {
             />
             <ForecastCard
               label="Comparison Year"
-              value={data.comparisonYear === null ? "—" : String(data.comparisonYear)}
+              value={
+                data.comparisonYear === null ? "—" : String(data.comparisonYear)
+              }
               helper="Latest official cut points used for context"
             />
             <ForecastCard
               label="4★ Threshold"
-              value={data.thresholds.find((threshold) => threshold.key === "fourStar")?.projected.toFixed(2) ?? "—"}
+              value={
+                data.thresholds
+                  .find((threshold) => threshold.key === "fourStar")
+                  ?.projected.toFixed(2) ?? "—"
+              }
               helper="Anchored projected cut point"
               accent="text-emerald-500"
             />
@@ -334,19 +354,24 @@ export function CutPointForecastAnalysis({ measure, displayName }: Props) {
                   ? `Approved ${new Date(data.approvedAt).toLocaleDateString()}`
                   : "Waiting for admin approval"
               }
-              accent={data.approvalScope ? "text-sky-500" : "text-amber-500"}
+              accent={
+                data.approvalScope
+                  ? "text-[var(--fep-accent)]"
+                  : "text-amber-500"
+              }
             />
           </section>
 
           <section className="rounded-2xl border border-border bg-card p-6">
             <div className="mb-4 flex items-center gap-3">
-              <Sparkles className="h-5 w-5 text-sky-500" />
+              <Sparkles className="h-5 w-5 text-[var(--fep-accent)]" />
               <div>
                 <h3 className="text-base font-semibold text-foreground">
                   Anchored projected thresholds
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Higher star thresholds are listed first. Raw simulation and movement cap are shown under each anchored value.
+                  Higher star thresholds are listed first. Raw simulation and
+                  movement cap are shown under each anchored value.
                 </p>
               </div>
             </div>
@@ -363,7 +388,9 @@ export function CutPointForecastAnalysis({ measure, displayName }: Props) {
               <TableBody>
                 {sortedThresholds.map((threshold) => (
                   <TableRow key={threshold.key}>
-                    <TableCell className="font-medium">{threshold.label}</TableCell>
+                    <TableCell className="font-medium">
+                      {threshold.label}
+                    </TableCell>
                     <TableCell>
                       <ThresholdValue threshold={threshold} />
                     </TableCell>
@@ -372,7 +399,9 @@ export function CutPointForecastAnalysis({ measure, displayName }: Props) {
                         ? "—"
                         : threshold.comparisonActual.toFixed(2)}
                     </TableCell>
-                    <TableCell className={deltaClass(threshold.deltaVsComparison)}>
+                    <TableCell
+                      className={deltaClass(threshold.deltaVsComparison)}
+                    >
                       {fmtDelta(threshold.deltaVsComparison)}
                     </TableCell>
                   </TableRow>
@@ -382,7 +411,9 @@ export function CutPointForecastAnalysis({ measure, displayName }: Props) {
           </section>
 
           <section className="rounded-2xl border border-border bg-card p-6">
-            <h3 className="text-base font-semibold text-foreground">Method notes</h3>
+            <h3 className="text-base font-semibold text-foreground">
+              Method notes
+            </h3>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               {data.notes.map((note) => (
                 <li key={note}>• {note}</li>
@@ -408,8 +439,14 @@ function ForecastCard({
 }) {
   return (
     <div className="rounded-2xl border border-border bg-muted/40 p-4">
-      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
-      <p className={`mt-2 text-3xl font-semibold ${accent ?? "text-foreground"}`}>{value}</p>
+      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className={`mt-2 text-3xl font-semibold ${accent ?? "text-foreground"}`}
+      >
+        {value}
+      </p>
       <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
     </div>
   );
@@ -418,11 +455,15 @@ function ForecastCard({
 function ThresholdValue({ threshold }: { threshold: ForecastThreshold }) {
   return (
     <div className="space-y-0.5">
-      <div className="font-semibold tabular-nums">{threshold.projected.toFixed(2)}</div>
+      <div className="font-semibold tabular-nums">
+        {threshold.projected.toFixed(2)}
+      </div>
       {threshold.rawSimulated !== null && (
         <div className="text-[11px] text-muted-foreground">
           raw {threshold.rawSimulated.toFixed(2)}
-          {threshold.movementCap !== null ? ` · cap ${threshold.movementCap.toFixed(2)}` : ""}
+          {threshold.movementCap !== null
+            ? ` · cap ${threshold.movementCap.toFixed(2)}`
+            : ""}
           {threshold.movementWasCapped ? " · capped" : ""}
         </div>
       )}

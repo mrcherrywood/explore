@@ -26,5 +26,7 @@ export default async function PlanPreviewReportPage({
     );
   }
 
-  return <PlanPreviewContractReport starsYear={starsYear} contractId={contractId} />;
+  return (
+    <PlanPreviewContractReport starsYear={starsYear} contractId={contractId} />
+  );
 }

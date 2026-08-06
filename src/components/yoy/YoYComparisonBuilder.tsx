@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Loader2, Search, X } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Search,
+  X,
+} from "lucide-react";
 import { YoYComparisonResults } from "./YoYComparisonResults";
 import { ExportPdfButton } from "@/components/shared/ExportPdfButton";
 
@@ -26,7 +33,8 @@ type BuilderState = {
 };
 
 export function YoYComparisonBuilder() {
-  const [comparisonType, setComparisonType] = useState<ComparisonType>("contract");
+  const [comparisonType, setComparisonType] =
+    useState<ComparisonType>("contract");
   const [contracts, setContracts] = useState<ContractRow[]>([]);
   const [organizations, setOrganizations] = useState<OrganizationRow[]>([]);
   const [contractSearch, setContractSearch] = useState("");
@@ -40,7 +48,8 @@ export function YoYComparisonBuilder() {
 
   const [selectedYears, setSelectedYears] = useState<Set<number>>(new Set());
 
-  const [submittedSelection, setSubmittedSelection] = useState<BuilderState | null>(null);
+  const [submittedSelection, setSubmittedSelection] =
+    useState<BuilderState | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [step, setStep] = useState(1);
@@ -57,7 +66,9 @@ export function YoYComparisonBuilder() {
         }
         const payload: { contracts: ContractRow[] } = await response.json();
         const unique = Array.from(
-          new Map((payload.contracts || []).map((c) => [c.contract_id, c])).values()
+          new Map(
+            (payload.contracts || []).map((c) => [c.contract_id, c]),
+          ).values(),
         );
         setContracts(unique);
       } catch (error) {
@@ -73,7 +84,8 @@ export function YoYComparisonBuilder() {
           const payload = await response.json().catch(() => ({}));
           throw new Error(payload.error || "Failed to load organizations");
         }
-        const payload: { organizations: OrganizationRow[] } = await response.json();
+        const payload: { organizations: OrganizationRow[] } =
+          await response.json();
         setOrganizations(payload.organizations || []);
       } catch (error) {
         console.error("Failed to load organizations", error);
@@ -110,7 +122,8 @@ export function YoYComparisonBuilder() {
 
   // Fetch available years for selected contract or organization
   useEffect(() => {
-    const selectedId = comparisonType === "contract" ? selectedContractId : selectedParentOrg;
+    const selectedId =
+      comparisonType === "contract" ? selectedContractId : selectedParentOrg;
     if (!selectedId) {
       setAvailableYears([]);
       setSelectedYears(new Set());
@@ -126,9 +139,9 @@ export function YoYComparisonBuilder() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
-            type === "contract" 
+            type === "contract"
               ? { contractId: id }
-              : { parentOrganization: id }
+              : { parentOrganization: id },
           ),
         });
 
@@ -145,7 +158,9 @@ export function YoYComparisonBuilder() {
         setSelectedYears(new Set(sortedYears));
       } catch (error) {
         console.error("Failed to fetch years", error);
-        setYearsError(error instanceof Error ? error.message : "Failed to fetch years");
+        setYearsError(
+          error instanceof Error ? error.message : "Failed to fetch years",
+        );
         setAvailableYears([]);
       } finally {
         setYearsLoading(false);
@@ -166,14 +181,18 @@ export function YoYComparisonBuilder() {
   };
 
   const canProceed = (stepNum: number) => {
-    if (stepNum === 1) return comparisonType === "contract" ? Boolean(selectedContractId) : Boolean(selectedParentOrg);
+    if (stepNum === 1)
+      return comparisonType === "contract"
+        ? Boolean(selectedContractId)
+        : Boolean(selectedParentOrg);
     if (stepNum === 2) return selectedYears.size >= 2;
     return false;
   };
 
-  const canGenerate = comparisonType === "contract"
-    ? Boolean(selectedContractId && selectedYears.size >= 2)
-    : Boolean(selectedParentOrg && selectedYears.size >= 2);
+  const canGenerate =
+    comparisonType === "contract"
+      ? Boolean(selectedContractId && selectedYears.size >= 2)
+      : Boolean(selectedParentOrg && selectedYears.size >= 2);
 
   const resetSelection = () => {
     setSelectedContractId("");
@@ -185,7 +204,7 @@ export function YoYComparisonBuilder() {
 
   const submitSelection = async () => {
     if (!canGenerate || isSubmitting) return;
-    
+
     setIsSubmitting(true);
     setSubmittedSelection({
       comparisonType,
@@ -197,11 +216,17 @@ export function YoYComparisonBuilder() {
   };
 
   const exportFileName = useMemo(() => {
-    const baseId = comparisonType === "contract" ? selectedContractId : selectedParentOrg;
+    const baseId =
+      comparisonType === "contract" ? selectedContractId : selectedParentOrg;
     const years = Array.from(selectedYears).sort((a, b) => a - b);
-    const prefix = comparisonType === "contract" ? "yoy-contract" : "yoy-organization";
-    const parts = [prefix, baseId, years.length > 0 ? years.join("-") : null].filter(
-      (segment): segment is string => Boolean(segment && segment.trim().length > 0)
+    const prefix =
+      comparisonType === "contract" ? "yoy-contract" : "yoy-organization";
+    const parts = [
+      prefix,
+      baseId,
+      years.length > 0 ? years.join("-") : null,
+    ].filter((segment): segment is string =>
+      Boolean(segment && segment.trim().length > 0),
     );
     if (parts.length === 0) return null;
     return parts
@@ -221,14 +246,18 @@ export function YoYComparisonBuilder() {
       <section className="rounded-3xl border border-border bg-card p-8">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-foreground">Build Year over Year Analysis</h2>
+            <h2 className="text-xl font-semibold text-foreground">
+              Build Year over Year Analysis
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {comparisonType === "contract"
                 ? "Select a contract and years to compare performance trends over time"
                 : "Select a parent organization and years to compare average contract performance over time"}
             </p>
           </div>
-          {(selectedContractId || selectedParentOrg || selectedYears.size > 0) && (
+          {(selectedContractId ||
+            selectedParentOrg ||
+            selectedYears.size > 0) && (
             <button
               onClick={resetSelection}
               className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs text-muted-foreground transition hover:border-red-400/60 hover:text-red-200"
@@ -283,23 +312,37 @@ export function YoYComparisonBuilder() {
                   step === stepNum
                     ? "border-primary bg-primary/10 text-primary"
                     : stepNum < step || canProceed(stepNum)
-                    ? "border-primary/40 bg-primary/5 text-primary"
-                    : "border-border bg-card text-muted-foreground"
+                      ? "border-primary/40 bg-primary/5 text-primary"
+                      : "border-border bg-card text-muted-foreground"
                 }`}
               >
                 {stepNum}
               </button>
               <div className="flex-1">
-                <p className={`text-xs font-medium ${step === stepNum ? "text-foreground" : "text-muted-foreground"}`}>
-                  {stepNum === 1 && (comparisonType === "contract" ? "Select Contract" : "Select Organization")}
+                <p
+                  className={`text-xs font-medium ${step === stepNum ? "text-foreground" : "text-muted-foreground"}`}
+                >
+                  {stepNum === 1 &&
+                    (comparisonType === "contract"
+                      ? "Select Contract"
+                      : "Select Organization")}
                   {stepNum === 2 && "Choose Years"}
                 </p>
                 <p className="text-[0.65rem] text-muted-foreground">
-                  {stepNum === 1 && ((comparisonType === "contract" ? selectedContractId : selectedParentOrg) ? "1 selected" : "0 selected")}
+                  {stepNum === 1 &&
+                    ((
+                      comparisonType === "contract"
+                        ? selectedContractId
+                        : selectedParentOrg
+                    )
+                      ? "1 selected"
+                      : "0 selected")}
                   {stepNum === 2 && `${selectedYears.size} selected`}
                 </p>
               </div>
-              {stepNum < 2 && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+              {stepNum < 2 && (
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              )}
             </div>
           ))}
         </div>
@@ -307,7 +350,9 @@ export function YoYComparisonBuilder() {
         <div className="rounded-2xl border border-border bg-card p-6">
           {step === 1 && comparisonType === "contract" && (
             <div>
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Select Contract</h3>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Select Contract
+              </h3>
               <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <input
@@ -320,24 +365,35 @@ export function YoYComparisonBuilder() {
               </div>
               <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
                 {filteredContracts.map((contract) => {
-                  const isSelected = selectedContractId === contract.contract_id;
+                  const isSelected =
+                    selectedContractId === contract.contract_id;
                   return (
                     <button
                       key={contract.contract_id}
-                      onClick={() => setSelectedContractId(contract.contract_id)}
+                      onClick={() =>
+                        setSelectedContractId(contract.contract_id)
+                      }
                       className={`flex items-start justify-between rounded-lg px-4 py-3 text-left transition ${
-                        isSelected ? "bg-primary/10 border border-primary/40" : "hover:bg-accent border border-transparent"
+                        isSelected
+                          ? "bg-primary/10 border border-primary/40"
+                          : "hover:bg-accent border border-transparent"
                       }`}
                     >
                       <div className="flex-1">
-                        <p className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}>
+                        <p
+                          className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}
+                        >
                           {contract.contract_id}
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {contract.organization_marketing_name || contract.contract_name || "No name"}
+                          {contract.organization_marketing_name ||
+                            contract.contract_name ||
+                            "No name"}
                         </p>
                       </div>
-                      {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                      {isSelected && (
+                        <Check className="h-4 w-4 shrink-0 text-primary" />
+                      )}
                     </button>
                   );
                 })}
@@ -347,7 +403,9 @@ export function YoYComparisonBuilder() {
 
           {step === 1 && comparisonType === "organization" && (
             <div>
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Select Parent Organization</h3>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Select Parent Organization
+              </h3>
               <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <input
@@ -360,24 +418,34 @@ export function YoYComparisonBuilder() {
               </div>
               <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
                 {filteredOrganizations.map((org) => {
-                  const isSelected = selectedParentOrg === org.parent_organization;
+                  const isSelected =
+                    selectedParentOrg === org.parent_organization;
                   return (
                     <button
                       key={org.parent_organization}
-                      onClick={() => setSelectedParentOrg(org.parent_organization)}
+                      onClick={() =>
+                        setSelectedParentOrg(org.parent_organization)
+                      }
                       className={`flex items-start justify-between rounded-lg px-4 py-3 text-left transition ${
-                        isSelected ? "bg-primary/10 border border-primary/40" : "hover:bg-accent border border-transparent"
+                        isSelected
+                          ? "bg-primary/10 border border-primary/40"
+                          : "hover:bg-accent border border-transparent"
                       }`}
                     >
                       <div className="flex-1">
-                        <p className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}>
+                        <p
+                          className={`text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}
+                        >
                           {org.parent_organization}
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {org.contract_count} contract{org.contract_count !== 1 ? "s" : ""}
+                          {org.contract_count} contract
+                          {org.contract_count !== 1 ? "s" : ""}
                         </p>
                       </div>
-                      {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                      {isSelected && (
+                        <Check className="h-4 w-4 shrink-0 text-primary" />
+                      )}
                     </button>
                   );
                 })}
@@ -392,19 +460,27 @@ export function YoYComparisonBuilder() {
               </h3>
               {yearsLoading && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Loading available years...
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading available
+                  years...
                 </div>
               )}
-              {yearsError && <p className="text-xs text-red-400">{yearsError}</p>}
+              {yearsError && (
+                <p className="text-xs text-red-400">{yearsError}</p>
+              )}
               {!yearsLoading && availableYears.length === 0 && !yearsError && (
                 <p className="text-xs text-muted-foreground">
-                  No historical data available for this {comparisonType === "contract" ? "contract" : "organization"}.
+                  No historical data available for this{" "}
+                  {comparisonType === "contract" ? "contract" : "organization"}.
                 </p>
               )}
               {!yearsLoading && availableYears.length > 0 && (
                 <>
                   <p className="mb-4 text-xs text-muted-foreground">
-                    Found {availableYears.length} year{availableYears.length !== 1 ? "s" : ""} with data for this {comparisonType === "contract" ? "contract" : "organization"}
+                    Found {availableYears.length} year
+                    {availableYears.length !== 1 ? "s" : ""} with data for this{" "}
+                    {comparisonType === "contract"
+                      ? "contract"
+                      : "organization"}
                   </p>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                     {availableYears.map((year) => {
@@ -471,7 +547,9 @@ export function YoYComparisonBuilder() {
         </div>
       </section>
 
-      {submittedSelection && <YoYComparisonResults selection={submittedSelection} />}
+      {submittedSelection && (
+        <YoYComparisonResults selection={submittedSelection} />
+      )}
     </div>
   );
 }

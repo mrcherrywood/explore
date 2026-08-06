@@ -37,7 +37,9 @@ export function AnalyticsChat() {
     try {
       // Get selected variables from localStorage
       const selectedVariablesJson = localStorage.getItem("selectedVariables");
-      const selectedVariables = selectedVariablesJson ? JSON.parse(selectedVariablesJson) : [];
+      const selectedVariables = selectedVariablesJson
+        ? JSON.parse(selectedVariablesJson)
+        : [];
 
       const response = await fetch("/api/analytics", {
         method: "POST",
@@ -54,7 +56,10 @@ export function AnalyticsChat() {
       }
 
       const data = await response.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: data.message.content }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.message.content },
+      ]);
     } catch (error) {
       console.error("Chat error:", error);
       setMessages((prev) => [
@@ -91,30 +96,41 @@ export function AnalyticsChat() {
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-[#0a0a0a]">
-              <Sparkles className="h-8 w-8 text-sky-400" />
+              <Sparkles className="h-8 w-8 text-[var(--fep-accent)]" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-slate-200">AI Analytics Assistant</h3>
+              <h3 className="text-lg font-semibold text-slate-200">
+                AI Analytics Assistant
+              </h3>
               <p className="mt-2 max-w-md text-sm text-slate-500">
-                Select variables above and ask me to create charts, compare data, or generate insights.
+                Select variables above and ask me to create charts, compare
+                data, or generate insights.
               </p>
             </div>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <button
-                onClick={() => setInput("Show me a trend chart for the selected variables")}
-                className="rounded-full border border-white/10 bg-[#0a0a0a] px-4 py-2 text-xs text-slate-300 transition hover:border-sky-400/60 hover:text-sky-200"
+                onClick={() =>
+                  setInput("Show me a trend chart for the selected variables")
+                }
+                className="rounded-full border border-white/10 bg-[#0a0a0a] px-4 py-2 text-xs text-slate-300 transition hover:border-[var(--fep-accent)]/40 hover:text-[var(--fep-accent)]"
               >
                 Create a trend chart
               </button>
               <button
-                onClick={() => setInput("Compare the selected variables across different years")}
-                className="rounded-full border border-white/10 bg-[#0a0a0a] px-4 py-2 text-xs text-slate-300 transition hover:border-sky-400/60 hover:text-sky-200"
+                onClick={() =>
+                  setInput(
+                    "Compare the selected variables across different years",
+                  )
+                }
+                className="rounded-full border border-white/10 bg-[#0a0a0a] px-4 py-2 text-xs text-slate-300 transition hover:border-[var(--fep-accent)]/40 hover:text-[var(--fep-accent)]"
               >
                 Compare across years
               </button>
               <button
-                onClick={() => setInput("Summarize the key insights from the selected data")}
-                className="rounded-full border border-white/10 bg-[#0a0a0a] px-4 py-2 text-xs text-slate-300 transition hover:border-sky-400/60 hover:text-sky-200"
+                onClick={() =>
+                  setInput("Summarize the key insights from the selected data")
+                }
+                className="rounded-full border border-white/10 bg-[#0a0a0a] px-4 py-2 text-xs text-slate-300 transition hover:border-[var(--fep-accent)]/40 hover:text-[var(--fep-accent)]"
               >
                 Generate summary
               </button>
@@ -123,8 +139,14 @@ export function AnalyticsChat() {
         ) : (
           <div className="flex flex-col gap-6">
             {messages.map((message, index) => {
-              const chartSpec = message.role === "assistant" ? extractChartSpec(message.content) : null;
-              const textContent = message.role === "assistant" ? removeChartSpec(message.content) : message.content;
+              const chartSpec =
+                message.role === "assistant"
+                  ? extractChartSpec(message.content)
+                  : null;
+              const textContent =
+                message.role === "assistant"
+                  ? removeChartSpec(message.content)
+                  : message.content;
 
               return (
                 <div
@@ -133,13 +155,13 @@ export function AnalyticsChat() {
                 >
                   {message.role === "assistant" && (
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#0a0a0a]">
-                      <Sparkles className="h-4 w-4 text-sky-400" />
+                      <Sparkles className="h-4 w-4 text-[var(--fep-accent)]" />
                     </div>
                   )}
                   <div
                     className={`max-w-3xl rounded-2xl px-5 py-4 ${
                       message.role === "user"
-                        ? "bg-sky-500/20 text-sky-100 border border-sky-400/40"
+                        ? "bg-[var(--fep-band-bg)] text-[var(--fep-accent)] border border-[var(--fep-info-border)]"
                         : "bg-[#0a0a0a] text-slate-200 border border-white/5"
                     }`}
                   >
@@ -147,7 +169,9 @@ export function AnalyticsChat() {
                       <div className="flex flex-col gap-4">
                         {textContent && (
                           <div className="prose prose-invert prose-sm max-w-none">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{textContent}</ReactMarkdown>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {textContent}
+                            </ReactMarkdown>
                           </div>
                         )}
                         {chartSpec && (
@@ -161,8 +185,10 @@ export function AnalyticsChat() {
                     )}
                   </div>
                   {message.role === "user" && (
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sky-400/40 bg-sky-500/20">
-                      <span className="text-xs font-semibold text-sky-200">You</span>
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--fep-info-border)] bg-[var(--fep-band-bg)]">
+                      <span className="text-xs font-semibold text-[var(--fep-accent)]">
+                        You
+                      </span>
                     </div>
                   )}
                 </div>
@@ -171,10 +197,12 @@ export function AnalyticsChat() {
             {isLoading && (
               <div className="flex gap-4">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#0a0a0a]">
-                  <Loader2 className="h-4 w-4 animate-spin text-sky-400" />
+                  <Loader2 className="h-4 w-4 animate-spin text-[var(--fep-accent)]" />
                 </div>
                 <div className="rounded-2xl border border-white/5 bg-[#0a0a0a] px-5 py-4">
-                  <p className="text-sm text-slate-400">Analyzing data and generating insights...</p>
+                  <p className="text-sm text-slate-400">
+                    Analyzing data and generating insights...
+                  </p>
                 </div>
               </div>
             )}
@@ -191,12 +219,12 @@ export function AnalyticsChat() {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about your data, request charts, or get insights..."
             disabled={isLoading}
-            className="flex-1 rounded-2xl border border-white/10 bg-[#0a0a0a] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-500 focus:border-sky-400/60 focus:outline-none disabled:opacity-50"
+            className="flex-1 rounded-2xl border border-white/10 bg-[#0a0a0a] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-500 focus:border-[var(--fep-accent)]/40 focus:outline-none disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="flex items-center gap-2 rounded-2xl border border-sky-500/70 bg-sky-500/10 px-6 py-3 text-sm font-medium text-sky-200 transition hover:border-sky-400/80 hover:bg-sky-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 rounded-2xl border border-[var(--fep-accent)]/50 bg-[var(--fep-band-bg)] px-6 py-3 text-sm font-medium text-[var(--fep-accent)] transition hover:border-[var(--fep-accent)]/50 hover:bg-[var(--fep-band-bg)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>
