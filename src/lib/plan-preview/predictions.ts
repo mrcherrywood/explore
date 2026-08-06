@@ -30,7 +30,13 @@ export type AccruedMeasureScore = {
   measureCode: string;
   measureDisplayName: string;
   measureNormalized: string;
+  /** Display / effective score (decimal overlay when present). */
   score: number;
+  /**
+   * Whole-number measure_data score used for cut-point banding. Null when only
+   * a domain decimal was uploaded.
+   */
+  wholeScore?: number | null;
 };
 
 export type PlanPreviewCutPointSource = "official" | "workbook_forecast" | "model";
@@ -161,6 +167,26 @@ export function starFromThresholds(
   return 1;
 }
 
+/**
+ * CMS cut points are applied to whole-number published scores. Prefer the
+ * measure_data integer when present; otherwise round the decimal overlay.
+ * CAHPS keeps the continuous score (case-mix adjusted stars overlay separately).
+ */
+export function scoreForCutPointBanding(
+  score: number,
+  wholeScore: number | null | undefined,
+  isCahps: boolean
+): number {
+  if (isCahps) return score;
+  // Prefer measure_data's published whole number when present; always round so
+  // a decimal-only stub (score column = 70.68) still bands like CMS (71).
+  const candidate =
+    wholeScore !== null && wholeScore !== undefined && Number.isFinite(wholeScore)
+      ? wholeScore
+      : score;
+  return Math.round(candidate);
+}
+
 function lookupBaselineCutPoint(
   measureNormalized: string,
   displayName: string,
@@ -268,7 +294,7 @@ export function buildPlanPreviewPredictions(
     );
     const projectedSamples: MeasureScoreSample[] = measureRows.map((row) => ({
       contractId: row.contractId,
-      score: row.score,
+      score: scoreForCutPointBanding(row.score, row.wholeScore, isCahps),
     }));
 
     const base: Omit<PlanPreviewCutPointPrediction, "status" | "reason"> = {
@@ -499,9 +525,11 @@ function buildContractPredictions(
         baselineYear
       );
       const weight = baselineCutPoint?.weight ?? 1;
+      const isCahps = isCahpsMeasure(row.measureDisplayName);
+      const bandingScore = scoreForCutPointBanding(row.score, row.wholeScore, isCahps);
       const adjustedStar = adjustedByKey.get(`${contractId}|${row.measureNormalized}`) ?? null;
       const cutPointStar = ready
-        ? starFromThresholds(row.score, ready.thresholds, ready.inverted)
+        ? starFromThresholds(bandingScore, ready.thresholds, ready.inverted)
         : null;
       const predictedStar = adjustedStar ?? cutPointStar;
       const starSource: PlanPreviewStarSource | null =
@@ -511,7 +539,7 @@ function buildContractPredictions(
             ? "cut_points"
             : null;
       const baselineOfficialStar = baselineCutPoint
-        ? deriveMeasureStarRating(row.score, baselineCutPoint, inverted)
+        ? deriveMeasureStarRating(bandingScore, baselineCutPoint, inverted)
         : null;
       const predictionStatus =
         adjustedStar !== null

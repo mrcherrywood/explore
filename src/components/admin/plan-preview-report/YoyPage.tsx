@@ -24,7 +24,8 @@ import {
   formatStars,
 } from "./report-shared";
 
-const MAX_MOVERS = 12;
+/** Cap so the table fits a fixed letter page under the trend chart. */
+const MAX_MOVERS = 9;
 
 function moversFor(measures: ReportMeasure[]): (ReportMeasure & { delta: number })[] {
   return measures
@@ -93,12 +94,12 @@ export function YoyPage({
         title="Overall Rating Trend"
         note={`Published Overall, Part C, and Part D summary ratings by Star year; the final bar is this report's projected Stars ${report.starsYear} Overall rating.`}
       >
-        <div className="fep-report-panel" style={{ padding: "14px 10px 4px" }}>
+        <div className="fep-report-panel" style={{ padding: "10px 10px 2px" }}>
           <ComposedChart
             width={686}
-            height={225}
+            height={190}
             data={chartData}
-            margin={{ top: 20, right: 18, left: -18, bottom: 0 }}
+            margin={{ top: 18, right: 18, left: -18, bottom: 0 }}
           >
             <CartesianGrid stroke={REPORT_COLORS.grid} vertical={false} />
             <XAxis
@@ -157,18 +158,18 @@ export function YoyPage({
 
       <ReportSection
         title="Measure Movement vs Published Stars"
-        note={`Each accrued measure's predicted Stars ${report.starsYear} star compared with the contract's published Stars ${report.baselineYear ?? "—"} star for the same measure. CAHPS predictions marked Adjusted use case-mix and reliability adjusted base stars.`}
-        style={{ marginTop: 16 }}
+        note={`Predicted Stars ${report.starsYear} vs published Stars ${report.baselineYear ?? "—"} for the same measure.`}
+        style={{ marginTop: 12 }}
       >
-        <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ display: "flex", gap: 10 }}>
           <ReportStat label="Declined" value={declined} detail="Predicted below published" />
           <ReportStat label="Held" value={held} detail="Predicted equals published" />
           <ReportStat label="Improved" value={improved} detail="Predicted above published" />
           <ReportStat label="New / unrated" value={newOrUnrated} detail="No comparison available" />
         </div>
 
-        <div className="fep-report-panel" style={{ marginTop: 12, padding: "12px 0 4px" }}>
-          <table className="fep-report-table">
+        <div className="fep-report-panel" style={{ marginTop: 10, padding: "10px 0 8px" }}>
+          <table className="fep-report-table compact">
             <thead>
               <tr>
                 <th className="l">Largest movers</th>
@@ -188,16 +189,16 @@ export function YoyPage({
               ) : (
                 movers.map((measure) => (
                   <tr key={measure.measureCode}>
-                    <td className="l" style={{ whiteSpace: "normal", maxWidth: 330 }}>
+                    <td className="l" style={{ whiteSpace: "normal", maxWidth: 300 }}>
                       <span style={{ fontWeight: 700, color: "var(--fep-ink)" }}>{measure.measureCode}</span>{" "}
                       <span style={{ color: "var(--fep-muted)" }}>{measure.displayName}</span>
                     </td>
                     <td>{measure.weight}</td>
                     <td>{formatStars(measure.publishedBaselineStar, 0)}★</td>
-                    <td style={{ fontWeight: 800, color: "var(--fep-ink)" }}>
+                    <td style={{ fontWeight: 800, color: "var(--fep-ink)", whiteSpace: "nowrap" }}>
                       {formatStars(measure.predictedStar, 0)}★
                       {measure.starSource === "cahps_case_mix_reliability" ? (
-                        <span className="fep-report-pill" style={{ marginLeft: 6, textTransform: "none" }}>
+                        <span className="fep-report-pill" style={{ marginLeft: 5, textTransform: "none" }}>
                           Adjusted
                         </span>
                       ) : null}
@@ -217,10 +218,10 @@ export function YoyPage({
             </tbody>
           </table>
         </div>
-        <p className="fep-report-section-note" style={{ marginTop: 8 }}>
-          Movement reflects both the plan&apos;s score change and projected cut point movement.
-          Showing the {Math.min(movers.length, MAX_MOVERS)} largest changes by star delta, then
-          measure weight.
+        <p className="fep-report-section-note" style={{ marginTop: 6 }}>
+          Movement reflects score change and projected cut point movement. Showing the{" "}
+          {Math.min(movers.length, MAX_MOVERS)} largest changes by star delta, then weight. CAHPS
+          rows marked Adjusted use case-mix and reliability adjusted base stars.
         </p>
       </ReportSection>
     </ReportPageFrame>

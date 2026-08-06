@@ -6,6 +6,7 @@ import test from "node:test";
 import { buildPlanPreviewScenarios } from "./final-scores";
 import {
   buildPlanPreviewPredictions,
+  scoreForCutPointBanding,
   starFromThresholds,
   type AccruedMeasureScore,
 } from "./predictions";
@@ -30,6 +31,7 @@ function loadAccruedRows(): AccruedMeasureScore[] {
       measureDisplayName: row.measureDisplayName,
       measureNormalized: row.measureNormalized,
       score: row.score as number,
+      wholeScore: row.score as number,
     }));
 }
 
@@ -45,6 +47,34 @@ test("starFromThresholds assigns whole stars for normal and inverted measures", 
   assert.equal(starFromThresholds(0.5, inverted, true), 3);
   assert.equal(starFromThresholds(2, inverted, true), 1);
 });
+
+test("scoreForCutPointBanding uses measure_data whole numbers for non-CAHPS", () => {
+  // TRC: HEDIS decimal 70.68 must band like measure_data 71 (4★ cut at 71).
+  assert.equal(scoreForCutPointBanding(70.68, 71, false), 71);
+  assert.equal(scoreForCutPointBanding(70.68, null, false), 71);
+  assert.equal(scoreForCutPointBanding(70.4, 71, false), 71);
+  // CAHPS keeps continuous decimals for cut-point / percentile paths.
+  assert.equal(scoreForCutPointBanding(86.03890753, 86, true), 86.03890753);
+});
+
+test(
+  "Transitions of Care bands on whole score when decimal overlay is below the cut",
+  { skip: !existsSync(MEASURE_PATH) },
+  () => {
+    const rows = loadAccruedRows().map((row) =>
+      row.measureCode === "C19" && row.contractId === "H0885"
+        ? { ...row, score: 70.68, wholeScore: 71 }
+        : row
+    );
+    const result = buildPlanPreviewPredictions(rows, 2027);
+    const contract = result.contracts.find((item) => item.contractId === "H0885");
+    assert.ok(contract);
+    const trc = contract.measures.find((measure) => measure.measureCode === "C19");
+    assert.ok(trc);
+    assert.equal(trc.score, 70.68, "display score keeps the decimal overlay");
+    assert.equal(trc.predictedStar, 4, "cut points use rounded/measure_data 71");
+  }
+);
 
 test(
   "builds anchored cut point predictions and contract stars from the 2027 PP1 file",

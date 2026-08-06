@@ -212,7 +212,10 @@ export type PlanPreviewScoredRow = {
   measureCode: string;
   measureDisplayName: string;
   measureNormalized: string;
+  /** Display / effective score (decimal overlay when present). */
   score: number;
+  /** Whole-number measure_data score for cut-point banding, when available. */
+  wholeScore: number | null;
   decimalSource: string | null;
 };
 
@@ -252,12 +255,13 @@ export async function getPlanPreviewScoredRows(
       status: string;
     }>;
     for (const row of page) {
-      const effective =
+      const wholeScore =
+        row.score !== null && row.score !== undefined ? Number(row.score) : null;
+      const decimalScore =
         row.decimal_score !== null && row.decimal_score !== undefined
           ? Number(row.decimal_score)
-          : row.score !== null
-            ? Number(row.score)
-            : null;
+          : null;
+      const effective = decimalScore ?? wholeScore;
       if (effective === null) continue;
       // Re-resolve from the PP1 file measure name so prior-year code fallbacks
       // stored at import (e.g. D12 COB → SUPD) do not survive into predictions.
@@ -272,6 +276,7 @@ export async function getPlanPreviewScoredRows(
         measureDisplayName: resolved.displayName,
         measureNormalized: resolved.normalizedName,
         score: effective,
+        wholeScore,
         decimalSource: row.decimal_source,
       });
     }

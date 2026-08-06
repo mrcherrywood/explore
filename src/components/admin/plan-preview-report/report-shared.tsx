@@ -102,14 +102,14 @@ export function ReportStat({
   detail?: ReactNode;
 }) {
   return (
-    <div className="fep-report-panel" style={{ padding: "12px 14px", flex: 1, minWidth: 0 }}>
+    <div className="fep-report-panel" style={{ padding: "10px 12px", flex: 1, minWidth: 0 }}>
       <p className="fep-label" style={{ fontSize: 8.5 }}>
         {label}
       </p>
       <p
         style={{
-          margin: "5px 0 0",
-          fontSize: 21,
+          margin: "4px 0 0",
+          fontSize: 20,
           fontWeight: 800,
           letterSpacing: "-0.02em",
           color: "var(--fep-ink)",
@@ -197,15 +197,30 @@ export function ReportPageFrame({
         />
       </header>
 
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>{children}</div>
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        {children}
+      </div>
 
       <footer className="fep-report-footer">
-        <span>
-          {contractId} · Stars {starsYear} Plan Preview 1 projection · Generated {generatedLabel}
-        </span>
-        <span>
-          Page {pageNumber} of {totalPages}
-        </span>
+        <div className="fep-report-footer-meta">
+          <span>
+            {contractId} · Stars {starsYear} Plan Preview 1 projection · Generated {generatedLabel}
+          </span>
+          <span>
+            Page {pageNumber} of {totalPages}
+          </span>
+        </div>
+        <p className="fep-report-footer-confidential">
+          Press Ganey Proprietary and Confidential
+        </p>
       </footer>
     </div>
   );
