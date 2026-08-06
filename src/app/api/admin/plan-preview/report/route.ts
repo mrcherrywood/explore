@@ -68,7 +68,7 @@ export async function GET(request: Request) {
       const starredMeasures = ((metricRows ?? []) as {
         metric_code: string | null;
         star_rating: string | number | null;
-      })
+      }[])
         .map((row) => {
           const code = String(row.metric_code ?? "")
             .trim()
