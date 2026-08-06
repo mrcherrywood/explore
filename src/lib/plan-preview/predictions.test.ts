@@ -57,6 +57,16 @@ test("scoreForCutPointBanding uses measure_data whole numbers for non-CAHPS", ()
   assert.equal(scoreForCutPointBanding(86.03890753, 86, true), 86.03890753);
 });
 
+test("scoreForCutPointBanding keeps complaint-rate decimals when cut points are decimal", () => {
+  const complaintsCuts = { twoStar: 1.26, threeStar: 0.71, fourStar: 0.32, fiveStar: 0.1 };
+  // 0.19 is 4★ (≤0.32, >0.10); rounding to 0 would falsely award 5★.
+  assert.equal(scoreForCutPointBanding(0.19, 0.19, false, complaintsCuts), 0.19);
+  assert.equal(
+    starFromThresholds(scoreForCutPointBanding(0.19, 0.19, false, complaintsCuts), complaintsCuts, true),
+    4
+  );
+});
+
 test(
   "Transitions of Care bands on whole score when decimal overlay is below the cut",
   { skip: !existsSync(MEASURE_PATH) },
@@ -199,7 +209,16 @@ test(
     const scenarios = buildPlanPreviewScenarios(predictions, cai);
     assert.deepEqual(
       scenarios.map((scenario) => scenario.id),
-      ["baseline", "removal2028", "removal2029", "cloverRecalc"]
+      [
+        "baseline",
+        "officialRecalc",
+        "s26NoQI",
+        "s29Removal",
+        "model1",
+        "model2",
+        "removal2028",
+        "removal2029",
+      ]
     );
     const result = scenarios[0];
 
@@ -262,8 +281,8 @@ test(
       "2029 removals should reduce the measure count"
     );
 
-    // Clover-style recalc is a Part C summary and uses the Part C CAI.
-    const clover = scenarios.find((scenario) => scenario.id === "cloverRecalc");
+    // Official recalc is a Part C summary and uses the Part C CAI.
+    const clover = scenarios.find((scenario) => scenario.id === "officialRecalc");
     assert.ok(clover);
     assert.equal(clover.caiSource, "part_c");
     const h0885Clover = clover.contracts.find((c) => c.contractId === "H0885");
@@ -275,5 +294,10 @@ test(
         `${measureCode} should be removed in the recalc scenario`
       );
     }
+
+    const model1 = scenarios.find((scenario) => scenario.id === "model1");
+    assert.ok(model1);
+    assert.ok(model1.removedCodes.includes("D08"));
+    assert.ok(model1.removedCodes.includes("C32"));
   }
 );

@@ -28,7 +28,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "A contract ID is required." }, { status: 400 });
     }
 
-    const { result, scenarios } = await getPlanPreviewRun(admin.serviceClient, starsYear);
+    const { result, scenarios, cai } = await getPlanPreviewRun(
+      admin.serviceClient,
+      starsYear
+    );
     const contract = result.contracts.find((entry) => entry.contractId === contractId);
     if (!contract) {
       return NextResponse.json(
@@ -89,6 +92,7 @@ export async function GET(request: Request) {
       contract,
       domainByCode,
       publishedDomainMeans,
+      cai,
     });
 
     return NextResponse.json(report);

@@ -22,6 +22,7 @@ import {
   formatScore,
   formatSigned,
   formatStars,
+  reportEyebrow,
 } from "./report-shared";
 
 function BuildupRow({
@@ -71,11 +72,13 @@ export function OverviewPage({
   pageNumber,
   totalPages,
   pageRef,
+  sample,
 }: {
   report: PlanPreviewContractReport;
   pageNumber: number;
   totalPages: number;
   pageRef?: Ref<HTMLDivElement>;
+  sample?: boolean;
 }) {
   const baseline = report.scenarios.find(
     (scenario) => scenario.id === "baseline",
@@ -110,7 +113,7 @@ export function OverviewPage({
   return (
     <ReportPageFrame
       pageRef={pageRef}
-      eyebrow={`Plan Preview 1 · Stars ${report.starsYear} Projection`}
+      eyebrow={reportEyebrow(report.starsYear, sample)}
       title={report.contract.contractName ?? report.contract.contractId}
       subtitle={contractLine}
       pageNumber={pageNumber}
@@ -118,17 +121,18 @@ export function OverviewPage({
       contractId={report.contract.contractId}
       starsYear={report.starsYear}
       generatedAt={report.generatedAt}
+      sample={sample}
     >
       <ReportSection
         title="Predicted Overall Rating"
-        note={`Accrued plan preview scores rated at projected Stars ${report.starsYear} cut points. Overall uses MA-PD methodology; Part C and Part D use their own reward-factor thresholds and CAI.`}
+        note={`Accrued plan preview scores rated at projected Stars ${report.starsYear} cut points. Overall uses MA-PD reward factor thresholds and CAI; Part C and Part D summaries use their own CAI.`}
       >
         <div style={{ display: "flex", gap: 14 }}>
           <div
             className="fep-report-panel"
             style={{
-              flex: "0 0 250px",
-              padding: "22px 20px",
+              flex: "0 0 268px",
+              padding: "22px 16px",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -166,15 +170,14 @@ export function OverviewPage({
             <p
               style={{
                 margin: "8px 0 0",
-                fontSize: 10,
+                fontSize: 9.5,
                 fontWeight: 700,
                 color: "var(--fep-faint)",
                 fontVariantNumeric: "tabular-nums",
+                whiteSpace: "nowrap",
               }}
             >
-              Part C {formatScore(score?.partCFinalRating ?? null, 2)}
-              <span style={{ margin: "0 6px", fontWeight: 500 }}>·</span>
-              Part D {formatScore(score?.partDFinalRating ?? null, 2)}
+              {`Part C ${formatScore(score?.partCFinalRating ?? null, 2)} · Part D ${formatScore(score?.partDFinalRating ?? null, 2)}`}
             </p>
           </div>
 
@@ -241,7 +244,7 @@ export function OverviewPage({
               report.measures.filter(
                 (m) => m.starSource === "cahps_case_mix_reliability",
               ).length
-            } CAHPS adjusted; ${leg?.measureCount ?? 0} enter Overall after Part C/D dedup`}
+            } CAHPS adjusted; ${leg?.measureCount ?? 0} enter Overall after Part C/D deduplicated`}
           />
           <ReportStat
             label="Reward factor"

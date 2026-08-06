@@ -3,8 +3,9 @@ import {
   OVERALL_DEDUP_DROP_CODES,
 } from "@/lib/clover-impact/analysis";
 import {
-  OFFICIAL_RECALC_REMOVED_CODES,
+  CLOVER_COMPUTED_SCENARIOS,
   QI_MEASURE_CODES,
+  type CloverComputedScenarioId,
 } from "@/lib/clover-impact/scenarios";
 import {
   calculateContractStats,
@@ -18,6 +19,18 @@ import { getMeasureRemovalForYear } from "@/lib/reward-factor/measure-removal-pr
 import { formatMeasureAcronyms } from "./measure-acronyms";
 import { toBaselineMeasureCode } from "./measure-resolve";
 import type { PlanPreviewPredictionsResult } from "./predictions";
+
+const QI_WEIGHT = 5;
+
+/** Scenarios shown on the report chart (Clover Impact computed set + baseline). */
+export const PLAN_PREVIEW_CHART_SCENARIO_IDS = [
+  "baseline",
+  "s26NoQI",
+  "officialRecalc",
+  "s29Removal",
+  "model1",
+  "model2",
+] as const;
 
 export type PlanPreviewFinalScoreLeg = {
   measureCount: number;
@@ -52,9 +65,18 @@ export type PlanPreviewFinalScore = {
 
 export type PlanPreviewScenarioId =
   | "baseline"
+  | CloverComputedScenarioId
   | "removal2028"
-  | "removal2029"
-  | "cloverRecalc";
+  | "removal2029";
+
+export type PlanPreviewQiSensitivityPoint = {
+  qiStar: number;
+  finalScoreRaw: number | null;
+  finalRating: number | null;
+  baseMean: number | null;
+  rewardFactor: number | null;
+  measureCount: number | null;
+};
 
 export type PlanPreviewFinalScoresResult = {
   id: PlanPreviewScenarioId;
@@ -255,6 +277,20 @@ type ScenarioDef = {
 function scenarioDefs(): ScenarioDef[] {
   const removal2028 = getMeasureRemovalForYear(2028);
   const removal2029 = getMeasureRemovalForYear(2029);
+  const cloverScenarios: ScenarioDef[] = CLOVER_COMPUTED_SCENARIOS.map((scenario) => ({
+    id: scenario.id,
+    label: scenario.label,
+    description: scenario.description,
+    removedCodes: scenario.removedCodes,
+    caiSource: scenario.id === "officialRecalc" ? "part_c" : "overall",
+    notes:
+      scenario.id === "officialRecalc"
+        ? [
+            "The result is a Part C summary rating, so the uploaded Part C CAI is applied instead of the Overall MA-PD CAI.",
+          ]
+        : [],
+  }));
+
   return [
     {
       id: "baseline",
@@ -264,6 +300,7 @@ function scenarioDefs(): ScenarioDef[] {
       caiSource: "overall",
       notes: [],
     },
+    ...cloverScenarios,
     {
       id: "removal2028",
       label: "Stars 2028 removals",
@@ -289,17 +326,6 @@ function scenarioDefs(): ScenarioDef[] {
       removedCodes: removal2029?.removedCodes ?? new Set<string>(),
       caiSource: "overall",
       notes: [],
-    },
-    {
-      id: "cloverRecalc",
-      label: "Clover-style recalc",
-      description:
-        "Part C HEDIS/CAHPS/HOS only — drops all Part D plus SNP, Complaints (C), MCL (C), Timely Appeals, Review Appeals, and Call Center (C).",
-      removedCodes: OFFICIAL_RECALC_REMOVED_CODES,
-      caiSource: "part_c",
-      notes: [
-        "The result is a Part C summary rating, so the uploaded Part C CAI is applied instead of the Overall MA-PD CAI.",
-      ],
     },
   ];
 }
@@ -408,7 +434,7 @@ function computeScenario(
     notes: [
       ...scenario.notes,
       "QI (C30/D04) is not scored in plan preview 1 files and cannot be accurately estimated yet, so all ratings exclude the QI measures (without-QI leg).",
-      "Reward-factor thresholds are recomputed per leg from the baseline population with accrued contracts' predicted stars overlaid.",
+      "Reward factor thresholds are recomputed per leg from the baseline population with accrued contracts' predicted stars overlaid.",
       "CAI comes from the uploaded plan preview CAI file. Disaster/EUC 'higher-of' uplift is not modeled.",
     ],
   };
@@ -460,4 +486,59 @@ export function buildPlanPreviewFinalScores(
     partC: {},
     partD: {},
   })[0];
+}
+
+/**
+ * Contract-level QI sensitivity: inject C30/D04 at each whole-star QI rating
+ * (1–5) into the anchored population, recompute reward-factor thresholds, and
+ * score the target contract. Used when PP1 has no QI scores of its own.
+ */
+export function buildPlanPreviewQiSensitivity(
+  predictions: PlanPreviewPredictionsResult,
+  cai: PlanPreviewCaiRecords,
+  contractId: string
+): PlanPreviewQiSensitivityPoint[] {
+  const { baselineYear } = predictions;
+  if (baselineYear === null) {
+    return [1, 2, 3, 4, 5].map((qiStar) => ({
+      qiStar,
+      finalScoreRaw: null,
+      finalRating: null,
+      baseMean: null,
+      rewardFactor: null,
+      measureCount: null,
+    }));
+  }
+
+  const basePopulation = buildAnchoredPopulation(predictions, baselineYear);
+  const points: PlanPreviewQiSensitivityPoint[] = [];
+
+  for (let qiStar = 1; qiStar <= 5; qiStar += 1) {
+    const augmented = new Map<string, ContractMeasure[]>();
+    for (const [id, measures] of basePopulation) {
+      const withoutQi = withoutCodes(measures, QI_MEASURE_CODES);
+      augmented.set(id, [
+        ...withoutQi,
+        { code: "C30", starValue: qiStar, weight: QI_WEIGHT, category: "Part C" },
+        { code: "D04", starValue: qiStar, weight: QI_WEIGHT, category: "Part D" },
+      ]);
+    }
+
+    const leg = computeLeg(augmented, new Set(), false);
+    const caiValue = cai.overall[contractId] ?? null;
+    const score = buildLegScore(leg, contractId, caiValue);
+    points.push({
+      qiStar,
+      finalScoreRaw: score?.finalScoreRaw ?? null,
+      finalRating:
+        score !== null
+          ? roundToHalf(Math.min(5, Math.max(1, score.finalScoreRaw)))
+          : null,
+      baseMean: score?.baseMean ?? null,
+      rewardFactor: score?.rewardFactor ?? null,
+      measureCount: score?.measureCount ?? null,
+    });
+  }
+
+  return points;
 }

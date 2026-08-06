@@ -288,6 +288,20 @@ export function PlanPreviewAdmin() {
 
   return (
     <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+        <p className="fep-subtitle" style={{ margin: 0 }}>
+          Accrue plan preview files, project cut points, and open contract
+          reports.
+        </p>
+        <a
+          className="fep-link text-xs"
+          href="/admin/plan-preview/sample"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open marketing sample report →
+        </a>
+      </div>
       <section className="fep-card overflow-hidden">
         <div className="px-5 pb-4 pt-5">
           <p className="fep-label">Upload</p>

@@ -1,0 +1,1271 @@
+{
+  "starsYear": 2027,
+  "baselineYear": 2026,
+  "generatedAt": "2026-08-06T20:15:03.370Z",
+  "contract": {
+    "contractId": "H4721",
+    "contractName": "Northstar Advantage (HMO)",
+    "parentOrganization": "Northstar Health Partners",
+    "organizationType": "Local CCP",
+    "snp": null
+  },
+  "measures": [
+    {
+      "measureNormalized": "annual flu vaccine partc",
+      "displayName": "Annual Flu Vaccine",
+      "measureCode": "C03",
+      "score": 65.024001888,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 3,
+      "starSource": "cahps_case_mix_reliability",
+      "baselineOfficialStar": 3,
+      "predictionStatus": "ready",
+      "domain": "CAHPS",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 71
+    },
+    {
+      "measureNormalized": "breast cancer screening partc",
+      "displayName": "Breast Cancer Screening",
+      "measureCode": "C01",
+      "score": 76,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 3,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "HEDIS",
+      "publishedBaselineStar": 3,
+      "publishedBaselineScore": 74
+    },
+    {
+      "measureNormalized": "call center foreign language interpreter and tty availability partc",
+      "displayName": "Call Center – Foreign Language Interpreter and TTY Availability (Part C)",
+      "measureCode": "C32",
+      "score": 98,
+      "weight": 2,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "Operations",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 97
+    },
+    {
+      "measureNormalized": "call center foreign language interpreter and tty availability partd",
+      "displayName": "Call Center – Foreign Language Interpreter and TTY Availability (Part D)",
+      "measureCode": "D01",
+      "score": 97,
+      "weight": 2,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "Operations",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 98
+    },
+    {
+      "measureNormalized": "care coordination partc",
+      "displayName": "Care Coordination",
+      "measureCode": "C26",
+      "score": 86.03890753,
+      "weight": 2,
+      "inverted": false,
+      "predictedStar": 2,
+      "starSource": "cahps_case_mix_reliability",
+      "baselineOfficialStar": 3,
+      "predictionStatus": "ready",
+      "domain": "CAHPS",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 88
+    },
+    {
+      "measureNormalized": "colorectal cancer screening partc",
+      "displayName": "Colorectal Cancer Screening",
+      "measureCode": "C02",
+      "score": 75,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "HEDIS",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 71
+    },
+    {
+      "measureNormalized": "complaints about the drug plan partd",
+      "displayName": "Complaints about the Drug Plan",
+      "measureCode": "D02",
+      "score": 0.18,
+      "weight": 2,
+      "inverted": true,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "Operations",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 0.15
+    },
+    {
+      "measureNormalized": "complaints about the health plan partc",
+      "displayName": "Complaints about the Health Plan",
+      "measureCode": "C27",
+      "score": 0.18,
+      "weight": 2,
+      "inverted": true,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "Operations",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 0.15
+    },
+    {
+      "measureNormalized": "concurrent use of opioids and benzodiazepines cob",
+      "displayName": "Concurrent Use of Opioids and Benzodiazepines (COB)",
+      "measureCode": "D12",
+      "score": 16,
+      "weight": 1,
+      "inverted": true,
+      "predictedStar": 3,
+      "starSource": "cut_points",
+      "baselineOfficialStar": null,
+      "predictionStatus": "ready",
+      "domain": "Pharmacy",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": null
+    },
+    {
+      "measureNormalized": "controlling high blood pressure partc",
+      "displayName": "Controlling High Blood Pressure",
+      "measureCode": "C14",
+      "score": 81,
+      "weight": 3,
+      "inverted": false,
+      "predictedStar": 3,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "HEDIS",
+      "publishedBaselineStar": 3,
+      "publishedBaselineScore": 75
+    },
+    {
+      "measureNormalized": "customer service partc",
+      "displayName": "Customer Service",
+      "measureCode": "C23",
+      "score": 88.244894214,
+      "weight": 2,
+      "inverted": false,
+      "predictedStar": 2,
+      "starSource": "cahps_case_mix_reliability",
+      "baselineOfficialStar": 2,
+      "predictionStatus": "ready",
+      "domain": "CAHPS",
+      "publishedBaselineStar": 3,
+      "publishedBaselineScore": 90
+    },
+    {
+      "measureNormalized": "diabetes care blood sugar controlled partc",
+      "displayName": "Diabetes Care – Blood Sugar Controlled",
+      "measureCode": "C12",
+      "score": 91,
+      "weight": 3,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 5,
+      "predictionStatus": "ready",
+      "domain": "HEDIS",
+      "publishedBaselineStar": 3,
+      "publishedBaselineScore": 86
+    },
+    {
+      "measureNormalized": "diabetes care eye exam partc",
+      "displayName": "Diabetes Care – Eye Exam",
+      "measureCode": "C11",
+      "score": 70,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 2,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 2,
+      "predictionStatus": "ready",
+      "domain": "HEDIS",
+      "publishedBaselineStar": 3,
+      "publishedBaselineScore": 75
+    },
+    {
+      "measureNormalized": "follow up after emergency department visit for people with multiple high risk chronic conditions partc",
+      "displayName": "Follow-up after Emergency Department Visit for People with Multiple High-Risk Chronic Conditions",
+      "measureCode": "C20",
+      "score": 68,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 3,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "HEDIS",
+      "publishedBaselineStar": 3,
+      "publishedBaselineScore": 66
+    },
+    {
+      "measureNormalized": "getting appointments and care quickly partc",
+      "displayName": "Getting Appointments and Care Quickly",
+      "measureCode": "C22",
+      "score": 84.621066003,
+      "weight": 2,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cahps_case_mix_reliability",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "CAHPS",
+      "publishedBaselineStar": 5,
+      "publishedBaselineScore": 87
+    },
+    {
+      "measureNormalized": "getting needed care partc",
+      "displayName": "Getting Needed Care",
+      "measureCode": "C21",
+      "score": 83.066799788,
+      "weight": 2,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cahps_case_mix_reliability",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "CAHPS",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 83
+    },
+    {
+      "measureNormalized": "getting needed prescription drugs partd",
+      "displayName": "Getting Needed Prescription Drugs",
+      "measureCode": "D06",
+      "score": 89.90381093,
+      "weight": 2,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cahps_case_mix_reliability",
+      "baselineOfficialStar": 3,
+      "predictionStatus": "ready",
+      "domain": "CAHPS",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 91
+    },
+    {
+      "measureNormalized": "improving bladder control partc",
+      "displayName": "Improving Bladder Control",
+      "measureCode": "C16",
+      "score": 37,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 1,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 1,
+      "predictionStatus": "ready",
+      "domain": "HOS",
+      "publishedBaselineStar": 1,
+      "publishedBaselineScore": 40
+    },
+    {
+      "measureNormalized": "improving or maintaining mental health partc",
+      "displayName": "Improving or Maintaining Mental Health",
+      "measureCode": "C05",
+      "score": 83,
+      "weight": 3,
+      "inverted": false,
+      "predictedStar": 2,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 3,
+      "predictionStatus": "ready",
+      "domain": "HOS",
+      "publishedBaselineStar": 1,
+      "publishedBaselineScore": 79
+    },
+    {
+      "measureNormalized": "improving or maintaining physical health partc",
+      "displayName": "Improving or Maintaining Physical Health",
+      "measureCode": "C04",
+      "score": 71,
+      "weight": 3,
+      "inverted": false,
+      "predictedStar": 3,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 3,
+      "predictionStatus": "ready",
+      "domain": "HOS",
+      "publishedBaselineStar": 1,
+      "publishedBaselineScore": 64
+    },
+    {
+      "measureNormalized": "kidney health evaluation for patients with diabetes partc",
+      "displayName": "Kidney Health Evaluation for Patients with Diabetes",
+      "measureCode": "C13",
+      "score": 69,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "HEDIS",
+      "publishedBaselineStar": 3,
+      "publishedBaselineScore": 61
+    },
+    {
+      "measureNormalized": "medication adherence for cholesterol statins partd",
+      "displayName": "Medication Adherence for Cholesterol (Statins)",
+      "measureCode": "D10",
+      "score": 90,
+      "weight": 3,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "Pharmacy",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 90
+    },
+    {
+      "measureNormalized": "medication adherence for diabetes medications partd",
+      "displayName": "Medication Adherence for Diabetes Medications",
+      "measureCode": "D08",
+      "score": 89,
+      "weight": 3,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "Pharmacy",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 89
+    },
+    {
+      "measureNormalized": "medication adherence for hypertension ras antagonists partd",
+      "displayName": "Medication Adherence for Hypertension (RAS antagonists)",
+      "measureCode": "D09",
+      "score": 91,
+      "weight": 3,
+      "inverted": false,
+      "predictedStar": 3,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "Pharmacy",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 92
+    },
+    {
+      "measureNormalized": "members choosing to leave the plan partc",
+      "displayName": "Members Choosing to Leave the Plan (Part C)",
+      "measureCode": "C28",
+      "score": 8,
+      "weight": 2,
+      "inverted": true,
+      "predictedStar": 5,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 5,
+      "predictionStatus": "ready",
+      "domain": "Operations",
+      "publishedBaselineStar": 5,
+      "publishedBaselineScore": 6
+    },
+    {
+      "measureNormalized": "members choosing to leave the plan partd",
+      "displayName": "Members Choosing to Leave the Plan (Part D)",
+      "measureCode": "D03",
+      "score": 8,
+      "weight": 1,
+      "inverted": true,
+      "predictedStar": 5,
+      "starSource": "cut_points",
+      "baselineOfficialStar": null,
+      "predictionStatus": "ready",
+      "domain": "Operations",
+      "publishedBaselineStar": 5,
+      "publishedBaselineScore": 6
+    },
+    {
+      "measureNormalized": "monitoring physical activity partc",
+      "displayName": "Monitoring Physical Activity",
+      "measureCode": "C06",
+      "score": 54,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "HOS",
+      "publishedBaselineStar": 3,
+      "publishedBaselineScore": 51
+    },
+    {
+      "measureNormalized": "mpf price accuracy partd",
+      "displayName": "MPF Price Accuracy",
+      "measureCode": "D07",
+      "score": 100,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 5,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 5,
+      "predictionStatus": "ready",
+      "domain": "Operations",
+      "publishedBaselineStar": 5,
+      "publishedBaselineScore": 99
+    },
+    {
+      "measureNormalized": "osteoporosis management in women who had a fracture partc",
+      "displayName": "Osteoporosis Management in Women who had a Fracture",
+      "measureCode": "C10",
+      "score": 56,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "HEDIS",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 59
+    },
+    {
+      "measureNormalized": "plan all cause readmissions partc",
+      "displayName": "Plan All-Cause Readmissions",
+      "measureCode": "C17",
+      "score": 13,
+      "weight": 3,
+      "inverted": true,
+      "predictedStar": 1,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 1,
+      "predictionStatus": "ready",
+      "domain": "HEDIS",
+      "publishedBaselineStar": 1,
+      "publishedBaselineScore": 13
+    },
+    {
+      "measureNormalized": "plan makes timely decisions about appeals partc",
+      "displayName": "Plan Makes Timely Decisions about Appeals",
+      "measureCode": "C30",
+      "score": 99,
+      "weight": 2,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "Operations",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 99
+    },
+    {
+      "measureNormalized": "polypharmacy use of multiple anticholinergic medications in older adults poly ach",
+      "displayName": "Polypharmacy: Use of Multiple Anticholinergic Medications in Older Adults (Poly-ACH)",
+      "measureCode": "D13",
+      "score": 5,
+      "weight": 1,
+      "inverted": true,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": null,
+      "predictionStatus": "ready",
+      "domain": "Pharmacy",
+      "publishedBaselineStar": null,
+      "publishedBaselineScore": null
+    },
+    {
+      "measureNormalized": "rating of drug plan partd",
+      "displayName": "Rating of Drug Plan",
+      "measureCode": "D05",
+      "score": 86.776501387,
+      "weight": 2,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cahps_case_mix_reliability",
+      "baselineOfficialStar": 3,
+      "predictionStatus": "ready",
+      "domain": "CAHPS",
+      "publishedBaselineStar": 2,
+      "publishedBaselineScore": 86
+    },
+    {
+      "measureNormalized": "rating of health care quality partc",
+      "displayName": "Rating of Health Care Quality",
+      "measureCode": "C24",
+      "score": 87.901699927,
+      "weight": 2,
+      "inverted": false,
+      "predictedStar": 5,
+      "starSource": "cahps_case_mix_reliability",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "CAHPS",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 88
+    },
+    {
+      "measureNormalized": "rating of health plan partc",
+      "displayName": "Rating of Health Plan",
+      "measureCode": "C25",
+      "score": 86.638459128,
+      "weight": 2,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cahps_case_mix_reliability",
+      "baselineOfficialStar": 3,
+      "predictionStatus": "ready",
+      "domain": "CAHPS",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 88
+    },
+    {
+      "measureNormalized": "reducing the risk of falling partc",
+      "displayName": "Reducing the Risk of Falling",
+      "measureCode": "C15",
+      "score": 60,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 3,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 3,
+      "predictionStatus": "ready",
+      "domain": "HOS",
+      "publishedBaselineStar": 2,
+      "publishedBaselineScore": 53
+    },
+    {
+      "measureNormalized": "reviewing appeals decisions partc",
+      "displayName": "Reviewing Appeals Decisions",
+      "measureCode": "C31",
+      "score": 99,
+      "weight": 2,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "Operations",
+      "publishedBaselineStar": 5,
+      "publishedBaselineScore": 100
+    },
+    {
+      "measureNormalized": "statin therapy for patients with cardiovascular disease partc",
+      "displayName": "Statin Therapy for Patients with Cardiovascular Disease",
+      "measureCode": "C18",
+      "score": 89,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "HEDIS",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 90
+    },
+    {
+      "measureNormalized": "statin use in persons with diabetes supd partd",
+      "displayName": "Statin Use in Persons with Diabetes (SUPD)",
+      "measureCode": "D11",
+      "score": 91,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "Pharmacy",
+      "publishedBaselineStar": 4,
+      "publishedBaselineScore": 92
+    },
+    {
+      "measureNormalized": "transitions of care partc",
+      "displayName": "Transitions of Care",
+      "measureCode": "C19",
+      "score": 70.67999999999999,
+      "weight": 1,
+      "inverted": false,
+      "predictedStar": 4,
+      "starSource": "cut_points",
+      "baselineOfficialStar": 4,
+      "predictionStatus": "ready",
+      "domain": "HEDIS",
+      "publishedBaselineStar": 3,
+      "publishedBaselineScore": 61
+    }
+  ],
+  "domains": [
+    {
+      "domain": "CAHPS",
+      "part": "Mixed",
+      "measureCount": 9,
+      "ratedMeasureCount": 9,
+      "predictedMean": 3.59,
+      "baselineMean": 3.73,
+      "recalculatedMean": 4
+    },
+    {
+      "domain": "Operations",
+      "part": "Mixed",
+      "measureCount": 9,
+      "ratedMeasureCount": 9,
+      "predictedMean": 4.25,
+      "baselineMean": 4.41,
+      "recalculatedMean": 4
+    },
+    {
+      "domain": "HEDIS",
+      "part": "Part C",
+      "measureCount": 11,
+      "ratedMeasureCount": 11,
+      "predictedMean": 3.06,
+      "baselineMean": 2.89,
+      "recalculatedMean": 2.89
+    },
+    {
+      "domain": "HOS",
+      "part": "Part C",
+      "measureCount": 5,
+      "ratedMeasureCount": 5,
+      "predictedMean": 2.56,
+      "baselineMean": 1.6,
+      "recalculatedMean": 1.6
+    },
+    {
+      "domain": "Pharmacy",
+      "part": "Part D",
+      "measureCount": 6,
+      "ratedMeasureCount": 6,
+      "predictedMean": 3.67,
+      "baselineMean": 4,
+      "recalculatedMean": null
+    }
+  ],
+  "history": [
+    {
+      "year": 2023,
+      "overall": 4,
+      "partC": 4,
+      "partD": 3.5
+    },
+    {
+      "year": 2024,
+      "overall": 3.5,
+      "partC": 4,
+      "partD": 4
+    },
+    {
+      "year": 2025,
+      "overall": 3.5,
+      "partC": 3.5,
+      "partD": 3.5
+    },
+    {
+      "year": 2026,
+      "overall": 4,
+      "partC": 3.5,
+      "partD": 4.5
+    }
+  ],
+  "yoySummary": {
+    "declined": 8,
+    "held": 22,
+    "improved": 9,
+    "newOrUnrated": 1
+  },
+  "scenarios": [
+    {
+      "id": "baseline",
+      "label": "All measures",
+      "description": "Every accrued measure scores at the predicted cut points.",
+      "caiSource": "overall",
+      "removedContractCodes": [],
+      "score": {
+        "contractId": "H4721",
+        "contractName": "Northstar Advantage (HMO)",
+        "parentOrganization": "Northstar Health Partners",
+        "caiValue": -0.036054,
+        "withQi": {
+          "measureCount": 40,
+          "baseMean": 3.6538461538461537,
+          "weightedVariance": 1.152581803469377,
+          "rewardFactor": 0,
+          "meanCategory": "below_threshold",
+          "varianceCategory": "medium",
+          "finalScoreRaw": 3.6177921538461537
+        },
+        "withoutQi": {
+          "measureCount": 38,
+          "baseMean": 3.4558823529411766,
+          "weightedVariance": 1.0099247171046484,
+          "rewardFactor": 0,
+          "meanCategory": "below_threshold",
+          "varianceCategory": "medium",
+          "finalScoreRaw": 3.4198283529411766
+        },
+        "partCFinalRating": 3.279437448979592,
+        "partDFinalRating": 4.018226263157895,
+        "selectedLeg": "without_qi",
+        "finalScoreRaw": 3.4198283529411766,
+        "finalRating": 3.5,
+        "qualifiesOverall": true,
+        "reason": null
+      },
+      "thresholds": {
+        "withQi": {
+          "mean65th": 3.6689497716894977,
+          "mean85th": 3.9496357301235347,
+          "variance30th": 0.9186575935052494,
+          "variance70th": 1.258002390099851
+        },
+        "withoutQi": {
+          "mean65th": 3.716542288557214,
+          "mean85th": 3.96875,
+          "variance30th": 0.9146959459459459,
+          "variance70th": 1.269610074343802
+        }
+      },
+      "notes": [
+        "QI (C30/D04) is not scored in plan preview 1 files and cannot be accurately estimated yet, so all ratings exclude the QI measures (without-QI leg).",
+        "Reward-factor thresholds are recomputed per leg from the baseline population with accrued contracts' predicted stars overlaid.",
+        "CAI comes from the uploaded plan preview CAI file. Disaster/EUC 'higher-of' uplift is not modeled."
+      ]
+    },
+    {
+      "id": "officialRecalc",
+      "label": "Stars 2026 Recalculation (Official CMS)",
+      "description": "CMS's June 17, 2026 voluntary recalculation of the Stars 2026 rating that drives the 2027 QBP. Keeps only Part C HEDIS/CAHPS/HOS measures; removes all Part D measures and six named Part C measures: SNP Care Management, Complaints about the Health Plan, Members Choosing to Leave the Plan, Plan Makes Timely Decisions about Appeals, Reviewing Appeals Decisions, and Call Center – Foreign Language Interpreter and TTY Availability. The recalculated rating is applied only when it raises the contract's original Stars 2026 rating (hold-harmless).",
+      "caiSource": "part_c",
+      "removedContractCodes": [
+        "C28",
+        "C29",
+        "C31",
+        "C32",
+        "C33",
+        "D01",
+        "D02",
+        "D03",
+        "D05",
+        "D06",
+        "D07",
+        "D08",
+        "D09",
+        "D10",
+        "D12"
+      ],
+      "score": {
+        "contractId": "H4721",
+        "contractName": "Northstar Advantage (HMO)",
+        "parentOrganization": "Northstar Health Partners",
+        "caiValue": -0.026685,
+        "withQi": {
+          "measureCount": 25,
+          "baseMean": 3.311111111111111,
+          "weightedVariance": 1.4732510288065845,
+          "rewardFactor": 0,
+          "meanCategory": "below_threshold",
+          "varianceCategory": "high",
+          "finalScoreRaw": 3.284426111111111
+        },
+        "withoutQi": {
+          "measureCount": 24,
+          "baseMean": 3.1,
+          "weightedVariance": 1.2417391304347825,
+          "rewardFactor": 0,
+          "meanCategory": "below_threshold",
+          "varianceCategory": "high",
+          "finalScoreRaw": 3.073315
+        },
+        "partCFinalRating": null,
+        "partDFinalRating": null,
+        "selectedLeg": "without_qi",
+        "finalScoreRaw": 3.073315,
+        "finalRating": 3,
+        "qualifiesOverall": true,
+        "reason": null
+      },
+      "thresholds": {
+        "withQi": {
+          "mean65th": 3.6511627906976742,
+          "mean85th": 3.9372549019607845,
+          "variance30th": 0.8022644265887509,
+          "variance70th": 1.2051428571428573
+        },
+        "withoutQi": {
+          "mean65th": 3.6575187969924814,
+          "mean85th": 3.9597953216374266,
+          "variance30th": 0.7936920222634507,
+          "variance70th": 1.1918714555765597
+        }
+      },
+      "notes": [
+        "The result is a Part C summary rating, so the uploaded Part C CAI is applied instead of the Overall MA-PD CAI.",
+        "QI (C30/D04) is not scored in plan preview 1 files and cannot be accurately estimated yet, so all ratings exclude the QI measures (without-QI leg).",
+        "Reward-factor thresholds are recomputed per leg from the baseline population with accrued contracts' predicted stars overlaid.",
+        "CAI comes from the uploaded plan preview CAI file. Disaster/EUC 'higher-of' uplift is not modeled."
+      ]
+    },
+    {
+      "id": "s26NoQI",
+      "label": "Stars 2026 - No QI",
+      "description": "Removes the Part C and Part D Quality Improvement measures to show the direct QI effect.",
+      "caiSource": "overall",
+      "removedContractCodes": [],
+      "score": {
+        "contractId": "H4721",
+        "contractName": "Northstar Advantage (HMO)",
+        "parentOrganization": "Northstar Health Partners",
+        "caiValue": -0.036054,
+        "withQi": {
+          "measureCount": 38,
+          "baseMean": 3.4558823529411766,
+          "weightedVariance": 1.0099247171046484,
+          "rewardFactor": 0,
+          "meanCategory": "below_threshold",
+          "varianceCategory": "medium",
+          "finalScoreRaw": 3.4198283529411766
+        },
+        "withoutQi": {
+          "measureCount": 38,
+          "baseMean": 3.4558823529411766,
+          "weightedVariance": 1.0099247171046484,
+          "rewardFactor": 0,
+          "meanCategory": "below_threshold",
+          "varianceCategory": "medium",
+          "finalScoreRaw": 3.4198283529411766
+        },
+        "partCFinalRating": null,
+        "partDFinalRating": null,
+        "selectedLeg": "without_qi",
+        "finalScoreRaw": 3.4198283529411766,
+        "finalRating": 3.5,
+        "qualifiesOverall": true,
+        "reason": null
+      },
+      "thresholds": {
+        "withQi": {
+          "mean65th": 3.716542288557214,
+          "mean85th": 3.96875,
+          "variance30th": 0.9146959459459459,
+          "variance70th": 1.269610074343802
+        },
+        "withoutQi": {
+          "mean65th": 3.716542288557214,
+          "mean85th": 3.96875,
+          "variance30th": 0.9146959459459459,
+          "variance70th": 1.269610074343802
+        }
+      },
+      "notes": [
+        "QI (C30/D04) is not scored in plan preview 1 files and cannot be accurately estimated yet, so all ratings exclude the QI measures (without-QI leg).",
+        "Reward-factor thresholds are recomputed per leg from the baseline population with accrued contracts' predicted stars overlaid.",
+        "CAI comes from the uploaded plan preview CAI file. Disaster/EUC 'higher-of' uplift is not modeled."
+      ]
+    },
+    {
+      "id": "s29Removal",
+      "label": "Stars 2026 - S29 Removal",
+      "description": "Removes the CMS-announced 2027, 2028, and 2029 Stars removals: Care for Older Adults - Pain Assessment, Medication Reconciliation Post-Discharge, MTM, both Call Center measures, Statin Therapy, appeals, SNP Care Management, complaints, MPF Price Accuracy, disenrollment, Customer Service, and Rating of Health Care Quality.",
+      "caiSource": "overall",
+      "removedContractCodes": [
+        "C19",
+        "C24",
+        "C25",
+        "C28",
+        "C29",
+        "C31",
+        "C32",
+        "C33",
+        "D01",
+        "D02",
+        "D03",
+        "D07"
+      ],
+      "score": {
+        "contractId": "H4721",
+        "contractName": "Northstar Advantage (HMO)",
+        "parentOrganization": "Northstar Health Partners",
+        "caiValue": -0.036054,
+        "withQi": {
+          "measureCount": 30,
+          "baseMean": 3.533333333333333,
+          "weightedVariance": 1.2229885057471261,
+          "rewardFactor": 0,
+          "meanCategory": "relatively_high",
+          "varianceCategory": "high",
+          "finalScoreRaw": 3.497279333333333
+        },
+        "withoutQi": {
+          "measureCount": 28,
+          "baseMean": 3.24,
+          "weightedVariance": 0.9358222222222219,
+          "rewardFactor": 0,
+          "meanCategory": "below_threshold",
+          "varianceCategory": "medium",
+          "finalScoreRaw": 3.203946
+        },
+        "partCFinalRating": null,
+        "partDFinalRating": null,
+        "selectedLeg": "without_qi",
+        "finalScoreRaw": 3.203946,
+        "finalRating": 3,
+        "qualifiesOverall": true,
+        "reason": null
+      },
+      "thresholds": {
+        "withQi": {
+          "mean65th": 3.523766328011611,
+          "mean85th": 3.8411949685534594,
+          "variance30th": 0.8126301884875272,
+          "variance70th": 1.168419471153846
+        },
+        "withoutQi": {
+          "mean65th": 3.5628535512256443,
+          "mean85th": 3.8570618264322176,
+          "variance30th": 0.7526590950063098,
+          "variance70th": 1.1710546241211464
+        }
+      },
+      "notes": [
+        "QI (C30/D04) is not scored in plan preview 1 files and cannot be accurately estimated yet, so all ratings exclude the QI measures (without-QI leg).",
+        "Reward-factor thresholds are recomputed per leg from the baseline population with accrued contracts' predicted stars overlaid.",
+        "CAI comes from the uploaded plan preview CAI file. Disaster/EUC 'higher-of' uplift is not modeled."
+      ]
+    },
+    {
+      "id": "model1",
+      "label": "Model 1",
+      "description": "Removes the ten measures most directly tied to the 1395w-22(e) data-source issue cited in the Clover decision. This creates a narrower remedy-style view: if CMS recalculated around the clearest disputed statutory/data-source problem, the affected measures would be medication adherence, SUPD, both call centers, Reviewing Appeals Decisions, Rating of Drug Plan, Getting Needed Drugs, and MTM.",
+      "caiSource": "overall",
+      "removedContractCodes": [
+        "C32",
+        "C33",
+        "D01",
+        "D05",
+        "D06",
+        "D08",
+        "D09",
+        "D10",
+        "D12"
+      ],
+      "score": {
+        "contractId": "H4721",
+        "contractName": "Northstar Advantage (HMO)",
+        "parentOrganization": "Northstar Health Partners",
+        "caiValue": -0.036054,
+        "withQi": {
+          "measureCount": 30,
+          "baseMean": 3.5964912280701755,
+          "weightedVariance": 1.519406501735282,
+          "rewardFactor": 0,
+          "meanCategory": "below_threshold",
+          "varianceCategory": "high",
+          "finalScoreRaw": 3.5604372280701755
+        },
+        "withoutQi": {
+          "measureCount": 28,
+          "baseMean": 3.297872340425532,
+          "weightedVariance": 1.3201213889308048,
+          "rewardFactor": 0,
+          "meanCategory": "below_threshold",
+          "varianceCategory": "medium",
+          "finalScoreRaw": 3.261818340425532
+        },
+        "partCFinalRating": null,
+        "partDFinalRating": null,
+        "selectedLeg": "without_qi",
+        "finalScoreRaw": 3.261818340425532,
+        "finalRating": 3.5,
+        "qualifiesOverall": true,
+        "reason": null
+      },
+      "thresholds": {
+        "withQi": {
+          "mean65th": 3.6972708894878705,
+          "mean85th": 3.9814751286449397,
+          "variance30th": 0.9208829654310701,
+          "variance70th": 1.2758279782501232
+        },
+        "withoutQi": {
+          "mean65th": 3.75,
+          "mean85th": 4.024099883855982,
+          "variance30th": 0.9121188372755772,
+          "variance70th": 1.334768089053803
+        }
+      },
+      "notes": [
+        "QI (C30/D04) is not scored in plan preview 1 files and cannot be accurately estimated yet, so all ratings exclude the QI measures (without-QI leg).",
+        "Reward-factor thresholds are recomputed per leg from the baseline population with accrued contracts' predicted stars overlaid.",
+        "CAI comes from the uploaded plan preview CAI file. Disaster/EUC 'higher-of' uplift is not modeled."
+      ]
+    },
+    {
+      "id": "model2",
+      "label": "Model 2",
+      "description": "Removes the broader 20-measure Clover ruling set. This creates an upper-bound sensitivity case for a wider interpretation of the decision, adding patient-experience, CAHPS/HOS, and administrative measures that could also be treated as affected: Getting Needed Care, Getting Care Quickly, Customer Service, Rating of Health Care Quality, Care Coordination, Flu, Improving Mental/Physical Health, Reducing Falls, and Improving Bladder Control.",
+      "caiSource": "overall",
+      "removedContractCodes": [
+        "C03",
+        "C04",
+        "C05",
+        "C15",
+        "C16",
+        "C22",
+        "C23",
+        "C24",
+        "C25",
+        "C27",
+        "C32",
+        "C33",
+        "D01",
+        "D05",
+        "D06",
+        "D08",
+        "D09",
+        "D10",
+        "D12"
+      ],
+      "score": {
+        "contractId": "H4721",
+        "contractName": "Northstar Advantage (HMO)",
+        "parentOrganization": "Northstar Health Partners",
+        "caiValue": -0.036054,
+        "withQi": {
+          "measureCount": 20,
+          "baseMean": 3.9210526315789473,
+          "weightedVariance": 1.3507799970841232,
+          "rewardFactor": 0,
+          "meanCategory": "relatively_high",
+          "varianceCategory": "high",
+          "finalScoreRaw": 3.8849986315789473
+        },
+        "withoutQi": {
+          "measureCount": 18,
+          "baseMean": 3.5357142857142856,
+          "weightedVariance": 1.2465486194477795,
+          "rewardFactor": 0,
+          "meanCategory": "below_threshold",
+          "varianceCategory": "high",
+          "finalScoreRaw": 3.4996602857142856
+        },
+        "partCFinalRating": null,
+        "partDFinalRating": null,
+        "selectedLeg": "without_qi",
+        "finalScoreRaw": 3.4996602857142856,
+        "finalRating": 3.5,
+        "qualifiesOverall": true,
+        "reason": null
+      },
+      "thresholds": {
+        "withQi": {
+          "mean65th": 3.736842105263158,
+          "mean85th": 4.052631578947368,
+          "variance30th": 0.8232514177693765,
+          "variance70th": 1.2264344816397166
+        },
+        "withoutQi": {
+          "mean65th": 3.794736842105263,
+          "mean85th": 4.163978494623656,
+          "variance30th": 0.786281179138322,
+          "variance70th": 1.243392299687825
+        }
+      },
+      "notes": [
+        "QI (C30/D04) is not scored in plan preview 1 files and cannot be accurately estimated yet, so all ratings exclude the QI measures (without-QI leg).",
+        "Reward-factor thresholds are recomputed per leg from the baseline population with accrued contracts' predicted stars overlaid.",
+        "CAI comes from the uploaded plan preview CAI file. Disaster/EUC 'higher-of' uplift is not modeled."
+      ]
+    },
+    {
+      "id": "removal2028",
+      "label": "Stars 2028 removals",
+      "description": "CMS Stars 2028 retirements: COA, MRP, MTM, Call Center (C), Call Center (D), SPC.",
+      "caiSource": "overall",
+      "removedContractCodes": [
+        "C19",
+        "C33",
+        "D01"
+      ],
+      "score": {
+        "contractId": "H4721",
+        "contractName": "Northstar Advantage (HMO)",
+        "parentOrganization": "Northstar Health Partners",
+        "caiValue": -0.036054,
+        "withQi": {
+          "measureCount": 37,
+          "baseMean": 3.6301369863013697,
+          "weightedVariance": 1.2250787097850337,
+          "rewardFactor": 0,
+          "meanCategory": "below_threshold",
+          "varianceCategory": "medium",
+          "finalScoreRaw": 3.5940829863013697
+        },
+        "withoutQi": {
+          "measureCount": 35,
+          "baseMean": 3.4126984126984126,
+          "weightedVariance": 1.0665006743438115,
+          "rewardFactor": 0,
+          "meanCategory": "below_threshold",
+          "varianceCategory": "medium",
+          "finalScoreRaw": 3.3766444126984125
+        },
+        "partCFinalRating": null,
+        "partDFinalRating": null,
+        "selectedLeg": "without_qi",
+        "finalScoreRaw": 3.3766444126984125,
+        "finalRating": 3.5,
+        "qualifiesOverall": true,
+        "reason": null
+      },
+      "thresholds": {
+        "withQi": {
+          "mean65th": 3.631393861892583,
+          "mean85th": 3.926454683106208,
+          "variance30th": 0.8881194213604184,
+          "variance70th": 1.2356647763074982
+        },
+        "withoutQi": {
+          "mean65th": 3.6491228070175437,
+          "mean85th": 3.9473684210526314,
+          "variance30th": 0.8795260039499669,
+          "variance70th": 1.2491130977721014
+        }
+      },
+      "notes": [
+        "QI (C30/D04) is not scored in plan preview 1 files and cannot be accurately estimated yet, so all ratings exclude the QI measures (without-QI leg).",
+        "Reward-factor thresholds are recomputed per leg from the baseline population with accrued contracts' predicted stars overlaid.",
+        "CAI comes from the uploaded plan preview CAI file. Disaster/EUC 'higher-of' uplift is not modeled."
+      ]
+    },
+    {
+      "id": "removal2029",
+      "label": "Stars 2029 removals",
+      "description": "CMS Stars 2029 retirements: COA, MRP, MTM, Call Center (C), Call Center (D), SPC, Timely Appeals, Review Appeals, SNP, Complaints (C), Complaints (D), MPF, MCL (C), MCL (D), CS, HCQ.",
+      "caiSource": "overall",
+      "removedContractCodes": [
+        "C19",
+        "C24",
+        "C25",
+        "C28",
+        "C29",
+        "C31",
+        "C32",
+        "C33",
+        "D01",
+        "D02",
+        "D03",
+        "D07"
+      ],
+      "score": {
+        "contractId": "H4721",
+        "contractName": "Northstar Advantage (HMO)",
+        "parentOrganization": "Northstar Health Partners",
+        "caiValue": -0.036054,
+        "withQi": {
+          "measureCount": 30,
+          "baseMean": 3.533333333333333,
+          "weightedVariance": 1.2229885057471261,
+          "rewardFactor": 0,
+          "meanCategory": "relatively_high",
+          "varianceCategory": "high",
+          "finalScoreRaw": 3.497279333333333
+        },
+        "withoutQi": {
+          "measureCount": 28,
+          "baseMean": 3.24,
+          "weightedVariance": 0.9358222222222219,
+          "rewardFactor": 0,
+          "meanCategory": "below_threshold",
+          "varianceCategory": "medium",
+          "finalScoreRaw": 3.203946
+        },
+        "partCFinalRating": null,
+        "partDFinalRating": null,
+        "selectedLeg": "without_qi",
+        "finalScoreRaw": 3.203946,
+        "finalRating": 3,
+        "qualifiesOverall": true,
+        "reason": null
+      },
+      "thresholds": {
+        "withQi": {
+          "mean65th": 3.523766328011611,
+          "mean85th": 3.8411949685534594,
+          "variance30th": 0.8126301884875272,
+          "variance70th": 1.168419471153846
+        },
+        "withoutQi": {
+          "mean65th": 3.5628535512256443,
+          "mean85th": 3.8570618264322176,
+          "variance30th": 0.7526590950063098,
+          "variance70th": 1.1710546241211464
+        }
+      },
+      "notes": [
+        "QI (C30/D04) is not scored in plan preview 1 files and cannot be accurately estimated yet, so all ratings exclude the QI measures (without-QI leg).",
+        "Reward-factor thresholds are recomputed per leg from the baseline population with accrued contracts' predicted stars overlaid.",
+        "CAI comes from the uploaded plan preview CAI file. Disaster/EUC 'higher-of' uplift is not modeled."
+      ]
+    }
+  ],
+  "qiSensitivity": [
+    {
+      "qiStar": 1,
+      "finalScoreRaw": 3.104971641025641,
+      "finalRating": 3,
+      "baseMean": 3.141025641025641,
+      "rewardFactor": 0,
+      "measureCount": 40
+    },
+    {
+      "qiStar": 2,
+      "finalScoreRaw": 3.233176769230769,
+      "finalRating": 3,
+      "baseMean": 3.269230769230769,
+      "rewardFactor": 0,
+      "measureCount": 40
+    },
+    {
+      "qiStar": 3,
+      "finalScoreRaw": 3.3613818974358973,
+      "finalRating": 3.5,
+      "baseMean": 3.3974358974358974,
+      "rewardFactor": 0,
+      "measureCount": 40
+    },
+    {
+      "qiStar": 4,
+      "finalScoreRaw": 3.4895870256410255,
+      "finalRating": 3.5,
+      "baseMean": 3.5256410256410255,
+      "rewardFactor": 0,
+      "measureCount": 40
+    },
+    {
+      "qiStar": 5,
+      "finalScoreRaw": 3.6177921538461537,
+      "finalRating": 3.5,
+      "baseMean": 3.6538461538461537,
+      "rewardFactor": 0,
+      "measureCount": 40
+    }
+  ],
+  "populationSize": 551
+}

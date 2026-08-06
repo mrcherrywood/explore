@@ -4,6 +4,7 @@ import type { Database } from "@/lib/supabase/database.types";
 
 import {
   buildPlanPreviewScenarios,
+  type PlanPreviewCaiRecords,
   type PlanPreviewFinalScoresResult,
 } from "./final-scores";
 import {
@@ -23,6 +24,7 @@ export type PlanPreviewRun = {
   fingerprint: string;
   result: PlanPreviewPredictionsResult;
   scenarios: PlanPreviewFinalScoresResult[];
+  cai: PlanPreviewCaiRecords;
 };
 
 // Clustering across every accrued measure takes a few seconds; cache per stars
@@ -50,6 +52,7 @@ export async function getPlanPreviewRun(
     fingerprint,
     result,
     scenarios: buildPlanPreviewScenarios(result, caiByContract),
+    cai: caiByContract,
   };
   cache.set(starsYear, run);
   return run;

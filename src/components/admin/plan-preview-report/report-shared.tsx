@@ -8,6 +8,7 @@ export const REPORT_COLORS = {
   accentSoft: "#7f9dd1",
   band: "#dbe5f4",
   negative: "#c26a4c",
+  positive: "#2f9e7e",
   muted: "#8a958d",
   grid: "#ece5d7",
   ink: "#20302c",
@@ -191,6 +192,8 @@ export type ReportPageFrameProps = {
   contractId: string;
   starsYear: number;
   generatedAt: string;
+  /** Illustrative marketing sample — labeled in footer. */
+  sample?: boolean;
   children: ReactNode;
 };
 
@@ -204,6 +207,7 @@ export function ReportPageFrame({
   contractId,
   starsYear,
   generatedAt,
+  sample,
   children,
 }: ReportPageFrameProps) {
   const generatedLabel = new Date(generatedAt).toLocaleDateString("en-US", {
@@ -244,17 +248,26 @@ export function ReportPageFrame({
       <footer className="fep-report-footer">
         <div className="fep-report-footer-meta">
           <span>
-            {contractId} · Stars {starsYear} Plan Preview 1 projection ·
-            Generated {generatedLabel}
+            {contractId} · Stars {starsYear} Plan Preview 1 projection
+            {sample ? " · Illustrative sample" : ""} · Generated{" "}
+            {generatedLabel}
           </span>
           <span>
             Page {pageNumber} of {totalPages}
           </span>
         </div>
         <p className="fep-report-footer-confidential">
-          Press Ganey Proprietary and Confidential
+          {sample
+            ? "Illustrative sample for demonstration · Press Ganey Proprietary and Confidential"
+            : "Press Ganey Proprietary and Confidential"}
         </p>
       </footer>
     </div>
   );
+}
+
+/** Shared eyebrow for live vs marketing-sample report pages. */
+export function reportEyebrow(starsYear: number, sample?: boolean): string {
+  const base = `Plan Preview 1 · Stars ${starsYear} Projection`;
+  return sample ? `Sample · ${base}` : base;
 }

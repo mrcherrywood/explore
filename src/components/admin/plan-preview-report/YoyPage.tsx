@@ -25,12 +25,10 @@ import {
   ReportStat,
   chartValueFormatter,
   formatStars,
+  reportEyebrow,
 } from "./report-shared";
 
-/** Cap so the table fits a fixed letter page under the trend chart. */
-const MAX_MOVERS = 9;
-
-function moversFor(
+function changedMeasures(
   measures: ReportMeasure[],
 ): (ReportMeasure & { delta: number })[] {
   return measures
@@ -49,9 +47,9 @@ function moversFor(
     .sort(
       (left, right) =>
         Math.abs(right.delta) - Math.abs(left.delta) ||
-        right.weight - left.weight,
-    )
-    .slice(0, MAX_MOVERS);
+        right.weight - left.weight ||
+        left.displayName.localeCompare(right.displayName),
+    );
 }
 
 export function YoyPage({
@@ -59,11 +57,13 @@ export function YoyPage({
   pageNumber,
   totalPages,
   pageRef,
+  sample,
 }: {
   report: PlanPreviewContractReport;
   pageNumber: number;
   totalPages: number;
   pageRef?: Ref<HTMLDivElement>;
+  sample?: boolean;
 }) {
   const baseline = report.scenarios.find(
     (scenario) => scenario.id === "baseline",
@@ -89,13 +89,13 @@ export function YoyPage({
     },
   ];
 
-  const movers = moversFor(report.measures);
   const { declined, held, improved, newOrUnrated } = report.yoySummary;
+  const movers = changedMeasures(report.measures);
 
   return (
     <ReportPageFrame
       pageRef={pageRef}
-      eyebrow={`Plan Preview 1 · Stars ${report.starsYear} Projection`}
+      eyebrow={reportEyebrow(report.starsYear, sample)}
       title="Year-over-Year Performance"
       subtitle={`${report.contract.contractId} · Published CMS ratings history with the Stars ${report.starsYear} projection`}
       pageNumber={pageNumber}
@@ -103,23 +103,25 @@ export function YoyPage({
       contractId={report.contract.contractId}
       starsYear={report.starsYear}
       generatedAt={report.generatedAt}
+      sample={sample}
     >
       <ReportSection
         title="Overall Rating Trend"
-        note={`Published Overall, Part C, and Part D summary ratings by Star year; the final points are this report's projected Stars ${report.starsYear} Overall / Part C / Part D ratings.`}
+        note={`Published Overall, Part C, and Part D summary ratings by star year; the final points are this report's projected Stars ${report.starsYear} Overall / Part C / Part D ratings.`}
+        style={{ marginTop: 12 }}
       >
-        <div className="fep-report-panel" style={{ padding: "10px 10px 2px" }}>
+        <div className="fep-report-panel" style={{ padding: "6px 8px 0" }}>
           <ComposedChart
             width={686}
-            height={190}
+            height={155}
             data={chartData}
-            margin={{ top: 18, right: 18, left: -18, bottom: 0 }}
+            margin={{ top: 14, right: 14, left: -18, bottom: 0 }}
           >
             <CartesianGrid stroke={REPORT_COLORS.grid} vertical={false} />
             <XAxis
               dataKey="year"
               tick={{
-                fontSize: 10.5,
+                fontSize: 10,
                 fontWeight: 700,
                 fill: REPORT_COLORS.ink,
               }}
@@ -129,22 +131,22 @@ export function YoyPage({
             <YAxis
               domain={[0, 5]}
               ticks={[1, 2, 3, 4, 5]}
-              tick={{ fontSize: 10, fill: REPORT_COLORS.muted }}
+              tick={{ fontSize: 9.5, fill: REPORT_COLORS.muted }}
               axisLine={false}
               tickLine={false}
             />
             <Legend
               verticalAlign="top"
               align="right"
-              height={24}
-              iconSize={9}
-              wrapperStyle={{ fontSize: 10, fontWeight: 700 }}
+              height={20}
+              iconSize={8}
+              wrapperStyle={{ fontSize: 9.5, fontWeight: 700 }}
             />
             <Bar
               dataKey="overall"
               name="Overall"
-              radius={[5, 5, 0, 0]}
-              barSize={40}
+              radius={[4, 4, 0, 0]}
+              barSize={34}
               isAnimationActive={false}
             >
               {chartData.map((entry) => (
@@ -160,7 +162,7 @@ export function YoyPage({
                 position="top"
                 formatter={chartValueFormatter(1)}
                 style={{
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: 800,
                   fill: REPORT_COLORS.ink,
                   paintOrder: "stroke",
@@ -175,7 +177,7 @@ export function YoyPage({
               stroke={REPORT_COLORS.accentSoft}
               strokeWidth={2}
               strokeOpacity={0.35}
-              dot={{ r: 3, fill: REPORT_COLORS.accentSoft, fillOpacity: 0.45 }}
+              dot={{ r: 2.5, fill: REPORT_COLORS.accentSoft, fillOpacity: 0.45 }}
               isAnimationActive={false}
             />
             <Line
@@ -184,7 +186,7 @@ export function YoyPage({
               stroke={REPORT_COLORS.negative}
               strokeWidth={2}
               strokeOpacity={0.35}
-              dot={{ r: 3, fill: REPORT_COLORS.negative, fillOpacity: 0.45 }}
+              dot={{ r: 2.5, fill: REPORT_COLORS.negative, fillOpacity: 0.45 }}
               isAnimationActive={false}
             />
           </ComposedChart>
@@ -192,11 +194,11 @@ export function YoyPage({
       </ReportSection>
 
       <ReportSection
-        title="Measure Movement vs Published Stars"
-        note={`Predicted Stars ${report.starsYear} vs published Stars ${report.baselineYear ?? "—"} for the same measure.`}
-        style={{ marginTop: 12 }}
+        title="Star rating change by measure"
+        note={`Predicted Stars ${report.starsYear} vs published Stars ${report.baselineYear ?? "—"}. All measures that changed are listed below.`}
+        style={{ marginTop: 10 }}
       >
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 8 }}>
           <ReportStat
             label="Declined"
             value={declined}
@@ -221,12 +223,12 @@ export function YoyPage({
 
         <div
           className="fep-report-panel"
-          style={{ marginTop: 10, padding: "10px 0 8px" }}
+          style={{ marginTop: 8, padding: "6px 0 2px" }}
         >
-          <table className="fep-report-table compact">
+          <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>
             <thead>
               <tr>
-                <th className="l">Largest movers</th>
+                <th className="l">Measures that changed</th>
                 <th>Weight</th>
                 <th>Stars {report.baselineYear ?? "—"} (published)</th>
                 <th>Stars {report.starsYear} (predicted)</th>
@@ -249,7 +251,16 @@ export function YoyPage({
                   <tr key={measure.measureCode}>
                     <td
                       className="l"
-                      style={{ whiteSpace: "normal", maxWidth: 300 }}
+                      style={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: 300,
+                        paddingTop: 2,
+                        paddingBottom: 2,
+                        fontSize: 9,
+                        lineHeight: 1.2,
+                      }}
                     >
                       <span
                         style={{ fontWeight: 700, color: "var(--fep-ink)" }}
@@ -260,20 +271,31 @@ export function YoyPage({
                         {measure.displayName}
                       </span>
                     </td>
-                    <td>{measure.weight}</td>
-                    <td>{formatStars(measure.publishedBaselineStar, 0)}★</td>
+                    <td style={{ paddingTop: 2, paddingBottom: 2 }}>
+                      {measure.weight}
+                    </td>
+                    <td style={{ paddingTop: 2, paddingBottom: 2 }}>
+                      {formatStars(measure.publishedBaselineStar, 0)}★
+                    </td>
                     <td
                       style={{
                         fontWeight: 800,
                         color: "var(--fep-ink)",
                         whiteSpace: "nowrap",
+                        paddingTop: 2,
+                        paddingBottom: 2,
                       }}
                     >
                       {formatStars(measure.predictedStar, 0)}★
                       {measure.starSource === "cahps_case_mix_reliability" ? (
                         <span
                           className="fep-report-pill"
-                          style={{ marginLeft: 5, textTransform: "none" }}
+                          style={{
+                            marginLeft: 4,
+                            textTransform: "none",
+                            fontSize: 8,
+                            padding: "0 5px",
+                          }}
                         >
                           Adjusted
                         </span>
@@ -282,9 +304,11 @@ export function YoyPage({
                     <td
                       style={{
                         fontWeight: 800,
+                        paddingTop: 2,
+                        paddingBottom: 2,
                         color:
                           measure.delta > 0
-                            ? REPORT_COLORS.accent
+                            ? REPORT_COLORS.positive
                             : REPORT_COLORS.negative,
                       }}
                     >
@@ -297,11 +321,10 @@ export function YoyPage({
             </tbody>
           </table>
         </div>
-        <p className="fep-report-section-note" style={{ marginTop: 6 }}>
+        <p className="fep-report-section-note" style={{ marginTop: 4 }}>
           Movement reflects score change and projected cut point movement.
-          Showing the {Math.min(movers.length, MAX_MOVERS)} largest changes by
-          star delta, then weight. CAHPS rows marked Adjusted use case-mix and
-          reliability adjusted base stars.
+          Showing all {movers.length} measures that changed. CAHPS rows marked
+          Adjusted use case-mix and reliability adjusted base stars.
         </p>
       </ReportSection>
     </ReportPageFrame>

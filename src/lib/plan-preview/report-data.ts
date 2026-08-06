@@ -1,15 +1,18 @@
 import { existsSync, readFileSync } from "fs";
 import path from "path";
 
+import { getMeasureYearScoreSamples } from "@/lib/band-movement/analysis";
+import { OFFICIAL_RECALC_REMOVED_CODES } from "@/lib/clover-impact/scenarios";
 import { loadMeasureStarsFromFile } from "@/lib/reward-factor/backtest";
-
-import { toBaselineMeasureCode } from "./measure-resolve";
 
 import type {
   PlanPreviewFinalScore,
   PlanPreviewFinalScoresResult,
+  PlanPreviewQiSensitivityPoint,
   PlanPreviewScenarioId,
 } from "./final-scores";
+import { buildPlanPreviewQiSensitivity, type PlanPreviewCaiRecords } from "./final-scores";
+import { toBaselineMeasureCode } from "./measure-resolve";
 import type {
   PlanPreviewContractMeasurePrediction,
   PlanPreviewContractPrediction,
@@ -22,6 +25,8 @@ export type ReportMeasure = PlanPreviewContractMeasurePrediction & {
   domain: string | null;
   /** The contract's actual published star for this measure in the baseline year. */
   publishedBaselineStar: number | null;
+  /** Published CMS measure score for the baseline year, when available. */
+  publishedBaselineScore: number | null;
 };
 
 export type ReportDomain = {
@@ -32,6 +37,11 @@ export type ReportDomain = {
   predictedMean: number | null;
   /** Weighted mean of the contract's published baseline-year measure stars in this domain. */
   baselineMean: number | null;
+  /**
+   * Weighted mean after dropping Official CMS Stars recalculation removals
+   * from the published baseline-year stars (same codes as Clover officialRecalc).
+   */
+  recalculatedMean: number | null;
 };
 
 export type ReportHistoryPoint = {
@@ -76,6 +86,8 @@ export type PlanPreviewContractReport = {
   history: ReportHistoryPoint[];
   yoySummary: ReportYoySummary;
   scenarios: ReportScenario[];
+  /** Overall final score when QI measures are set to each whole-star rating 1–5. */
+  qiSensitivity: PlanPreviewQiSensitivityPoint[];
   populationSize: number;
 };
 
@@ -193,7 +205,8 @@ function buildPublishedDomainMeansFromFile(
 
 function buildDomains(
   measures: ReportMeasure[],
-  publishedDomainMeans: Map<string, number | null>
+  publishedDomainMeans: Map<string, number | null>,
+  recalculatedDomainMeans: Map<string, number | null>
 ): ReportDomain[] {
   const byDomain = new Map<string, ReportMeasure[]>();
   for (const measure of measures) {
@@ -208,6 +221,16 @@ function buildDomains(
     const parts = new Set(
       domainMeasures.map((m) => (m.measureCode.startsWith("D") ? "Part D" : "Part C"))
     );
+    const baselineMean =
+      publishedDomainMeans.get(domain) ??
+      weightedMean(
+        domainMeasures.map((m) => ({ star: m.publishedBaselineStar, weight: m.weight }))
+      );
+    const keptForRecalc = domainMeasures.filter((measure) => {
+      const code = measure.measureCode.toUpperCase();
+      // Prefer baseline-year code when the measure was remapped for lookup.
+      return !OFFICIAL_RECALC_REMOVED_CODES.has(code);
+    });
     domains.push({
       domain,
       part: parts.size > 1 ? "Mixed" : parts.has("Part D") ? "Part D" : "Part C",
@@ -216,10 +239,11 @@ function buildDomains(
       predictedMean: weightedMean(
         domainMeasures.map((m) => ({ star: m.predictedStar, weight: m.weight }))
       ),
-      baselineMean:
-        publishedDomainMeans.get(domain) ??
+      baselineMean,
+      recalculatedMean:
+        recalculatedDomainMeans.get(domain) ??
         weightedMean(
-          domainMeasures.map((m) => ({ star: m.publishedBaselineStar, weight: m.weight }))
+          keptForRecalc.map((m) => ({ star: m.publishedBaselineStar, weight: m.weight }))
         ),
     });
   }
@@ -228,6 +252,30 @@ function buildDomains(
     if (left.part !== right.part) return left.part.localeCompare(right.part);
     return left.domain.localeCompare(right.domain);
   });
+}
+
+/** Domain means from published baseline stars after Official Recalc removals. */
+function buildRecalculatedDomainMeans(
+  contractId: string,
+  baselineYear: number,
+  domainByCode: Map<string, string>
+): Map<string, number | null> {
+  const published = loadMeasureStarsFromFile(baselineYear).get(contractId) ?? [];
+  const kept = published.filter(
+    (measure) => !OFFICIAL_RECALC_REMOVED_CODES.has(measure.code.toUpperCase())
+  );
+  return computeWeightedDomainMeans(
+    kept.map((measure) => ({ code: measure.code, star: measure.starValue })),
+    new Map(
+      kept.map((measure) => [
+        measure.code.toUpperCase(),
+        {
+          domain: domainByCode.get(measure.code.toUpperCase()) ?? null,
+          weight: measure.weight,
+        },
+      ])
+    )
+  );
 }
 
 function buildYoySummary(measures: ReportMeasure[]): ReportYoySummary {
@@ -288,6 +336,8 @@ export function buildPlanPreviewContractReport(options: {
    * omitted, falls back to measure_stars JSON + cut-point workbook weights.
    */
   publishedDomainMeans?: Map<string, number | null>;
+  /** Uploaded CAI records — used for the QI sensitivity sweep. */
+  cai?: PlanPreviewCaiRecords;
 }): PlanPreviewContractReport {
   const { predictions, scenarios, contract, domainByCode } = options;
   const { starsYear, baselineYear } = predictions;
@@ -307,10 +357,17 @@ export function buildPlanPreviewContractReport(options: {
       baselineYear !== null
         ? toBaselineMeasureCode(measure.measureNormalized, measure.measureCode, baselineYear)
         : measure.measureCode.toUpperCase();
+    const publishedBaselineScore =
+      baselineYear !== null
+        ? (getMeasureYearScoreSamples(measure.measureNormalized, baselineYear).find(
+            (sample) => sample.contractId === contractId
+          )?.score ?? null)
+        : null;
     return {
       ...measure,
       domain: domainByCode.get(code) ?? NEW_MEASURE_DOMAINS[code] ?? null,
       publishedBaselineStar: publishedStarByCode.get(code) ?? null,
+      publishedBaselineScore,
     };
   });
 
@@ -333,6 +390,14 @@ export function buildPlanPreviewContractReport(options: {
       ? buildPublishedDomainMeansFromFile(contractId, baselineYear, domainByCode)
       : new Map<string, number | null>());
 
+  const recalculatedDomainMeans =
+    baselineYear !== null
+      ? buildRecalculatedDomainMeans(contractId, baselineYear, domainByCode)
+      : new Map<string, number | null>();
+
+  const cai = options.cai ?? { overall: {}, partC: {}, partD: {} };
+  const qiSensitivity = buildPlanPreviewQiSensitivity(predictions, cai, contractId);
+
   return {
     starsYear,
     baselineYear,
@@ -347,10 +412,11 @@ export function buildPlanPreviewContractReport(options: {
       snp: baselineSummaryRow ? String(baselineSummaryRow.SNP ?? "").trim() || null : null,
     },
     measures,
-    domains: buildDomains(measures, publishedDomainMeans),
+    domains: buildDomains(measures, publishedDomainMeans, recalculatedDomainMeans),
     history: buildHistory(contractId, starsYear),
     yoySummary: buildYoySummary(measures),
     scenarios: buildScenarios(scenarios, contractId, contractCodes),
+    qiSensitivity,
     populationSize: scenarios[0]?.populationSize ?? 0,
   };
 }

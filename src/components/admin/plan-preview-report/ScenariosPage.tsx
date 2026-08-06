@@ -24,15 +24,29 @@ import {
   chartValueFormatter,
   formatScore,
   formatSigned,
-  formatStars,
+  reportEyebrow,
 } from "./report-shared";
 
 const SCENARIO_SHORT_LABELS: Record<string, string> = {
   baseline: "All measures",
+  officialRecalc: "S26 Recalc",
+  s26NoQI: "No QI",
+  s29Removal: "S29 Removal",
+  model1: "Model 1",
+  model2: "Model 2",
   removal2028: "2028 removals",
   removal2029: "2029 removals",
-  cloverRecalc: "Clover recalc",
 };
+
+/** Keep in sync with PLAN_PREVIEW_CHART_SCENARIO_IDS in final-scores.ts. */
+const CHART_IDS = new Set([
+  "baseline",
+  "s26NoQI",
+  "officialRecalc",
+  "s29Removal",
+  "model1",
+  "model2",
+]);
 
 function selectedLeg(scenario: ReportScenario) {
   const score = scenario.score;
@@ -40,47 +54,149 @@ function selectedLeg(scenario: ReportScenario) {
   return score.selectedLeg === "with_qi" ? score.withQi : score.withoutQi;
 }
 
+function scoreDelta(
+  scenario: ReportScenario,
+  baselineScore: number | null,
+): number | null {
+  const raw = scenario.score?.finalScoreRaw ?? null;
+  if (raw === null || baselineScore === null || scenario.id === "baseline") {
+    return null;
+  }
+  return Math.round((raw - baselineScore) * 1000) / 1000;
+}
+
+function ImpactCallout({
+  label,
+  delta,
+}: {
+  label: string;
+  delta: number | null;
+}) {
+  const reduced = delta !== null && delta < 0;
+  const color =
+    delta === null || delta === 0
+      ? "var(--fep-muted)"
+      : reduced
+        ? REPORT_COLORS.negative
+        : REPORT_COLORS.positive;
+  const verb =
+    delta === null
+      ? "is unavailable"
+      : delta === 0
+        ? "yields no score change"
+        : reduced
+          ? `yields a score reduction of ${Math.abs(delta).toFixed(3)} points`
+          : `yields a score increase of ${delta.toFixed(3)} points`;
+
+  return (
+    <div
+      className="fep-report-panel"
+      style={{
+        flex: 1,
+        padding: "10px 12px",
+        borderLeft: `4px solid ${color}`,
+      }}
+    >
+      <p
+        style={{
+          margin: 0,
+          fontSize: 10.5,
+          fontWeight: 800,
+          color: "var(--fep-ink)",
+        }}
+      >
+        {label}
+      </p>
+      <p
+        style={{
+          margin: "4px 0 0",
+          fontSize: 11,
+          fontWeight: 700,
+          color,
+          lineHeight: 1.35,
+        }}
+      >
+        Removing these measures {verb}.
+      </p>
+    </div>
+  );
+}
+
 export function ScenariosPage({
   report,
   pageNumber,
   totalPages,
   pageRef,
+  sample,
 }: {
   report: PlanPreviewContractReport;
   pageNumber: number;
   totalPages: number;
   pageRef?: Ref<HTMLDivElement>;
+  sample?: boolean;
 }) {
   const scenarios = report.scenarios;
-  const baselineRating =
-    scenarios.find((s) => s.id === "baseline")?.score?.finalRating ?? null;
+  const chartScenarios = scenarios.filter((scenario) =>
+    CHART_IDS.has(scenario.id),
+  );
+  const baselineScore =
+    scenarios.find((s) => s.id === "baseline")?.score?.finalScoreRaw ?? null;
+  const removal2028 = scenarios.find((s) => s.id === "removal2028");
+  const removal2029 = scenarios.find((s) => s.id === "removal2029");
 
-  const chartData = scenarios.map((scenario) => ({
+  const chartData = chartScenarios.map((scenario) => ({
     id: scenario.id,
     name: SCENARIO_SHORT_LABELS[scenario.id] ?? scenario.label,
-    rating: scenario.score?.finalRating ?? null,
+    score: scenario.score?.finalScoreRaw ?? null,
   }));
+
+  const scoreValues = chartData
+    .map((row) => row.score)
+    .filter((value): value is number => value !== null);
+  const yMin = scoreValues.length
+    ? Math.max(1, Math.floor(Math.min(...scoreValues) - 0.2))
+    : 1;
+  const yMax = scoreValues.length
+    ? Math.min(5, Math.ceil(Math.max(...scoreValues) + 0.2))
+    : 5;
 
   return (
     <ReportPageFrame
       pageRef={pageRef}
-      eyebrow={`Plan Preview 1 · Stars ${report.starsYear} Projection`}
+      eyebrow={reportEyebrow(report.starsYear, sample)}
       title="Measure Removal Scenarios"
-      subtitle={`${report.contract.contractId} · Projected performance under CMS-announced retirements and the Clover-style recalculation`}
+      subtitle={`${report.contract.contractId} · Same scenario set as Clover Impact / Peer Analysis, scored on accrued plan preview stars`}
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={report.contract.contractId}
       starsYear={report.starsYear}
       generatedAt={report.generatedAt}
+      sample={sample}
     >
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <ImpactCallout
+          label="Stars 2028 removals"
+          delta={
+            removal2028 ? scoreDelta(removal2028, baselineScore) : null
+          }
+        />
+        <ImpactCallout
+          label="Stars 2029 removals"
+          delta={
+            removal2029 ? scoreDelta(removal2029, baselineScore) : null
+          }
+        />
+      </div>
+
       <ReportSection
-        title="Predicted Rating by Scenario"
-        note="Each scenario removes its measure set, recomputes reward-factor thresholds, and re-scores at the projected cut points."
+        title="Predicted score by scenario"
+        note="Each scenario removes its measure set, recomputes reward factor thresholds, and re-scores at the projected cut points. Bar labels show unrounded final scores."
+        style={{ marginTop: 12 }}
       >
         <div className="fep-report-panel" style={{ padding: "10px 10px 2px" }}>
           <BarChart
             width={686}
-            height={175}
+            height={160}
             data={chartData}
             margin={{ top: 18, right: 16, left: -18, bottom: 0 }}
           >
@@ -88,7 +204,7 @@ export function ScenariosPage({
             <XAxis
               dataKey="name"
               tick={{
-                fontSize: 10.5,
+                fontSize: 10,
                 fontWeight: 700,
                 fill: REPORT_COLORS.ink,
               }}
@@ -96,16 +212,15 @@ export function ScenariosPage({
               tickLine={false}
             />
             <YAxis
-              domain={[0, 5]}
-              ticks={[1, 2, 3, 4, 5]}
+              domain={[yMin, yMax]}
               tick={{ fontSize: 10, fill: REPORT_COLORS.muted }}
               axisLine={false}
               tickLine={false}
             />
             <Bar
-              dataKey="rating"
+              dataKey="score"
               radius={[5, 5, 0, 0]}
-              barSize={64}
+              barSize={56}
               isAnimationActive={false}
             >
               {chartData.map((entry) => (
@@ -119,11 +234,11 @@ export function ScenariosPage({
                 />
               ))}
               <LabelList
-                dataKey="rating"
+                dataKey="score"
                 position="top"
-                formatter={chartValueFormatter(1, "★", "n/a")}
+                formatter={chartValueFormatter(3, "", "n/a")}
                 style={{
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: 800,
                   fill: REPORT_COLORS.ink,
                 }}
@@ -133,8 +248,8 @@ export function ScenariosPage({
         </div>
       </ReportSection>
 
-      <ReportSection title="Scenario Detail" style={{ marginTop: 12 }}>
-        <div className="fep-report-panel" style={{ padding: "8px 0 4px" }}>
+      <ReportSection title="Scenario Detail" style={{ marginTop: 10 }}>
+        <div className="fep-report-panel" style={{ padding: "6px 0 2px" }}>
           <table className="fep-report-table compact">
             <thead>
               <tr>
@@ -145,27 +260,20 @@ export function ScenariosPage({
                 <th>Reward factor</th>
                 <th>CAI</th>
                 <th>Final score</th>
-                <th>Rating</th>
                 <th>vs. all measures</th>
               </tr>
             </thead>
             <tbody>
-              {scenarios.map((scenario) => {
+              {chartScenarios.map((scenario) => {
                 const leg = selectedLeg(scenario);
-                const rating = scenario.score?.finalRating ?? null;
-                const delta =
-                  rating !== null &&
-                  baselineRating !== null &&
-                  scenario.id !== "baseline"
-                    ? Math.round((rating - baselineRating) * 10) / 10
-                    : null;
+                const delta = scoreDelta(scenario, baselineScore);
                 return (
                   <tr key={scenario.id}>
                     <td
                       className="l"
                       style={{ fontWeight: 700, color: "var(--fep-ink)" }}
                     >
-                      {scenario.label}
+                      {SCENARIO_SHORT_LABELS[scenario.id] ?? scenario.label}
                     </td>
                     <td>{scenario.removedContractCodes.length}</td>
                     <td>{leg?.measureCount ?? "—"}</td>
@@ -175,9 +283,6 @@ export function ScenariosPage({
                     <td style={{ fontWeight: 700, color: "var(--fep-ink)" }}>
                       {formatScore(scenario.score?.finalScoreRaw)}
                     </td>
-                    <td style={{ fontWeight: 800, color: "var(--fep-ink)" }}>
-                      {rating === null ? "—" : `${formatStars(rating)}★`}
-                    </td>
                     <td
                       style={{
                         fontWeight: 800,
@@ -185,13 +290,13 @@ export function ScenariosPage({
                           delta === null || delta === 0
                             ? "var(--fep-faint)"
                             : delta > 0
-                              ? REPORT_COLORS.accent
+                              ? REPORT_COLORS.positive
                               : REPORT_COLORS.negative,
                       }}
                     >
                       {scenario.id === "baseline"
                         ? "—"
-                        : formatSigned(delta, 1)}
+                        : formatSigned(delta, 3)}
                     </td>
                   </tr>
                 );
@@ -203,38 +308,38 @@ export function ScenariosPage({
 
       <ReportSection
         title="What Each Scenario Removes"
-        style={{ marginTop: 12 }}
+        style={{ marginTop: 10 }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: 8,
+            gridTemplateColumns: "1fr 1fr",
+            gap: 6,
           }}
         >
-          {scenarios
+          {chartScenarios
             .filter((scenario) => scenario.id !== "baseline")
             .map((scenario) => (
               <div
                 key={scenario.id}
                 className="fep-report-panel"
-                style={{ padding: "8px 10px" }}
+                style={{ padding: "7px 9px" }}
               >
                 <p
                   style={{
                     margin: 0,
-                    fontSize: 10.5,
+                    fontSize: 10,
                     fontWeight: 800,
                     color: "var(--fep-ink)",
                   }}
                 >
-                  {scenario.label}
+                  {SCENARIO_SHORT_LABELS[scenario.id] ?? scenario.label}
                 </p>
                 <p
                   style={{
-                    margin: "3px 0 0",
-                    fontSize: 8.5,
-                    lineHeight: 1.35,
+                    margin: "2px 0 0",
+                    fontSize: 8,
+                    lineHeight: 1.3,
                     color: "var(--fep-muted)",
                   }}
                 >
@@ -242,8 +347,8 @@ export function ScenariosPage({
                 </p>
                 <p
                   style={{
-                    margin: "5px 0 0",
-                    fontSize: 8.5,
+                    margin: "4px 0 0",
+                    fontSize: 8,
                     fontWeight: 700,
                     color: "var(--fep-accent)",
                   }}
@@ -256,8 +361,9 @@ export function ScenariosPage({
             ))}
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 6 }}>
-          Clover-style recalc uses Part C CAI (Part C summary). QI is excluded
-          from every scenario — it is not scored in plan preview 1.
+          Official Recalc uses Part C CAI (Part C summary). QI is excluded from
+          every scenario on this page — it is not scored in plan preview 1. Stars
+          2028 / 2029 impact boxes use the CMS-announced retirement sets.
         </p>
       </ReportSection>
     </ReportPageFrame>

@@ -167,23 +167,35 @@ export function starFromThresholds(
   return 1;
 }
 
+function cutPointsAreDecimal(thresholds: ThresholdValuesShape): boolean {
+  return [thresholds.twoStar, thresholds.threeStar, thresholds.fourStar, thresholds.fiveStar].some(
+    (value) => !Number.isInteger(value)
+  );
+}
+
 /**
  * CMS cut points are applied to whole-number published scores. Prefer the
  * measure_data integer when present; otherwise round the decimal overlay.
  * CAHPS keeps the continuous score (case-mix adjusted stars overlay separately).
+ * Measures with decimal cut points (e.g. Complaints at 0.10 / 0.32 / …) keep
+ * their rate scores — rounding 0.19 → 0 would incorrectly award 5★.
  */
 export function scoreForCutPointBanding(
   score: number,
   wholeScore: number | null | undefined,
-  isCahps: boolean
+  isCahps: boolean,
+  thresholds?: ThresholdValuesShape | null
 ): number {
   if (isCahps) return score;
-  // Prefer measure_data's published whole number when present; always round so
-  // a decimal-only stub (score column = 70.68) still bands like CMS (71).
+  // Prefer measure_data's published whole number when present; round so a
+  // decimal-only stub (score column = 70.68) still bands like CMS (71).
   const candidate =
     wholeScore !== null && wholeScore !== undefined && Number.isFinite(wholeScore)
       ? wholeScore
       : score;
+  if (thresholds && cutPointsAreDecimal(thresholds)) {
+    return candidate;
+  }
   return Math.round(candidate);
 }
 
@@ -322,9 +334,24 @@ export function buildPlanPreviewPredictions(
       measureCode,
       baselineYear
     );
+    const bandingThresholds: ThresholdValuesShape | null = workbookRow?.thresholds
+      ? {
+          twoStar: workbookRow.thresholds.twoStar,
+          threeStar: workbookRow.thresholds.threeStar,
+          fourStar: workbookRow.thresholds.fourStar,
+          fiveStar: workbookRow.thresholds.fiveStar,
+        }
+      : baselineCutPoint?.thresholds
+        ? {
+            twoStar: baselineCutPoint.thresholds.twoStar,
+            threeStar: baselineCutPoint.thresholds.threeStar,
+            fourStar: baselineCutPoint.thresholds.fourStar,
+            fiveStar: baselineCutPoint.thresholds.fiveStar,
+          }
+        : null;
     const projectedSamples: MeasureScoreSample[] = measureRows.map((row) => ({
       contractId: row.contractId,
-      score: scoreForCutPointBanding(row.score, row.wholeScore, isCahps),
+      score: scoreForCutPointBanding(row.score, row.wholeScore, isCahps, bandingThresholds),
     }));
 
     const base: Omit<PlanPreviewCutPointPrediction, "status" | "reason"> = {
@@ -564,7 +591,22 @@ function buildContractPredictions(
         baselineYear
       );
       const isCahps = isCahpsMeasure(row.measureDisplayName);
-      const bandingScore = scoreForCutPointBanding(row.score, row.wholeScore, isCahps);
+      const bandingThresholds: ThresholdValuesShape | null =
+        ready?.thresholds ??
+        (baselineCutPoint
+          ? {
+              twoStar: baselineCutPoint.thresholds.twoStar,
+              threeStar: baselineCutPoint.thresholds.threeStar,
+              fourStar: baselineCutPoint.thresholds.fourStar,
+              fiveStar: baselineCutPoint.thresholds.fiveStar,
+            }
+          : null);
+      const bandingScore = scoreForCutPointBanding(
+        row.score,
+        row.wholeScore,
+        isCahps,
+        bandingThresholds
+      );
       const adjustedStar = adjustedByKey.get(`${contractId}|${row.measureNormalized}`) ?? null;
       const cutPointStar = ready
         ? starFromThresholds(bandingScore, ready.thresholds, ready.inverted)

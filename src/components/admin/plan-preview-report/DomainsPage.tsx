@@ -20,6 +20,7 @@ import {
   chartValueFormatter,
   formatSigned,
   formatStars,
+  reportEyebrow,
 } from "./report-shared";
 
 export function DomainsPage({
@@ -27,11 +28,13 @@ export function DomainsPage({
   pageNumber,
   totalPages,
   pageRef,
+  sample,
 }: {
   report: PlanPreviewContractReport;
   pageNumber: number;
   totalPages: number;
   pageRef?: Ref<HTMLDivElement>;
+  sample?: boolean;
 }) {
   const domains = report.domains;
   const chartData = domains.map((domain) => ({
@@ -41,13 +44,14 @@ export function DomainsPage({
         : domain.domain,
     predicted: domain.predictedMean,
     baseline: domain.baselineMean,
+    recalculated: domain.recalculatedMean,
   }));
-  const chartHeight = Math.max(200, 26 + chartData.length * 52);
+  const chartHeight = Math.max(200, 26 + chartData.length * 58);
 
   return (
     <ReportPageFrame
       pageRef={pageRef}
-      eyebrow={`Plan Preview 1 · Stars ${report.starsYear} Projection`}
+      eyebrow={reportEyebrow(report.starsYear, sample)}
       title="Performance by Domain"
       subtitle={`${report.contract.contractId} · Weighted mean of predicted measure stars, grouped by CMS domain`}
       pageNumber={pageNumber}
@@ -55,10 +59,11 @@ export function DomainsPage({
       contractId={report.contract.contractId}
       starsYear={report.starsYear}
       generatedAt={report.generatedAt}
+      sample={sample}
     >
       <ReportSection
-        title="Weighted Mean Stars by Domain"
-        note={`Predicted Stars ${report.starsYear} domain means versus this contract's published Stars ${report.baselineYear ?? "—"} domain stars (same weighted averages as Contract Summary).`}
+        title="Weighted mean stars by domain"
+        note={`Predicted Stars ${report.starsYear} domain means versus this contract's published Stars ${report.baselineYear ?? "—"} domain stars and Stars ${report.baselineYear ?? "—"} recalculated (Official CMS recalculation measure set).`}
       >
         <div className="fep-report-panel" style={{ padding: "14px 12px 4px" }}>
           <BarChart
@@ -67,7 +72,7 @@ export function DomainsPage({
             data={chartData}
             layout="vertical"
             margin={{ top: 0, right: 48, left: 4, bottom: 0 }}
-            barCategoryGap={10}
+            barCategoryGap={8}
           >
             <CartesianGrid stroke={REPORT_COLORS.grid} horizontal={false} />
             <XAxis
@@ -91,7 +96,7 @@ export function DomainsPage({
               align="right"
               height={26}
               iconSize={9}
-              wrapperStyle={{ fontSize: 10, fontWeight: 700 }}
+              wrapperStyle={{ fontSize: 9.5, fontWeight: 700 }}
               formatter={(value) => (
                 <span style={{ color: REPORT_COLORS.ink, fontWeight: 700 }}>
                   {value}
@@ -103,7 +108,7 @@ export function DomainsPage({
               name={`Stars ${report.baselineYear ?? "—"} published`}
               fill={REPORT_COLORS.band}
               radius={[0, 4, 4, 0]}
-              barSize={14}
+              barSize={11}
               isAnimationActive={false}
             >
               <LabelList
@@ -111,9 +116,28 @@ export function DomainsPage({
                 position="right"
                 formatter={chartValueFormatter(2)}
                 style={{
-                  fontSize: 9,
+                  fontSize: 8.5,
                   fontWeight: 700,
                   fill: REPORT_COLORS.ink,
+                }}
+              />
+            </Bar>
+            <Bar
+              dataKey="recalculated"
+              name={`Stars ${report.baselineYear ?? "—"} recalculated`}
+              fill={REPORT_COLORS.positive}
+              radius={[0, 4, 4, 0]}
+              barSize={11}
+              isAnimationActive={false}
+            >
+              <LabelList
+                dataKey="recalculated"
+                position="right"
+                formatter={chartValueFormatter(2)}
+                style={{
+                  fontSize: 8.5,
+                  fontWeight: 700,
+                  fill: REPORT_COLORS.positive,
                 }}
               />
             </Bar>
@@ -122,7 +146,7 @@ export function DomainsPage({
               name={`Predicted Stars ${report.starsYear}`}
               fill={REPORT_COLORS.accent}
               radius={[0, 4, 4, 0]}
-              barSize={14}
+              barSize={11}
               isAnimationActive={false}
             >
               <LabelList
@@ -130,7 +154,7 @@ export function DomainsPage({
                 position="right"
                 formatter={chartValueFormatter(2)}
                 style={{
-                  fontSize: 9,
+                  fontSize: 8.5,
                   fontWeight: 800,
                   fill: REPORT_COLORS.accent,
                 }}
@@ -140,15 +164,16 @@ export function DomainsPage({
         </div>
       </ReportSection>
 
-      <ReportSection title="Domain Detail" style={{ marginTop: 16 }}>
+      <ReportSection title="Domain Detail" style={{ marginTop: 14 }}>
         <div className="fep-report-panel" style={{ padding: "12px 0 4px" }}>
-          <table className="fep-report-table">
+          <table className="fep-report-table compact">
             <thead>
               <tr>
                 <th className="l">Domain</th>
                 <th className="l">Part</th>
                 <th>Measures rated</th>
                 <th>Stars {report.baselineYear ?? "—"} published</th>
+                <th>Stars {report.baselineYear ?? "—"} recalculated</th>
                 <th>Predicted Stars {report.starsYear}</th>
                 <th>Change</th>
               </tr>
@@ -178,6 +203,7 @@ export function DomainsPage({
                       {domain.ratedMeasureCount} of {domain.measureCount}
                     </td>
                     <td>{formatStars(domain.baselineMean, 2)}</td>
+                    <td>{formatStars(domain.recalculatedMean, 2)}</td>
                     <td style={{ fontWeight: 800, color: "var(--fep-ink)" }}>
                       {formatStars(domain.predictedMean, 2)}
                     </td>
@@ -188,7 +214,7 @@ export function DomainsPage({
                           delta === null || delta === 0
                             ? "var(--fep-faint)"
                             : delta > 0
-                              ? REPORT_COLORS.accent
+                              ? REPORT_COLORS.positive
                               : REPORT_COLORS.negative,
                       }}
                     >
@@ -203,12 +229,14 @@ export function DomainsPage({
         <p className="fep-report-section-note" style={{ marginTop: 8 }}>
           Stars {report.baselineYear ?? "—"} published domain means match
           Contract Summary: published measure stars weighted by that year&apos;s
-          measure weights. Predicted means use accrued plan preview stars
-          (MCAHPS adjusted base stars for CAHPS when uploaded) with Stars{" "}
-          {report.starsYear} weights. Domain groupings follow CMS Stars{" "}
-          {report.baselineYear ?? "—"} measure-to-domain assignments; measures
-          new to Stars {report.starsYear} (e.g. Polypharmacy Poly-ACH) are
-          assigned to their CMS domain.
+          measure weights. Recalculated means drop the Official CMS
+          recalculation removals from those published stars — including all Part
+          D measures — so Pharmacy has no recalculated bar. Predicted means use
+          accrued plan preview stars (MCAHPS adjusted base stars for CAHPS when
+          uploaded) with Stars {report.starsYear} weights. Domain groupings
+          follow CMS Stars {report.baselineYear ?? "—"} measure-to-domain
+          assignments; measures new to Stars {report.starsYear} (e.g.
+          Polypharmacy Poly-ACH) are assigned to their CMS domain.
         </p>
       </ReportSection>
     </ReportPageFrame>
