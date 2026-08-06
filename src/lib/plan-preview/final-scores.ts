@@ -42,9 +42,9 @@ export type PlanPreviewFinalScore = {
   selectedLeg: "with_qi" | "without_qi" | null;
   finalScoreRaw: number | null;
   finalRating: number | null;
-  /** Part C summary rating (baseline scenario only); null otherwise. */
+  /** Part C summary final score, unrounded (baseline scenario only). */
   partCFinalRating: number | null;
-  /** Part D MA-PD summary rating (baseline scenario only); null otherwise. */
+  /** Part D MA-PD summary final score, unrounded (baseline scenario only). */
   partDFinalRating: number | null;
   qualifiesOverall: boolean;
   reason: string | null;
@@ -230,7 +230,8 @@ function computeCategoryLeg(
   };
 }
 
-function categoryFinalRating(
+/** Unrounded Part C / Part D final score (base + reward factor + CAI). */
+function categoryFinalScore(
   leg: LegComputation,
   contractId: string,
   caiValue: number | null,
@@ -239,8 +240,7 @@ function categoryFinalRating(
   const stats = leg.statsByContract.get(contractId);
   if (!stats || !leg.thresholds) return null;
   const result = calculateRewardFactor(stats, leg.thresholds, ratingType);
-  const raw = result.adjustedRating + (caiValue ?? 0);
-  return roundToHalf(Math.min(5, Math.max(1, raw)));
+  return result.adjustedRating + (caiValue ?? 0);
 }
 
 type ScenarioDef = {
@@ -336,7 +336,7 @@ function computeScenario(
     const withoutQi = buildLegScore(withoutQiLeg, contract.contractId, caiValue);
     const partCFinalRating =
       partCLeg !== null
-        ? categoryFinalRating(
+        ? categoryFinalScore(
             partCLeg,
             contract.contractId,
             cai.partC[contract.contractId] ?? null,
@@ -345,7 +345,7 @@ function computeScenario(
         : null;
     const partDFinalRating =
       partDLeg !== null
-        ? categoryFinalRating(
+        ? categoryFinalScore(
             partDLeg,
             contract.contractId,
             cai.partD[contract.contractId] ?? null,

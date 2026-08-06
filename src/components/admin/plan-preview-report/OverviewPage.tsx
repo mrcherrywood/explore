@@ -153,9 +153,9 @@ export function OverviewPage({
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              Part C {formatStars(score?.partCFinalRating ?? null)}★
+              Part C {formatScore(score?.partCFinalRating ?? null, 2)}
               <span style={{ margin: "0 6px", fontWeight: 500 }}>·</span>
-              Part D {formatStars(score?.partDFinalRating ?? null)}★
+              Part D {formatScore(score?.partDFinalRating ?? null, 2)}
             </p>
           </div>
 
