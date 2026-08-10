@@ -169,14 +169,18 @@ test(
     assert.ok(withBaselineStar.length > 20, "expected baseline official stars for most measures");
 
     // Stars 2027 weights: Call Center Part D is 2-wt (same as Part C); HOS
-    // Improving/Maintaining Physical & Mental Health are 3-wt.
+    // Improving/Maintaining Physical & Mental Health are 3-wt. Part D MCL is
+    // also 2-wt (Overall dedup drops D03 from MA-PD, but the measure itself is 2).
     const callCenterD = h0885.measures.find((m) => m.measureCode === "D01");
     const callCenterC = h0885.measures.find((m) => /call center/i.test(m.displayName) && m.measureCode?.startsWith("C"));
+    const mclD = h0885.measures.find((m) => m.measureCode === "D03");
     const physical = h0885.measures.find((m) => m.measureCode === "C04");
     const mental = h0885.measures.find((m) => m.measureCode === "C05");
     assert.ok(callCenterD, "D01 Call Center missing");
     assert.equal(callCenterD.weight, 2, "Part D Call Center should be 2-wt");
     if (callCenterC) assert.equal(callCenterC.weight, 2, "Part C Call Center should be 2-wt");
+    assert.ok(mclD, "D03 Members Choosing to Leave missing");
+    assert.equal(mclD.weight, 2, "Part D MCL should be 2-wt (not the weight-1 fallback)");
     assert.ok(physical, "C04 Physical Health missing");
     assert.ok(mental, "C05 Mental Health missing");
     assert.equal(physical.weight, 3, "Improving/Maintaining Physical Health should be 3-wt");

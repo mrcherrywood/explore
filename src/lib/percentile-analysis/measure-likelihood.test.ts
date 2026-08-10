@@ -137,6 +137,29 @@ test("matchCutPointToMeasureName distinguishes Call Center Part C from Part D", 
   assert.equal(partD?.measureName, "Call Center - FFI / TTY (Part D)");
 });
 
+test("matchCutPointToMeasureName distinguishes Members Choosing to Leave Part C from Part D", () => {
+  const byYear = loadMeasureCutPoints(cutPointsPath, [2027]);
+  const cutPoints = byYear.get(2027) ?? [];
+
+  const partC = matchCutPointToMeasureName(
+    "Members Choosing to Leave the Plan (Part C)",
+    "C",
+    cutPoints,
+    "members choosing to leave the plan partc"
+  );
+  const partD = matchCutPointToMeasureName(
+    "Members Choosing to Leave the Plan (Part D)",
+    "D",
+    cutPoints,
+    "members choosing to leave the plan partd"
+  );
+
+  assert.equal(partC?.hlCode, "HL27");
+  assert.equal(partD?.hlCode, "HL42");
+  assert.equal(partC?.weight, 2);
+  assert.equal(partD?.weight, 2);
+});
+
 test("deriveMeasureStarRating handles normal and inverted cut points", () => {
   const normalCutPoint = makeCutPoint();
   const invertedCutPoint = makeCutPoint({

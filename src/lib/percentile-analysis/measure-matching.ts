@@ -22,6 +22,8 @@ const MANUAL_CP_TO_NORM: Record<string, string> = {
   "Statin Therapy-Patients with CVD": "statin therapy for patients with cardiovascular disease",
   "Statin Use with Diabetes (Part D)": "statin use in persons with diabetes (supd)",
   "SNP Care Management": "special needs plan (snp) care management",
+  // Workbook has two identically named MCL rows (HL27 Part C, HL42 Part D).
+  // Part suffixes are applied via MEMBERS_CHOOSING_HL_PART, not this map.
   "Members Choosing to Leave": "members choosing to leave the plan",
   "Controlling Blood Pressure": "controlling high blood pressure",
   "Transitions of Care (Average)": "transitions of care",
@@ -104,20 +106,32 @@ function toNumber(value: number | string | null | undefined) {
   return null;
 }
 
-function getAliasesForCutPoint(measureName: string) {
+/** Cut-point workbook duplicates the MCL label; HL codes distinguish Part C/D. */
+const MEMBERS_CHOOSING_HL_PART: Record<string, "partc" | "partd"> = {
+  HL27: "partc",
+  HL42: "partd",
+};
+
+function getAliasesForCutPoint(measureName: string, hlCode?: string) {
+  const hlKey = (hlCode ?? "").trim().toUpperCase();
+  const mclPart = MEMBERS_CHOOSING_HL_PART[hlKey];
+  // Part-specific alias only — bare "members choosing to leave" would match both twins.
+  if (mclPart) {
+    return [`members choosing to leave the plan ${mclPart}`];
+  }
+
   const normalized = normalizeMeasureName(measureName);
-  const manual = MANUAL_CP_TO_NORM[measureName] ? normalizeMeasureName(MANUAL_CP_TO_NORM[measureName]) : "";
+  const manual = MANUAL_CP_TO_NORM[measureName]
+    ? normalizeMeasureName(MANUAL_CP_TO_NORM[measureName])
+    : "";
   return [normalized, manual].filter((alias): alias is string => Boolean(alias));
 }
 
-function respectsSpecialCases(alias: string, measureNorm: string, codePrefix: string | null) {
-  if (alias.includes("call center")) {
+function respectsSpecialCases(alias: string, codePrefix: string | null) {
+  // Shared-name Part C/D twins must not cross-match on the opposite part suffix.
+  if (alias.includes("call center") || alias.includes("members choosing")) {
     if (codePrefix === "C" && (alias.includes("partd") || alias.includes("part d"))) return false;
     if (codePrefix === "D" && (alias.includes("partc") || alias.includes("part c"))) return false;
-  }
-
-  if (alias.includes("members choosing") && (measureNorm.includes("partd") || measureNorm.includes("part d"))) {
-    return false;
   }
 
   return true;
@@ -140,10 +154,10 @@ export function matchCutPointToMeasureName(
 
   for (const measureNorm of candidates) {
     for (const cutPoint of cutPoints) {
-      const aliases = getAliasesForCutPoint(cutPoint.measureName);
+      const aliases = getAliasesForCutPoint(cutPoint.measureName, cutPoint.hlCode);
       if (
         aliases.some((alias) => {
-          if (!respectsSpecialCases(alias, measureNorm, codePrefix)) return false;
+          if (!respectsSpecialCases(alias, codePrefix)) return false;
           return alias.includes(measureNorm) || measureNorm.includes(alias);
         })
       ) {
