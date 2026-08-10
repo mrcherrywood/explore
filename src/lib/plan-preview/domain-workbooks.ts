@@ -12,6 +12,32 @@ const MEASURE_ID_PATTERN = /^([CD]\d{2})$/i;
 
 const SNP_CARE_MANAGEMENT_NAME = "Special Needs Plan (SNP) Care Management";
 
+/**
+ * HPMS CAHPS domain files label measures with MCAHPS VariableNames
+ * (e.g. "gnc_comp (C21)") rather than Star Ratings display names. Map those
+ * codes to the canonical measure name before universe / cut-point matching.
+ */
+const CAHPS_FPP_VARIABLE_TO_MEASURE: Record<string, string> = {
+  gnc_comp: "Getting Needed Care",
+  gcq_comp: "Getting Appointments and Care Quickly",
+  cs_comp: "Customer Service",
+  coc_comp: "Care Coordination",
+  rate_care: "Rating of Health Care Quality",
+  rate_plan: "Rating of Health Plan",
+  mapd_rate_pdp: "Rating of Drug Plan",
+  pdp_rate_pdp: "Rating of Drug Plan",
+  mapd_gneeded_comp: "Getting Needed Prescription Drugs",
+  pdp_gneeded_comp: "Getting Needed Prescription Drugs",
+  im_flu1last: "Annual Flu Vaccine",
+};
+
+/** Resolve an HPMS CAHPS domain label (VariableName or display name) to a Star measure name. */
+export function resolveCahpsDomainMeasureName(measureLabelWithoutCode: string): string {
+  const cleaned = measureLabelWithoutCode.trim();
+  if (!cleaned) return cleaned;
+  return CAHPS_FPP_VARIABLE_TO_MEASURE[cleaned.toLowerCase()] ?? cleaned;
+}
+
 function cleanCell(value: unknown): string {
   return String(value ?? "")
     .replace(/[^\x20-\x7e]/g, " ")
@@ -178,8 +204,9 @@ function parseCahpsDomain(
     const decimalScore = parseNumber(cleanCell(row[scaledMeanCol]));
     if (decimalScore === null) continue;
 
-    const measureName = measureLabel.replace(CAHPS_MEASURE_CODE_PATTERN, "").trim();
-    const resolved = resolveMeasureForPlanPreview(measureCode, measureName || measureCode);
+    const rawMeasureName = measureLabel.replace(CAHPS_MEASURE_CODE_PATTERN, "").trim();
+    const measureName = resolveCahpsDomainMeasureName(rawMeasureName) || measureCode;
+    const resolved = resolveMeasureForPlanPreview(measureCode, measureName);
 
     parsedRows.push({
       sourceRowNumber: rowIndex + 1,
@@ -188,7 +215,7 @@ function parseCahpsDomain(
       contractName: parseNullableText(row[2]),
       parentOrganization: parseNullableText(row[3]),
       measureCode,
-      measureName: measureName || resolved.displayName,
+      measureName: resolved.displayName,
       measureDisplayName: resolved.displayName,
       measureNormalized: resolved.normalizedName,
       metricCategory: inferMetricCategory(measureCode),

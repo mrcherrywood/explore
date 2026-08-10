@@ -5,10 +5,14 @@ import test from "node:test";
 
 import * as XLSX from "xlsx";
 
+import { getMeasureByNormalizedName } from "@/lib/band-movement/analysis";
+import { isCahpsMeasure } from "@/lib/band-movement/cut-point-methodology";
+
 import {
   buildMeasureDataExportWorkbook,
   formatExportCellValue,
 } from "./export-workbook";
+import { resolveCahpsDomainMeasureName } from "./domain-workbooks";
 import type {
   PlanPreviewDecimalParseResult,
   PlanPreviewExportRow,
@@ -29,6 +33,23 @@ const MD_PATH = path.join(FPP_DIR, "SR_2027_md.xlsx");
 
 const hasFpp = existsSync(CAHPS_PATH) && existsSync(HEDIS_PATH) && existsSync(SNP_CM_PATH);
 
+test("resolveCahpsDomainMeasureName maps HPMS VariableNames to Star measure names", () => {
+  assert.equal(resolveCahpsDomainMeasureName("gnc_comp"), "Getting Needed Care");
+  assert.equal(resolveCahpsDomainMeasureName("GCQ_COMP"), "Getting Appointments and Care Quickly");
+  assert.equal(resolveCahpsDomainMeasureName("cs_comp"), "Customer Service");
+  assert.equal(resolveCahpsDomainMeasureName("coc_comp"), "Care Coordination");
+  assert.equal(resolveCahpsDomainMeasureName("rate_care"), "Rating of Health Care Quality");
+  assert.equal(resolveCahpsDomainMeasureName("rate_plan"), "Rating of Health Plan");
+  assert.equal(resolveCahpsDomainMeasureName("mapd_rate_pdp"), "Rating of Drug Plan");
+  assert.equal(resolveCahpsDomainMeasureName("pdp_rate_pdp"), "Rating of Drug Plan");
+  assert.equal(
+    resolveCahpsDomainMeasureName("mapd_gneeded_comp"),
+    "Getting Needed Prescription Drugs"
+  );
+  assert.equal(resolveCahpsDomainMeasureName("im_flu1last"), "Annual Flu Vaccine");
+  assert.equal(resolveCahpsDomainMeasureName("Getting Needed Care"), "Getting Needed Care");
+});
+
 test(
   "parses CAHPS domain Scaled Mean decimals",
   { skip: !existsSync(CAHPS_PATH) },
@@ -47,18 +68,39 @@ test(
     assert.ok(h0885C26);
     assert.ok(Math.abs(h0885C26.decimalScore - 86.03890753) < 1e-6);
     assert.equal(h0885C26.decimalSource, "cahps");
+    assert.equal(h0885C26.measureDisplayName, "Care Coordination");
+    assert.match(h0885C26.measureNormalized, /care coordination/);
+    assert.ok(getMeasureByNormalizedName(h0885C26.measureNormalized));
+    assert.equal(isCahpsMeasure(h0885C26.measureDisplayName), true);
 
     const h0885C03 = result.rows.find(
       (row) => row.contractId === "H0885" && row.measureCode === "C03"
     );
     assert.ok(h0885C03);
     assert.ok(Math.abs(h0885C03.decimalScore - 65.024001888) < 1e-6);
+    assert.equal(h0885C03.measureDisplayName, "Annual Flu Vaccine");
 
     const s5993D05 = result.rows.find(
       (row) => row.contractId === "S5993" && row.measureCode === "D05"
     );
     assert.ok(s5993D05);
     assert.ok(Math.abs(s5993D05.decimalScore - 78.887461295) < 1e-6);
+    assert.equal(s5993D05.measureDisplayName, "Rating of Drug Plan");
+
+    // Every CAHPS VariableName in the FPP file must land in the published universe.
+    const byMeasure = new Map(result.rows.map((row) => [row.measureNormalized, row]));
+    for (const row of byMeasure.values()) {
+      assert.ok(
+        getMeasureByNormalizedName(row.measureNormalized),
+        `${row.measureCode} (${row.measureDisplayName}) should match the published measure universe`
+      );
+      assert.equal(
+        isCahpsMeasure(row.measureDisplayName),
+        true,
+        `${row.measureDisplayName} should be recognized as CAHPS`
+      );
+      assert.doesNotMatch(row.measureDisplayName, /_/);
+    }
   }
 );
 

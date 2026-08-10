@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { getMeasureByNormalizedName } from "@/lib/band-movement/analysis";
 import type { Database } from "@/lib/supabase/database.types";
 import type {
   ParsedPlanPreviewDecimalScore,
@@ -105,6 +106,12 @@ export async function upsertPlanPreviewDecimalScores(
   const inserts: MeasureScoreInsert[] = input.rows.map((row) => {
     const prior = existing.get(`${row.contractId}|${row.measureCode}`);
     if (prior) {
+      // Prefer the incoming resolved identity when the prior row still carries
+      // an unmatched VariableName stub (e.g. gnc_comp) from an earlier CAHPS
+      // upload; otherwise keep the measure_data names.
+      const incomingInUniverse = getMeasureByNormalizedName(row.measureNormalized) !== null;
+      const priorInUniverse = getMeasureByNormalizedName(prior.measure_normalized) !== null;
+      const useIncomingNames = incomingInUniverse && !priorInUniverse;
       return {
         batch_id: input.batchId,
         stars_year: input.starsYear,
@@ -113,10 +120,14 @@ export async function upsertPlanPreviewDecimalScores(
         contract_name: row.contractName,
         parent_organization: row.parentOrganization,
         measure_code: row.measureCode,
-        measure_name: prior.measure_name,
-        measure_display_name: prior.measure_display_name,
-        measure_normalized: prior.measure_normalized,
-        metric_category: prior.metric_category,
+        measure_name: useIncomingNames ? row.measureName : prior.measure_name,
+        measure_display_name: useIncomingNames
+          ? row.measureDisplayName
+          : prior.measure_display_name,
+        measure_normalized: useIncomingNames
+          ? row.measureNormalized
+          : prior.measure_normalized,
+        metric_category: useIncomingNames ? row.metricCategory : prior.metric_category,
         raw_value: prior.raw_value,
         score: prior.score,
         status: prior.status,
