@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 
 import { PlanPreviewFinalScores } from "@/components/admin/PlanPreviewFinalScores";
@@ -340,6 +340,8 @@ function CutPointRow({
   );
 }
 
+const UNKNOWN_PARENT_ORG = "Unknown parent organization";
+
 function ContractPanel({
   data,
   selectedContractId,
@@ -351,6 +353,44 @@ function ContractPanel({
   onSelect: (contractId: string) => void;
   running: boolean;
 }) {
+  const [selectedParentOrg, setSelectedParentOrg] = useState("");
+
+  const parentOptions = useMemo(() => {
+    const orgs = new Set<string>();
+    for (const contract of data.contracts) {
+      orgs.add(contract.parentOrganization?.trim() || UNKNOWN_PARENT_ORG);
+    }
+    return [...orgs].sort((left, right) => left.localeCompare(right));
+  }, [data.contracts]);
+
+  const filteredContracts = useMemo(() => {
+    if (!selectedParentOrg) return data.contracts;
+    return data.contracts.filter(
+      (contract) =>
+        (contract.parentOrganization?.trim() || UNKNOWN_PARENT_ORG) ===
+        selectedParentOrg,
+    );
+  }, [data.contracts, selectedParentOrg]);
+
+  // Drop a stale parent filter when the accrued set changes (e.g. re-run / year).
+  useEffect(() => {
+    if (
+      selectedParentOrg &&
+      !parentOptions.includes(selectedParentOrg)
+    ) {
+      setSelectedParentOrg("");
+    }
+  }, [parentOptions, selectedParentOrg]);
+
+  // Keep the selected contract inside the filtered parent list.
+  useEffect(() => {
+    if (filteredContracts.length === 0) return;
+    const stillVisible = filteredContracts.some(
+      (contract) => contract.contractId === selectedContractId,
+    );
+    if (!stillVisible) onSelect(filteredContracts[0].contractId);
+  }, [filteredContracts, onSelect, selectedContractId]);
+
   const detail =
     data.contractDetail && data.contractDetail.contractId === selectedContractId
       ? data.contractDetail
@@ -367,14 +407,31 @@ function ContractPanel({
         </p>
         <select
           className="fep-select"
+          value={selectedParentOrg}
+          onChange={(event) => setSelectedParentOrg(event.target.value)}
+          disabled={running || data.contracts.length === 0}
+          aria-label="Parent organization"
+        >
+          <option value="">All parent organizations</option>
+          {parentOptions.map((parentOrg) => (
+            <option key={parentOrg} value={parentOrg}>
+              {parentOrg}
+            </option>
+          ))}
+        </select>
+        <select
+          className="fep-select"
           value={selectedContractId}
           onChange={(event) => onSelect(event.target.value)}
-          disabled={running || data.contracts.length === 0}
+          disabled={running || filteredContracts.length === 0}
+          aria-label="Contract"
         >
           <option value="" disabled>
-            Select contract…
+            {selectedParentOrg
+              ? "Select contract in parent org…"
+              : "Select contract…"}
           </option>
-          {data.contracts.map((contract) => (
+          {filteredContracts.map((contract) => (
             <option key={contract.contractId} value={contract.contractId}>
               {contract.contractId}
               {contract.contractName ? ` — ${contract.contractName}` : ""}
