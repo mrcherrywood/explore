@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "fs";
 import path from "path";
 
 import { getMeasureYearScoreSamples } from "@/lib/band-movement/analysis";
+import { isCahpsMeasure } from "@/lib/band-movement/cut-point-methodology";
 import { OFFICIAL_RECALC_REMOVED_CODES } from "@/lib/clover-impact/scenarios";
 import { loadMeasureStarsFromFile } from "@/lib/reward-factor/backtest";
 
@@ -18,6 +19,14 @@ import type {
   PlanPreviewContractPrediction,
   PlanPreviewPredictionsResult,
 } from "./predictions";
+import { scoreForCutPointBanding } from "./predictions";
+import {
+  buildMeasureStarOutlook,
+  buildOverallStarOutlook,
+  thresholdValuesFromForecast,
+  type MeasureStarOutlook,
+  type OverallStarOutlook,
+} from "./star-outlook";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 
@@ -27,6 +36,8 @@ export type ReportMeasure = PlanPreviewContractMeasurePrediction & {
   publishedBaselineStar: number | null;
   /** Published CMS measure score for the baseline year, when available. */
   publishedBaselineScore: number | null;
+  /** Experimental asymmetric cut-point outlook (null when not cut-point banded). */
+  outlook: MeasureStarOutlook | null;
 };
 
 export type ReportDomain = {
@@ -89,6 +100,11 @@ export type PlanPreviewContractReport = {
   /** Overall final score when QI measures are set to each whole-star rating 1–5. */
   qiSensitivity: PlanPreviewQiSensitivityPoint[];
   populationSize: number;
+  /**
+   * Experimental overall envelope: base predicted rating vs upside if measure
+   * cut points ease within historical methodology error.
+   */
+  overallOutlook: OverallStarOutlook | null;
 };
 
 type RawSummaryRow = Record<string, string | number | null | undefined>;
@@ -350,6 +366,10 @@ export function buildPlanPreviewContractReport(options: {
     publishedBaseline.map((measure) => [measure.code.toUpperCase(), measure.starValue])
   );
 
+  const cutPointByMeasure = new Map(
+    predictions.cutPoints.map((row) => [row.measureNormalized, row] as const)
+  );
+
   // Domain and published-star lookups are keyed by baseline-year codes, so
   // translate each measure's file code (CMS renumbers codes between years).
   const measures: ReportMeasure[] = contract.measures.map((measure) => {
@@ -363,11 +383,33 @@ export function buildPlanPreviewContractReport(options: {
             (sample) => sample.contractId === contractId
           )?.score ?? null)
         : null;
+    const publishedBaselineStar = publishedStarByCode.get(code) ?? null;
+    const cutPoint = cutPointByMeasure.get(measure.measureNormalized);
+    const appliedThresholds = thresholdValuesFromForecast(cutPoint?.thresholds);
+    const bandingScore = scoreForCutPointBanding(
+      measure.score,
+      null,
+      isCahpsMeasure(measure.displayName),
+      appliedThresholds
+    );
+    const outlook = buildMeasureStarOutlook({
+      measureNormalized: measure.measureNormalized,
+      score: bandingScore,
+      comparisonScore: measure.score,
+      inverted: measure.inverted,
+      starSource: measure.starSource,
+      predictedStar: measure.predictedStar,
+      publishedBaselineStar,
+      publishedBaselineScore,
+      appliedThresholds,
+      modelThresholds: thresholdValuesFromForecast(cutPoint?.modelThresholds),
+    });
     return {
       ...measure,
       domain: domainByCode.get(code) ?? NEW_MEASURE_DOMAINS[code] ?? null,
-      publishedBaselineStar: publishedStarByCode.get(code) ?? null,
+      publishedBaselineStar,
       publishedBaselineScore,
+      outlook,
     };
   });
 
@@ -398,6 +440,28 @@ export function buildPlanPreviewContractReport(options: {
   const cai = options.cai ?? { overall: {}, partC: {}, partD: {} };
   const qiSensitivity = buildPlanPreviewQiSensitivity(predictions, cai, contractId);
 
+  const reportScenarios = buildScenarios(scenarios, contractId, contractCodes);
+  const baselineScenario = reportScenarios.find((scenario) => scenario.id === "baseline");
+  const baselineScore = baselineScenario?.score ?? null;
+  const baselineLeg =
+    baselineScore?.selectedLeg === "with_qi"
+      ? baselineScore.withQi
+      : baselineScore?.withoutQi;
+  const overallOutlook =
+    baselineScore?.finalRating != null
+      ? buildOverallStarOutlook({
+          measures: measures.map((measure) => ({
+            measureCode: measure.measureCode,
+            weight: measure.weight,
+            predictedStar: measure.predictedStar,
+            outlook: measure.outlook,
+          })),
+          rewardFactor: baselineLeg?.rewardFactor ?? 0,
+          caiValue: baselineScore.caiValue ?? 0,
+          baseRounded: baselineScore.finalRating,
+        })
+      : null;
+
   return {
     starsYear,
     baselineYear,
@@ -415,8 +479,9 @@ export function buildPlanPreviewContractReport(options: {
     domains: buildDomains(measures, publishedDomainMeans, recalculatedDomainMeans),
     history: buildHistory(contractId, starsYear),
     yoySummary: buildYoySummary(measures),
-    scenarios: buildScenarios(scenarios, contractId, contractCodes),
+    scenarios: reportScenarios,
     qiSensitivity,
     populationSize: scenarios[0]?.populationSize ?? 0,
+    overallOutlook,
   };
 }

@@ -12,6 +12,7 @@ import {
   REPORT_COLORS,
   ReportPageFrame,
   ReportSection,
+  formatMeasureUpside,
   formatSigned,
   formatStars,
   reportEyebrow,
@@ -106,13 +107,14 @@ export function MeasureScoresPage({
             }}
           >
             <colgroup>
-              <col style={{ width: "38%" }} />
+              <col style={{ width: "32%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "10%" }} />
               <col style={{ width: "8%" }} />
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "10%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "18%" }} />
             </colgroup>
             <thead>
               <tr>
@@ -131,6 +133,7 @@ export function MeasureScoresPage({
                 <th style={{ paddingBottom: 3, fontSize: 7.5 }}>
                   {report.starsYear} ★
                 </th>
+                <th style={{ paddingBottom: 3, fontSize: 7.5 }}>Upside</th>
               </tr>
             </thead>
             <tbody>
@@ -138,7 +141,7 @@ export function MeasureScoresPage({
                 <tr>
                   <td
                     className="l"
-                    colSpan={7}
+                    colSpan={8}
                     style={{ color: "var(--fep-faint)" }}
                   >
                     No accrued {part} measures to compare.
@@ -179,6 +182,20 @@ export function MeasureScoresPage({
                         <span style={{ color: "var(--fep-muted)" }}>
                           {measure.displayName}
                         </span>
+                        {measure.outlook?.cutPressure ? (
+                          <span
+                            className="fep-report-pill"
+                            style={{
+                              marginLeft: 3,
+                              textTransform: "none",
+                              fontSize: 7,
+                              padding: "0 4px",
+                              color: REPORT_COLORS.accent,
+                            }}
+                          >
+                            Cut pressure
+                          </span>
+                        ) : null}
                       </td>
                       <td style={{ paddingTop: 1, paddingBottom: 1 }}>
                         {measure.weight}
@@ -229,6 +246,20 @@ export function MeasureScoresPage({
                       >
                         {formatStars(measure.predictedStar, 0)}★
                       </td>
+                      <td
+                        style={{
+                          paddingTop: 1,
+                          paddingBottom: 1,
+                          whiteSpace: "nowrap",
+                          fontWeight: measure.outlook?.hasUpside ? 800 : 600,
+                          color: measure.outlook?.hasUpside
+                            ? REPORT_COLORS.positive
+                            : "var(--fep-faint)",
+                          fontSize: 8,
+                        }}
+                      >
+                        {formatMeasureUpside(measure.outlook)}
+                      </td>
                     </tr>
                   );
                 })
@@ -239,7 +270,8 @@ export function MeasureScoresPage({
         <p className="fep-report-section-note" style={{ marginTop: 5 }}>
           Published scores come from CMS measure data for Stars {baselineYear}.
           Plan preview scores are the accrued PP1 values (MCAHPS adjusted scores
-          when uploaded).
+          when uploaded). Upside is the star range if cuts ease within historical
+          methodology error (base–upside).
         </p>
       </ReportSection>
     </ReportPageFrame>

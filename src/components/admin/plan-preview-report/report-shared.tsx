@@ -36,6 +36,22 @@ export function formatSigned(
   return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
 }
 
+/** Compact per-measure upside: `3★` or `3–4★`. */
+export function formatMeasureUpside(
+  outlook:
+    | {
+        baseStar: number;
+        upsideStar: number;
+        hasUpside: boolean;
+      }
+    | null
+    | undefined,
+): string {
+  if (!outlook) return "—";
+  if (!outlook.hasUpside) return `${outlook.baseStar}★`;
+  return `${outlook.baseStar}–${outlook.upsideStar}★`;
+}
+
 /** Recharts LabelList formatter that renders numeric labels with fixed digits. */
 export function chartValueFormatter(
   digits: number,

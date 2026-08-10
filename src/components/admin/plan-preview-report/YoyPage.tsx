@@ -24,6 +24,7 @@ import {
   ReportSection,
   ReportStat,
   chartValueFormatter,
+  formatMeasureUpside,
   formatStars,
   reportEyebrow,
 } from "./report-shared";
@@ -232,6 +233,7 @@ export function YoyPage({
                 <th>Weight</th>
                 <th>Stars {report.baselineYear ?? "—"} (published)</th>
                 <th>Stars {report.starsYear} (predicted)</th>
+                <th>Upside</th>
                 <th>Change</th>
               </tr>
             </thead>
@@ -240,7 +242,7 @@ export function YoyPage({
                 <tr>
                   <td
                     className="l"
-                    colSpan={5}
+                    colSpan={6}
                     style={{ color: "var(--fep-faint)" }}
                   >
                     No rated measures moved versus the published baseline.
@@ -255,7 +257,7 @@ export function YoyPage({
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        maxWidth: 300,
+                        maxWidth: 260,
                         paddingTop: 2,
                         paddingBottom: 2,
                         fontSize: 9,
@@ -270,6 +272,21 @@ export function YoyPage({
                       <span style={{ color: "var(--fep-muted)" }}>
                         {measure.displayName}
                       </span>
+                      {measure.outlook?.cutPressure ? (
+                        <span
+                          className="fep-report-pill"
+                          style={{
+                            marginLeft: 4,
+                            textTransform: "none",
+                            fontSize: 7.5,
+                            padding: "0 5px",
+                            color: REPORT_COLORS.accent,
+                            borderColor: REPORT_COLORS.band,
+                          }}
+                        >
+                          Cut pressure
+                        </span>
+                      ) : null}
                     </td>
                     <td style={{ paddingTop: 2, paddingBottom: 2 }}>
                       {measure.weight}
@@ -303,6 +320,20 @@ export function YoyPage({
                     </td>
                     <td
                       style={{
+                        paddingTop: 2,
+                        paddingBottom: 2,
+                        whiteSpace: "nowrap",
+                        fontWeight: measure.outlook?.hasUpside ? 800 : 600,
+                        color: measure.outlook?.hasUpside
+                          ? REPORT_COLORS.positive
+                          : "var(--fep-faint)",
+                        fontSize: 9,
+                      }}
+                    >
+                      {formatMeasureUpside(measure.outlook)}
+                    </td>
+                    <td
+                      style={{
                         fontWeight: 800,
                         paddingTop: 2,
                         paddingBottom: 2,
@@ -324,7 +355,11 @@ export function YoyPage({
         <p className="fep-report-section-note" style={{ marginTop: 4 }}>
           Movement reflects score change and projected cut point movement.
           Showing all {movers.length} measures that changed. CAHPS rows marked
-          Adjusted use case-mix and reliability adjusted base stars.
+          Adjusted use case-mix and reliability adjusted base stars. Base case
+          uses our conservative cut-point forecast. Upside eases cuts by each
+          measure&apos;s historical methodology error (and the live model when
+          softer). Cut pressure marks score improvement with a predicted star
+          drop.
         </p>
       </ReportSection>
     </ReportPageFrame>

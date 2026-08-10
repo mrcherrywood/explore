@@ -167,6 +167,21 @@ export function OverviewPage({
             >
               Final score {formatScore(score?.finalScoreRaw)}
             </p>
+            {report.overallOutlook?.hasUpside ? (
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: 10,
+                  fontWeight: 800,
+                  color: REPORT_COLORS.positive,
+                  fontVariantNumeric: "tabular-nums",
+                  textAlign: "center",
+                  lineHeight: 1.3,
+                }}
+              >
+                {`${formatStars(report.overallOutlook.baseRounded)}–${formatStars(report.overallOutlook.upsideRounded)}★`}
+              </p>
+            ) : null}
             <p
               style={{
                 margin: "8px 0 0",
@@ -229,6 +244,9 @@ export function OverviewPage({
                 (m) => m.starSource === "cahps_case_mix_reliability",
               )
                 ? " CAHPS stars marked Adjusted use case-mix and reliability adjusted base stars."
+                : ""}
+              {report.overallOutlook?.hasUpside
+                ? " Upside eases conservative cut-point forecasts by historical methodology error (same reward factor and CAI)."
                 : ""}
             </p>
           </div>
