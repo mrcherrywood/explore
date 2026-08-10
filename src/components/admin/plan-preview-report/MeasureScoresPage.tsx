@@ -6,6 +6,7 @@ import type {
   PlanPreviewContractReport,
   ReportMeasure,
 } from "@/lib/plan-preview/report-data";
+import { isScoreDeltaImprovement } from "@/lib/plan-preview/score-delta-direction";
 
 import {
   REPORT_COLORS,
@@ -152,6 +153,10 @@ export function MeasureScoresPage({
                             100,
                         ) / 100
                       : null;
+                  const deltaImproved =
+                    scoreDelta !== null &&
+                    scoreDelta !== 0 &&
+                    isScoreDeltaImprovement(scoreDelta, measure.inverted);
                   return (
                     <tr key={measure.measureCode}>
                       <td
@@ -199,7 +204,7 @@ export function MeasureScoresPage({
                           color:
                             scoreDelta === null || scoreDelta === 0
                               ? "var(--fep-faint)"
-                              : scoreDelta > 0
+                              : deltaImproved
                                 ? REPORT_COLORS.positive
                                 : REPORT_COLORS.negative,
                         }}
