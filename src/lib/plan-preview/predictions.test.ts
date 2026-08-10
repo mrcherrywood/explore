@@ -3,7 +3,10 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { buildPlanPreviewScenarios } from "./final-scores";
+import {
+  buildPlanPreviewQiSensitivity,
+  buildPlanPreviewScenarios,
+} from "./final-scores";
 import {
   buildPlanPreviewPredictions,
   scoreForCutPointBanding,
@@ -299,5 +302,25 @@ test(
     assert.ok(model1);
     assert.ok(model1.removedCodes.includes("D08"));
     assert.ok(model1.removedCodes.includes("C32"));
+
+    // QI sensitivity assigns hypothetical QI to this contract only.
+    const qiPoints = buildPlanPreviewQiSensitivity(predictions, cai, "H0885");
+    assert.equal(qiPoints.length, 5);
+    for (let i = 0; i < qiPoints.length; i += 1) {
+      assert.equal(qiPoints[i].qiStar, i + 1);
+      assert.ok(qiPoints[i].baseMean !== null, `QI ${i + 1} base mean missing`);
+      assert.ok(qiPoints[i].measureCount !== null && qiPoints[i].measureCount! > 0);
+    }
+    // Higher assumed QI stars must raise the contract's own base mean.
+    for (let i = 1; i < qiPoints.length; i += 1) {
+      assert.ok(
+        (qiPoints[i].baseMean as number) > (qiPoints[i - 1].baseMean as number),
+        `QI ${i + 1} base mean should exceed QI ${i}`
+      );
+    }
+    // vs the without-QI projection, 5★ QI should improve the final score.
+    const noQi = h0885.withoutQi!.finalScoreRaw;
+    const qi5 = qiPoints[4].finalScoreRaw;
+    assert.ok(qi5 !== null && qi5 > noQi, `5★ QI should beat no-QI (${qi5} vs ${noQi})`);
   }
 );

@@ -60,7 +60,7 @@ export function QiSensitivityPage({
     >
       <ReportSection
         title="Overall score by average QI rating"
-        note="Plan preview 1 does not include QI scores. This page injects Part C and Part D Quality Improvement (C30/D04, weight 5) at each whole-star rating into the anchored population, recomputes reward factor thresholds, and re-scores this contract."
+        note="Plan preview 1 does not include QI scores. This page assigns Part C and Part D Quality Improvement (C30/D04, weight 5) at each whole-star rating to this contract only, then re-scores it against the anchored market (other contracts unchanged)."
       >
         <div className="fep-report-panel" style={{ padding: "12px 10px 4px" }}>
           <BarChart
@@ -166,8 +166,8 @@ export function QiSensitivityPage({
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 8 }}>
           &quot;vs. no QI&quot; compares each row to this report&apos;s all-measures
-          projection, which excludes QI. Thresholds move with the full H+R
-          population as QI stars change.
+          projection, which excludes QI. Only this contract&apos;s QI stars
+          change across rows.
         </p>
       </ReportSection>
     </ReportPageFrame>

@@ -489,9 +489,12 @@ export function buildPlanPreviewFinalScores(
 }
 
 /**
- * Contract-level QI sensitivity: inject C30/D04 at each whole-star QI rating
- * (1–5) into the anchored population, recompute reward-factor thresholds, and
- * score the target contract. Used when PP1 has no QI scores of its own.
+ * Contract-level QI sensitivity: PP1 cannot estimate Quality Improvement, so
+ * this builds what-if scenarios by assigning C30/D04 at each whole-star rating
+ * (1–5) to the target contract only. Other contracts keep their anchored
+ * measure sets (including any carried baseline QI); thresholds are recomputed
+ * from that population so a single contract's QI assumption does not rewrite
+ * the market bar.
  */
 export function buildPlanPreviewQiSensitivity(
   predictions: PlanPreviewPredictionsResult,
@@ -511,21 +514,30 @@ export function buildPlanPreviewQiSensitivity(
   }
 
   const basePopulation = buildAnchoredPopulation(predictions, baselineYear);
+  const targetMeasures = basePopulation.get(contractId);
+  if (!targetMeasures) {
+    return [1, 2, 3, 4, 5].map((qiStar) => ({
+      qiStar,
+      finalScoreRaw: null,
+      finalRating: null,
+      baseMean: null,
+      rewardFactor: null,
+      measureCount: null,
+    }));
+  }
+
   const points: PlanPreviewQiSensitivityPoint[] = [];
+  const caiValue = cai.overall[contractId] ?? null;
 
   for (let qiStar = 1; qiStar <= 5; qiStar += 1) {
-    const augmented = new Map<string, ContractMeasure[]>();
-    for (const [id, measures] of basePopulation) {
-      const withoutQi = withoutCodes(measures, QI_MEASURE_CODES);
-      augmented.set(id, [
-        ...withoutQi,
-        { code: "C30", starValue: qiStar, weight: QI_WEIGHT, category: "Part C" },
-        { code: "D04", starValue: qiStar, weight: QI_WEIGHT, category: "Part D" },
-      ]);
-    }
+    const augmented = new Map(basePopulation);
+    augmented.set(contractId, [
+      ...withoutCodes(targetMeasures, QI_MEASURE_CODES),
+      { code: "C30", starValue: qiStar, weight: QI_WEIGHT, category: "Part C" },
+      { code: "D04", starValue: qiStar, weight: QI_WEIGHT, category: "Part D" },
+    ]);
 
     const leg = computeLeg(augmented, new Set(), false);
-    const caiValue = cai.overall[contractId] ?? null;
     const score = buildLegScore(leg, contractId, caiValue);
     points.push({
       qiStar,
