@@ -12,6 +12,10 @@ import {
 } from "@/lib/band-movement/analysis";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
+  loadPp1SamplesForMeasure,
+  mergeOverlaySamplesPreferPrimary,
+} from "./pp1-overlay";
+import {
   getAllForecastProjectionsForRun,
   getLatestForecastRunForYear,
   listForecastMeasureApprovalsForRuns,
@@ -33,6 +37,8 @@ export type CutPointForecastAnalysisResponse = MethodologyForecastResponse & {
   approvedAt: string | null;
   baselineYear: number | null;
   projectedContractCount: number | null;
+  /** PP1 contracts added to the full-market overlay (no forecast projection). */
+  pp1OverlayCount: number | null;
 };
 
 type ApprovedForecastSource = {
@@ -405,6 +411,7 @@ export async function analyzeApprovedCutPointForecast(
       approvedAt: null,
       baselineYear: latestHistoricalYear,
       projectedContractCount: null,
+      pp1OverlayCount: null,
     };
   }
 
@@ -440,6 +447,7 @@ export async function analyzeApprovedCutPointForecast(
         approvedAt: null,
         baselineYear: latestHistoricalYear,
         projectedContractCount: 0,
+        pp1OverlayCount: 0,
       };
     }
 
@@ -460,6 +468,7 @@ export async function analyzeApprovedCutPointForecast(
       approvedAt: null,
       baselineYear: latestHistoricalYear,
       projectedContractCount: null,
+      pp1OverlayCount: null,
     };
   }
 
@@ -474,18 +483,39 @@ export async function analyzeApprovedCutPointForecast(
       score: projection.finalScore,
     }));
 
+  let overlaySamples = projectedSamples;
+  let pp1OverlayCount = 0;
+  if (populationMode === "full_market") {
+    try {
+      const pp1Samples = (
+        await loadPp1SamplesForMeasure(
+          serviceClient,
+          effectiveForecastYear,
+          measureNorm
+        )
+      ).filter((sample) => isEligibleForecastContract(sample.contractId));
+      const merged = mergeOverlaySamplesPreferPrimary(projectedSamples, pp1Samples);
+      overlaySamples = merged.samples;
+      pp1OverlayCount = merged.pp1FillCount;
+    } catch {
+      // PP1 tables may be missing in some environments; keep forecast-only overlay.
+      overlaySamples = projectedSamples;
+      pp1OverlayCount = 0;
+    }
+  }
+
   const baselineSamples = latestHistoricalYear === null
     ? []
     : getMeasureYearScoreSamples(measureNorm, latestHistoricalYear);
-  const projectedContractIds = new Set(projectedSamples.map((sample) => sample.contractId));
+  const overlayContractIds = new Set(overlaySamples.map((sample) => sample.contractId));
   const scenarioBaselineSamples =
     populationMode === "full_market"
       ? baselineSamples
-      : baselineSamples.filter((sample) => projectedContractIds.has(sample.contractId));
+      : baselineSamples.filter((sample) => overlayContractIds.has(sample.contractId));
   const samples =
     populationMode === "full_market" && latestHistoricalYear !== null
-      ? overlayProjectedSamples(measureNorm, projectedSamples, latestHistoricalYear)
-      : projectedSamples;
+      ? overlayProjectedSamples(measureNorm, overlaySamples, latestHistoricalYear)
+      : overlaySamples;
 
   const result = analyzeCutPointMethodologyForecast(
     measureNorm,
@@ -496,9 +526,19 @@ export async function analyzeApprovedCutPointForecast(
       baselineYear: latestHistoricalYear,
     }
   );
+  const withPp1Note =
+    result.status === "ready" && pp1OverlayCount > 0
+      ? {
+          ...result,
+          notes: [
+            ...result.notes,
+            `Full-market overlay includes ${pp1OverlayCount} accrued Plan Preview contract${pp1OverlayCount === 1 ? "" : "s"} without a forecast Projected Final.`,
+          ],
+        }
+      : result;
 
   return {
-    ...result,
+    ...withPp1Note,
     availableForecastYears: responseForecastYears,
     populationMode,
     runId: approvedSource.run.id,
@@ -507,5 +547,6 @@ export async function analyzeApprovedCutPointForecast(
     approvedAt: approvedSource.approvedAt,
     baselineYear: populationMode === "full_market" ? latestHistoricalYear : null,
     projectedContractCount: projectedSamples.length,
+    pp1OverlayCount: populationMode === "full_market" ? pp1OverlayCount : 0,
   };
 }

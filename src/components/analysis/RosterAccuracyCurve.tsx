@@ -47,9 +47,19 @@ type ResponsePayload = ReadyResponse | UnsupportedResponse;
 type Props = {
   measure: string;
   displayName: string;
+  /**
+   * Optional override for the "Your Roster" marker (e.g. projected client
+   * count on the Forecast tab). When omitted, uses the historical client
+   * roster average from client-contracts.xlsx.
+   */
+  clientRosterSize?: number | null;
 };
 
-export function RosterAccuracyCurve({ measure, displayName }: Props) {
+export function RosterAccuracyCurve({
+  measure,
+  displayName,
+  clientRosterSize = null,
+}: Props) {
   const [data, setData] = useState<ResponsePayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +72,14 @@ export function RosterAccuracyCurve({ measure, displayName }: Props) {
         view: "roster-accuracy-curve",
         measure,
       });
+      if (
+        clientRosterSize !== null &&
+        clientRosterSize !== undefined &&
+        Number.isFinite(clientRosterSize) &&
+        clientRosterSize > 0
+      ) {
+        params.set("clientRosterSize", String(Math.round(clientRosterSize)));
+      }
       const res = await fetch(`/api/analysis/band-movement?${params}`, {
         cache: "no-store",
       });
@@ -75,7 +93,7 @@ export function RosterAccuracyCurve({ measure, displayName }: Props) {
     } finally {
       setIsLoading(false);
     }
-  }, [measure]);
+  }, [clientRosterSize, measure]);
 
   useEffect(() => {
     if (measure) fetchData();
@@ -134,7 +152,11 @@ export function RosterAccuracyCurve({ measure, displayName }: Props) {
 
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
         <MiniStat
-          label="Your Roster"
+          label={
+            clientRosterSize !== null && clientRosterSize !== undefined
+              ? "Your Projected Roster"
+              : "Your Roster"
+          }
           value={`${data.clientRosterSize} contracts`}
           sub={clientPoint ? `MAE: ${clientPoint.avgMae.toFixed(2)}` : "—"}
           accent="text-[var(--fep-accent)]"

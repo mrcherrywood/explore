@@ -57,6 +57,7 @@ type ForecastReadyResponse = {
   approvedAt: string | null;
   baselineYear: number | null;
   projectedContractCount: number | null;
+  pp1OverlayCount: number | null;
   methodology: {
     method: "clustering" | "cahps-percentile";
     foldCount: number;
@@ -347,7 +348,10 @@ export function CutPointForecastAnalysis({
               helper={
                 fullMarketReady?.projectedContractCount &&
                 fullMarketReady.projectedContractCount > 0
-                  ? `${fullMarketReady.projectedContractCount} approved client projections overlaid`
+                  ? fullMarketReady.pp1OverlayCount &&
+                    fullMarketReady.pp1OverlayCount > 0
+                    ? `${fullMarketReady.projectedContractCount} client projections + ${fullMarketReady.pp1OverlayCount} Plan Preview fills`
+                    : `${fullMarketReady.projectedContractCount} approved client projections overlaid`
                   : "Projected population size"
               }
             />
@@ -554,6 +558,11 @@ export function CutPointForecastAnalysis({
             primary.status === "ready" || primary.status === "unsupported"
               ? primary.displayName
               : displayName
+          }
+          clientRosterSize={
+            clientOnlyReady?.sampleSize ??
+            fullMarketReady?.projectedContractCount ??
+            null
           }
         />
       )}

@@ -212,9 +212,19 @@ function runTrialsAtSize(
   };
 }
 
+export type RosterAccuracyCurveOptions = {
+  /**
+   * Override the "Your Roster" marker. Defaults to the historical average
+   * count of client-contracts.xlsx contracts scored for this measure.
+   * Forecast views pass the current projected client count for the measure.
+   */
+  clientRosterSize?: number | null;
+};
+
 export function analyzeRosterAccuracyCurve(
   measureNorm: string,
   officialCutPointsByYear: Map<number, MeasureCutPoint[]>,
+  options: RosterAccuracyCurveOptions = {},
 ): RosterAccuracyCurveResponse {
   const measure = getMeasureByNormalizedName(measureNorm);
   if (!measure) {
@@ -248,11 +258,21 @@ export function analyzeRosterAccuracyCurve(
   const clientSamplesPerYear = yearContexts.map((ctx) =>
     ctx.allSamples.filter((s) => clientIds.has(s.contractId)).length
   );
-  const avgClientSize = Math.round(
+  const historicalClientSize = Math.round(
     clientSamplesPerYear.reduce((s, v) => s + v, 0) / clientSamplesPerYear.length
   );
+  const overrideSize =
+    typeof options.clientRosterSize === "number" &&
+    Number.isFinite(options.clientRosterSize) &&
+    options.clientRosterSize > 0
+      ? Math.round(options.clientRosterSize)
+      : null;
+  const clientRosterSize = Math.min(
+    Math.max(overrideSize ?? historicalClientSize, 1),
+    avgMarketSize,
+  );
 
-  const sizeSteps = buildSizeSteps(avgClientSize, avgMarketSize);
+  const sizeSteps = buildSizeSteps(clientRosterSize, avgMarketSize);
 
   const curve: RosterCurvePoint[] = [];
   for (const size of sizeSteps) {
@@ -261,7 +281,7 @@ export function analyzeRosterAccuracyCurve(
     curve.push({
       rosterSize: size,
       ...result,
-      isClientRoster: size === avgClientSize,
+      isClientRoster: size === clientRosterSize,
       isFullMarket: size === avgMarketSize,
     });
   }
@@ -271,7 +291,7 @@ export function analyzeRosterAccuracyCurve(
     measure: measureNorm,
     displayName: measure.displayName,
     method: isCahps ? "cahps-percentile" : "clustering",
-    clientRosterSize: avgClientSize,
+    clientRosterSize,
     fullMarketAvgSize: avgMarketSize,
     curve,
     years: yearContexts.map((ctx) => ctx.year),

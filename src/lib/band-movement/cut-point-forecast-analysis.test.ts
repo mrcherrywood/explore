@@ -191,6 +191,29 @@ test("anchored CAHPS forecast uses percentile movement from the baseline simulat
   }
 });
 
+test("mergeOverlaySamplesPreferPrimary keeps forecast scores and fills from PP1", async () => {
+  const { mergeOverlaySamplesPreferPrimary } = await import(
+    "@/lib/cutpoint-forecast/pp1-overlay"
+  );
+
+  const merged = mergeOverlaySamplesPreferPrimary(
+    [
+      { contractId: "H1112", score: 80 },
+      { contractId: "H2223", score: 70 },
+    ],
+    [
+      { contractId: "H1112", score: 99 },
+      { contractId: "H3334", score: 65 },
+    ]
+  );
+
+  assert.equal(merged.primaryCount, 2);
+  assert.equal(merged.pp1FillCount, 1);
+  assert.equal(merged.samples.find((s) => s.contractId === "H1112")?.score, 80);
+  assert.equal(merged.samples.find((s) => s.contractId === "H3334")?.score, 65);
+  assert.equal(merged.samples.length, 3);
+});
+
 test("overlayProjectedSamples replaces baseline contracts and appends new projected ones", () => {
   const regularMeasure = getAvailableOptions().measures.find(
     (measure) => measure.displayName === "Breast Cancer Screening"

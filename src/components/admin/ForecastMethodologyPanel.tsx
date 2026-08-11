@@ -104,6 +104,7 @@ type ReadyFields = {
   populationMode: PopulationMode;
   baselineYear: number | null;
   projectedContractCount: number;
+  pp1OverlayCount?: number;
   methodology: {
     method: "clustering" | "cahps-percentile";
     foldCount: number;
@@ -126,6 +127,7 @@ type ReadyResponse = ReadyFields & {
   populationMode: PopulationMode;
   baselineYear: number | null;
   projectedContractCount: number;
+  pp1OverlayCount?: number;
   clientInformedScenario: ClientInformedScenario | null;
 };
 
@@ -481,7 +483,11 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                 <MetricCard
                   label="Anchored Full Market"
                   value={String(fullMarketReady.sampleSize)}
-                  helper={`${fullMarketReady.projectedContractCount} client + ${fullMarketReady.rawSampleSize - fullMarketReady.projectedContractCount} market baseline`}
+                  helper={
+                    (fullMarketReady.pp1OverlayCount ?? 0) > 0
+                      ? `${fullMarketReady.projectedContractCount} client + ${fullMarketReady.pp1OverlayCount} Plan Preview + ${Math.max(0, fullMarketReady.rawSampleSize - fullMarketReady.projectedContractCount - (fullMarketReady.pp1OverlayCount ?? 0))} market baseline`
+                      : `${fullMarketReady.projectedContractCount} client + ${fullMarketReady.rawSampleSize - fullMarketReady.projectedContractCount} market baseline`
+                  }
                 />
               )}
               {clientInformedReady && (
@@ -784,6 +790,11 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
             <RosterAccuracyCurve
               measure={selectedMeasure}
               displayName={selectedDisplayName}
+              clientRosterSize={
+                clientOnlyReady?.sampleSize ??
+                fullMarketReady?.projectedContractCount ??
+                null
+              }
             />
           </>
         )}

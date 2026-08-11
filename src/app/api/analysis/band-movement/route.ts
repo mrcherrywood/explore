@@ -82,7 +82,17 @@ export async function GET(req: NextRequest) {
           { status: 400 }
         );
       }
-      const result = analyzeRosterAccuracyCurve(measure, ensureOfficialCutPoints());
+      const clientRosterSizeParam = searchParams.get("clientRosterSize");
+      const clientRosterSize =
+        clientRosterSizeParam !== null && clientRosterSizeParam !== ""
+          ? Number(clientRosterSizeParam)
+          : null;
+      const result = analyzeRosterAccuracyCurve(measure, ensureOfficialCutPoints(), {
+        clientRosterSize:
+          clientRosterSize !== null && Number.isFinite(clientRosterSize)
+            ? clientRosterSize
+            : null,
+      });
       const status = result.status === "unsupported" ? 400 : 200;
       return NextResponse.json(result, {
         status,
