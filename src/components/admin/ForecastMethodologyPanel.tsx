@@ -12,6 +12,7 @@ import {
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClusteringMethodologySteps } from "@/components/analysis/BacktestMethodologyPanels";
+import { RosterAccuracyCurve } from "@/components/analysis/RosterAccuracyCurve";
 import {
   Table,
   TableBody,
@@ -712,6 +713,11 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                 </ul>
               </section>
             )}
+
+            <RosterAccuracyCurve
+              measure={selectedMeasure}
+              displayName={selectedDisplayName}
+            />
           </>
         )}
       </CardContent>

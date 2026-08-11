@@ -84,6 +84,9 @@ export async function POST(request: Request) {
     await insertForecastMonthlyHistory(admin.serviceClient, batch.id, parsed.rows);
 
     const runs = [];
+    const usedProjectedFinal = parsed.rows.some(
+      (row) => row.projectedFinal != null && Number.isFinite(row.projectedFinal)
+    );
     for (const forecastYear of forecastableYears) {
       const projections = buildGlidepathProjections(parsed.rows, forecastYear).filter(
         (projection) =>
@@ -91,29 +94,64 @@ export async function POST(request: Request) {
           // Only keep measures with actual observations in this stars year. A
           // run is generated per unpublished year, so without this a measure
           // lacking SY-year data would emit a carry-forward row that just echoes
-          // an earlier stars year's final score.
+          // an earlier stars year's final score. Projected Final-only series set
+          // supportingPoints to 1 so they still qualify.
           projection.supportingPoints > 0
       );
 
-      const run = await createForecastProjectionRun(admin.serviceClient, {
-        sourceBatchId: batch.id,
-        forecastYear,
-        datasetType: "non_cahps",
-        asOfYear: parsed.summary.latestObservedYear,
-        asOfMonth: parsed.summary.latestObservedMonth,
-        projectionCount: projections.length,
-        importedBy: admin.userId,
-        notes: `Imported from ${file.name} (SY${forecastYear})`,
-      });
+      const nonCahpsProjections = projections.filter(
+        (projection) => projection.measureType !== "cahps"
+      );
+      const cahpsProjections = projections.filter(
+        (projection) => projection.measureType === "cahps"
+      );
 
-      await insertForecastProjections(admin.serviceClient, {
-        runId: run.id,
-        forecastYear,
-        projections,
-        updatedBy: admin.userId,
-      });
+      if (nonCahpsProjections.length > 0) {
+        const run = await createForecastProjectionRun(admin.serviceClient, {
+          sourceBatchId: batch.id,
+          forecastYear,
+          datasetType: "non_cahps",
+          asOfYear: parsed.summary.latestObservedYear,
+          asOfMonth: parsed.summary.latestObservedMonth,
+          projectionCount: nonCahpsProjections.length,
+          importedBy: admin.userId,
+          notes: usedProjectedFinal
+            ? `Imported from ${file.name} (SY${forecastYear}); year-end rates from Projected Final where provided.`
+            : `Imported from ${file.name} (SY${forecastYear})`,
+        });
 
-      runs.push(run);
+        await insertForecastProjections(admin.serviceClient, {
+          runId: run.id,
+          forecastYear,
+          projections: nonCahpsProjections,
+          updatedBy: admin.userId,
+        });
+
+        runs.push(run);
+      }
+
+      if (cahpsProjections.length > 0) {
+        const run = await createForecastProjectionRun(admin.serviceClient, {
+          sourceBatchId: batch.id,
+          forecastYear,
+          datasetType: "cahps",
+          asOfYear: parsed.summary.latestObservedYear,
+          asOfMonth: parsed.summary.latestObservedMonth,
+          projectionCount: cahpsProjections.length,
+          importedBy: admin.userId,
+          modelVersion: "projected-final-v1",
+          notes: `Imported CAHPS year-end rates from Projected Final in ${file.name} (SY${forecastYear}).`,
+        });
+
+        await insertForecastProjections(admin.serviceClient, {
+          runId: run.id,
+          forecastYear,
+          projections: cahpsProjections,
+          updatedBy: admin.userId,
+        });
+
+        runs.push(run);
+      }
     }
 
     return NextResponse.json({

@@ -876,6 +876,7 @@ function ProjectedClientDataSection({
           <CutPointForecastAnalysis
             measure={measure}
             displayName={displayName}
+            showRosterAccuracyCurve={false}
           />
         </div>
       )}

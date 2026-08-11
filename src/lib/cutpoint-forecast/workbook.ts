@@ -20,7 +20,13 @@ const COMPACT_CONTRACT_ALIASES = ["contractid", "contract", "contractcode"] as c
 const COMPACT_STARS_YEAR_ALIASES = ["starsyear", "year"] as const;
 const COMPACT_MONTH_ALIASES = ["monthnum", "monthnume", "monthnumber", "month"] as const;
 const COMPACT_VALUE_ALIASES = ["measurevalue", "measureval", "rate"] as const;
-const OPTIONAL_HEADERS = ["rate", "numerator - all", "denominator - all"] as const;
+const COMPACT_PROJECTED_FINAL_ALIASES = [
+  "projectedfinal",
+  "projected_final",
+  "yearendrate",
+  "yearendprojection",
+] as const;
+const OPTIONAL_HEADERS = ["rate", "numerator - all", "denominator - all", "projected final"] as const;
 
 type HeaderFormat = "canonical" | "compact";
 
@@ -280,6 +286,11 @@ function parseCanonicalRow(
   if (!contractId || !measureName || year === null || month === null) return null;
 
   const resolvedMeasure = resolveMeasure(measureName);
+  const projectedFinal =
+    parseNullableNumber(row[headerMap.get("projected final") ?? -1]) ??
+    parseNullableNumber(
+      row[findColumnIndex(headerMap, COMPACT_PROJECTED_FINAL_ALIASES, true)]
+    );
   return {
     sourceRowNumber,
     hlCode: parseNullableString(row[headerMap.get("hl code") ?? -1]),
@@ -295,6 +306,7 @@ function parseCanonicalRow(
     rate: parseNullableNumber(row[headerMap.get("rate") ?? -1]),
     numeratorAll: parseNullableNumber(row[headerMap.get("numerator - all") ?? -1]),
     denominatorAll: parseNullableNumber(row[headerMap.get("denominator - all") ?? -1]),
+    projectedFinal,
   };
 }
 
@@ -319,6 +331,9 @@ function parseCompactRow(
   const rate = parseNullableNumber(
     row[findColumnIndex(headerMap, COMPACT_VALUE_ALIASES, true)]
   );
+  const projectedFinal = parseNullableNumber(
+    row[findColumnIndex(headerMap, COMPACT_PROJECTED_FINAL_ALIASES, true)]
+  );
 
   if (!contractId || !hlCode || starsYear === null || month === null) return null;
 
@@ -340,6 +355,7 @@ function parseCompactRow(
     rate,
     numeratorAll: null,
     denominatorAll: null,
+    projectedFinal,
   };
 }
 
@@ -361,6 +377,7 @@ function mergeDuplicateRows(
     rate: incoming.rate ?? existing.rate,
     numeratorAll: incoming.numeratorAll ?? existing.numeratorAll,
     denominatorAll: incoming.denominatorAll ?? existing.denominatorAll,
+    projectedFinal: incoming.projectedFinal ?? existing.projectedFinal ?? null,
   };
 }
 
@@ -424,6 +441,7 @@ export function parseForecastWorkbook(buffer: Buffer): ForecastWorkbookParseResu
         ...COMPACT_STARS_YEAR_ALIASES,
         ...COMPACT_MONTH_ALIASES,
         ...COMPACT_VALUE_ALIASES,
+        ...COMPACT_PROJECTED_FINAL_ALIASES,
       ]
     : [...REQUIRED_HEADERS, ...OPTIONAL_HEADERS];
 
@@ -442,7 +460,7 @@ export function parseForecastWorkbook(buffer: Buffer): ForecastWorkbookParseResu
     const row = rows[rowIndex];
     if (!rowHasKnownData(row)) continue;
 
-    const parsedRow = format === "compact"
+    let parsedRow = format === "compact"
       ? parseCompactRow(row, headerMap, headerRowIndex + rowIndex + 2)
       : parseCanonicalRow(row, headerMap, headerRowIndex + rowIndex + 2);
 
@@ -450,16 +468,21 @@ export function parseForecastWorkbook(buffer: Buffer): ForecastWorkbookParseResu
 
     // A reported value of 0 on a 0-100 measure means the measure wasn't reported
     // for that month (no data), not a true 0% score. Drop it so it doesn't drag
-    // the projected time series toward zero.
+    // the projected time series toward zero — unless the row also carries a
+    // Projected Final year-end rate we still need for measure identity.
     if (parsedRow.rate === 0) {
-      continue;
+      if (parsedRow.projectedFinal == null) {
+        continue;
+      }
+      parsedRow = { ...parsedRow, rate: null };
     }
 
     // CAHPS measures are uploaded separately as survey data; drop them from the
-    // non-CAHPS (HL-coded) import so they don't create a second projection here.
+    // non-CAHPS (HL-coded) import so they don't create a second projection here
+    // — unless this file supplies a Projected Final year-end rate for them.
     // Use the clean display name — the universe's normalized name carries a
     // "(Part C)" suffix that the CAHPS name set does not include.
-    if (isCahpsMeasure(parsedRow.measureDisplayName)) {
+    if (isCahpsMeasure(parsedRow.measureDisplayName) && parsedRow.projectedFinal == null) {
       continue;
     }
 

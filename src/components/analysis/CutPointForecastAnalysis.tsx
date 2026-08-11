@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RosterAccuracyCurve } from "./RosterAccuracyCurve";
 
 type ForecastPopulationMode = "full_market" | "client_only";
 
@@ -105,6 +106,8 @@ type ForecastResponse =
 type Props = {
   measure: string;
   displayName: string;
+  /** Hide when already shown by the parent (e.g. CMS Backtest embed). */
+  showRosterAccuracyCurve?: boolean;
 };
 
 async function fetchForecast(
@@ -141,7 +144,11 @@ function deltaClass(value: number | null) {
   return "text-muted-foreground";
 }
 
-export function CutPointForecastAnalysis({ measure, displayName }: Props) {
+export function CutPointForecastAnalysis({
+  measure,
+  displayName,
+  showRosterAccuracyCurve = true,
+}: Props) {
   const [data, setData] = useState<ForecastResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -421,6 +428,17 @@ export function CutPointForecastAnalysis({ measure, displayName }: Props) {
             </ul>
           </section>
         </>
+      )}
+
+      {showRosterAccuracyCurve && (
+        <RosterAccuracyCurve
+          measure={measure}
+          displayName={
+            data.status === "ready" || data.status === "unsupported"
+              ? data.displayName
+              : displayName
+          }
+        />
       )}
     </div>
   );

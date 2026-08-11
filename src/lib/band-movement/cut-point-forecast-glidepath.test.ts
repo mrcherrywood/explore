@@ -358,3 +358,34 @@ test("buildGlidepathProjections groups rows by contract and measure", () => {
     ["H8888", "H9999"]
   );
 });
+
+test("buildGlidepathProjections uses Projected Final as the year-end rate when provided", () => {
+  const rows = [
+    makeRow(2027, 6, 60, { projectedFinal: 69.2 }),
+    makeRow(2027, 12, 68, { projectedFinal: 69.2 }),
+  ];
+
+  const projections = buildGlidepathProjections(rows, 2027);
+
+  assert.equal(projections.length, 1);
+  assert.equal(projections[0].projectedScore, 69.2);
+  assert.equal(projections[0].modelScore, 69.2);
+  assert.equal(projections[0].confidenceLabel, "high");
+  assert.ok(
+    projections[0].notes.some((note) => note.includes("Projected Final")),
+    "notes should mention Projected Final"
+  );
+});
+
+test("buildGlidepathProjections emits Projected-Final-only series with no monthly rates", () => {
+  const rows = [
+    makeRow(2027, 12, null, { projectedFinal: 72.4, contractId: "H0137" }),
+  ];
+
+  const projections = buildGlidepathProjections(rows, 2027);
+
+  assert.equal(projections.length, 1);
+  assert.equal(projections[0].contractId, "H0137");
+  assert.equal(projections[0].projectedScore, 72.4);
+  assert.equal(projections[0].supportingPoints, 1);
+});

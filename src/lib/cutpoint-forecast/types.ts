@@ -23,6 +23,8 @@ export type ImportedMonthlyMeasureRow = {
   rate: number | null;
   numeratorAll: number | null;
   denominatorAll: number | null;
+  /** Optional file-provided year-end rate (e.g. "Projected Final" column). */
+  projectedFinal?: number | null;
 };
 
 export type ForecastWorkbookParseResult = {

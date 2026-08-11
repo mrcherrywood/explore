@@ -340,6 +340,7 @@ export async function getAllMonthlyHistoryForBatch(
     rate: row.rate,
     numeratorAll: row.numerator_all,
     denominatorAll: row.denominator_all,
+    projectedFinal: null,
   }));
 }
 

@@ -252,3 +252,29 @@ test("parseForecastWorkbook skips rows not attached to contract-like ids", () =>
     ["H3923", "S8067"]
   );
 });
+
+test("parseForecastWorkbook reads Projected Final and keeps zero-rate rows that carry it", () => {
+  const buffer = buildCsvBuffer([
+    [
+      "stars_year",
+      "month",
+      "contract_code",
+      "eq_code",
+      "rate",
+      "Projected Final",
+    ],
+    [2027, 6, "H0137", "EQ01", 64.34, 69.2],
+    [2027, 12, "H0137", "EQ01", 0, 69.2],
+    [2027, 12, "H9999", "EQ01", 0, ""],
+  ]);
+
+  const parsed = parseForecastWorkbook(buffer);
+
+  assert.equal(parsed.summary.contractCount, 1, "zero-rate row without Projected Final is dropped");
+  assert.equal(parsed.rows.length, 2);
+  assert.equal(parsed.rows[0].projectedFinal, 69.2);
+  const zeroRateKept = parsed.rows.find((row) => row.month === 12);
+  assert.ok(zeroRateKept, "zero-rate row with Projected Final should be kept");
+  assert.equal(zeroRateKept?.rate, null, "zero rate is nulled so it does not drag the series");
+  assert.equal(zeroRateKept?.projectedFinal, 69.2);
+});

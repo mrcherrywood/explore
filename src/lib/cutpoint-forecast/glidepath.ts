@@ -36,13 +36,22 @@ const HOS_MEASURE_NAMES = new Set([
 
 const HOS_MEASURE_CODES = new Set(["C04", "C05", "C06"]);
 
+function stripPartSuffix(measureNormalized: string): string {
+  return measureNormalized.replace(/\s*part\s*[cd]$/i, "").trim();
+}
+
 export function classifyMeasureType(
   measureNormalized: string,
   measureCode: string | null,
   metricCategory: "Part C" | "Part D" | "Other"
 ): GlidepathMeasureType {
-  if (CAHPS_MEASURE_NAMES.has(measureNormalized)) return "cahps";
-  if (HOS_MEASURE_NAMES.has(measureNormalized)) return "hos";
+  const baseName = stripPartSuffix(measureNormalized);
+  if (CAHPS_MEASURE_NAMES.has(measureNormalized) || CAHPS_MEASURE_NAMES.has(baseName)) {
+    return "cahps";
+  }
+  if (HOS_MEASURE_NAMES.has(measureNormalized) || HOS_MEASURE_NAMES.has(baseName)) {
+    return "hos";
+  }
   if (measureCode && HOS_MEASURE_CODES.has(measureCode.toUpperCase())) return "hos";
   if (metricCategory === "Part D") return "pharmacy";
   return "hedis";
@@ -356,6 +365,110 @@ export function projectSeriesToYearEnd(
   };
 }
 
+function seriesKey(contractId: string, measureNormalized: string): string {
+  return `${contractId}::${measureNormalized}`;
+}
+
+function collectProjectedFinals(
+  rows: ImportedMonthlyMeasureRow[]
+): Map<string, { score: number; template: ImportedMonthlyMeasureRow }> {
+  const finals = new Map<string, { score: number; template: ImportedMonthlyMeasureRow }>();
+  for (const row of rows) {
+    if (row.projectedFinal == null || !Number.isFinite(row.projectedFinal)) continue;
+    const key = seriesKey(row.contractId, row.measureNormalized);
+    if (!finals.has(key)) {
+      finals.set(key, { score: round2(clamp(row.projectedFinal, 0, 100)), template: row });
+    }
+  }
+  return finals;
+}
+
+function projectionFromProjectedFinal(
+  template: ImportedMonthlyMeasureRow,
+  score: number,
+  forecastYear: number
+): GlidepathProjection {
+  const measureType = classifyMeasureType(
+    template.measureNormalized,
+    template.measureCode,
+    template.metricCategory
+  );
+  return {
+    contractId: template.contractId,
+    measureName: template.measureName,
+    measureDisplayName: template.measureDisplayName,
+    measureNormalized: template.measureNormalized,
+    measureCode: template.measureCode,
+    hlCode: template.hlCode,
+    metricCategory: template.metricCategory,
+    measureType,
+    projectedScore: score,
+    modelScore: score,
+    confidence: 0.9,
+    confidenceLabel: "high",
+    trendSlope: null,
+    seasonalityDelta: null,
+    lastObservedYear: forecastYear,
+    lastObservedMonth: template.normalizedMonth,
+    lastObservedScore: score,
+    supportingPoints: 1,
+    notes: [
+      "Year-end rate taken from the file's Projected Final column (no glidepath modeling).",
+    ],
+  };
+}
+
+/**
+ * Prefer file-provided Projected Final values as the year-end rate when present.
+ * Falls back to glidepath modeling for series without a Projected Final, and
+ * still emits a projection for Projected-Final-only series (no monthly rates).
+ */
+export function applyProjectedFinalYearEndRates(
+  projections: GlidepathProjection[],
+  rows: ImportedMonthlyMeasureRow[],
+  forecastYear: number
+): GlidepathProjection[] {
+  const finals = collectProjectedFinals(rows);
+  if (finals.size === 0) return projections;
+
+  const byKey = new Map(
+    projections.map((projection) => [
+      seriesKey(projection.contractId, projection.measureNormalized),
+      projection,
+    ])
+  );
+
+  for (const [key, { score }] of finals) {
+    const existing = byKey.get(key);
+    if (!existing) continue;
+    byKey.set(key, {
+      ...existing,
+      projectedScore: score,
+      modelScore: score,
+      confidence: Math.max(existing.confidence, 0.9),
+      confidenceLabel: "high",
+      supportingPoints: Math.max(existing.supportingPoints, 1),
+      notes: [
+        "Year-end rate taken from the file's Projected Final column.",
+        ...existing.notes.filter((note) => !note.includes("Projected Final")),
+      ],
+    });
+  }
+
+  for (const [key, { score, template }] of finals) {
+    if (byKey.has(key)) continue;
+    if (template.year !== forecastYear) continue;
+    byKey.set(key, projectionFromProjectedFinal(template, score, forecastYear));
+  }
+
+  return [...byKey.values()].sort((left, right) => {
+    return (
+      left.contractId.localeCompare(right.contractId) ||
+      left.measureDisplayName.localeCompare(right.measureDisplayName)
+    );
+  });
+}
+
 export function buildGlidepathProjections(
   rows: ImportedMonthlyMeasureRow[],
   forecastYear: number
@@ -363,7 +476,7 @@ export function buildGlidepathProjections(
   const groupedRows = new Map<string, ImportedMonthlyMeasureRow[]>();
 
   for (const row of rows) {
-    const key = `${row.contractId}::${row.measureNormalized}`;
+    const key = seriesKey(row.contractId, row.measureNormalized);
     const existing = groupedRows.get(key);
     if (existing) {
       existing.push(row);
@@ -378,10 +491,12 @@ export function buildGlidepathProjections(
     if (projection) projections.push(projection);
   }
 
-  return projections.sort((left, right) => {
-    return (
-      left.contractId.localeCompare(right.contractId) ||
-      left.measureDisplayName.localeCompare(right.measureDisplayName)
-    );
-  });
+  return applyProjectedFinalYearEndRates(projections, rows, forecastYear).sort(
+    (left, right) => {
+      return (
+        left.contractId.localeCompare(right.contractId) ||
+        left.measureDisplayName.localeCompare(right.measureDisplayName)
+      );
+    }
+  );
 }
