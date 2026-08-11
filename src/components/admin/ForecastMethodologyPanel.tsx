@@ -8,19 +8,26 @@ import {
   HelpCircle,
   Info,
   Loader2,
+  Users,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClusteringMethodologySteps } from "@/components/analysis/BacktestMethodologyPanels";
 import { RosterAccuracyCurve } from "@/components/analysis/RosterAccuracyCurve";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+
+const STAR_COLORS: Record<string, string> = {
+  "2": "#f97316",
+  "3": "#eab308",
+  "4": "#22c55e",
+  "5": "#3b82f6",
+};
+
+const THRESHOLD_STAR: Record<string, string> = {
+  twoStar: "2",
+  threeStar: "3",
+  fourStar: "4",
+  fiveStar: "5",
+};
 
 type PopulationMode = "full_market" | "client_only";
 
@@ -631,7 +638,7 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                 <FlaskConical className="h-5 w-5 text-[var(--fep-accent)]" />
                 <div>
                   <h3 className="text-base font-semibold text-foreground">
-                    Anchored Projected vs Latest Official Cut Points
+                    Actual vs Simulated Cut Points
                   </h3>
                   <p className="text-xs text-muted-foreground">
                     {selectedDisplayName} · {forecastYear}
@@ -643,62 +650,108 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                 </div>
               </div>
 
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-[#c7d7e8]/70 hover:bg-[#c7d7e8]/70">
-                    <TableHead>Threshold</TableHead>
-                    <TableHead className="text-right">Anchored Full</TableHead>
-                    <TableHead className="text-right">Anchored Delta</TableHead>
-                    <TableHead className="text-right">
-                      Client-Informed
-                    </TableHead>
-                    <TableHead className="text-right">Informed Delta</TableHead>
-                    <TableHead className="text-right">Client Only</TableHead>
-                    <TableHead className="text-right">Client Delta</TableHead>
-                    <TableHead className="text-right">
-                      Latest Official
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {thresholdRows.map((row) => (
-                    <TableRow key={row.key}>
-                      <TableCell className="font-medium">{row.label}</TableCell>
-                      <TableCell className="text-right tabular-nums font-semibold">
-                        <ThresholdValue threshold={row.fullMarket} />
-                      </TableCell>
-                      <TableCell
-                        className={`text-right font-semibold tabular-nums ${deltaClass(row.fullMarket?.deltaVsComparison ?? null)}`}
-                      >
-                        {fmtDelta(row.fullMarket?.deltaVsComparison ?? null)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums font-semibold">
-                        <ThresholdValue threshold={row.clientInformed} />
-                      </TableCell>
-                      <TableCell
-                        className={`text-right font-semibold tabular-nums ${deltaClass(row.clientInformed?.deltaVsComparison ?? null)}`}
-                      >
-                        {fmtDelta(
-                          row.clientInformed?.deltaVsComparison ?? null,
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums font-semibold">
-                        <ThresholdValue threshold={row.clientOnly} />
-                      </TableCell>
-                      <TableCell
-                        className={`text-right font-semibold tabular-nums ${deltaClass(row.clientOnly?.deltaVsComparison ?? null)}`}
-                      >
-                        {fmtDelta(row.clientOnly?.deltaVsComparison ?? null)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {row.comparisonActual !== null
-                          ? row.comparisonActual.toFixed(2)
-                          : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
+                      <th className="px-3 py-2">Threshold</th>
+                      <th className="px-3 py-2 text-right">Actual</th>
+                      <th className="px-3 py-2 text-right">Full Market</th>
+                      <th className="px-3 py-2 text-right">Delta</th>
+                      {clientOnlyReady && (
+                        <>
+                          <th className="px-3 py-2 text-right text-[var(--fep-accent)]">
+                            Client Only
+                          </th>
+                          <th className="px-3 py-2 text-right text-[var(--fep-accent)]">
+                            Delta
+                          </th>
+                          <th className="px-3 py-2 text-right">Diff</th>
+                        </>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {thresholdRows.map((row) => {
+                      const starColor = STAR_COLORS[THRESHOLD_STAR[row.key]];
+                      const fullProjected = row.fullMarket?.projected ?? null;
+                      const clientProjected = row.clientOnly?.projected ?? null;
+                      const diff =
+                        fullProjected !== null && clientProjected !== null
+                          ? clientProjected - fullProjected
+                          : null;
+                      return (
+                        <tr
+                          key={row.key}
+                          className="border-b border-border/50"
+                        >
+                          <td
+                            className="px-3 py-3 font-medium"
+                            style={{ color: starColor }}
+                          >
+                            {row.label}
+                          </td>
+                          <td className="px-3 py-3 text-right tabular-nums">
+                            {row.comparisonActual !== null
+                              ? row.comparisonActual.toFixed(2)
+                              : "—"}
+                          </td>
+                          <td className="px-3 py-3 text-right tabular-nums">
+                            {fullProjected !== null
+                              ? fullProjected.toFixed(2)
+                              : "—"}
+                          </td>
+                          <td
+                            className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.fullMarket?.deltaVsComparison ?? null)}`}
+                          >
+                            {fmtDelta(row.fullMarket?.deltaVsComparison ?? null)}
+                          </td>
+                          {clientOnlyReady && (
+                            <>
+                              <td className="px-3 py-3 text-right tabular-nums font-medium text-[var(--fep-accent)]">
+                                {clientProjected !== null
+                                  ? clientProjected.toFixed(2)
+                                  : "—"}
+                              </td>
+                              <td
+                                className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.clientOnly?.deltaVsComparison ?? null)}`}
+                              >
+                                {fmtDelta(
+                                  row.clientOnly?.deltaVsComparison ?? null,
+                                )}
+                              </td>
+                              <td
+                                className={`px-3 py-3 text-right font-semibold tabular-nums ${
+                                  diff !== null && diff > 0
+                                    ? "text-rose-400"
+                                    : diff !== null && diff < 0
+                                      ? "text-emerald-400"
+                                      : "text-muted-foreground"
+                                }`}
+                              >
+                                {fmtDelta(diff)}
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {clientOnlyReady && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  <Users className="mr-1 inline h-3.5 w-3.5 text-[var(--fep-accent)]" />
+                  Client population: {clientOnlyReady.sampleSize} contracts (vs{" "}
+                  {fullMarketReady?.sampleSize ?? "—"} full market).
+                  &quot;Actual&quot; = latest official cut points
+                  {fullMarketReady?.comparisonYear != null
+                    ? ` (${fullMarketReady.comparisonYear})`
+                    : ""}
+                  . &quot;Diff&quot; = client projected minus full market
+                  projected.
+                </p>
+              )}
             </section>
 
             {methodNotes.length > 0 && (
@@ -769,28 +822,6 @@ function SummaryPill({
         {value}
       </p>
       <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
-    </div>
-  );
-}
-
-function ThresholdValue({
-  threshold,
-}: {
-  threshold: ForecastThreshold | null;
-}) {
-  if (!threshold) return <>—</>;
-  return (
-    <div className="space-y-0.5">
-      <div>{threshold.projected.toFixed(2)}</div>
-      {threshold.rawSimulated !== null && (
-        <div className="text-[11px] font-normal text-muted-foreground">
-          raw {threshold.rawSimulated.toFixed(2)}
-          {threshold.movementCap !== null
-            ? ` · cap ${threshold.movementCap.toFixed(2)}`
-            : ""}
-          {threshold.movementWasCapped ? " · capped" : ""}
-        </div>
-      )}
     </div>
   );
 }
