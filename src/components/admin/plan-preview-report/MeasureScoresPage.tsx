@@ -107,14 +107,14 @@ export function MeasureScoresPage({
             }}
           >
             <colgroup>
-              <col style={{ width: "32%" }} />
-              <col style={{ width: "6%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "18%" }} />
+              <col />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "11%" }} />
             </colgroup>
             <thead>
               <tr>
@@ -270,8 +270,8 @@ export function MeasureScoresPage({
         <p className="fep-report-section-note" style={{ marginTop: 5 }}>
           Published scores come from CMS measure data for Stars {baselineYear}.
           Plan preview scores are the accrued PP1 values (MCAHPS adjusted scores
-          when uploaded). Upside is the star range if cuts ease within historical
-          methodology error (base–upside).
+          when uploaded). Upside is the star path if cuts ease within historical
+          methodology error (base → upside).
         </p>
       </ReportSection>
     </ReportPageFrame>

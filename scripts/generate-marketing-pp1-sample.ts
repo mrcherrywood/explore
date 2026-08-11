@@ -20,7 +20,8 @@ import type { Database } from "../src/lib/supabase/database.types";
 
 config({ path: ".env.local" });
 
-const SOURCE_CONTRACT = "H0885";
+/** Prefer a contract with a mixed upside ladder (1→2 … 4→5) for the sample. */
+const SOURCE_CONTRACT = "H5549";
 const STARS_YEAR = 2027;
 const ANON_ID = "H4721";
 const ANON_NAME = "Northstar Advantage (HMO)";

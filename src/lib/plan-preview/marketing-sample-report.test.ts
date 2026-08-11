@@ -55,4 +55,25 @@ test("marketing sample matches live report structure and real domains", () => {
     report.yoySummary.improved +
     report.yoySummary.newOrUnrated;
   assert.equal(yoy, report.measures.length);
+
+  const upsideMeasures = report.measures.filter(
+    (measure) => measure.outlook?.hasUpside
+  );
+  assert.ok(
+    upsideMeasures.length >= 3,
+    "sample should showcase cut-point upside on several measures"
+  );
+  const upsidePairs = new Set(
+    upsideMeasures.map(
+      (measure) => `${measure.outlook!.baseStar}→${measure.outlook!.upsideStar}`
+    )
+  );
+  assert.ok(
+    upsidePairs.size >= 3,
+    `sample upside should mix several ladders, got ${[...upsidePairs].join(", ")}`
+  );
+  assert.ok(
+    report.overallOutlook?.hasUpside,
+    "sample overview should show overall upside above the base rating"
+  );
 });

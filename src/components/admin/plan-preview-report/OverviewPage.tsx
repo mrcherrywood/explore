@@ -179,7 +179,7 @@ export function OverviewPage({
                   lineHeight: 1.3,
                 }}
               >
-                {`${formatStars(report.overallOutlook.baseRounded)}–${formatStars(report.overallOutlook.upsideRounded)}★`}
+                {`Upside ${formatStars(report.overallOutlook.upsideRounded)}★`}
               </p>
             ) : null}
             <p

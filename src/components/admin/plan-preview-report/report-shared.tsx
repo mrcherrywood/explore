@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type ReactNode, type Ref } from "react";
+import type { ReactNode, Ref } from "react";
 
 export const REPORT_COLORS = {
   accent: "#1a3673",
@@ -36,7 +36,7 @@ export function formatSigned(
   return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
 }
 
-/** Compact per-measure upside: `3★` or `3–4★`. */
+/** Compact per-measure upside: `2 → 3★`, or an em dash when there is none. */
 export function formatMeasureUpside(
   outlook:
     | {
@@ -47,9 +47,8 @@ export function formatMeasureUpside(
     | null
     | undefined,
 ): string {
-  if (!outlook) return "—";
-  if (!outlook.hasUpside) return `${outlook.baseStar}★`;
-  return `${outlook.baseStar}–${outlook.upsideStar}★`;
+  if (!outlook?.hasUpside) return "—";
+  return `${outlook.baseStar} → ${outlook.upsideStar}★`;
 }
 
 /** Recharts LabelList formatter that renders numeric labels with fixed digits. */
@@ -69,16 +68,20 @@ const STAR_PATH =
 function ReportStar({
   fill,
   size,
+  halfGradientId,
 }: {
   fill: "full" | "half" | "empty";
   size: number;
+  /** Stable id for half-star gradients — avoid useId (SSR/client mismatch). */
+  halfGradientId?: string;
 }) {
   const filled = REPORT_COLORS.accent;
   const empty = "#d8d2c4";
-  // useId can include colons; strip them so SVG url(#…) refs survive PDF rasterization.
-  const gradientId = `pp-half-${useId().replace(/:/g, "")}`;
 
   if (fill === "half") {
+    // Deterministic id so SSR HTML matches the client (useId can diverge under
+    // Turbopack) and so PDF rasterization can resolve url(#…) without colons.
+    const gradientId = halfGradientId ?? "pp-half-star";
     return (
       <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
         <defs>
@@ -111,6 +114,7 @@ export function StarGlyphs({
   const full = Math.floor(value);
   const half = value - full >= 0.5;
   const empty = Math.max(0, 5 - full - (half ? 1 : 0));
+  const halfGradientId = `pp-half-${String(value).replace(".", "p")}-${size}`;
 
   return (
     <span
@@ -125,7 +129,14 @@ export function StarGlyphs({
       {Array.from({ length: full }, (_, i) => (
         <ReportStar key={`full-${i}`} fill="full" size={size} />
       ))}
-      {half ? <ReportStar key="half" fill="half" size={size} /> : null}
+      {half ? (
+        <ReportStar
+          key="half"
+          fill="half"
+          size={size}
+          halfGradientId={halfGradientId}
+        />
+      ) : null}
       {Array.from({ length: empty }, (_, i) => (
         <ReportStar key={`empty-${i}`} fill="empty" size={size} />
       ))}
