@@ -357,9 +357,8 @@ export function YoyPage({
           Showing all {movers.length} measures that changed. CAHPS rows marked
           Adjusted use case-mix and reliability adjusted base stars. Base case
           uses our conservative cut-point forecast. Upside eases cuts by each
-          measure&apos;s historical methodology error (and the live model when
-          softer). Cut pressure marks score improvement with a predicted star
-          drop.
+          measure&apos;s historical methodology error. Cut pressure marks score
+          improvement with a predicted star drop.
         </p>
       </ReportSection>
     </ReportPageFrame>
