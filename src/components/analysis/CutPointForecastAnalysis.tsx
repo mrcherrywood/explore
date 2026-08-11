@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, FlaskConical, Info, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  FlaskConical,
+  Info,
+  Users,
+} from "lucide-react";
 
 import { RosterAccuracyCurve } from "./RosterAccuracyCurve";
 
@@ -160,6 +167,7 @@ export function CutPointForecastAnalysis({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [showMethodNotes, setShowMethodNotes] = useState(false);
 
   const loadForecast = useCallback(async () => {
     setIsLoading(true);
@@ -509,18 +517,31 @@ export function CutPointForecastAnalysis({
           </section>
 
           {(fullMarketReady?.notes.length || clientOnlyReady?.notes.length) && (
-            <section className="rounded-2xl border border-border bg-card p-6">
-              <h3 className="text-base font-semibold text-foreground">
-                Method notes
-              </h3>
-              <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                {fullMarketReady?.notes.map((note) => (
-                  <li key={`full-${note}`}>• Full Market: {note}</li>
-                ))}
-                {clientOnlyReady?.notes.map((note) => (
-                  <li key={`client-${note}`}>• Client Only: {note}</li>
-                ))}
-              </ul>
+            <section className="rounded-2xl border border-border bg-card p-4">
+              <button
+                type="button"
+                onClick={() => setShowMethodNotes((current) => !current)}
+                className="flex w-full items-center justify-between gap-3 text-left"
+              >
+                <h3 className="text-base font-semibold text-foreground">
+                  Method notes
+                </h3>
+                {showMethodNotes ? (
+                  <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
+              </button>
+              {showMethodNotes && (
+                <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                  {fullMarketReady?.notes.map((note) => (
+                    <li key={`full-${note}`}>• Full Market: {note}</li>
+                  ))}
+                  {clientOnlyReady?.notes.map((note) => (
+                    <li key={`client-${note}`}>• Client Only: {note}</li>
+                  ))}
+                </ul>
+              )}
             </section>
           )}
         </>

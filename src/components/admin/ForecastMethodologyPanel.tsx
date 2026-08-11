@@ -246,6 +246,7 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
   const [measuresLoading, setMeasuresLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showMethodology, setShowMethodology] = useState(false);
+  const [showMethodNotes, setShowMethodNotes] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -755,15 +756,28 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
             </section>
 
             {methodNotes.length > 0 && (
-              <section className="rounded-2xl border border-border bg-card p-6">
-                <h3 className="text-base font-semibold text-foreground">
-                  Method Notes
-                </h3>
-                <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                  {methodNotes.map((note) => (
-                    <li key={note}>• {note}</li>
-                  ))}
-                </ul>
+              <section className="rounded-2xl border border-border bg-card p-4">
+                <button
+                  type="button"
+                  onClick={() => setShowMethodNotes((current) => !current)}
+                  className="flex w-full items-center justify-between gap-3 text-left"
+                >
+                  <h3 className="text-base font-semibold text-foreground">
+                    Method Notes
+                  </h3>
+                  {showMethodNotes ? (
+                    <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                </button>
+                {showMethodNotes && (
+                  <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    {methodNotes.map((note) => (
+                      <li key={note}>• {note}</li>
+                    ))}
+                  </ul>
+                )}
               </section>
             )}
 
