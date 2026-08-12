@@ -104,6 +104,12 @@ export async function upsertPlanPreviewDecimalScores(
   const existing = await fetchExistingMeasureKeys(client, input.starsYear, input.rows);
 
   const inserts: MeasureScoreInsert[] = input.rows.map((row) => {
+    const planStar =
+      row.decimalSource === "cahps"
+        ? row.planStar !== undefined && row.planStar !== null
+          ? row.planStar
+          : null
+        : null;
     const prior = existing.get(`${row.contractId}|${row.measureCode}`);
     if (prior) {
       // Prefer the incoming resolved identity when the prior row still carries
@@ -133,6 +139,7 @@ export async function upsertPlanPreviewDecimalScores(
         status: prior.status,
         decimal_score: row.decimalScore,
         decimal_source: row.decimalSource,
+        plan_star: planStar,
       };
     }
 
@@ -153,6 +160,7 @@ export async function upsertPlanPreviewDecimalScores(
       status: "scored",
       decimal_score: row.decimalScore,
       decimal_source: row.decimalSource,
+      plan_star: planStar,
     };
   });
 

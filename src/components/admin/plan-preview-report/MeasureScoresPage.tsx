@@ -269,8 +269,9 @@ export function MeasureScoresPage({
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 5 }}>
           Published scores come from CMS measure data for Stars {baselineYear}.
-          Plan preview scores are the accrued PP1 values (MCAHPS adjusted scores
-          when uploaded). Upside is the star path if cuts ease within historical
+          Plan preview scores are the accrued PP1 values. CAHPS stars use the
+          plan&apos;s PP1 CAHPS Star Rating when uploaded; otherwise official cut
+          points. Upside is the star path if cuts ease within historical
           methodology error (base → upside).
         </p>
       </ReportSection>

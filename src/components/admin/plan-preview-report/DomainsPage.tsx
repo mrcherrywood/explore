@@ -232,8 +232,9 @@ export function DomainsPage({
           measure weights. Recalculated means drop the Official CMS
           recalculation removals from those published stars — including all Part
           D measures — so Pharmacy has no recalculated bar. Predicted means use
-          accrued plan preview stars (MCAHPS adjusted base stars for CAHPS when
-          uploaded) with Stars {report.starsYear} weights. Domain groupings
+          accrued plan preview stars (plan CAHPS Star Rating when uploaded,
+          otherwise official cut points) with Stars {report.starsYear} weights.
+          Domain groupings
           follow CMS Stars {report.baselineYear ?? "—"} measure-to-domain
           assignments; measures new to Stars {report.starsYear} (e.g.
           Polypharmacy Poly-ACH) are assigned to their CMS domain.

@@ -777,6 +777,7 @@ export interface Database {
           status: string
           decimal_score: number | null
           decimal_source: string | null
+          plan_star: number | null
           created_at: string
           updated_at: string
         }
@@ -798,6 +799,7 @@ export interface Database {
           status: string
           decimal_score?: number | null
           decimal_source?: string | null
+          plan_star?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -819,6 +821,7 @@ export interface Database {
           status?: string
           decimal_score?: number | null
           decimal_source?: string | null
+          plan_star?: number | null
           created_at?: string
           updated_at?: string
         }

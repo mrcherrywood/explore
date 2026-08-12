@@ -4,7 +4,6 @@ import { requireApprovedAdmin } from "@/lib/admin/require-approved-admin";
 import {
   createPlanPreviewBatch,
   upsertPlanPreviewCai,
-  upsertPlanPreviewCahpsAdjustedStars,
   upsertPlanPreviewDecimalScores,
   upsertPlanPreviewMeasureScores,
 } from "@/lib/plan-preview/store";
@@ -37,6 +36,16 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const parsed = parsePlanPreviewWorkbook(buffer);
 
+    if (parsed.fileType === "cahps_adjusted") {
+      return NextResponse.json(
+        {
+          error:
+            "MCAHPS Adjusted_Base_Star uploads are no longer used. Upload the plan's PP1 CAHPS domain file (Star Rating column) instead; otherwise official CAHPS cut points are applied.",
+        },
+        { status: 400 }
+      );
+    }
+
     if (parsed.rows.length === 0) {
       return NextResponse.json(
         { error: "No contract rows could be parsed from the file." },
@@ -48,8 +57,7 @@ export async function POST(request: Request) {
       parsed.fileType === "measure_data" ||
       parsed.fileType === "cahps" ||
       parsed.fileType === "hedis" ||
-      parsed.fileType === "snp_cm" ||
-      parsed.fileType === "cahps_adjusted"
+      parsed.fileType === "snp_cm"
         ? parsed.summary.measureCount
         : 0;
 
@@ -88,12 +96,6 @@ export async function POST(request: Request) {
       });
     } else if (parsed.fileType === "cai") {
       await upsertPlanPreviewCai(admin.serviceClient, {
-        batchId: batch.id,
-        starsYear,
-        rows: parsed.rows,
-      });
-    } else if (parsed.fileType === "cahps_adjusted") {
-      await upsertPlanPreviewCahpsAdjustedStars(admin.serviceClient, {
         batchId: batch.id,
         starsYear,
         rows: parsed.rows,

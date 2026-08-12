@@ -304,7 +304,7 @@ export function YoyPage({
                       }}
                     >
                       {formatStars(measure.predictedStar, 0)}★
-                      {measure.starSource === "cahps_case_mix_reliability" ? (
+                      {measure.starSource === "cahps_plan_file" ? (
                         <span
                           className="fep-report-pill"
                           style={{
@@ -314,7 +314,7 @@ export function YoyPage({
                             padding: "0 5px",
                           }}
                         >
-                          Adjusted
+                          Plan file
                         </span>
                       ) : null}
                     </td>
@@ -355,10 +355,11 @@ export function YoyPage({
         <p className="fep-report-section-note" style={{ marginTop: 4 }}>
           Movement reflects score change and projected cut point movement.
           Showing all {movers.length} measures that changed. CAHPS rows marked
-          Adjusted use case-mix and reliability adjusted base stars. Base case
-          uses our conservative cut-point forecast. Upside eases cuts by each
-          measure&apos;s historical methodology error. Cut pressure marks score
-          improvement with a predicted star drop.
+          Plan file use the plan&apos;s PP1 CAHPS Star Rating; otherwise
+          official cut points apply. Base case uses our conservative cut-point
+          forecast. Upside eases cuts by each measure&apos;s historical
+          methodology error. Cut pressure marks score improvement with a
+          predicted star drop.
         </p>
       </ReportSection>
     </ReportPageFrame>

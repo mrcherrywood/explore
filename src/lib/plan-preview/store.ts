@@ -217,6 +217,8 @@ export type PlanPreviewScoredRow = {
   /** Whole-number measure_data score for cut-point banding, when available. */
   wholeScore: number | null;
   decimalSource: string | null;
+  /** Final CAHPS star from the plan PP1 CAHPS Star Rating column, when present. */
+  planStar: number | null;
 };
 
 export async function getPlanPreviewScoredRows(
@@ -231,7 +233,7 @@ export async function getPlanPreviewScoredRows(
     const { data, error } = await client
       .from("plan_preview_measure_scores")
       .select(
-        "contract_id, contract_name, organization_marketing_name, parent_organization, measure_code, measure_name, measure_display_name, measure_normalized, score, decimal_score, decimal_source, status"
+        "contract_id, contract_name, organization_marketing_name, parent_organization, measure_code, measure_name, measure_display_name, measure_normalized, score, decimal_score, decimal_source, plan_star, status"
       )
       .eq("stars_year", starsYear)
       .eq("status", "scored")
@@ -252,6 +254,7 @@ export async function getPlanPreviewScoredRows(
       score: number | null;
       decimal_score: number | null;
       decimal_source: string | null;
+      plan_star: number | null;
       status: string;
     }>;
     for (const row of page) {
@@ -267,6 +270,8 @@ export async function getPlanPreviewScoredRows(
       // stored at import (e.g. D12 COB → SUPD) do not survive into predictions.
       const fileName = row.measure_name?.trim() || row.measure_display_name;
       const resolved = resolveMeasureForPlanPreview(row.measure_code, fileName);
+      const planStar =
+        row.plan_star !== null && row.plan_star !== undefined ? Number(row.plan_star) : null;
       rows.push({
         contractId: row.contract_id,
         contractName: row.contract_name,
@@ -278,6 +283,10 @@ export async function getPlanPreviewScoredRows(
         score: effective,
         wholeScore,
         decimalSource: row.decimal_source,
+        planStar:
+          planStar !== null && Number.isInteger(planStar) && planStar >= 1 && planStar <= 5
+            ? planStar
+            : null,
       });
     }
     if (page.length < pageSize) break;

@@ -37,6 +37,11 @@ export type AccruedMeasureScore = {
    * a domain decimal was uploaded.
    */
   wholeScore?: number | null;
+  /**
+   * Final CAHPS measure star from the plan's PP1 CAHPS Star Rating column.
+   * When set, used instead of banding the score against cut points.
+   */
+  planStar?: number | null;
 };
 
 export type PlanPreviewCutPointSource = "official" | "workbook_forecast" | "model";
@@ -69,7 +74,7 @@ export type PlanPreviewCutPointPrediction = {
 };
 
 /** How the predicted measure star was assigned. */
-export type PlanPreviewStarSource = "cut_points" | "cahps_case_mix_reliability";
+export type PlanPreviewStarSource = "cut_points" | "cahps_plan_file";
 
 export type PlanPreviewContractMeasurePrediction = {
   measureNormalized: string;
@@ -80,9 +85,8 @@ export type PlanPreviewContractMeasurePrediction = {
   inverted: boolean;
   predictedStar: number | null;
   /**
-   * When set to cahps_case_mix_reliability, the star comes from the uploaded
-   * MCAHPS Adjusted_Base_Star (case-mix + reliability) rather than banding
-   * the PP1 score against projected cut points.
+   * When set to cahps_plan_file, the star comes from the plan's PP1 CAHPS
+   * Star Rating column rather than banding the PP1 score against cut points.
    */
   starSource: PlanPreviewStarSource | null;
   baselineOfficialStar: number | null;
@@ -110,8 +114,8 @@ export type PlanPreviewPredictionsResult = {
     unsupportedCount: number;
     warningCount: number;
     accruedContractCount: number;
-    /** Contract×measure cells using MCAHPS adjusted base stars. */
-    cahpsAdjustedStarCount: number;
+    /** Contract×measure cells using plan PP1 CAHPS Star Rating. */
+    cahpsPlanStarCount: number;
   };
   cutPoints: PlanPreviewCutPointPrediction[];
   contracts: PlanPreviewContractPrediction[];
@@ -176,7 +180,7 @@ function cutPointsAreDecimal(thresholds: ThresholdValuesShape): boolean {
 /**
  * CMS cut points are applied to whole-number published scores. Prefer the
  * measure_data integer when present; otherwise round the decimal overlay.
- * CAHPS keeps the continuous score (case-mix adjusted stars overlay separately).
+ * CAHPS keeps the continuous score (plan-file stars overlay separately).
  * Measures with decimal cut points (e.g. Complaints at 0.10 / 0.32 / …) keep
  * their rate scores — rounding 0.19 → 0 would incorrectly award 5★.
  */
@@ -285,24 +289,12 @@ function maxModelDivergence(
   return max;
 }
 
-export type CahpsAdjustedStarLookup = {
-  contractId: string;
-  measureNormalized: string;
-  adjustedBaseStar: number;
-};
-
 export function buildPlanPreviewPredictions(
   rows: AccruedMeasureScore[],
-  starsYear: number,
-  options?: { cahpsAdjustedStars?: CahpsAdjustedStarLookup[] }
+  starsYear: number
 ): PlanPreviewPredictionsResult {
   const maRows = rows.filter((row) => MA_CONTRACT_PATTERN.test(row.contractId));
   const baselineYear = resolveBaselineYear(starsYear);
-  const adjustedByKey = new Map<string, number>();
-  for (const item of options?.cahpsAdjustedStars ?? []) {
-    if (!MA_CONTRACT_PATTERN.test(item.contractId)) continue;
-    adjustedByKey.set(`${item.contractId}|${item.measureNormalized}`, item.adjustedBaseStar);
-  }
 
   const rowsByMeasure = new Map<string, AccruedMeasureScore[]>();
   for (const row of maRows) {
@@ -522,15 +514,12 @@ export function buildPlanPreviewPredictions(
     readyThresholds,
     predictionStatusByMeasure,
     starsYear,
-    baselineYear,
-    adjustedByKey
+    baselineYear
   );
 
-  const cahpsAdjustedStarCount = contracts.reduce(
+  const cahpsPlanStarCount = contracts.reduce(
     (sum, contract) =>
-      sum +
-      contract.measures.filter((measure) => measure.starSource === "cahps_case_mix_reliability")
-        .length,
+      sum + contract.measures.filter((measure) => measure.starSource === "cahps_plan_file").length,
     0
   );
 
@@ -545,7 +534,7 @@ export function buildPlanPreviewPredictions(
       unsupportedCount: cutPoints.filter((item) => item.status === "unsupported").length,
       warningCount: cutPoints.reduce((sum, item) => sum + item.warningCount, 0),
       accruedContractCount: new Set(maRows.map((row) => row.contractId)).size,
-      cahpsAdjustedStarCount,
+      cahpsPlanStarCount,
     },
     cutPoints,
     contracts,
@@ -557,8 +546,7 @@ function buildContractPredictions(
   readyThresholds: Map<string, { thresholds: ThresholdValuesShape; inverted: boolean }>,
   predictionStatusByMeasure: Map<string, PlanPreviewCutPointPrediction["status"]>,
   starsYear: number,
-  baselineYear: number | null,
-  adjustedByKey: Map<string, number>
+  baselineYear: number | null
 ): PlanPreviewContractPrediction[] {
   const rowsByContract = new Map<string, AccruedMeasureScore[]>();
   for (const row of rows) {
@@ -607,22 +595,25 @@ function buildContractPredictions(
         isCahps,
         bandingThresholds
       );
-      const adjustedStar = adjustedByKey.get(`${contractId}|${row.measureNormalized}`) ?? null;
+      const planStar =
+        row.planStar !== null &&
+        row.planStar !== undefined &&
+        Number.isInteger(row.planStar) &&
+        row.planStar >= 1 &&
+        row.planStar <= 5
+          ? row.planStar
+          : null;
       const cutPointStar = ready
         ? starFromThresholds(bandingScore, ready.thresholds, ready.inverted)
         : null;
-      const predictedStar = adjustedStar ?? cutPointStar;
+      const predictedStar = planStar ?? cutPointStar;
       const starSource: PlanPreviewStarSource | null =
-        adjustedStar !== null
-          ? "cahps_case_mix_reliability"
-          : cutPointStar !== null
-            ? "cut_points"
-            : null;
+        planStar !== null ? "cahps_plan_file" : cutPointStar !== null ? "cut_points" : null;
       const baselineOfficialStar = baselineCutPoint
         ? deriveMeasureStarRating(bandingScore, baselineCutPoint, inverted)
         : null;
       const predictionStatus =
-        adjustedStar !== null
+        planStar !== null
           ? ("ready" as const)
           : (predictionStatusByMeasure.get(row.measureNormalized) ?? "unavailable");
 

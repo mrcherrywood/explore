@@ -28,10 +28,10 @@ type OverviewResponse = {
 const FILE_TYPE_LABELS: Record<string, string> = {
   measure_data: "Measure data",
   cai: "CAI",
-  cahps: "CAHPS decimals",
+  cahps: "CAHPS domain",
   hedis: "HEDIS decimals",
   snp_cm: "SNP CM decimals",
-  cahps_adjusted: "CAHPS adjusted stars",
+  cahps_adjusted: "CAHPS adjusted (legacy)",
 };
 
 const DECIMAL_FILE_TYPES = new Set(["cahps", "hedis", "snp_cm"]);
@@ -40,7 +40,6 @@ const MEASURE_COUNT_FILE_TYPES = new Set([
   "cahps",
   "hedis",
   "snp_cm",
-  "cahps_adjusted",
 ]);
 
 /** Group upload batches by parent organization, most recent upload first. */
@@ -164,12 +163,9 @@ export function PlanPreviewAdmin() {
           continue;
         }
         const label = FILE_TYPE_LABELS[payload.summary?.fileType] ?? "File";
-        const detail =
-          payload.summary?.fileType === "cahps_adjusted"
-            ? `${payload.summary?.rowCount ?? 0} adjusted stars across ${payload.summary?.contractCount ?? 0} contracts`
-            : DECIMAL_FILE_TYPES.has(payload.summary?.fileType)
-              ? `${payload.summary?.rowCount ?? 0} decimal values across ${payload.summary?.measureCount ?? 0} measures`
-              : `${payload.summary?.contractCount ?? 0} contracts`;
+        const detail = DECIMAL_FILE_TYPES.has(payload.summary?.fileType)
+          ? `${payload.summary?.rowCount ?? 0} decimal values across ${payload.summary?.measureCount ?? 0} measures`
+          : `${payload.summary?.contractCount ?? 0} contracts`;
         imported.push(
           `${file.name}: ${label} (${detail})` +
             (payload.warning ? ` — ${payload.warning}` : ""),
@@ -307,14 +303,15 @@ export function PlanPreviewAdmin() {
           <p className="fep-label">Upload</p>
           <p className="fep-subtitle" style={{ marginTop: 4 }}>
             Upload CMS plan preview master table exports (.xlsx) — measure data,
-            CAI, domain decimal files (CAHPS, HEDIS, SNP Care Management), and
-            the MCAHPS enriched final output (Adjusted_Base_Star) are detected
-            automatically. Domain decimals overlay whole-number measure scores
-            when available; adjusted CAHPS stars replace cut-point banding for
-            matching contracts. Use Import folder to pull in a whole release
-            folder at once; files without usable scores (appeals, CTM,
-            disenrollment, disaster) are skipped with a note. Re-uploading a
-            contract replaces its accrued rows for the selected Star year.
+            CAI, and domain files (CAHPS, HEDIS, SNP Care Management) are
+            detected automatically. Domain decimals overlay whole-number
+            measure scores when available. CAHPS domain uploads also carry the
+            plan&apos;s Star Rating column, which is used for CAHPS measure
+            stars; without that file, official CAHPS cut points apply. Use
+            Import folder to pull in a whole release folder at once; files
+            without usable scores (appeals, CTM, disenrollment, disaster) are
+            skipped with a note. Re-uploading a contract replaces its accrued
+            rows for the selected Star year.
           </p>
         </div>
         <div
@@ -475,9 +472,9 @@ export function PlanPreviewAdmin() {
             className="px-5 pb-5 text-sm"
             style={{ color: "var(--fep-faint)" }}
           >
-            Upload the measure data, CAI, optional domain decimal files, and
-            MCAHPS adjusted-star output to start accruing Stars{" "}
-            {starsYear ?? ""} plan preview scores.
+            Upload the measure data, CAI, and optional domain files (including
+            the plan&apos;s CAHPS file for Star Ratings) to start accruing
+            Stars {starsYear ?? ""} plan preview scores.
           </p>
         ) : (
           <div

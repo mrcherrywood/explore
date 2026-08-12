@@ -152,12 +152,12 @@ test("cutPressure is true when score improves but predicted star drops", () => {
   assert.equal(outlook!.hasUpside, false);
 });
 
-test("CAHPS case-mix rows have no outlook", () => {
+test("CAHPS plan-file rows have no outlook", () => {
   const outlook = buildMeasureStarOutlook({
     measureNormalized: "getting needed care",
     score: 85,
     inverted: false,
-    starSource: "cahps_case_mix_reliability",
+    starSource: "cahps_plan_file",
     predictedStar: 4,
     publishedBaselineStar: 4,
     publishedBaselineScore: 84,

@@ -44,6 +44,11 @@ export type ParsedPlanPreviewDecimalScore = {
   metricCategory: "Part C" | "Part D" | "Other";
   decimalScore: number;
   decimalSource: PlanPreviewDecimalSource;
+  /**
+   * Final CAHPS measure star from the plan's PP1 CAHPS `Star Rating` column.
+   * Only set for cahps domain rows; null when blank/invalid.
+   */
+  planStar?: number | null;
 };
 
 export type ParsedPlanPreviewCaiRow = {

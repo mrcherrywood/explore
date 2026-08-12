@@ -68,6 +68,7 @@ test(
     assert.ok(h0885C26);
     assert.ok(Math.abs(h0885C26.decimalScore - 86.03890753) < 1e-6);
     assert.equal(h0885C26.decimalSource, "cahps");
+    assert.equal(h0885C26.planStar, 3);
     assert.equal(h0885C26.measureDisplayName, "Care Coordination");
     assert.match(h0885C26.measureNormalized, /care coordination/);
     assert.ok(getMeasureByNormalizedName(h0885C26.measureNormalized));
@@ -78,7 +79,14 @@ test(
     );
     assert.ok(h0885C03);
     assert.ok(Math.abs(h0885C03.decimalScore - 65.024001888) < 1e-6);
+    assert.equal(h0885C03.planStar, 3);
     assert.equal(h0885C03.measureDisplayName, "Annual Flu Vaccine");
+
+    const h0885C24 = result.rows.find(
+      (row) => row.contractId === "H0885" && row.measureCode === "C24"
+    );
+    assert.ok(h0885C24);
+    assert.equal(h0885C24.planStar, 4, "Star Rating (not Base Group) for Rating of Health Care Quality");
 
     const s5993D05 = result.rows.find(
       (row) => row.contractId === "S5993" && row.measureCode === "D05"

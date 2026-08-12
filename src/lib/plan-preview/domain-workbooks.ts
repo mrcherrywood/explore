@@ -180,6 +180,14 @@ export function detectDomainFileKind(headerCells: string[]): DomainFileKind {
   return null;
 }
 
+/** Whole-number 1–5 star from the plan PP1 CAHPS `Star Rating` column. */
+function parsePlanStar(value: unknown): number | null {
+  const parsed = parseNumber(cleanCell(value));
+  if (parsed === null) return null;
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5) return null;
+  return parsed;
+}
+
 function parseCahpsDomain(
   rows: unknown[][],
   sheetName: string,
@@ -188,6 +196,7 @@ function parseCahpsDomain(
   const headerCells = rows[headerRowIndex].map((cell) => cleanCell(cell).toLowerCase());
   const measureCol = requireColumn(headerCells, "cahps measure");
   const scaledMeanCol = requireColumn(headerCells, "scaled mean");
+  const starRatingCol = headerIndex(headerCells, "star rating");
 
   const parsedRows: ParsedPlanPreviewDecimalScore[] = [];
 
@@ -207,6 +216,7 @@ function parseCahpsDomain(
     const rawMeasureName = measureLabel.replace(CAHPS_MEASURE_CODE_PATTERN, "").trim();
     const measureName = resolveCahpsDomainMeasureName(rawMeasureName) || measureCode;
     const resolved = resolveMeasureForPlanPreview(measureCode, measureName);
+    const planStar = starRatingCol >= 0 ? parsePlanStar(row[starRatingCol]) : null;
 
     parsedRows.push({
       sourceRowNumber: rowIndex + 1,
@@ -221,6 +231,7 @@ function parseCahpsDomain(
       metricCategory: inferMetricCategory(measureCode),
       decimalScore,
       decimalSource: "cahps",
+      planStar,
     });
   }
 

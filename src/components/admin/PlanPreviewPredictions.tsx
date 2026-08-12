@@ -171,9 +171,9 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
                 {data.summary.warningCount} movement warnings
               </span>
             ) : null}
-            {data.summary.cahpsAdjustedStarCount > 0 ? (
+            {data.summary.cahpsPlanStarCount > 0 ? (
               <span className="fep-pill">
-                {data.summary.cahpsAdjustedStarCount} CAHPS adjusted stars
+                {data.summary.cahpsPlanStarCount} CAHPS plan-file stars
               </span>
             ) : null}
           </div>
@@ -492,8 +492,8 @@ function ContractPanel({
                     {measure.predictedStar !== null ? (
                       <span className="fep-pill">
                         {measure.predictedStar}★
-                        {measure.starSource === "cahps_case_mix_reliability"
-                          ? " · Adjusted"
+                        {measure.starSource === "cahps_plan_file"
+                          ? " · Plan file"
                           : ""}
                       </span>
                     ) : (
@@ -519,8 +519,8 @@ function ContractPanel({
             CAI. The SY
             {data.baselineYear ?? "—"} column shows the star this score would
             earn at the latest published official cut points. CAHPS rows marked
-            Adjusted use case-mix and reliability adjusted base stars from the
-            uploaded MCAHPS final output.
+            Plan file use the plan&apos;s PP1 CAHPS Star Rating; otherwise
+            official cut points apply.
           </p>
         </div>
       ) : null}

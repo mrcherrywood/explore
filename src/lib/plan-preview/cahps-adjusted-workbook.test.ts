@@ -5,19 +5,20 @@ import test from "node:test";
 
 import { buildPlanPreviewPredictions, type AccruedMeasureScore } from "./predictions";
 import { parsePlanPreviewWorkbook } from "./workbook";
-import type { PlanPreviewCahpsAdjustedParseResult } from "./types";
+import type { PlanPreviewCahpsAdjustedParseResult, PlanPreviewDecimalParseResult } from "./types";
 
-const FIXTURE_PATH = path.join(
+const MCAHPS_FIXTURE_PATH = path.join(
   process.cwd(),
   "data/fixtures/2026_MCAHPS_Final_Output_ENRICHED_sample.xlsx"
 );
+const CAHPS_DOMAIN_PATH = path.join(process.cwd(), "data/2027/SR_2027_FPP/SR_2027_cahps.xlsx");
 
 test(
   "parses MCAHPS Adjusted_Base_Star workbook and maps VariableName to measures",
-  { skip: !existsSync(FIXTURE_PATH) },
+  { skip: !existsSync(MCAHPS_FIXTURE_PATH) },
   () => {
     const parsed = parsePlanPreviewWorkbook(
-      readFileSync(FIXTURE_PATH)
+      readFileSync(MCAHPS_FIXTURE_PATH)
     ) as PlanPreviewCahpsAdjustedParseResult;
 
     assert.equal(parsed.fileType, "cahps_adjusted");
@@ -42,12 +43,19 @@ test(
 );
 
 test(
-  "overlays adjusted base stars onto CAHPS contract predictions",
-  { skip: !existsSync(FIXTURE_PATH) },
+  "uses plan CAHPS Star Rating for predictions instead of cut-point banding",
+  { skip: !existsSync(CAHPS_DOMAIN_PATH) },
   () => {
     const parsed = parsePlanPreviewWorkbook(
-      readFileSync(FIXTURE_PATH)
-    ) as PlanPreviewCahpsAdjustedParseResult;
+      readFileSync(CAHPS_DOMAIN_PATH)
+    ) as PlanPreviewDecimalParseResult;
+    assert.equal(parsed.fileType, "cahps");
+
+    const h0885C26 = parsed.rows.find(
+      (row) => row.contractId === "H0885" && row.measureCode === "C26"
+    );
+    assert.ok(h0885C26);
+    assert.equal(h0885C26.planStar, 3);
 
     const accrued: AccruedMeasureScore[] = [
       {
@@ -55,11 +63,12 @@ test(
         contractName: "Test",
         organizationMarketingName: null,
         parentOrganization: null,
-        measureCode: "C21",
-        measureDisplayName: "Getting Needed Care",
-        measureNormalized: "getting needed care partc",
-        // Score that would band to 5★ under typical high cut points — overlay must win.
+        measureCode: "C26",
+        measureDisplayName: "Care Coordination",
+        measureNormalized: h0885C26.measureNormalized,
+        // Score that would band differently under official cuts — plan star must win.
         score: 95,
+        planStar: h0885C26.planStar,
       },
       {
         contractId: "H0885",
@@ -73,24 +82,42 @@ test(
       },
     ];
 
-    const result = buildPlanPreviewPredictions(accrued, 2027, {
-      cahpsAdjustedStars: parsed.rows.map((row) => ({
-        contractId: row.contractId,
-        measureNormalized: row.measureNormalized,
-        adjustedBaseStar: row.adjustedBaseStar,
-      })),
-    });
-
+    const result = buildPlanPreviewPredictions(accrued, 2027);
     const contract = result.contracts.find((item) => item.contractId === "H0885");
     assert.ok(contract);
-    const gnc = contract.measures.find((m) => m.measureCode === "C21");
-    assert.ok(gnc);
-    assert.equal(gnc.predictedStar, 4);
-    assert.equal(gnc.starSource, "cahps_case_mix_reliability");
+    const careCoord = contract.measures.find((m) => m.measureCode === "C26");
+    assert.ok(careCoord);
+    assert.equal(careCoord.predictedStar, 3);
+    assert.equal(careCoord.starSource, "cahps_plan_file");
 
     const bcs = contract.measures.find((m) => m.measureCode === "C01");
     assert.ok(bcs);
-    assert.notEqual(bcs.starSource, "cahps_case_mix_reliability");
-    assert.ok(result.summary.cahpsAdjustedStarCount >= 1);
+    assert.notEqual(bcs.starSource, "cahps_plan_file");
+    assert.ok(result.summary.cahpsPlanStarCount >= 1);
   }
 );
+
+test("falls back to official cut points when plan CAHPS star is missing", () => {
+  const accrued: AccruedMeasureScore[] = [
+    {
+      contractId: "H0885",
+      contractName: "Test",
+      organizationMarketingName: null,
+      parentOrganization: null,
+      measureCode: "C21",
+      measureDisplayName: "Getting Needed Care",
+      measureNormalized: "getting needed care partc",
+      score: 83,
+      // No planStar — band against official SY2027 CAHPS cuts.
+    },
+  ];
+
+  const result = buildPlanPreviewPredictions(accrued, 2027);
+  const contract = result.contracts.find((item) => item.contractId === "H0885");
+  assert.ok(contract);
+  const gnc = contract.measures.find((m) => m.measureCode === "C21");
+  assert.ok(gnc);
+  assert.equal(gnc.starSource, "cut_points");
+  assert.ok(gnc.predictedStar !== null);
+  assert.equal(result.summary.cahpsPlanStarCount, 0);
+});
