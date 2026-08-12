@@ -12,10 +12,10 @@ import {
   REPORT_COLORS,
   ReportPageFrame,
   ReportSection,
-  formatCahpsStarSourceLabel,
   formatMeasureUpside,
   formatSigned,
   formatStars,
+  isCahpsBaseGroupAdjusted,
   reportEyebrow,
 } from "./report-shared";
 
@@ -247,27 +247,22 @@ export function MeasureScoresPage({
                         }}
                       >
                         {formatStars(measure.predictedStar, 0)}★
-                        {(() => {
-                          const label = formatCahpsStarSourceLabel(
-                            measure.starSource,
-                            measure.baseGroupStar,
-                            measure.predictedStar,
-                          );
-                          if (!label) return null;
-                          return (
-                            <span
-                              className="fep-report-pill"
-                              style={{
-                                marginLeft: 3,
-                                textTransform: "none",
-                                fontSize: 7,
-                                padding: "0 4px",
-                              }}
-                            >
-                              {label}
-                            </span>
-                          );
-                        })()}
+                        {isCahpsBaseGroupAdjusted(
+                          measure.baseGroupStar,
+                          measure.predictedStar,
+                        ) ? (
+                          <span
+                            className="fep-report-pill"
+                            style={{
+                              marginLeft: 3,
+                              textTransform: "none",
+                              fontSize: 7,
+                              padding: "0 4px",
+                            }}
+                          >
+                            Base {measure.baseGroupStar}→{measure.predictedStar}
+                          </span>
+                        ) : null}
                       </td>
                       <td
                         style={{
@@ -294,9 +289,9 @@ export function MeasureScoresPage({
           Published scores come from CMS measure data for Stars {baselineYear}.
           Plan preview scores are the accrued PP1 values. CAHPS stars use the
           plan&apos;s PP1 CAHPS Star Rating when uploaded; otherwise official cut
-          points. When Star Rating differs from Base Group, the badge shows{" "}
-          Base → Star. Upside is the star path if cuts ease within historical
-          methodology error (base → upside).
+          points. When Star Rating differs from Base Group, Base → Star is shown.
+          Upside is the star path if cuts ease within historical methodology
+          error (base → upside).
         </p>
       </ReportSection>
     </ReportPageFrame>
