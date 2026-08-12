@@ -63,17 +63,15 @@ export function isCahpsBaseGroupAdjusted(
   );
 }
 
-/** Compact label: `Base 3→2` when adjusted, otherwise `Plan file`. */
+/** Compact label when Star Rating moved off Base Group: `Base 3→2`. */
 export function formatCahpsStarSourceLabel(
   starSource: "cut_points" | "cahps_plan_file" | null | undefined,
   baseGroupStar: number | null | undefined,
   predictedStar: number | null | undefined,
 ): string | null {
   if (starSource !== "cahps_plan_file") return null;
-  if (isCahpsBaseGroupAdjusted(baseGroupStar, predictedStar)) {
-    return `Base ${baseGroupStar}→${predictedStar}`;
-  }
-  return "Plan file";
+  if (!isCahpsBaseGroupAdjusted(baseGroupStar, predictedStar)) return null;
+  return `Base ${baseGroupStar}→${predictedStar}`;
 }
 
 /** Recharts LabelList formatter that renders numeric labels with fixed digits. */

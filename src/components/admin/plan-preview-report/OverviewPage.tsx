@@ -241,7 +241,7 @@ export function OverviewPage({
               QI is not scored in plan preview 1, so the projection excludes
               those measures.
               {report.measures.some((m) => m.starSource === "cahps_plan_file")
-                ? " CAHPS stars marked Plan file come from the plan's PP1 CAHPS Star Rating; Base X→Y marks measures adjusted off their Base Group. Otherwise official cut points apply."
+                ? " CAHPS stars come from the plan's PP1 Star Rating when uploaded; Base X→Y marks measures adjusted off their Base Group. Otherwise official cut points apply."
                 : ""}
               {report.overallOutlook?.hasUpside
                 ? " Upside eases conservative cut-point forecasts by historical methodology error (same reward factor and CAI)."
@@ -259,7 +259,7 @@ export function OverviewPage({
             detail={`${report.measures.filter((m) => m.predictedStar !== null).length} rated; ${
               report.measures.filter((m) => m.starSource === "cahps_plan_file")
                 .length
-            } CAHPS from plan file; ${leg?.measureCount ?? 0} enter Overall after Part C/D deduplicated`}
+            } CAHPS from PP1; ${leg?.measureCount ?? 0} enter Overall after Part C/D deduplicated`}
           />
           <ReportStat
             label="Reward factor"

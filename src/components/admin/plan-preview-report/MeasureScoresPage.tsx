@@ -12,10 +12,10 @@ import {
   REPORT_COLORS,
   ReportPageFrame,
   ReportSection,
+  formatCahpsStarSourceLabel,
   formatMeasureUpside,
   formatSigned,
   formatStars,
-  isCahpsBaseGroupAdjusted,
   reportEyebrow,
 } from "./report-shared";
 
@@ -247,22 +247,27 @@ export function MeasureScoresPage({
                         }}
                       >
                         {formatStars(measure.predictedStar, 0)}★
-                        {isCahpsBaseGroupAdjusted(
-                          measure.baseGroupStar,
-                          measure.predictedStar,
-                        ) ? (
-                          <span
-                            className="fep-report-pill"
-                            style={{
-                              marginLeft: 3,
-                              textTransform: "none",
-                              fontSize: 7,
-                              padding: "0 4px",
-                            }}
-                          >
-                            Base {measure.baseGroupStar}→{measure.predictedStar}
-                          </span>
-                        ) : null}
+                        {(() => {
+                          const label = formatCahpsStarSourceLabel(
+                            measure.starSource,
+                            measure.baseGroupStar,
+                            measure.predictedStar,
+                          );
+                          if (!label) return null;
+                          return (
+                            <span
+                              className="fep-report-pill"
+                              style={{
+                                marginLeft: 3,
+                                textTransform: "none",
+                                fontSize: 7,
+                                padding: "0 4px",
+                              }}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td
                         style={{

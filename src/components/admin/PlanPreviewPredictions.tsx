@@ -492,11 +492,10 @@ function ContractPanel({
                     {measure.predictedStar !== null ? (
                       <span className="fep-pill">
                         {measure.predictedStar}★
-                        {measure.starSource === "cahps_plan_file"
-                          ? measure.baseGroupStar != null &&
-                            measure.baseGroupStar !== measure.predictedStar
-                            ? ` · Base ${measure.baseGroupStar}→${measure.predictedStar}`
-                            : " · Plan file"
+                        {measure.starSource === "cahps_plan_file" &&
+                        measure.baseGroupStar != null &&
+                        measure.baseGroupStar !== measure.predictedStar
+                          ? ` · Base ${measure.baseGroupStar}→${measure.predictedStar}`
                           : ""}
                       </span>
                     ) : (
@@ -521,9 +520,9 @@ function ContractPanel({
             Base mean is the weighted measure-star mean before reward factor and
             CAI. The SY
             {data.baselineYear ?? "—"} column shows the star this score would
-            earn at the latest published official cut points. CAHPS rows marked
-            Plan file use the plan&apos;s PP1 CAHPS Star Rating; otherwise
-            official cut points apply.
+            earn at the latest published official cut points. CAHPS use the
+            plan&apos;s PP1 Star Rating when uploaded; Base → Star marks
+            measures adjusted off their Base Group.
           </p>
         </div>
       ) : null}

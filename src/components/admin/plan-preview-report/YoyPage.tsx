@@ -363,12 +363,12 @@ export function YoyPage({
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 4 }}>
           Movement reflects score change and projected cut point movement.
-          Showing all {movers.length} measures that changed. CAHPS rows marked
-          Plan file use the plan&apos;s PP1 CAHPS Star Rating; otherwise
-          official cut points apply. Base case uses our conservative cut-point
-          forecast. Upside eases cuts by each measure&apos;s historical
-          methodology error. Cut pressure marks score improvement with a
-          predicted star drop.
+          Showing all {movers.length} measures that changed. CAHPS use the
+          plan&apos;s PP1 Star Rating when uploaded; Base → Star marks measures
+          adjusted off their Base Group. Base case uses our conservative
+          cut-point forecast. Upside eases cuts by each measure&apos;s
+          historical methodology error. Cut pressure marks score improvement
+          with a predicted star drop.
         </p>
       </ReportSection>
     </ReportPageFrame>
