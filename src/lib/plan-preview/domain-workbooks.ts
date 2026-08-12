@@ -180,7 +180,7 @@ export function detectDomainFileKind(headerCells: string[]): DomainFileKind {
   return null;
 }
 
-/** Whole-number 1–5 star from the plan PP1 CAHPS `Star Rating` column. */
+/** Whole-number 1–5 star from the plan PP1 CAHPS `Star Rating` / `Base Group` columns. */
 function parsePlanStar(value: unknown): number | null {
   const parsed = parseNumber(cleanCell(value));
   if (parsed === null) return null;
@@ -197,6 +197,7 @@ function parseCahpsDomain(
   const measureCol = requireColumn(headerCells, "cahps measure");
   const scaledMeanCol = requireColumn(headerCells, "scaled mean");
   const starRatingCol = headerIndex(headerCells, "star rating");
+  const baseGroupCol = headerIndex(headerCells, "base group");
 
   const parsedRows: ParsedPlanPreviewDecimalScore[] = [];
 
@@ -217,6 +218,7 @@ function parseCahpsDomain(
     const measureName = resolveCahpsDomainMeasureName(rawMeasureName) || measureCode;
     const resolved = resolveMeasureForPlanPreview(measureCode, measureName);
     const planStar = starRatingCol >= 0 ? parsePlanStar(row[starRatingCol]) : null;
+    const baseGroupStar = baseGroupCol >= 0 ? parsePlanStar(row[baseGroupCol]) : null;
 
     parsedRows.push({
       sourceRowNumber: rowIndex + 1,
@@ -232,6 +234,7 @@ function parseCahpsDomain(
       decimalScore,
       decimalSource: "cahps",
       planStar,
+      baseGroupStar,
     });
   }
 

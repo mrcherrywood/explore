@@ -12,6 +12,7 @@ import {
   REPORT_COLORS,
   ReportPageFrame,
   ReportSection,
+  formatCahpsStarSourceLabel,
   formatMeasureUpside,
   formatSigned,
   formatStars,
@@ -242,9 +243,31 @@ export function MeasureScoresPage({
                           color: "var(--fep-ink)",
                           paddingTop: 1,
                           paddingBottom: 1,
+                          whiteSpace: "nowrap",
                         }}
                       >
                         {formatStars(measure.predictedStar, 0)}★
+                        {(() => {
+                          const label = formatCahpsStarSourceLabel(
+                            measure.starSource,
+                            measure.baseGroupStar,
+                            measure.predictedStar,
+                          );
+                          if (!label) return null;
+                          return (
+                            <span
+                              className="fep-report-pill"
+                              style={{
+                                marginLeft: 3,
+                                textTransform: "none",
+                                fontSize: 7,
+                                padding: "0 4px",
+                              }}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td
                         style={{
@@ -271,7 +294,8 @@ export function MeasureScoresPage({
           Published scores come from CMS measure data for Stars {baselineYear}.
           Plan preview scores are the accrued PP1 values. CAHPS stars use the
           plan&apos;s PP1 CAHPS Star Rating when uploaded; otherwise official cut
-          points. Upside is the star path if cuts ease within historical
+          points. When Star Rating differs from Base Group, the badge shows{" "}
+          Base → Star. Upside is the star path if cuts ease within historical
           methodology error (base → upside).
         </p>
       </ReportSection>

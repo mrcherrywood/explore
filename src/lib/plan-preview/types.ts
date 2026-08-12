@@ -49,6 +49,12 @@ export type ParsedPlanPreviewDecimalScore = {
    * Only set for cahps domain rows; null when blank/invalid.
    */
   planStar?: number | null;
+  /**
+   * Pre-adjustment base-group star from the plan's PP1 CAHPS `Base Group`
+   * column. Differs from planStar when case-mix / significance moves the
+   * measure off its base-group assignment.
+   */
+  baseGroupStar?: number | null;
 };
 
 export type ParsedPlanPreviewCaiRow = {

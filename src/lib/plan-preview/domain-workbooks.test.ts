@@ -87,6 +87,7 @@ test(
     );
     assert.ok(h0885C24);
     assert.equal(h0885C24.planStar, 4, "Star Rating (not Base Group) for Rating of Health Care Quality");
+    assert.equal(h0885C24.baseGroupStar, 5, "Base Group before adjustment for Rating of Health Care Quality");
 
     const s5993D05 = result.rows.find(
       (row) => row.contractId === "S5993" && row.measureCode === "D05"

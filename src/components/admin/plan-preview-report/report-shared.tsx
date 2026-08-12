@@ -51,6 +51,31 @@ export function formatMeasureUpside(
   return `${outlook.baseStar} → ${outlook.upsideStar}★`;
 }
 
+/** True when plan Star Rating moved off the CAHPS Base Group assignment. */
+export function isCahpsBaseGroupAdjusted(
+  baseGroupStar: number | null | undefined,
+  predictedStar: number | null | undefined,
+): boolean {
+  return (
+    baseGroupStar != null &&
+    predictedStar != null &&
+    baseGroupStar !== predictedStar
+  );
+}
+
+/** Compact label: `Base 3→2` when adjusted, otherwise `Plan file`. */
+export function formatCahpsStarSourceLabel(
+  starSource: "cut_points" | "cahps_plan_file" | null | undefined,
+  baseGroupStar: number | null | undefined,
+  predictedStar: number | null | undefined,
+): string | null {
+  if (starSource !== "cahps_plan_file") return null;
+  if (isCahpsBaseGroupAdjusted(baseGroupStar, predictedStar)) {
+    return `Base ${baseGroupStar}→${predictedStar}`;
+  }
+  return "Plan file";
+}
+
 /** Recharts LabelList formatter that renders numeric labels with fixed digits. */
 export function chartValueFormatter(
   digits: number,

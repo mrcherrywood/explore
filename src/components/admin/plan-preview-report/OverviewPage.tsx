@@ -241,7 +241,7 @@ export function OverviewPage({
               QI is not scored in plan preview 1, so the projection excludes
               those measures.
               {report.measures.some((m) => m.starSource === "cahps_plan_file")
-                ? " CAHPS stars marked Plan file come from the plan's PP1 CAHPS Star Rating; otherwise official cut points apply."
+                ? " CAHPS stars marked Plan file come from the plan's PP1 CAHPS Star Rating; Base X→Y marks measures adjusted off their Base Group. Otherwise official cut points apply."
                 : ""}
               {report.overallOutlook?.hasUpside
                 ? " Upside eases conservative cut-point forecasts by historical methodology error (same reward factor and CAI)."
@@ -289,7 +289,7 @@ export function OverviewPage({
 
       <ReportSection
         title="Predicted Measure Star Distribution"
-        note="Count of accrued measures at each whole-star rating. Non-CAHPS use projected cut points; CAHPS use adjusted base stars when uploaded."
+        note="Count of accrued measures at each whole-star rating. Non-CAHPS use projected cut points; CAHPS use the plan Star Rating when uploaded (Base Group shown when it differs)."
         style={{ marginTop: 12 }}
       >
         <div className="fep-report-panel" style={{ padding: "12px 10px 4px" }}>

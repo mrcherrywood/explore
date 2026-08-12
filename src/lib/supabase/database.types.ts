@@ -778,6 +778,7 @@ export interface Database {
           decimal_score: number | null
           decimal_source: string | null
           plan_star: number | null
+          base_group_star: number | null
           created_at: string
           updated_at: string
         }
@@ -800,6 +801,7 @@ export interface Database {
           decimal_score?: number | null
           decimal_source?: string | null
           plan_star?: number | null
+          base_group_star?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -822,6 +824,7 @@ export interface Database {
           decimal_score?: number | null
           decimal_source?: string | null
           plan_star?: number | null
+          base_group_star?: number | null
           created_at?: string
           updated_at?: string
         }

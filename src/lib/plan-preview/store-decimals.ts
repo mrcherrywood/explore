@@ -110,6 +110,12 @@ export async function upsertPlanPreviewDecimalScores(
           ? row.planStar
           : null
         : null;
+    const baseGroupStar =
+      row.decimalSource === "cahps"
+        ? row.baseGroupStar !== undefined && row.baseGroupStar !== null
+          ? row.baseGroupStar
+          : null
+        : null;
     const prior = existing.get(`${row.contractId}|${row.measureCode}`);
     if (prior) {
       // Prefer the incoming resolved identity when the prior row still carries
@@ -140,6 +146,7 @@ export async function upsertPlanPreviewDecimalScores(
         decimal_score: row.decimalScore,
         decimal_source: row.decimalSource,
         plan_star: planStar,
+        base_group_star: baseGroupStar,
       };
     }
 
@@ -161,6 +168,7 @@ export async function upsertPlanPreviewDecimalScores(
       decimal_score: row.decimalScore,
       decimal_source: row.decimalSource,
       plan_star: planStar,
+      base_group_star: baseGroupStar,
     };
   });
 

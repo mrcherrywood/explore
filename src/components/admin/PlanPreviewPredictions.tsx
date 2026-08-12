@@ -493,7 +493,10 @@ function ContractPanel({
                       <span className="fep-pill">
                         {measure.predictedStar}★
                         {measure.starSource === "cahps_plan_file"
-                          ? " · Plan file"
+                          ? measure.baseGroupStar != null &&
+                            measure.baseGroupStar !== measure.predictedStar
+                            ? ` · Base ${measure.baseGroupStar}→${measure.predictedStar}`
+                            : " · Plan file"
                           : ""}
                       </span>
                     ) : (

@@ -42,6 +42,8 @@ export type AccruedMeasureScore = {
    * When set, used instead of banding the score against cut points.
    */
   planStar?: number | null;
+  /** Pre-adjustment CAHPS Base Group star from the plan PP1 CAHPS file. */
+  baseGroupStar?: number | null;
 };
 
 export type PlanPreviewCutPointSource = "official" | "workbook_forecast" | "model";
@@ -89,6 +91,11 @@ export type PlanPreviewContractMeasurePrediction = {
    * Star Rating column rather than banding the PP1 score against cut points.
    */
   starSource: PlanPreviewStarSource | null;
+  /**
+   * Pre-adjustment CAHPS Base Group star from the plan PP1 file. When this
+   * differs from predictedStar, the measure was adjusted off its base group.
+   */
+  baseGroupStar: number | null;
   baselineOfficialStar: number | null;
   predictionStatus: PlanPreviewCutPointPrediction["status"];
 };
@@ -603,6 +610,14 @@ function buildContractPredictions(
         row.planStar <= 5
           ? row.planStar
           : null;
+      const baseGroupStar =
+        row.baseGroupStar !== null &&
+        row.baseGroupStar !== undefined &&
+        Number.isInteger(row.baseGroupStar) &&
+        row.baseGroupStar >= 1 &&
+        row.baseGroupStar <= 5
+          ? row.baseGroupStar
+          : null;
       const cutPointStar = ready
         ? starFromThresholds(bandingScore, ready.thresholds, ready.inverted)
         : null;
@@ -631,6 +646,7 @@ function buildContractPredictions(
         inverted,
         predictedStar,
         starSource,
+        baseGroupStar,
         baselineOfficialStar,
         predictionStatus,
       });

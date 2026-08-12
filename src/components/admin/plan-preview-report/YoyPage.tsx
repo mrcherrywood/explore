@@ -24,6 +24,7 @@ import {
   ReportSection,
   ReportStat,
   chartValueFormatter,
+  formatCahpsStarSourceLabel,
   formatMeasureUpside,
   formatStars,
   reportEyebrow,
@@ -304,19 +305,27 @@ export function YoyPage({
                       }}
                     >
                       {formatStars(measure.predictedStar, 0)}★
-                      {measure.starSource === "cahps_plan_file" ? (
-                        <span
-                          className="fep-report-pill"
-                          style={{
-                            marginLeft: 4,
-                            textTransform: "none",
-                            fontSize: 8,
-                            padding: "0 5px",
-                          }}
-                        >
-                          Plan file
-                        </span>
-                      ) : null}
+                      {(() => {
+                        const label = formatCahpsStarSourceLabel(
+                          measure.starSource,
+                          measure.baseGroupStar,
+                          measure.predictedStar,
+                        );
+                        if (!label) return null;
+                        return (
+                          <span
+                            className="fep-report-pill"
+                            style={{
+                              marginLeft: 4,
+                              textTransform: "none",
+                              fontSize: 8,
+                              padding: "0 5px",
+                            }}
+                          >
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td
                       style={{
