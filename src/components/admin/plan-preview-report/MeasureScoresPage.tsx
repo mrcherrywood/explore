@@ -151,6 +151,7 @@ export function MeasureScoresPage({
               ) : (
                 rows.map((measure) => {
                   const scoreDelta =
+                    measure.score !== null &&
                     measure.publishedBaselineScore !== null
                       ? Math.round(
                           (measure.score - measure.publishedBaselineScore) *
@@ -295,8 +296,9 @@ export function MeasureScoresPage({
           Plan preview scores are the accrued PP1 values. CAHPS stars use the
           plan&apos;s PP1 CAHPS Star Rating when uploaded; otherwise official cut
           points. When Star Rating differs from Base Group, Base → Star is shown.
-          Upside is the star path if cuts ease within historical methodology
-          error (base → upside).
+          When CMS identifies issues with a plan&apos;s data, that measure has
+          no score and is assigned 1 star. Upside is the star path if cuts ease
+          within historical methodology error (base → upside).
         </p>
       </ReportSection>
     </ReportPageFrame>

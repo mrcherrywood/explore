@@ -30,8 +30,8 @@ export type AccruedMeasureScore = {
   measureCode: string;
   measureDisplayName: string;
   measureNormalized: string;
-  /** Display / effective score (decimal overlay when present). */
-  score: number;
+  /** Display / effective score (decimal overlay when present). Null for CMS data issues. */
+  score: number | null;
   /**
    * Whole-number measure_data score used for cut-point banding. Null when only
    * a domain decimal was uploaded.
@@ -44,6 +44,8 @@ export type AccruedMeasureScore = {
   planStar?: number | null;
   /** Pre-adjustment CAHPS Base Group star from the plan PP1 CAHPS file. */
   baseGroupStar?: number | null;
+  /** CMS identified data issues — no score, automatic 1 star. */
+  cmsDataIssue?: boolean;
 };
 
 export type PlanPreviewCutPointSource = "official" | "workbook_forecast" | "model";
@@ -76,19 +78,21 @@ export type PlanPreviewCutPointPrediction = {
 };
 
 /** How the predicted measure star was assigned. */
-export type PlanPreviewStarSource = "cut_points" | "cahps_plan_file";
+export type PlanPreviewStarSource = "cut_points" | "cahps_plan_file" | "cms_data_issue";
 
 export type PlanPreviewContractMeasurePrediction = {
   measureNormalized: string;
   displayName: string;
   measureCode: string;
-  score: number;
+  score: number | null;
   weight: number;
   inverted: boolean;
   predictedStar: number | null;
   /**
    * When set to cahps_plan_file, the star comes from the plan's PP1 CAHPS
    * Star Rating column rather than banding the PP1 score against cut points.
+   * cms_data_issue is CMS's automatic 1-star assignment when the file has
+   * no score because CMS identified issues with the plan's data.
    */
   starSource: PlanPreviewStarSource | null;
   /**
@@ -348,10 +352,12 @@ export function buildPlanPreviewPredictions(
             fiveStar: baselineCutPoint.thresholds.fiveStar,
           }
         : null;
-    const projectedSamples: MeasureScoreSample[] = measureRows.map((row) => ({
-      contractId: row.contractId,
-      score: scoreForCutPointBanding(row.score, row.wholeScore, isCahps, bandingThresholds),
-    }));
+    const projectedSamples: MeasureScoreSample[] = measureRows
+      .filter((row) => !row.cmsDataIssue && row.score !== null)
+      .map((row) => ({
+        contractId: row.contractId,
+        score: scoreForCutPointBanding(row.score as number, row.wholeScore, isCahps, bandingThresholds),
+      }));
 
     const base: Omit<PlanPreviewCutPointPrediction, "status" | "reason"> = {
       measureNormalized,
@@ -586,6 +592,29 @@ function buildContractPredictions(
         baselineYear
       );
       const isCahps = isCahpsMeasure(row.measureDisplayName);
+      if (row.cmsDataIssue || row.score === null) {
+        const predictedStar = row.cmsDataIssue ? 1 : null;
+        if (predictedStar !== null) {
+          weightedStarSum += predictedStar * weight;
+          weightSum += weight;
+        }
+        measures.push({
+          measureNormalized: row.measureNormalized,
+          displayName: row.measureDisplayName,
+          measureCode: row.measureCode,
+          score: null,
+          weight,
+          inverted,
+          predictedStar,
+          starSource: row.cmsDataIssue ? "cms_data_issue" : null,
+          baseGroupStar: null,
+          baselineOfficialStar: null,
+          predictionStatus: row.cmsDataIssue
+            ? "ready"
+            : (predictionStatusByMeasure.get(row.measureNormalized) ?? "unavailable"),
+        });
+        continue;
+      }
       const bandingThresholds: ThresholdValuesShape | null =
         ready?.thresholds ??
         (baselineCutPoint

@@ -243,6 +243,9 @@ export function OverviewPage({
               {report.measures.some((m) => m.starSource === "cahps_plan_file")
                 ? " CAHPS stars come from the plan's PP1 Star Rating when uploaded; Base X→Y marks measures adjusted off their Base Group. Otherwise official cut points apply."
                 : ""}
+              {report.measures.some((m) => m.starSource === "cms_data_issue")
+                ? " Measures marked CMS data issue have no score and are assigned 1 star."
+                : ""}
               {report.overallOutlook?.hasUpside
                 ? " Upside eases conservative cut-point forecasts by historical methodology error (same reward factor and CAI)."
                 : ""}

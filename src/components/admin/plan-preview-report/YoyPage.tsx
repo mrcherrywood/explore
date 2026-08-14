@@ -365,7 +365,8 @@ export function YoyPage({
           Movement reflects score change and projected cut point movement.
           Showing all {movers.length} measures that changed. CAHPS use the
           plan&apos;s PP1 Star Rating when uploaded; Base → Star marks measures
-          adjusted off their Base Group. Base case uses our conservative
+          adjusted off their Base Group. CMS data issue marks measures with no
+          score that CMS assigned 1 star. Base case uses our conservative
           cut-point forecast. Upside eases cuts by each measure&apos;s
           historical methodology error. Cut pressure marks score improvement
           with a predicted star drop.

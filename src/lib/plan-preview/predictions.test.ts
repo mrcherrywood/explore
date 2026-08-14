@@ -51,6 +51,48 @@ test("starFromThresholds assigns whole stars for normal and inverted measures", 
   assert.equal(starFromThresholds(2, inverted, true), 1);
 });
 
+test("CMS data-issue cells get 1 star and stay out of the cut-point overlay", () => {
+  const scored: AccruedMeasureScore = {
+    contractId: "H0885",
+    contractName: "Test",
+    organizationMarketingName: "Test",
+    parentOrganization: "Test Org",
+    measureCode: "C01",
+    measureDisplayName: "Breast Cancer Screening",
+    measureNormalized: "breast cancer screening partc",
+    score: 76,
+    wholeScore: 76,
+  };
+  const dataIssue: AccruedMeasureScore = {
+    ...scored,
+    contractId: "H3259",
+    score: null,
+    wholeScore: null,
+    cmsDataIssue: true,
+  };
+
+  const result = buildPlanPreviewPredictions([scored, dataIssue], 2027);
+  const issueContract = result.contracts.find((item) => item.contractId === "H3259");
+  assert.ok(issueContract);
+  const issueMeasure = issueContract.measures.find((measure) => measure.measureCode === "C01");
+  assert.ok(issueMeasure);
+  assert.equal(issueMeasure.score, null);
+  assert.equal(issueMeasure.predictedStar, 1);
+  assert.equal(issueMeasure.starSource, "cms_data_issue");
+  assert.equal(issueMeasure.predictionStatus, "ready");
+  assert.equal(issueContract.weightedMeanStar, 1);
+
+  const scoredContract = result.contracts.find((item) => item.contractId === "H0885");
+  const scoredMeasure = scoredContract?.measures.find((measure) => measure.measureCode === "C01");
+  assert.ok(scoredMeasure);
+  assert.notEqual(scoredMeasure.starSource, "cms_data_issue");
+  assert.notEqual(scoredMeasure.predictedStar, null);
+
+  const cutPoint = result.cutPoints.find((item) => item.measureCode === "C01");
+  assert.ok(cutPoint);
+  assert.equal(cutPoint.accruedContractCount, 1, "data-issue cells must not enter the overlay");
+});
+
 test("scoreForCutPointBanding uses measure_data whole numbers for non-CAHPS", () => {
   // TRC: HEDIS decimal 70.68 must band like measure_data 71 (4★ cut at 71).
   assert.equal(scoreForCutPointBanding(70.68, 71, false), 71);

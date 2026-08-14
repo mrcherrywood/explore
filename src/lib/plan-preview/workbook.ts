@@ -41,6 +41,11 @@ function parseNumber(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/** CMS data-integrity message in place of a PP1 score — assigned 1 star. */
+export function isCmsDataIssueValue(rawValue: string): boolean {
+  return rawValue.toLowerCase().includes("cms identified issues");
+}
+
 export function classifyMeasureValue(rawValue: string): {
   score: number | null;
   status: PlanPreviewMeasureStatus;
@@ -51,6 +56,7 @@ export function classifyMeasureValue(rawValue: string): {
   if (lowered.startsWith("not enough data") || lowered.includes("no data available")) {
     return { score: null, status: "insufficient_data" };
   }
+  if (isCmsDataIssueValue(rawValue)) return { score: null, status: "cms_data_issue" };
   const score = parseNumber(rawValue);
   if (score !== null) return { score, status: "scored" };
   return { score: null, status: "other" };

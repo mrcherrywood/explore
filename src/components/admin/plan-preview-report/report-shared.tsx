@@ -65,10 +65,11 @@ export function isCahpsBaseGroupAdjusted(
 
 /** Compact label when Star Rating moved off Base Group: `Base 3→2`. */
 export function formatCahpsStarSourceLabel(
-  starSource: "cut_points" | "cahps_plan_file" | null | undefined,
+  starSource: "cut_points" | "cahps_plan_file" | "cms_data_issue" | null | undefined,
   baseGroupStar: number | null | undefined,
   predictedStar: number | null | undefined,
 ): string | null {
+  if (starSource === "cms_data_issue") return "CMS data issue";
   if (starSource !== "cahps_plan_file") return null;
   if (!isCahpsBaseGroupAdjusted(baseGroupStar, predictedStar)) return null;
   return `Base ${baseGroupStar}→${predictedStar}`;

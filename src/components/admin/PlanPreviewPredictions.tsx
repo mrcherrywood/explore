@@ -486,17 +486,19 @@ function ContractPanel({
                     </span>
                   </td>
                   <td style={{ fontWeight: 700, color: "var(--fep-ink)" }}>
-                    {Number(measure.score).toFixed(2)}
+                    {measure.score === null ? "—" : Number(measure.score).toFixed(2)}
                   </td>
                   <td>
                     {measure.predictedStar !== null ? (
                       <span className="fep-pill">
                         {measure.predictedStar}★
-                        {measure.starSource === "cahps_plan_file" &&
-                        measure.baseGroupStar != null &&
-                        measure.baseGroupStar !== measure.predictedStar
-                          ? ` · Base ${measure.baseGroupStar}→${measure.predictedStar}`
-                          : ""}
+                        {measure.starSource === "cms_data_issue"
+                          ? " · CMS data issue"
+                          : measure.starSource === "cahps_plan_file" &&
+                              measure.baseGroupStar != null &&
+                              measure.baseGroupStar !== measure.predictedStar
+                            ? ` · Base ${measure.baseGroupStar}→${measure.predictedStar}`
+                            : ""}
                       </span>
                     ) : (
                       <span style={{ color: "var(--fep-faint)" }}>
@@ -522,7 +524,8 @@ function ContractPanel({
             {data.baselineYear ?? "—"} column shows the star this score would
             earn at the latest published official cut points. CAHPS use the
             plan&apos;s PP1 Star Rating when uploaded; Base → Star marks
-            measures adjusted off their Base Group.
+            measures adjusted off their Base Group. CMS data issue means the
+            file had no score and CMS assigned 1 star.
           </p>
         </div>
       ) : null}

@@ -9,6 +9,7 @@ import type {
   PlanPreviewBatchRecord,
   PlanPreviewFileType,
 } from "./types";
+import { isCmsDataIssueValue } from "./workbook";
 
 export {
   getPlanPreviewExportRows,
@@ -212,8 +213,8 @@ export type PlanPreviewScoredRow = {
   measureCode: string;
   measureDisplayName: string;
   measureNormalized: string;
-  /** Display / effective score (decimal overlay when present). */
-  score: number;
+  /** Display / effective score (decimal overlay when present). Null for CMS data issues. */
+  score: number | null;
   /** Whole-number measure_data score for cut-point banding, when available. */
   wholeScore: number | null;
   decimalSource: string | null;
@@ -221,6 +222,8 @@ export type PlanPreviewScoredRow = {
   planStar: number | null;
   /** Pre-adjustment CAHPS Base Group star from the plan PP1 CAHPS file, when present. */
   baseGroupStar: number | null;
+  /** CMS identified data issues — no score, automatic 1 star. */
+  cmsDataIssue?: boolean;
 };
 
 export async function getPlanPreviewScoredRows(
@@ -235,10 +238,10 @@ export async function getPlanPreviewScoredRows(
     const { data, error } = await client
       .from("plan_preview_measure_scores")
       .select(
-        "contract_id, contract_name, organization_marketing_name, parent_organization, measure_code, measure_name, measure_display_name, measure_normalized, score, decimal_score, decimal_source, plan_star, base_group_star, status"
+        "contract_id, contract_name, organization_marketing_name, parent_organization, measure_code, measure_name, measure_display_name, measure_normalized, score, decimal_score, decimal_source, plan_star, base_group_star, status, raw_value"
       )
       .eq("stars_year", starsYear)
-      .eq("status", "scored")
+      .in("status", ["scored", "cms_data_issue", "other"])
       .order("contract_id", { ascending: true })
       .order("measure_code", { ascending: true })
       .range(from, from + pageSize - 1);
@@ -259,16 +262,20 @@ export async function getPlanPreviewScoredRows(
       plan_star: number | null;
       base_group_star: number | null;
       status: string;
+      raw_value: string;
     }>;
     for (const row of page) {
+      const cmsDataIssue =
+        row.status === "cms_data_issue" ||
+        (row.status === "other" && isCmsDataIssueValue(row.raw_value ?? ""));
       const wholeScore =
         row.score !== null && row.score !== undefined ? Number(row.score) : null;
       const decimalScore =
         row.decimal_score !== null && row.decimal_score !== undefined
           ? Number(row.decimal_score)
           : null;
-      const effective = decimalScore ?? wholeScore;
-      if (effective === null) continue;
+      const effective = cmsDataIssue ? null : decimalScore ?? wholeScore;
+      if (!cmsDataIssue && effective === null) continue;
       // Re-resolve from the PP1 file measure name so prior-year code fallbacks
       // stored at import (e.g. D12 COB → SUPD) do not survive into predictions.
       const fileName = row.measure_name?.trim() || row.measure_display_name;
@@ -288,19 +295,25 @@ export async function getPlanPreviewScoredRows(
         measureDisplayName: resolved.displayName,
         measureNormalized: resolved.normalizedName,
         score: effective,
-        wholeScore,
-        decimalSource: row.decimal_source,
+        wholeScore: cmsDataIssue ? null : wholeScore,
+        decimalSource: cmsDataIssue ? null : row.decimal_source,
         planStar:
-          planStar !== null && Number.isInteger(planStar) && planStar >= 1 && planStar <= 5
+          !cmsDataIssue &&
+          planStar !== null &&
+          Number.isInteger(planStar) &&
+          planStar >= 1 &&
+          planStar <= 5
             ? planStar
             : null,
         baseGroupStar:
+          !cmsDataIssue &&
           baseGroupStar !== null &&
           Number.isInteger(baseGroupStar) &&
           baseGroupStar >= 1 &&
           baseGroupStar <= 5
             ? baseGroupStar
             : null,
+        cmsDataIssue,
       });
     }
     if (page.length < pageSize) break;

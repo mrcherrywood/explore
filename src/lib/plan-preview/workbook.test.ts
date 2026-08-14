@@ -19,6 +19,11 @@ test("classifyMeasureValue handles percent, decimal, and sentinel values", () =>
   assert.equal(classifyMeasureValue("Plan not required to report measure").status, "not_required");
   assert.equal(classifyMeasureValue("Not Applicable").status, "not_applicable");
   assert.equal(classifyMeasureValue("Not enough data available").status, "insufficient_data");
+  assert.equal(
+    classifyMeasureValue("CMS identified issues with this plan's data").status,
+    "cms_data_issue"
+  );
+  assert.equal(classifyMeasureValue("CMS identified issues with this plan's data").score, null);
   assert.equal(classifyMeasureValue("Plan too new to be measured").status, "other");
 });
 

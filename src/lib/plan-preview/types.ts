@@ -13,6 +13,7 @@ export type PlanPreviewMeasureStatus =
   | "not_required"
   | "not_applicable"
   | "insufficient_data"
+  | "cms_data_issue"
   | "other";
 
 export type ParsedPlanPreviewMeasureScore = {

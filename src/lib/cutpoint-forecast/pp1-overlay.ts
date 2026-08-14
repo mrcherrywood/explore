@@ -54,6 +54,7 @@ async function loadPp1YearCache(
     const rows = await getPlanPreviewScoredRows(serviceClient, starsYear);
     const byMeasure = new Map<string, MeasureScoreSample[]>();
     for (const row of rows) {
+      if (row.cmsDataIssue || row.score === null) continue;
       const list = byMeasure.get(row.measureNormalized) ?? [];
       list.push({ contractId: row.contractId, score: row.score });
       byMeasure.set(row.measureNormalized, list);

@@ -386,24 +386,30 @@ export function buildPlanPreviewContractReport(options: {
     const publishedBaselineStar = publishedStarByCode.get(code) ?? null;
     const cutPoint = cutPointByMeasure.get(measure.measureNormalized);
     const appliedThresholds = thresholdValuesFromForecast(cutPoint?.thresholds);
-    const bandingScore = scoreForCutPointBanding(
-      measure.score,
-      null,
-      isCahpsMeasure(measure.displayName),
-      appliedThresholds
-    );
-    const outlook = buildMeasureStarOutlook({
-      measureNormalized: measure.measureNormalized,
-      score: bandingScore,
-      comparisonScore: measure.score,
-      inverted: measure.inverted,
-      starSource: measure.starSource,
-      predictedStar: measure.predictedStar,
-      publishedBaselineStar,
-      publishedBaselineScore,
-      appliedThresholds,
-      modelThresholds: thresholdValuesFromForecast(cutPoint?.modelThresholds),
-    });
+    const bandingScore =
+      measure.score === null
+        ? null
+        : scoreForCutPointBanding(
+            measure.score,
+            null,
+            isCahpsMeasure(measure.displayName),
+            appliedThresholds
+          );
+    const outlook =
+      bandingScore === null
+        ? null
+        : buildMeasureStarOutlook({
+            measureNormalized: measure.measureNormalized,
+            score: bandingScore,
+            comparisonScore: measure.score,
+            inverted: measure.inverted,
+            starSource: measure.starSource,
+            predictedStar: measure.predictedStar,
+            publishedBaselineStar,
+            publishedBaselineScore,
+            appliedThresholds,
+            modelThresholds: thresholdValuesFromForecast(cutPoint?.modelThresholds),
+          });
     return {
       ...measure,
       domain: domainByCode.get(code) ?? NEW_MEASURE_DOMAINS[code] ?? null,
