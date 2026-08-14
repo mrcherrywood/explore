@@ -401,7 +401,7 @@ export function buildPlanPreviewContractReport(options: {
         : buildMeasureStarOutlook({
             measureNormalized: measure.measureNormalized,
             score: bandingScore,
-            comparisonScore: measure.score,
+            comparisonScore: measure.score ?? undefined,
             inverted: measure.inverted,
             starSource: measure.starSource,
             predictedStar: measure.predictedStar,
