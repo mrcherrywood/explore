@@ -15,6 +15,20 @@ const CAI_PATH = path.join(process.cwd(), "data/2027/SR_2027_FPP/SR_2027_cai.xls
 test("classifyMeasureValue handles percent, decimal, and sentinel values", () => {
   assert.deepEqual(classifyMeasureValue("77%"), { score: 77, status: "scored" });
   assert.deepEqual(classifyMeasureValue("0.09"), { score: 0.09, status: "scored" });
+  assert.deepEqual(
+    classifyMeasureValue("0.09", {
+      measureCode: "C27",
+      measureName: "Complaints about the Health Plan",
+    }),
+    { score: 0.09, status: "scored" }
+  );
+  assert.deepEqual(
+    classifyMeasureValue("0.99", {
+      measureCode: "C30",
+      measureName: "Plan Makes Timely Decisions about Appeals",
+    }),
+    { score: 99, status: "scored" }
+  );
   assert.deepEqual(classifyMeasureValue("83"), { score: 83, status: "scored" });
   assert.equal(classifyMeasureValue("Plan not required to report measure").status, "not_required");
   assert.equal(classifyMeasureValue("Not Applicable").status, "not_applicable");

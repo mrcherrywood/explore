@@ -9,7 +9,7 @@ import type {
   PlanPreviewBatchRecord,
   PlanPreviewFileType,
 } from "./types";
-import { isCmsDataIssueValue } from "./workbook";
+import { isCmsDataIssueValue, scaleExcelPercentScore } from "./workbook";
 
 export {
   getPlanPreviewExportRows,
@@ -268,11 +268,17 @@ export async function getPlanPreviewScoredRows(
       const cmsDataIssue =
         row.status === "cms_data_issue" ||
         (row.status === "other" && isCmsDataIssueValue(row.raw_value ?? ""));
+      const measureForScale = {
+        measureCode: row.measure_code,
+        measureName: row.measure_name?.trim() || row.measure_display_name,
+      };
       const wholeScore =
-        row.score !== null && row.score !== undefined ? Number(row.score) : null;
+        row.score !== null && row.score !== undefined
+          ? scaleExcelPercentScore(Number(row.score), measureForScale)
+          : null;
       const decimalScore =
         row.decimal_score !== null && row.decimal_score !== undefined
-          ? Number(row.decimal_score)
+          ? scaleExcelPercentScore(Number(row.decimal_score), measureForScale)
           : null;
       const effective = cmsDataIssue ? null : decimalScore ?? wholeScore;
       if (!cmsDataIssue && effective === null) continue;

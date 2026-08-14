@@ -46,7 +46,31 @@ export function isCmsDataIssueValue(rawValue: string): boolean {
   return rawValue.toLowerCase().includes("cms identified issues");
 }
 
-export function classifyMeasureValue(rawValue: string): {
+/** Complaints are published as rates (0.18), not 0–100 percents. */
+export function isComplaintRateMeasure(measureCode?: string, measureName?: string): boolean {
+  const code = (measureCode ?? "").toUpperCase();
+  if (code === "C27" || code === "D02") return true;
+  return (measureName ?? "").toLowerCase().includes("complaints about");
+}
+
+/**
+ * Excel percent cells arrive as 0.99. Percentage measures are 0–100; leave
+ * complaint rates and already-scaled values alone.
+ */
+export function scaleExcelPercentScore(
+  score: number,
+  measure?: { measureCode?: string; measureName?: string }
+): number {
+  if (!(score > 0 && score < 1)) return score;
+  if (!measure) return score;
+  if (isComplaintRateMeasure(measure.measureCode, measure.measureName)) return score;
+  return Math.round(score * 10000) / 100;
+}
+
+export function classifyMeasureValue(
+  rawValue: string,
+  measure?: { measureCode?: string; measureName?: string }
+): {
   score: number | null;
   status: PlanPreviewMeasureStatus;
 } {
@@ -57,8 +81,10 @@ export function classifyMeasureValue(rawValue: string): {
     return { score: null, status: "insufficient_data" };
   }
   if (isCmsDataIssueValue(rawValue)) return { score: null, status: "cms_data_issue" };
-  const score = parseNumber(rawValue);
-  if (score !== null) return { score, status: "scored" };
+  const parsed = parseNumber(rawValue);
+  if (parsed !== null) {
+    return { score: scaleExcelPercentScore(parsed, measure), status: "scored" };
+  }
   return { score: null, status: "other" };
 }
 
@@ -167,7 +193,10 @@ function parseMeasureWorkbook(
       const rawValue = cleanCell(row[column.columnIndex]);
       if (!rawValue) continue;
 
-      const { score, status } = classifyMeasureValue(rawValue);
+      const { score, status } = classifyMeasureValue(rawValue, {
+        measureCode: column.measureCode,
+        measureName: column.measureName,
+      });
       if (status === "scored") scoredCount += 1;
 
       parsedRows.push({
