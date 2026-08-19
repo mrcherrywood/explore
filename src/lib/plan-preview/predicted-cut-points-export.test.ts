@@ -49,6 +49,7 @@ function cutPoint(
     thresholds: null,
     modelThresholds: null,
     warningCount: 0,
+    forecastFillCount: 0,
     notes: [],
     ...overrides,
   };
@@ -81,6 +82,13 @@ test("buildPredictedCutPointsCsv splits star value, change, and model columns", 
   ]);
 
   assert.deepEqual(data.headers, [...PREDICTED_CUT_POINTS_CSV_HEADERS]);
+  assert.ok(
+    data.headers.every((header) => /^[\x20-\x7E]+$/.test(header)),
+    "CSV headers should stay ASCII so Excel does not show star glyphs as mojibake",
+  );
+  assert.ok(data.headers.includes("5 Star"));
+  assert.ok(data.headers.includes("5 Star Change"));
+  assert.ok(data.headers.includes("5 Star Model"));
   assert.deepEqual(data.rows, [
     [
       "C01",

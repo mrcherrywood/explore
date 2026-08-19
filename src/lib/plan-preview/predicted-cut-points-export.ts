@@ -10,10 +10,10 @@ const THRESHOLD_ORDER = [
 ] as const;
 
 const STAR_LABELS: Record<(typeof THRESHOLD_ORDER)[number], string> = {
-  fiveStar: "5★",
-  fourStar: "4★",
-  threeStar: "3★",
-  twoStar: "2★",
+  fiveStar: "5 Star",
+  fourStar: "4 Star",
+  threeStar: "3 Star",
+  twoStar: "2 Star",
 };
 
 const SOURCE_LABELS: Record<PlanPreviewCutPointPrediction["source"], string> = {

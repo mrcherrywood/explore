@@ -24,7 +24,7 @@ export function generateCsvString(data: CsvData): string {
 }
 
 export function downloadCsvFile(content: string, filename: string) {
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob([`\uFEFF${content}`], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
 
