@@ -253,6 +253,7 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
   useEffect(() => {
     let cancelled = false;
     setMeasuresLoading(true);
+    setData({ full_market: null, client_only: null });
     fetch(`/api/admin/forecast/methodology?runId=${runId}&measure=__list__`, {
       cache: "no-store",
     })
@@ -261,9 +262,11 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
         if (cancelled) return;
         const list: MeasureOption[] = payload.measures ?? [];
         setMeasures(list);
-        if (list.length > 0 && !selectedMeasure) {
-          setSelectedMeasure(list[0].normalized);
-        }
+        setSelectedMeasure((current) =>
+          current && list.some((m) => m.normalized === current)
+            ? current
+            : (list[0]?.normalized ?? ""),
+        );
       })
       .catch((err) => {
         if (!cancelled)
@@ -278,7 +281,6 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId]);
 
   const loadMethodology = useCallback(async () => {

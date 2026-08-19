@@ -621,6 +621,43 @@ export function CutPointForecastAdmin() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Run Selection</CardTitle>
+          <CardDescription>
+            Choose the imported run you want to review. This controls both
+            projected cut points and the score table below.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <select
+            value={selectedRun?.id ?? ""}
+            onChange={(event) => {
+              const nextRunId = event.target.value || undefined;
+              setSelectedRunId(nextRunId);
+              setPage(1);
+              setDraftScores({});
+              setDraftOriginalManualScores({});
+              setSelectedParentOrg("");
+              setSelectedContractId("");
+              setSelectedMeasure("");
+              setSelectedProjection(null);
+              setDetail(null);
+            }}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">Select a forecast run</option>
+            {(data?.runs ?? []).map((run) => (
+              <option key={run.id} value={run.id}>
+                {run.forecastYear} ·{" "}
+                {run.datasetType === "cahps" ? "CAHPS" : "Non-CAHPS"} ·{" "}
+                {run.status} · {new Date(run.createdAt).toLocaleString()}
+              </option>
+            ))}
+          </select>
+        </CardContent>
+      </Card>
+
       {selectedRun && (
         <ForecastMethodologyPanel
           runId={selectedRun.id}
@@ -633,9 +670,9 @@ export function CutPointForecastAdmin() {
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <CardTitle>Run Selection</CardTitle>
+                <CardTitle>Review Projections</CardTitle>
                 <CardDescription>
-                  Choose the imported run you want to review or approve.
+                  Filter, override, and approve scores for the selected run.
                 </CardDescription>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -709,32 +746,6 @@ export function CutPointForecastAdmin() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <select
-              value={selectedRun?.id ?? ""}
-              onChange={(event) => {
-                const nextRunId = event.target.value || undefined;
-                setSelectedRunId(nextRunId);
-                setPage(1);
-                setDraftScores({});
-                setDraftOriginalManualScores({});
-                setSelectedParentOrg("");
-                setSelectedContractId("");
-                setSelectedMeasure("");
-                setSelectedProjection(null);
-                setDetail(null);
-              }}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Select a forecast run</option>
-              {(data?.runs ?? []).map((run) => (
-                <option key={run.id} value={run.id}>
-                  {run.forecastYear} ·{" "}
-                  {run.datasetType === "cahps" ? "CAHPS" : "Non-CAHPS"} ·{" "}
-                  {run.status} · {new Date(run.createdAt).toLocaleString()}
-                </option>
-              ))}
-            </select>
-
             <div className="flex flex-wrap items-end gap-4">
               <div className="min-w-[220px]">
                 <label className="mb-1 block text-xs text-muted-foreground">
