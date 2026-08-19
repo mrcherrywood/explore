@@ -12,6 +12,12 @@ import {
   type PlanPreviewPredictionsResult,
 } from "./predictions";
 import {
+  emptyForecastYearEndOverlay,
+  loadApprovedForecastSamplesForYear,
+} from "@/lib/cutpoint-forecast/pp1-overlay";
+import { getLatestForecastRunForYear } from "@/lib/cutpoint-forecast/store";
+
+import {
   getPlanPreviewCaiByContract,
   getPlanPreviewScoredRows,
   listPlanPreviewBatches,
@@ -36,16 +42,30 @@ export async function getPlanPreviewRun(
   starsYear: number
 ): Promise<PlanPreviewRun> {
   const batches = await listPlanPreviewBatches(client, starsYear);
-  const fingerprint = `${batches.length}:${batches[0]?.createdAt ?? "none"}`;
+  const year = Math.round(starsYear);
+  const [nonCahpsRun, cahpsRun] = await Promise.all([
+    getLatestForecastRunForYear(client, year, "approved", "non_cahps").catch(
+      () => null,
+    ),
+    getLatestForecastRunForYear(client, year, "approved", "cahps").catch(
+      () => null,
+    ),
+  ]);
+  const forecastFingerprint =
+    [nonCahpsRun?.id, cahpsRun?.id].filter(Boolean).join(",") || "none";
+  const fingerprint = `${batches.length}:${batches[0]?.createdAt ?? "none"}:fc:${forecastFingerprint}`;
 
   const cached = cache.get(starsYear);
   if (cached && cached.fingerprint === fingerprint) return cached;
 
-  const [rows, caiByContract] = await Promise.all([
+  const [rows, caiByContract, forecastOverlay] = await Promise.all([
     getPlanPreviewScoredRows(client, starsYear),
     getPlanPreviewCaiByContract(client, starsYear),
+    loadApprovedForecastSamplesForYear(client, starsYear).catch(() =>
+      emptyForecastYearEndOverlay(),
+    ),
   ]);
-  const result = buildPlanPreviewPredictions(rows, starsYear);
+  const result = buildPlanPreviewPredictions(rows, starsYear, forecastOverlay);
   const run: PlanPreviewRun = {
     fingerprint,
     result,

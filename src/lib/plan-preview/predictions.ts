@@ -13,6 +13,11 @@ import {
 } from "@/lib/band-movement/cut-point-methodology";
 import { overlayProjectedSamples } from "@/lib/cutpoint-forecast/analysis";
 import {
+  lookupForecastYearEndSamples,
+  mergeOverlaySamplesPreferPrimary,
+  type ForecastYearEndOverlay,
+} from "@/lib/cutpoint-forecast/pp1-overlay";
+import {
   deriveMeasureStarRating,
   isInvertedMeasure,
   matchCutPointToMeasureName,
@@ -65,6 +70,8 @@ export type PlanPreviewCutPointPrediction = {
   source: PlanPreviewCutPointSource;
   inverted: boolean;
   accruedContractCount: number;
+  /** Contracts added from an approved forecast year-end projection (no PP1 row). */
+  forecastFillCount: number;
   matchedBaselineCount: number;
   appendedContractCount: number;
   baselineMarketCount: number;
@@ -125,6 +132,8 @@ export type PlanPreviewPredictionsResult = {
     unsupportedCount: number;
     warningCount: number;
     accruedContractCount: number;
+    /** Contract×measure fills from approved forecast year-end projections. */
+    forecastFillCount: number;
     /** Contract×measure cells using plan PP1 CAHPS Star Rating. */
     cahpsPlanStarCount: number;
   };
@@ -302,7 +311,8 @@ function maxModelDivergence(
 
 export function buildPlanPreviewPredictions(
   rows: AccruedMeasureScore[],
-  starsYear: number
+  starsYear: number,
+  forecastOverlay?: ForecastYearEndOverlay
 ): PlanPreviewPredictionsResult {
   const maRows = rows.filter((row) => MA_CONTRACT_PATTERN.test(row.contractId));
   const baselineYear = resolveBaselineYear(starsYear);
@@ -352,12 +362,30 @@ export function buildPlanPreviewPredictions(
             fiveStar: baselineCutPoint.thresholds.fiveStar,
           }
         : null;
-    const projectedSamples: MeasureScoreSample[] = measureRows
+    const pp1Samples: MeasureScoreSample[] = measureRows
       .filter((row) => !row.cmsDataIssue && row.score !== null)
       .map((row) => ({
-        contractId: row.contractId,
+        contractId: row.contractId.trim().toUpperCase(),
         score: scoreForCutPointBanding(row.score as number, row.wholeScore, isCahps, bandingThresholds),
       }));
+    const forecastFillSamples = lookupForecastYearEndSamples(
+      forecastOverlay,
+      measureNormalized,
+      measureCode
+    );
+    const mergedOverlay = mergeOverlaySamplesPreferPrimary(
+      pp1Samples,
+      forecastFillSamples
+    );
+    const projectedSamples = mergedOverlay.samples;
+    const forecastFillCount = mergedOverlay.pp1FillCount;
+
+    const forecastFillNotes =
+      forecastFillCount > 0
+        ? [
+            `Includes ${forecastFillCount} year-end projection${forecastFillCount === 1 ? "" : "s"} for contracts without a Plan Preview score.`,
+          ]
+        : [];
 
     const base: Omit<PlanPreviewCutPointPrediction, "status" | "reason"> = {
       measureNormalized,
@@ -367,6 +395,7 @@ export function buildPlanPreviewPredictions(
       source: "model",
       inverted,
       accruedContractCount: projectedSamples.length,
+      forecastFillCount,
       matchedBaselineCount: 0,
       appendedContractCount: 0,
       baselineMarketCount: 0,
@@ -374,7 +403,7 @@ export function buildPlanPreviewPredictions(
       thresholds: null,
       modelThresholds: null,
       warningCount: 0,
-      notes: [],
+      notes: forecastFillNotes,
     };
 
     const inUniverse =
@@ -466,7 +495,7 @@ export function buildPlanPreviewPredictions(
         thresholds: thresholdsFromWorkbook(workbookRow, baselineCutPoint),
         modelThresholds,
         warningCount: readyModel?.historicalMovement?.warningCount ?? 0,
-        notes: [...notes, ...(readyModel?.notes ?? [])],
+        notes: [...notes, ...forecastFillNotes, ...(readyModel?.notes ?? [])],
       });
       continue;
     }
@@ -516,7 +545,7 @@ export function buildPlanPreviewPredictions(
       thresholds: readyModel.thresholds,
       modelThresholds: readyModel.thresholds,
       warningCount: readyModel.historicalMovement?.warningCount ?? 0,
-      notes: readyModel.notes,
+      notes: [...forecastFillNotes, ...readyModel.notes],
     });
   }
 
@@ -547,6 +576,7 @@ export function buildPlanPreviewPredictions(
       unsupportedCount: cutPoints.filter((item) => item.status === "unsupported").length,
       warningCount: cutPoints.reduce((sum, item) => sum + item.warningCount, 0),
       accruedContractCount: new Set(maRows.map((row) => row.contractId)).size,
+      forecastFillCount: cutPoints.reduce((sum, item) => sum + item.forecastFillCount, 0),
       cahpsPlanStarCount,
     },
     cutPoints,

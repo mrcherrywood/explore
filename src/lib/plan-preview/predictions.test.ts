@@ -7,6 +7,8 @@ import {
   buildPlanPreviewQiSensitivity,
   buildPlanPreviewScenarios,
 } from "./final-scores";
+import type { ForecastYearEndOverlay } from "@/lib/cutpoint-forecast/pp1-overlay";
+
 import {
   buildPlanPreviewPredictions,
   scoreForCutPointBanding,
@@ -91,6 +93,76 @@ test("CMS data-issue cells get 1 star and stay out of the cut-point overlay", ()
   const cutPoint = result.cutPoints.find((item) => item.measureCode === "C01");
   assert.ok(cutPoint);
   assert.equal(cutPoint.accruedContractCount, 1, "data-issue cells must not enter the overlay");
+  assert.equal(cutPoint.forecastFillCount, 0);
+});
+
+test("cut-point overlay fills missing PP1 contracts from forecast year-end projections", () => {
+  const scored: AccruedMeasureScore = {
+    contractId: "H0885",
+    contractName: "Test",
+    organizationMarketingName: "Test",
+    parentOrganization: "Test Org",
+    measureCode: "C01",
+    measureDisplayName: "Breast Cancer Screening",
+    measureNormalized: "breast cancer screening partc",
+    score: 76,
+    wholeScore: 76,
+  };
+  const overlay: ForecastYearEndOverlay = {
+    byMeasureNormalized: new Map([
+      [
+        "breast cancer screening partc",
+        [
+          { contractId: "H0885", score: 99 },
+          { contractId: "H3259", score: 81 },
+        ],
+      ],
+    ]),
+    byMeasureCode: new Map(),
+    runIds: ["run-1"],
+  };
+
+  const result = buildPlanPreviewPredictions([scored], 2027, overlay);
+  const cutPoint = result.cutPoints.find((item) => item.measureCode === "C01");
+  assert.ok(cutPoint);
+  assert.equal(cutPoint.accruedContractCount, 2);
+  assert.equal(cutPoint.forecastFillCount, 1);
+  assert.equal(result.summary.forecastFillCount, 1);
+  assert.ok(
+    cutPoint.notes.some((note) => note.includes("year-end projection")),
+  );
+  assert.equal(
+    result.contracts.some((contract) => contract.contractId === "H3259"),
+    false,
+    "forecast-only contracts do not fabricate a PP1 contract report",
+  );
+});
+
+test("forecast year-end fill matches C01 when the normalized name differs", () => {
+  const scored: AccruedMeasureScore = {
+    contractId: "H0885",
+    contractName: "Test",
+    organizationMarketingName: "Test",
+    parentOrganization: "Test Org",
+    measureCode: "C01",
+    measureDisplayName: "Breast Cancer Screening",
+    measureNormalized: "breast cancer screening partc",
+    score: 76,
+    wholeScore: 76,
+  };
+  const overlay: ForecastYearEndOverlay = {
+    byMeasureNormalized: new Map(),
+    byMeasureCode: new Map([
+      ["C01", [{ contractId: "H1225", score: 84 }]],
+    ]),
+    runIds: ["run-1"],
+  };
+
+  const result = buildPlanPreviewPredictions([scored], 2027, overlay);
+  const cutPoint = result.cutPoints.find((item) => item.measureCode === "C01");
+  assert.ok(cutPoint);
+  assert.equal(cutPoint.accruedContractCount, 2);
+  assert.equal(cutPoint.forecastFillCount, 1);
 });
 
 test("scoreForCutPointBanding uses measure_data whole numbers for non-CAHPS", () => {

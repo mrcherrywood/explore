@@ -214,6 +214,32 @@ test("mergeOverlaySamplesPreferPrimary keeps forecast scores and fills from PP1"
   assert.equal(merged.samples.length, 3);
 });
 
+test("lookupForecastYearEndSamples prefers the normalized name then measure code", async () => {
+  const { lookupForecastYearEndSamples } = await import(
+    "@/lib/cutpoint-forecast/pp1-overlay"
+  );
+
+  const overlay = {
+    byMeasureNormalized: new Map([
+      ["breast cancer screening partc", [{ contractId: "H1225", score: 80 }]],
+    ]),
+    byMeasureCode: new Map([
+      ["C01", [{ contractId: "H3259", score: 70 }]],
+    ]),
+    runIds: ["run-1"],
+  };
+
+  assert.equal(
+    lookupForecastYearEndSamples(overlay, "breast cancer screening partc", "C01")[0]
+      ?.contractId,
+    "H1225",
+  );
+  assert.equal(
+    lookupForecastYearEndSamples(overlay, "some other name", "C01")[0]?.contractId,
+    "H3259",
+  );
+});
+
 test("overlayProjectedSamples replaces baseline contracts and appends new projected ones", () => {
   const regularMeasure = getAvailableOptions().measures.find(
     (measure) => measure.displayName === "Breast Cancer Screening"

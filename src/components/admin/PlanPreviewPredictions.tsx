@@ -189,6 +189,11 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
                 {data.summary.cahpsPlanStarCount} CAHPS plan-file stars
               </span>
             ) : null}
+            {data.summary.forecastFillCount > 0 ? (
+              <span className="fep-pill">
+                {data.summary.forecastFillCount} year-end projections
+              </span>
+            ) : null}
           </div>
 
           <div className="overflow-x-auto">
