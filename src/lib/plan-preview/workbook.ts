@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 
 import { parseCahpsAdjustedWorkbook } from "./cahps-adjusted-workbook";
+import { isClientLongFormat, parseClientLongFormat } from "./client-long-format";
 import {
   detectDomainFileKind,
   parseDomainWorkbook,
@@ -342,6 +343,10 @@ export function parsePlanPreviewWorkbook(buffer: Buffer): PlanPreviewParseResult
     defval: "",
     blankrows: false,
   });
+
+  if (isClientLongFormat(rows)) {
+    return parseClientLongFormat(rows, sheetName);
+  }
 
   const headerRowIndex = findContractHeaderRow(rows);
   const headerCells = rows[headerRowIndex].map((cell) => cleanCell(cell).toLowerCase());

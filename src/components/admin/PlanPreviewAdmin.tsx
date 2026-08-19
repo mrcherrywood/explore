@@ -13,9 +13,11 @@ import {
 } from "lucide-react";
 
 import { PlanPreviewPredictions } from "@/components/admin/PlanPreviewPredictions";
+import { PlanPreviewReportPicker } from "@/components/admin/PlanPreviewReportPicker";
 import type {
   PlanPreviewAccrualSummary,
   PlanPreviewBatchRecord,
+  PlanPreviewContractOption,
 } from "@/lib/plan-preview/types";
 
 type OverviewResponse = {
@@ -23,6 +25,7 @@ type OverviewResponse = {
   starsYears: number[];
   batches: PlanPreviewBatchRecord[];
   accrual: PlanPreviewAccrualSummary;
+  contracts: PlanPreviewContractOption[];
 };
 
 const FILE_TYPE_LABELS: Record<string, string> = {
@@ -450,6 +453,10 @@ export function PlanPreviewAdmin() {
           loading={loading}
         />
       </div>
+
+      {starsYear !== null && (overview?.contracts.length ?? 0) > 0 ? (
+        <PlanPreviewReportPicker starsYear={starsYear} contracts={overview?.contracts ?? []} />
+      ) : null}
 
       {starsYear !== null && (accrual?.contractCount ?? 0) > 0 ? (
         <PlanPreviewPredictions key={starsYear} starsYear={starsYear} />

@@ -25,9 +25,24 @@ export function PlanPreviewContractReport({
       `/api/admin/plan-preview/report?starsYear=${starsYear}&contractId=${encodeURIComponent(contractId)}`,
     )
       .then(async (response) => {
-        const body = await response.json();
-        if (!response.ok)
-          throw new Error(body.error ?? "Failed to load the contract report.");
+        const text = await response.text();
+        let body: { error?: string } | ReportData | null = null;
+        try {
+          body = text ? (JSON.parse(text) as { error?: string } | ReportData) : null;
+        } catch {
+          throw new Error(
+            text.trim()
+              ? `Report failed (${response.status}): ${text.slice(0, 240)}`
+              : `Report failed (${response.status}).`
+          );
+        }
+        if (!response.ok) {
+          throw new Error(
+            body && "error" in body && body.error
+              ? body.error
+              : `Failed to load the contract report (${response.status}).`
+          );
+        }
         if (!cancelled) setReport(body as ReportData);
       })
       .catch((err: unknown) => {

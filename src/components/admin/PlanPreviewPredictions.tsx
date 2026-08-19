@@ -63,11 +63,12 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
       setRunning(true);
       setError(null);
       try {
+        if (contractId) setSelectedContractId(contractId);
         const result = await fetchPredictions(starsYear, contractId);
         setData(result);
         if (contractId) setSelectedContractId(contractId);
         else if (result.contracts.length > 0) {
-          setSelectedContractId(result.contractDetail?.contractId ?? "");
+          setSelectedContractId(result.contractDetail?.contractId ?? result.contracts[0].contractId);
         }
       } catch (runError) {
         setError(
@@ -439,22 +440,22 @@ function ContractPanel({
           ))}
         </select>
         {detail ? (
-          <>
-            <span className="fep-pill">
-              Base mean {detail.weightedMeanStar ?? "—"} ·{" "}
-              {detail.ratedMeasureCount}/{detail.scoredMeasureCount} measures
-              rated
-            </span>
-            <a
-              className="fep-link text-xs"
-              href={`/admin/plan-preview/report?starsYear=${data.starsYear}&contractId=${detail.contractId}`}
-              target="_blank"
-              rel="noreferrer"
-              data-export-hide
-            >
-              Open contract report →
-            </a>
-          </>
+          <span className="fep-pill">
+            Base mean {detail.weightedMeanStar ?? "—"} ·{" "}
+            {detail.ratedMeasureCount}/{detail.scoredMeasureCount} measures
+            rated
+          </span>
+        ) : null}
+        {selectedContractId ? (
+          <a
+            className="fep-link text-xs"
+            href={`/admin/plan-preview/report?starsYear=${data.starsYear}&contractId=${encodeURIComponent(selectedContractId)}`}
+            target="_blank"
+            rel="noreferrer"
+            data-export-hide
+          >
+            Open contract report →
+          </a>
         ) : null}
       </div>
 

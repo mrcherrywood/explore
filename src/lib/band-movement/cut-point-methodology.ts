@@ -1248,6 +1248,11 @@ let overallCache: MethodologyOverallResponse | null = null;
  * the client-only population. Deterministic (seeded), so the result is cached
  * for the process lifetime.
  */
+/** Peek the Combined Accuracy cache without computing it. */
+export function getCachedCutPointMethodologyOverall(): MethodologyOverallResponse | null {
+  return overallCache;
+}
+
 export function analyzeCutPointMethodologyOverall(): MethodologyOverallResponse {
   if (overallCache) return overallCache;
 

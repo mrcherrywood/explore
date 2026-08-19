@@ -95,7 +95,7 @@ export async function GET(request: Request) {
       cai,
     });
 
-    return NextResponse.json(report);
+    return NextResponse.json(JSON.parse(JSON.stringify(report)));
   } catch (error) {
     console.error("Failed to build plan preview contract report", error);
     return NextResponse.json(

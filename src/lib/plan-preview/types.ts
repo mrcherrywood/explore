@@ -178,6 +178,12 @@ export type PlanPreviewBatchRecord = {
   updatedAt: string;
 };
 
+export type PlanPreviewContractOption = {
+  contractId: string;
+  contractName: string | null;
+  parentOrganization: string | null;
+};
+
 export type PlanPreviewAccrualSummary = {
   starsYear: number;
   contractCount: number;

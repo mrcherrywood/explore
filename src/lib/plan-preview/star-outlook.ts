@@ -5,8 +5,7 @@
  */
 
 import {
-  analyzeCutPointMethodologyBacktest,
-  analyzeCutPointMethodologyOverall,
+  getCachedCutPointMethodologyOverall,
   type MethodologyForecastThreshold,
 } from "@/lib/band-movement/cut-point-methodology";
 import { OVERALL_DEDUP_DROP_CODES } from "@/lib/clover-impact/analysis";
@@ -82,19 +81,24 @@ export function thresholdValuesFromForecast(
 function ensureMaeCaches(): void {
   if (maeByMeasureCache && fallbackMaeCache !== null) return;
 
-  // Prefer the pooled overall summary (process-cached) so one warm-up pays for
-  // every measure. Fall back to per-measure backtest only when overall fails.
+  // Reuse a warm Combined Accuracy cache when some other request already
+  // computed it. Do not compute it here — the full-measure backtest can
+  // exceed the report route budget and leave the page stuck on “Building…”.
   try {
-    const overall = analyzeCutPointMethodologyOverall();
-    maeByMeasureCache = new Map(
-      overall.measures.map((row) => [row.measure, row.meanAbsoluteError] as const)
-    );
-    fallbackMaeCache = overall.fullMarket.meanAbsoluteError;
-    return;
+    const overall = getCachedCutPointMethodologyOverall();
+    if (overall) {
+      maeByMeasureCache = new Map(
+        overall.measures.map((row) => [row.measure, row.meanAbsoluteError] as const)
+      );
+      fallbackMaeCache = overall.fullMarket.meanAbsoluteError;
+      return;
+    }
   } catch {
-    maeByMeasureCache = new Map();
-    fallbackMaeCache = DEFAULT_FALLBACK_MAE;
+    // fall through to the default radius
   }
+
+  maeByMeasureCache = new Map();
+  fallbackMaeCache = DEFAULT_FALLBACK_MAE;
 }
 
 /**
@@ -111,18 +115,6 @@ export function resolveEaseRadius(
   ensureMaeCaches();
   const cached = maeByMeasureCache!.get(measureNormalized);
   if (cached !== undefined && Number.isFinite(cached)) return Math.max(0, cached);
-
-  try {
-    const backtest = analyzeCutPointMethodologyBacktest(measureNormalized);
-    if (backtest.status === "ready") {
-      const mae = backtest.summary.avgMeanAbsoluteError;
-      maeByMeasureCache!.set(measureNormalized, mae);
-      return Math.max(0, mae);
-    }
-  } catch {
-    // fall through
-  }
-
   return Math.max(0, fallbackMaeCache ?? DEFAULT_FALLBACK_MAE);
 }
 

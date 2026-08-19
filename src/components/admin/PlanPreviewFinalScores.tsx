@@ -35,7 +35,13 @@ function ThresholdPill({
   );
 }
 
-function ScoreRow({ contract }: { contract: PlanPreviewFinalScore }) {
+function ScoreRow({
+  contract,
+  starsYear,
+}: {
+  contract: PlanPreviewFinalScore;
+  starsYear: number;
+}) {
   const selected =
     contract.selectedLeg === "with_qi"
       ? contract.withQi
@@ -58,6 +64,16 @@ function ScoreRow({ contract }: { contract: PlanPreviewFinalScore }) {
             — {contract.contractName}
           </span>
         ) : null}
+        <div>
+          <a
+            className="fep-link text-xs"
+            href={`/admin/plan-preview/report?starsYear=${starsYear}&contractId=${encodeURIComponent(contract.contractId)}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open report →
+          </a>
+        </div>
       </td>
       {contract.qualifiesOverall && selected ? (
         <>
@@ -160,7 +176,11 @@ export function PlanPreviewFinalScores({
           </thead>
           <tbody>
             {data.contracts.map((contract) => (
-              <ScoreRow key={contract.contractId} contract={contract} />
+              <ScoreRow
+                key={contract.contractId}
+                contract={contract}
+                starsYear={data.starsYear}
+              />
             ))}
           </tbody>
         </table>

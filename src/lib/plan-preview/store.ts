@@ -7,6 +7,7 @@ import type {
   ParsedPlanPreviewMeasureScore,
   PlanPreviewAccrualSummary,
   PlanPreviewBatchRecord,
+  PlanPreviewContractOption,
   PlanPreviewFileType,
 } from "./types";
 import { isCmsDataIssueValue, scaleExcelPercentScore } from "./workbook";
@@ -194,6 +195,56 @@ export async function listPlanPreviewBatches(
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapBatchRow);
+}
+
+export function uniqueContractOptions(
+  rows: Array<{
+    contract_id: string;
+    contract_name: string | null;
+    organization_marketing_name: string | null;
+    parent_organization: string | null;
+  }>
+): PlanPreviewContractOption[] {
+  const byId = new Map<string, PlanPreviewContractOption>();
+  for (const row of rows) {
+    const contractId = row.contract_id.trim().toUpperCase();
+    if (!contractId || byId.has(contractId)) continue;
+    byId.set(contractId, {
+      contractId,
+      contractName: row.contract_name ?? row.organization_marketing_name,
+      parentOrganization: row.parent_organization,
+    });
+  }
+  return [...byId.values()].sort((left, right) => left.contractId.localeCompare(right.contractId));
+}
+
+/** Distinct accrued contracts for the year — used to open a report without running predictions. */
+export async function listPlanPreviewContracts(
+  client: ServiceClient,
+  starsYear: number
+): Promise<PlanPreviewContractOption[]> {
+  const pageSize = 1000;
+  const rows: Array<{
+    contract_id: string;
+    contract_name: string | null;
+    organization_marketing_name: string | null;
+    parent_organization: string | null;
+  }> = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await client
+      .from("plan_preview_measure_scores")
+      .select("contract_id, contract_name, organization_marketing_name, parent_organization")
+      .eq("stars_year", Math.round(starsYear))
+      .order("contract_id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as typeof rows;
+    rows.push(...page);
+    if (page.length < pageSize) break;
+    from += pageSize;
+  }
+  return uniqueContractOptions(rows);
 }
 
 export async function listPlanPreviewStarsYears(client: ServiceClient): Promise<number[]> {

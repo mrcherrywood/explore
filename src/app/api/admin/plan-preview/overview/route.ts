@@ -5,6 +5,7 @@ import { getAvailableMeasureYears } from "@/lib/band-movement/analysis";
 import {
   getPlanPreviewAccrualSummary,
   listPlanPreviewBatches,
+  listPlanPreviewContracts,
   listPlanPreviewStarsYears,
 } from "@/lib/plan-preview/store";
 
@@ -34,12 +35,13 @@ export async function GET(request: Request) {
       (a, b) => b - a
     );
 
-    const [batches, accrual] = await Promise.all([
+    const [batches, accrual, contracts] = await Promise.all([
       listPlanPreviewBatches(admin.serviceClient, starsYear),
       getPlanPreviewAccrualSummary(admin.serviceClient, starsYear),
+      listPlanPreviewContracts(admin.serviceClient, starsYear),
     ]);
 
-    return NextResponse.json({ starsYear, starsYears, batches, accrual });
+    return NextResponse.json({ starsYear, starsYears, batches, accrual, contracts });
   } catch (error) {
     console.error("Failed to load plan preview overview", error);
     return NextResponse.json(

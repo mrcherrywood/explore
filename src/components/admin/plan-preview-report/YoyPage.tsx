@@ -180,6 +180,7 @@ export function YoyPage({
               strokeWidth={2}
               strokeOpacity={0.35}
               dot={{ r: 2.5, fill: REPORT_COLORS.accentSoft, fillOpacity: 0.45 }}
+              connectNulls
               isAnimationActive={false}
             />
             <Line
@@ -189,6 +190,7 @@ export function YoyPage({
               strokeWidth={2}
               strokeOpacity={0.35}
               dot={{ r: 2.5, fill: REPORT_COLORS.negative, fillOpacity: 0.45 }}
+              connectNulls
               isAnimationActive={false}
             />
           </ComposedChart>
