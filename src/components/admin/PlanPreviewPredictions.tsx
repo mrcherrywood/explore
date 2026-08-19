@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 
 import { PlanPreviewFinalScores } from "@/components/admin/PlanPreviewFinalScores";
+import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 import { ExportPdfButton } from "@/components/shared/ExportPdfButton";
 import type { PlanPreviewFinalScoresResult } from "@/lib/plan-preview/final-scores";
+import { buildPredictedCutPointsCsv } from "@/lib/plan-preview/predicted-cut-points-export";
 import type {
   PlanPreviewContractPrediction,
   PlanPreviewCutPointPrediction,
@@ -103,12 +105,22 @@ export function PlanPreviewPredictions({ starsYear }: { starsYear: number }) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {data ? (
-            <ExportPdfButton
-              targetRef={reportRef}
-              fileName={`plan-preview-stars-${starsYear}`}
-              orientation="portrait"
-              label="Download PDF"
-            />
+            <>
+              <span data-export-hide>
+                <ExportCsvButton
+                  fileName={`plan-preview-cut-points-stars-${starsYear}`}
+                  label="Export CSV"
+                  getData={() => buildPredictedCutPointsCsv(data.cutPoints)}
+                  className="px-4 py-2"
+                />
+              </span>
+              <ExportPdfButton
+                targetRef={reportRef}
+                fileName={`plan-preview-stars-${starsYear}`}
+                orientation="portrait"
+                label="Download PDF"
+              />
+            </>
           ) : null}
           <button
             type="button"
