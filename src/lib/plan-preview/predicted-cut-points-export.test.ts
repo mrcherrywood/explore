@@ -55,7 +55,7 @@ function cutPoint(
   };
 }
 
-test("buildPredictedCutPointsCsv splits star value, change, and model columns", () => {
+test("buildPredictedCutPointsCsv splits star value, model, and delta columns", () => {
   const data = buildPredictedCutPointsCsv([
     cutPoint({
       displayName: "Breast Cancer Screening",
@@ -87,8 +87,12 @@ test("buildPredictedCutPointsCsv splits star value, change, and model columns", 
     "CSV headers should stay ASCII so Excel does not show star glyphs as mojibake",
   );
   assert.ok(data.headers.includes("5 Star"));
-  assert.ok(data.headers.includes("5 Star Change"));
   assert.ok(data.headers.includes("5 Star Model"));
+  assert.ok(data.headers.includes("5 Star Delta"));
+  assert.deepEqual(
+    data.headers.slice(7, 10),
+    ["5 Star", "5 Star Model", "5 Star Delta"],
+  );
   assert.deepEqual(data.rows, [
     [
       "C01",
@@ -99,17 +103,17 @@ test("buildPredictedCutPointsCsv splits star value, change, and model columns", 
       "102",
       "499",
       "85",
-      "1",
       "84",
+      "1",
       "78",
-      "2",
       "76",
-      "73",
       "2",
+      "73",
       "72",
+      "2",
       "63",
-      "5",
       "59",
+      "5",
       "4",
       "Model prediction diverges from the workbook forecast.",
     ],
@@ -138,8 +142,8 @@ test("buildPredictedCutPointsCsv marks inverted measures and official sources", 
   assert.equal(data.rows[0][2], "Yes");
   assert.equal(data.rows[0][3], "Official");
   assert.equal(data.rows[0][7], "0.1");
-  assert.equal(data.rows[0][8], "-0.01");
-  assert.equal(data.rows[0][9], "");
+  assert.equal(data.rows[0][8], "");
+  assert.equal(data.rows[0][9], "-0.01");
   assert.equal(data.rows[0][19], "");
 });
 

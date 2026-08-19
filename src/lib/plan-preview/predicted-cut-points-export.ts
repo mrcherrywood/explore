@@ -38,8 +38,8 @@ export const PREDICTED_CUT_POINTS_CSV_HEADERS = [
   "Market",
   ...THRESHOLD_ORDER.flatMap((key) => [
     STAR_LABELS[key],
-    `${STAR_LABELS[key]} Change`,
     `${STAR_LABELS[key]} Model`,
+    `${STAR_LABELS[key]} Delta`,
   ]),
   "Warnings",
   "Notes",
@@ -73,8 +73,8 @@ export function buildPredictedCutPointsCsv(
       const model = modelByKey.get(key);
       return [
         cell(threshold?.projected),
-        cell(threshold?.deltaVsComparison),
         cell(model?.projected),
+        cell(threshold?.deltaVsComparison),
       ];
     });
 
