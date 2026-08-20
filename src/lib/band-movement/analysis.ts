@@ -14,7 +14,7 @@ const CUT_POINTS_PATH = path.join(DATA_DIR, "Stars 2016-2028 Cut Points 07.2026_
 const AVAILABLE_YEARS = [2023, 2024, 2025, 2026] as const;
 const TRANSITION_FROM_YEARS = [2023, 2024, 2025] as const;
 
-type StarRating = 1 | 2 | 3 | 4 | 5;
+export type StarRating = 1 | 2 | 3 | 4 | 5;
 
 export type ContractRecord = {
   contractId: string;
@@ -363,6 +363,29 @@ export function getMeasureByNormalizedName(measureNorm: string): UnifiedMeasure 
   }
 
   return null;
+}
+
+export type MeasureStarSample = {
+  contractId: string;
+  star: StarRating;
+};
+
+export function getMeasureYearStarSamples(
+  measureNorm: string,
+  year: number
+): MeasureStarSample[] {
+  const { years } = ensureData();
+  const yearData = years.get(year);
+  if (!yearData) return [];
+
+  const samples: MeasureStarSample[] = [];
+  for (const [contractId, stars] of yearData.stars) {
+    const star = stars.get(measureNorm);
+    if (star !== undefined) {
+      samples.push({ contractId, star });
+    }
+  }
+  return samples;
 }
 
 export function getMeasureYearScoreSamples(measureNorm: string, year: number): MeasureScoreSample[] {

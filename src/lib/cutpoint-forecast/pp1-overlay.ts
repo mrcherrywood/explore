@@ -30,7 +30,7 @@ export type ForecastYearEndOverlay = {
   runIds: string[];
 };
 
-function isEligibleOverlayContract(contractId: string): boolean {
+export function isEligibleOverlayContract(contractId: string): boolean {
   const id = contractId.trim().toUpperCase();
   return MA_CONTRACT_PATTERN.test(id) && !DUMMY_CONTRACT_PATTERN.test(id);
 }

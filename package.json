@@ -11,6 +11,7 @@
     "test:percentile-analysis": "tsx --test src/lib/percentile-analysis/*.test.ts",
     "test:band-movement": "tsx --test src/lib/band-movement/*.test.ts",
     "test:plan-preview": "tsx --test src/lib/plan-preview/*.test.ts",
+    "test:star-distribution": "tsx --test src/lib/star-distribution/*.test.ts",
     "migrate": "tsx scripts/run-migration.ts",
     "import:metrics": "tsx scripts/import-ma-metrics.ts",
     "import:summary": "tsx scripts/import-summary-ratings.ts",

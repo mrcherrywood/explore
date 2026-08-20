@@ -19,6 +19,7 @@ import {
   PanelLeftClose,
   Percent,
   ArrowUpDown,
+  Star,
   Target,
 } from "lucide-react";
 import { NavIcon } from "./NavIcon";
@@ -140,6 +141,13 @@ export function DataPageNav() {
           label="Band Movement"
           href="/analysis/band-movement"
           active={pathname.startsWith("/analysis/band-movement")}
+          expanded={expanded}
+        />
+        <NavIcon
+          icon={Star}
+          label="Book vs CMS"
+          href="/analysis/star-distribution"
+          active={pathname.startsWith("/analysis/star-distribution")}
           expanded={expanded}
         />
         <NavIcon
