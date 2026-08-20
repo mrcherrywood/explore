@@ -1,9 +1,17 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { isEligibleOverlayContract } from "@/lib/cutpoint-forecast/pp1-overlay";
-import type { createServiceRoleClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/supabase/database.types";
 
 import type { BookRosterInventory, RosterMode } from "./types";
 
-type ServiceClient = ReturnType<typeof createServiceRoleClient>;
+type ServiceClient = SupabaseClient<Database>;
+type ContractIdRow = { contract_id: string };
+type Pp1ParentRow = { contract_id: string; parent_organization: string | null };
+type MaContractParentRow = {
+  contract_id: string;
+  parent_organization: string | null;
+};
 
 export type BookRoster = {
   forecast: Set<string>;
@@ -29,7 +37,7 @@ async function listForecastContractIds(client: ServiceClient): Promise<Set<strin
       .select("contract_id")
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
-    const page = data ?? [];
+    const page = (data ?? []) as ContractIdRow[];
     for (const row of page) {
       const id = (row.contract_id ?? "").trim().toUpperCase();
       if (isEligibleOverlayContract(id)) ids.add(id);
@@ -54,7 +62,7 @@ async function listPp1Contracts(
       .select("contract_id, parent_organization")
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
-    const page = data ?? [];
+    const page = (data ?? []) as Pp1ParentRow[];
     for (const row of page) {
       const id = (row.contract_id ?? "").trim().toUpperCase();
       if (!isEligibleOverlayContract(id)) continue;
@@ -81,7 +89,7 @@ async function loadMaContractParents(
       .in("contract_id", chunk)
       .order("year", { ascending: false });
     if (error) throw new Error(error.message);
-    for (const row of data ?? []) {
+    for (const row of (data ?? []) as MaContractParentRow[]) {
       const id = (row.contract_id ?? "").trim().toUpperCase();
       rememberParent(parentById, id, row.parent_organization);
     }
