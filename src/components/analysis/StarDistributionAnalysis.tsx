@@ -279,6 +279,8 @@ export function StarDistributionAnalysis() {
             <AllMeasuresStarShareTable
               rows={measureRows}
               caption={caption}
+              roster={roster}
+              period={period}
               selectedName={selected?.normalizedName ?? null}
               onSelect={setMeasureName}
             />

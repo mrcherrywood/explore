@@ -1,7 +1,11 @@
+import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
+import { bookVsCmsStarShareCsv } from "@/lib/star-distribution/export";
 import type {
   BookRosterOrg,
   ComparisonSlice,
   MeasureDistribution,
+  PeriodKey,
+  RosterMode,
   StarShare,
 } from "@/lib/star-distribution/types";
 
@@ -91,24 +95,34 @@ export function SelectedMeasureYearTable({
 export function AllMeasuresStarShareTable({
   rows,
   caption,
+  roster,
+  period,
   onSelect,
   selectedName,
 }: {
   rows: Array<{ measure: MeasureDistribution; slice: ComparisonSlice }>;
   caption: string;
+  roster: RosterMode;
+  period: PeriodKey;
   onSelect: (normalizedName: string) => void;
   selectedName: string | null;
 }) {
   return (
     <section className="overflow-x-auto rounded-2xl border border-border bg-card">
-      <div className="px-5 pt-4">
-        <h3 className="text-base font-semibold text-foreground">
-          Book vs CMS at every star
-        </h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Share of rated contracts at each whole-star threshold. {caption}.
-          Click a measure for the year-by-year view.
-        </p>
+      <div className="flex items-start justify-between gap-3 px-5 pt-4">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">
+            Book vs CMS at every star
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Share of rated contracts at each whole-star threshold. {caption}.
+            Click a measure for the year-by-year view.
+          </p>
+        </div>
+        <ExportCsvButton
+          fileName={`book-vs-cms-star-share_${roster}_${period}`}
+          getData={() => bookVsCmsStarShareCsv(rows)}
+        />
       </div>
       <table className="fep-table mt-2">
         <thead>
