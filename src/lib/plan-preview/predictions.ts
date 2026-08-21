@@ -11,10 +11,12 @@ import {
   isCahpsMeasure,
   type MethodologyForecastThreshold,
 } from "@/lib/band-movement/cut-point-methodology";
-import { overlayProjectedSamples } from "@/lib/cutpoint-forecast/analysis";
+import {
+  buildCurrentYearForecastOverlay,
+  buildForecastMethodologyInputs,
+} from "@/lib/cutpoint-forecast/analysis";
 import {
   lookupForecastYearEndSamples,
-  mergeOverlaySamplesPreferPrimary,
   type ForecastYearEndOverlay,
 } from "@/lib/cutpoint-forecast/pp1-overlay";
 import {
@@ -372,30 +374,44 @@ export function buildPlanPreviewPredictions(
             fiveStar: baselineCutPoint.thresholds.fiveStar,
           }
         : null;
+    // Same current-year overlay as Forecast: Projected Final when close to
+    // PP1, PP1 when they diverge significantly, PP1 fills the rest.
     const pp1Samples: MeasureScoreSample[] = measureRows
       .filter((row) => !row.cmsDataIssue && row.score !== null)
       .map((row) => ({
         contractId: row.contractId.trim().toUpperCase(),
-        score: scoreForCutPointBanding(row.score as number, row.wholeScore, isCahps, bandingThresholds),
+        score: row.score as number,
       }));
-    const forecastFillSamples = lookupForecastYearEndSamples(
+    const forecastSamples = lookupForecastYearEndSamples(
       forecastOverlay,
       measureNormalized,
       measureCode
     );
-    const mergedOverlay = mergeOverlaySamplesPreferPrimary(
+    const mergedOverlay = buildCurrentYearForecastOverlay(
+      forecastSamples,
       pp1Samples,
-      forecastFillSamples
+      measureNormalized
     );
     const projectedSamples = mergedOverlay.samples;
-    const forecastFillCount = mergedOverlay.pp1FillCount;
+    const pp1Ids = new Set(
+      pp1Samples.map((sample) => sample.contractId.trim().toUpperCase())
+    );
+    const forecastFillCount = projectedSamples.filter(
+      (sample) => !pp1Ids.has(sample.contractId)
+    ).length;
 
-    const forecastFillNotes =
-      forecastFillCount > 0
+    const forecastFillNotes = [
+      ...(forecastFillCount > 0
         ? [
             `Includes ${forecastFillCount} year-end projection${forecastFillCount === 1 ? "" : "s"} for contracts without a Plan Preview score.`,
           ]
-        : [];
+        : []),
+      ...(mergedOverlay.pp1OverrideCount > 0
+        ? [
+            `Used Plan Preview instead of Projected Final for ${mergedOverlay.pp1OverrideCount} contract${mergedOverlay.pp1OverrideCount === 1 ? "" : "s"} where the projection differed significantly from PP1.`,
+          ]
+        : []),
+    ];
 
     const base: Omit<PlanPreviewCutPointPrediction, "status" | "reason"> = {
       measureNormalized,
@@ -445,29 +461,35 @@ export function buildPlanPreviewPredictions(
         baselineMarketCount: baselineSamples.length,
       };
       if (canRunModel) {
-        // Client Only: current-year union only (PP1 + Projected Final fills).
+        const clientOnlyInputs = buildForecastMethodologyInputs(
+          measureNormalized,
+          projectedSamples,
+          baselineYear!,
+          "client_only"
+        );
         clientOnlyResult = analyzeCutPointMethodologyForecast(
           measureNormalized,
           starsYear,
-          projectedSamples,
+          clientOnlyInputs.samples,
           {
-            baselineSamples: baselineSamples.filter((sample) =>
-              projectedSamples.some((projected) => projected.contractId === sample.contractId)
-            ),
+            baselineSamples: clientOnlyInputs.baselineSamples,
             baselineYear: baselineYear!,
           }
         );
-        // Full Market: current-year overlay onto last year's published market.
-        const anchoredSamples = overlayProjectedSamples(
+        const fullMarketInputs = buildForecastMethodologyInputs(
           measureNormalized,
           projectedSamples,
-          baselineYear!
+          baselineYear!,
+          "full_market"
         );
         fullMarketResult = analyzeCutPointMethodologyForecast(
           measureNormalized,
           starsYear,
-          anchoredSamples,
-          { baselineSamples, baselineYear: baselineYear! }
+          fullMarketInputs.samples,
+          {
+            baselineSamples: fullMarketInputs.baselineSamples,
+            baselineYear: baselineYear!,
+          }
         );
       }
     }

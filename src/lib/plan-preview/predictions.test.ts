@@ -7,6 +7,13 @@ import {
   buildPlanPreviewQiSensitivity,
   buildPlanPreviewScenarios,
 } from "./final-scores";
+import { getAvailableMeasureYears, getLatestContractRecords } from "@/lib/band-movement/analysis";
+import { analyzeCutPointMethodologyForecast } from "@/lib/band-movement/cut-point-methodology";
+import {
+  buildCurrentYearForecastOverlay,
+  buildForecastMethodologyInputs,
+  isEligibleForecastContract,
+} from "@/lib/cutpoint-forecast/analysis";
 import type { ForecastYearEndOverlay } from "@/lib/cutpoint-forecast/pp1-overlay";
 
 import {
@@ -138,9 +145,22 @@ test("cut-point overlay fills missing PP1 contracts from forecast year-end proje
   );
 });
 
+function eligibleForecastIds(count: number): string[] {
+  const ids = [
+    ...new Set(
+      getLatestContractRecords()
+        .map((record) => record.contractId.trim().toUpperCase())
+        .filter((id) => isEligibleForecastContract(id))
+    ),
+  ];
+  assert.ok(ids.length >= count, `need ${count} eligible forecast contracts`);
+  return ids.slice(0, count);
+}
+
 test("Client Only model runs on PP1 + projections without last-year padding", () => {
-  const pp1Rows: AccruedMeasureScore[] = Array.from({ length: 12 }, (_, index) => ({
-    contractId: `H${String(1000 + index).padStart(4, "0")}`,
+  const ids = eligibleForecastIds(20);
+  const pp1Rows: AccruedMeasureScore[] = ids.slice(0, 12).map((contractId, index) => ({
+    contractId,
     contractName: "Test",
     organizationMarketingName: "Test",
     parentOrganization: "Test Org",
@@ -154,8 +174,8 @@ test("Client Only model runs on PP1 + projections without last-year padding", ()
     byMeasureNormalized: new Map([
       [
         "breast cancer screening partc",
-        Array.from({ length: 8 }, (_, index) => ({
-          contractId: `H${String(2000 + index).padStart(4, "0")}`,
+        ids.slice(12, 20).map((contractId, index) => ({
+          contractId,
           score: 70 + index,
         })),
       ],
@@ -176,6 +196,84 @@ test("Client Only model runs on PP1 + projections without last-year padding", ()
     (cutPoint.sampleSize ?? 0) > (cutPoint.clientOnlySampleSize ?? 0),
     "Full Market pads with last-year market contracts",
   );
+});
+
+test("Plan Preview Full Market and Client Only match the Forecast methodology recipe", () => {
+  const ids = eligibleForecastIds(20);
+  const overlapId = ids[0];
+  const pp1Rows: AccruedMeasureScore[] = ids.slice(0, 12).map((contractId, index) => ({
+    contractId,
+    contractName: "Test",
+    organizationMarketingName: "Test",
+    parentOrganization: "Test Org",
+    measureCode: "C01",
+    measureDisplayName: "Breast Cancer Screening",
+    measureNormalized: "breast cancer screening partc",
+    score: 60 + index,
+    wholeScore: 60 + index,
+  }));
+  const forecastSamples = [
+    { contractId: overlapId, score: 99 },
+    ...ids.slice(12, 20).map((contractId, index) => ({
+      contractId,
+      score: 70 + index,
+    })),
+  ];
+  const overlay: ForecastYearEndOverlay = {
+    byMeasureNormalized: new Map([["breast cancer screening partc", forecastSamples]]),
+    byMeasureCode: new Map(),
+    runIds: ["run-1"],
+  };
+
+  const result = buildPlanPreviewPredictions(pp1Rows, 2027, overlay);
+  const cutPoint = result.cutPoints.find((item) => item.measureCode === "C01");
+  assert.ok(cutPoint);
+
+  const currentYear = buildCurrentYearForecastOverlay(
+    forecastSamples,
+    pp1Rows.map((row) => ({ contractId: row.contractId, score: row.score })),
+    "breast cancer screening partc"
+  );
+  assert.equal(
+    currentYear.samples.find((sample) => sample.contractId === overlapId)?.score,
+    60,
+    "PP1 wins when Projected Final diverges significantly from the PP1 score"
+  );
+  assert.equal(currentYear.pp1OverrideCount, 1);
+
+  const baselineYear = Math.max(
+    ...getAvailableMeasureYears().filter((year) => year < 2027)
+  );
+  const measureNorm = "breast cancer screening partc";
+  const fullMarketInputs = buildForecastMethodologyInputs(
+    measureNorm,
+    currentYear.samples,
+    baselineYear,
+    "full_market"
+  );
+  const clientOnlyInputs = buildForecastMethodologyInputs(
+    measureNorm,
+    currentYear.samples,
+    baselineYear,
+    "client_only"
+  );
+  const fullMarket = analyzeCutPointMethodologyForecast(
+    measureNorm,
+    2027,
+    fullMarketInputs.samples,
+    { baselineSamples: fullMarketInputs.baselineSamples, baselineYear }
+  );
+  const clientOnly = analyzeCutPointMethodologyForecast(
+    measureNorm,
+    2027,
+    clientOnlyInputs.samples,
+    { baselineSamples: clientOnlyInputs.baselineSamples, baselineYear }
+  );
+  assert.equal(fullMarket.status, "ready");
+  assert.equal(clientOnly.status, "ready");
+  if (fullMarket.status !== "ready" || clientOnly.status !== "ready") return;
+  assert.deepEqual(cutPoint.fullMarketThresholds, fullMarket.thresholds);
+  assert.deepEqual(cutPoint.clientOnlyThresholds, clientOnly.thresholds);
 });
 
 test("forecast year-end fill matches C01 when the normalized name differs", () => {

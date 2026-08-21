@@ -10,8 +10,11 @@ import {
 import { analyzeCutPointMethodologyForecast } from "./cut-point-methodology";
 import {
   buildClientInformedMarketSamples,
+  buildCurrentYearForecastOverlay,
+  buildForecastMethodologyInputs,
   isEligibleForecastContract,
   overlayProjectedSamples,
+  significantProjectedVsPp1Delta,
 } from "@/lib/cutpoint-forecast/analysis";
 import { resolveFinalProjectionScore } from "@/lib/cutpoint-forecast/store";
 
@@ -214,19 +217,116 @@ test("mergeOverlaySamplesPreferPrimary keeps forecast scores and fills from PP1"
   assert.equal(merged.samples.length, 3);
 });
 
-test("Client Only population is the current-year union without last-year padding", async () => {
-  const { mergeOverlaySamplesPreferPrimary } = await import(
-    "@/lib/cutpoint-forecast/pp1-overlay"
+test("buildCurrentYearForecastOverlay prefers Projected Final when close and drops ineligible IDs", () => {
+  const eligible = [
+    ...new Set(
+      getLatestContractRecords()
+        .map((record) => record.contractId.trim().toUpperCase())
+        .filter((id) => isEligibleForecastContract(id))
+    ),
+  ];
+  assert.ok(eligible.length >= 3);
+  const [first, second, third] = eligible;
+
+  const merged = buildCurrentYearForecastOverlay(
+    [
+      { contractId: first, score: 80 },
+      { contractId: "R1234", score: 50 },
+      { contractId: "H1111", score: 10 },
+    ],
+    [
+      { contractId: first, score: 81 },
+      { contractId: second, score: 70 },
+      { contractId: third, score: 65 },
+    ],
+    "breast cancer screening partc"
   );
 
+  assert.equal(merged.samples.find((sample) => sample.contractId === first)?.score, 80);
+  assert.equal(merged.samples.find((sample) => sample.contractId === second)?.score, 70);
+  assert.equal(merged.samples.some((sample) => sample.contractId === "R1234"), false);
+  assert.equal(merged.samples.some((sample) => sample.contractId === "H1111"), false);
+  assert.equal(merged.pp1FillCount, 2);
+  assert.equal(merged.pp1OverrideCount, 0);
+});
+
+test("buildCurrentYearForecastOverlay uses PP1 when Projected Final diverges significantly", () => {
+  const eligible = [
+    ...new Set(
+      getLatestContractRecords()
+        .map((record) => record.contractId.trim().toUpperCase())
+        .filter((id) => isEligibleForecastContract(id))
+    ),
+  ];
+  assert.ok(eligible.length >= 2);
+  const [first, second] = eligible;
+
+  const merged = buildCurrentYearForecastOverlay(
+    [
+      { contractId: first, score: 99 },
+      { contractId: second, score: 80.4 },
+    ],
+    [
+      { contractId: first, score: 76 },
+      { contractId: second, score: 80 },
+    ],
+    "breast cancer screening partc"
+  );
+
+  assert.equal(merged.samples.find((sample) => sample.contractId === first)?.score, 76);
+  assert.equal(merged.samples.find((sample) => sample.contractId === second)?.score, 80.4);
+  assert.equal(merged.pp1OverrideCount, 1);
+  assert.equal(merged.pp1FillCount, 0);
+});
+
+test("significantProjectedVsPp1Delta is tighter for complaints", () => {
+  assert.equal(significantProjectedVsPp1Delta("complaints about the health plan partc"), 0.2);
+  assert.equal(significantProjectedVsPp1Delta("breast cancer screening partc"), 2);
+
+  const eligible = [
+    ...new Set(
+      getLatestContractRecords()
+        .map((record) => record.contractId.trim().toUpperCase())
+        .filter((id) => isEligibleForecastContract(id))
+    ),
+  ];
+  assert.ok(eligible.length >= 2);
+  const [first, second] = eligible;
+  const complaints = buildCurrentYearForecastOverlay(
+    [
+      { contractId: first, score: 0.5 },
+      { contractId: second, score: 0.45 },
+    ],
+    [
+      { contractId: first, score: 0.1 },
+      { contractId: second, score: 0.4 },
+    ],
+    "complaints about the health plan partc"
+  );
+  assert.equal(complaints.samples.find((sample) => sample.contractId === first)?.score, 0.1);
+  assert.equal(complaints.samples.find((sample) => sample.contractId === second)?.score, 0.45);
+  assert.equal(complaints.pp1OverrideCount, 1);
+});
+
+test("Client Only population is the current-year union without last-year padding", () => {
+  const eligible = [
+    ...new Set(
+      getLatestContractRecords()
+        .map((record) => record.contractId.trim().toUpperCase())
+        .filter((id) => isEligibleForecastContract(id))
+    ),
+  ];
+  assert.ok(eligible.length >= 3);
   const projected = [
-    { contractId: "H1112", score: 80 },
-    { contractId: "H2223", score: 70 },
+    { contractId: eligible[0], score: 80 },
+    { contractId: eligible[1], score: 70 },
   ];
-  const pp1 = [
-    { contractId: "H3334", score: 65 },
-  ];
-  const currentYear = mergeOverlaySamplesPreferPrimary(projected, pp1);
+  const pp1 = [{ contractId: eligible[2], score: 65 }];
+  const currentYear = buildCurrentYearForecastOverlay(
+    projected,
+    pp1,
+    "breast cancer screening partc"
+  );
   assert.equal(currentYear.samples.length, 3);
   assert.equal(currentYear.pp1FillCount, 1);
 
@@ -237,18 +337,26 @@ test("Client Only population is the current-year union without last-year padding
   const baselineYear = getAvailableMeasureYears().at(-1);
   assert.ok(baselineYear);
 
-  const fullMarket = overlayProjectedSamples(
+  const fullMarket = buildForecastMethodologyInputs(
     regularMeasure.normalizedName,
     currentYear.samples,
-    baselineYear
+    baselineYear,
+    "full_market"
   );
+  const clientOnly = buildForecastMethodologyInputs(
+    regularMeasure.normalizedName,
+    currentYear.samples,
+    baselineYear,
+    "client_only"
+  );
+  assert.equal(clientOnly.samples.length, currentYear.samples.length);
   assert.ok(
-    fullMarket.length > currentYear.samples.length,
+    fullMarket.samples.length > clientOnly.samples.length,
     "Full Market pads with last-year contracts Client Only does not include",
   );
   assert.ok(
     currentYear.samples.every((sample) =>
-      fullMarket.some((row) => row.contractId === sample.contractId)
+      fullMarket.samples.some((row) => row.contractId === sample.contractId)
     ),
     "every Client Only contract remains in the Full Market overlay",
   );

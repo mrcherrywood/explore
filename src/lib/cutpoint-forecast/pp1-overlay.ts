@@ -13,6 +13,8 @@ export type MergedOverlaySamples = {
   samples: MeasureScoreSample[];
   primaryCount: number;
   pp1FillCount: number;
+  /** Overlap contracts where PP1 replaced a divergent Projected Final. */
+  pp1OverrideCount: number;
 };
 
 type Pp1YearCache = {
@@ -69,6 +71,7 @@ export function mergeOverlaySamplesPreferPrimary(
     samples: [...byContract.values()],
     primaryCount,
     pp1FillCount,
+    pp1OverrideCount: 0,
   };
 }
 

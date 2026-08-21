@@ -15,7 +15,7 @@ import {
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   loadPp1SamplesForMeasure,
-  mergeOverlaySamplesPreferPrimary,
+  type MergedOverlaySamples,
 } from "./pp1-overlay";
 import {
   getAllForecastProjectionsForRun,
@@ -41,6 +41,8 @@ export type CutPointForecastAnalysisResponse = MethodologyForecastResponse & {
   projectedContractCount: number | null;
   /** PP1 contracts added to the current-year overlay (no forecast projection). */
   pp1OverlayCount: number | null;
+  /** Overlap contracts where PP1 replaced a divergent Projected Final. */
+  pp1OverrideCount: number | null;
   /** Manual (workbook) cut points for the forecast year, when present. */
   manualThresholds: MethodologyForecastThreshold[] | null;
 };
@@ -184,6 +186,110 @@ function withBaselineOnlyNote(result: MethodologyForecastResponse): MethodologyF
       ...result.notes,
     ],
   };
+}
+
+/** Complaints use a tighter scale; everything else is a 0–100 rate. */
+export function significantProjectedVsPp1Delta(measureNormalized: string): number {
+  return /complaint/i.test(measureNormalized) ? 0.2 : 2;
+}
+
+export function buildCurrentYearOverlayNotes(
+  populationMode: ForecastPopulationMode,
+  pp1FillCount: number,
+  pp1OverrideCount: number
+): string[] {
+  const notes: string[] = [];
+  if (pp1FillCount > 0) {
+    notes.push(
+      populationMode === "full_market"
+        ? `Full-market overlay includes ${pp1FillCount} accrued Plan Preview contract${pp1FillCount === 1 ? "" : "s"} without a forecast Projected Final.`
+        : `Client-only population includes ${pp1FillCount} accrued Plan Preview contract${pp1FillCount === 1 ? "" : "s"} without a forecast Projected Final.`
+    );
+  }
+  if (pp1OverrideCount > 0) {
+    notes.push(
+      `Used Plan Preview instead of Projected Final for ${pp1OverrideCount} contract${pp1OverrideCount === 1 ? "" : "s"} where the projection differed significantly from PP1.`
+    );
+  }
+  return notes;
+}
+
+/**
+ * Current-year overlay shared by Forecast and Plan Preview: Projected Final
+ * wins when it is close to PP1, PP1 replaces a significantly different
+ * projection, and PP1 fills contracts that have no projection. Both sides
+ * are restricted to eligible forecast contracts so the two screens match.
+ */
+export function buildCurrentYearForecastOverlay(
+  projectedSamples: MeasureScoreSample[],
+  pp1Samples: MeasureScoreSample[],
+  measureNormalized = ""
+): MergedOverlaySamples {
+  const projected = projectedSamples.filter((sample) =>
+    isEligibleForecastContract(sample.contractId)
+  );
+  const pp1 = pp1Samples.filter((sample) =>
+    isEligibleForecastContract(sample.contractId)
+  );
+  const threshold = significantProjectedVsPp1Delta(measureNormalized);
+  const pp1ByContract = new Map(
+    pp1.map((sample) => [sample.contractId.trim().toUpperCase(), sample] as const)
+  );
+  const byContract = new Map<string, MeasureScoreSample>();
+  let pp1OverrideCount = 0;
+
+  for (const sample of projected) {
+    const key = sample.contractId.trim().toUpperCase();
+    const pp1Sample = pp1ByContract.get(key);
+    if (pp1Sample && Math.abs(sample.score - pp1Sample.score) >= threshold) {
+      byContract.set(key, pp1Sample);
+      pp1OverrideCount += 1;
+      continue;
+    }
+    byContract.set(key, sample);
+  }
+
+  const primaryCount = byContract.size;
+  let pp1FillCount = 0;
+  for (const sample of pp1) {
+    const key = sample.contractId.trim().toUpperCase();
+    if (byContract.has(key)) continue;
+    byContract.set(key, sample);
+    pp1FillCount += 1;
+  }
+
+  return {
+    samples: [...byContract.values()],
+    primaryCount,
+    pp1FillCount,
+    pp1OverrideCount,
+  };
+}
+
+/** Full Market pads current-year scores onto last year; Client Only does not. */
+export function buildForecastMethodologyInputs(
+  measureNorm: string,
+  currentYearSamples: MeasureScoreSample[],
+  baselineYear: number | null,
+  populationMode: ForecastPopulationMode
+): {
+  samples: MeasureScoreSample[];
+  baselineSamples: MeasureScoreSample[];
+} {
+  const baselineSamples =
+    baselineYear === null ? [] : getMeasureYearScoreSamples(measureNorm, baselineYear);
+  const overlayContractIds = new Set(
+    currentYearSamples.map((sample) => sample.contractId)
+  );
+  const scenarioBaselineSamples =
+    populationMode === "full_market"
+      ? baselineSamples
+      : baselineSamples.filter((sample) => overlayContractIds.has(sample.contractId));
+  const samples =
+    populationMode === "full_market" && baselineYear !== null
+      ? overlayProjectedSamples(measureNorm, currentYearSamples, baselineYear)
+      : currentYearSamples;
+  return { samples, baselineSamples: scenarioBaselineSamples };
 }
 
 export function overlayProjectedSamples(
@@ -416,6 +522,7 @@ export async function analyzeApprovedCutPointForecast(
       baselineYear: latestHistoricalYear,
       projectedContractCount: null,
       pp1OverlayCount: null,
+      pp1OverrideCount: null,
       manualThresholds: null,
     };
   }
@@ -459,6 +566,7 @@ export async function analyzeApprovedCutPointForecast(
         baselineYear: latestHistoricalYear,
         projectedContractCount: 0,
         pp1OverlayCount: 0,
+        pp1OverrideCount: 0,
         manualThresholds,
       };
     }
@@ -481,54 +589,57 @@ export async function analyzeApprovedCutPointForecast(
       baselineYear: latestHistoricalYear,
       projectedContractCount: null,
       pp1OverlayCount: null,
+      pp1OverrideCount: null,
       manualThresholds,
     };
   }
 
   const projections = await getAllForecastProjectionsForRun(serviceClient, approvedSource.run.id);
   const projectedSamples = projections
-    .filter((projection) =>
-      projection.measureNormalized === measureNorm &&
-      isEligibleForecastContract(projection.contractId)
-    )
+    .filter((projection) => projection.measureNormalized === measureNorm)
     .map((projection) => ({
       contractId: projection.contractId,
       score: projection.finalScore,
     }));
 
-  // Current-year union: Projected Final first, PP1 fills contracts without one.
-  // Full Market then pads with last year's published scores; Client Only does not.
-  let overlaySamples = projectedSamples;
+  let overlaySamples = buildCurrentYearForecastOverlay(
+    projectedSamples,
+    [],
+    measureNorm
+  ).samples;
   let pp1OverlayCount = 0;
+  let pp1OverrideCount = 0;
   try {
-    const pp1Samples = (
-      await loadPp1SamplesForMeasure(
-        serviceClient,
-        effectiveForecastYear,
-        measureNorm
-      )
-    ).filter((sample) => isEligibleForecastContract(sample.contractId));
-    const merged = mergeOverlaySamplesPreferPrimary(projectedSamples, pp1Samples);
+    const pp1Samples = await loadPp1SamplesForMeasure(
+      serviceClient,
+      effectiveForecastYear,
+      measureNorm
+    );
+    const merged = buildCurrentYearForecastOverlay(
+      projectedSamples,
+      pp1Samples,
+      measureNorm
+    );
     overlaySamples = merged.samples;
     pp1OverlayCount = merged.pp1FillCount;
+    pp1OverrideCount = merged.pp1OverrideCount;
   } catch {
-    // PP1 tables may be missing in some environments; keep forecast-only overlay.
-    overlaySamples = projectedSamples;
+    overlaySamples = buildCurrentYearForecastOverlay(
+      projectedSamples,
+      [],
+      measureNorm
+    ).samples;
     pp1OverlayCount = 0;
+    pp1OverrideCount = 0;
   }
 
-  const baselineSamples = latestHistoricalYear === null
-    ? []
-    : getMeasureYearScoreSamples(measureNorm, latestHistoricalYear);
-  const overlayContractIds = new Set(overlaySamples.map((sample) => sample.contractId));
-  const scenarioBaselineSamples =
-    populationMode === "full_market"
-      ? baselineSamples
-      : baselineSamples.filter((sample) => overlayContractIds.has(sample.contractId));
-  const samples =
-    populationMode === "full_market" && latestHistoricalYear !== null
-      ? overlayProjectedSamples(measureNorm, overlaySamples, latestHistoricalYear)
-      : overlaySamples;
+  const { samples, baselineSamples: scenarioBaselineSamples } =
+    buildForecastMethodologyInputs(
+      measureNorm,
+      overlaySamples,
+      latestHistoricalYear,
+      populationMode
+    );
 
   const result = analyzeCutPointMethodologyForecast(
     measureNorm,
@@ -539,16 +650,16 @@ export async function analyzeApprovedCutPointForecast(
       baselineYear: latestHistoricalYear,
     }
   );
+  const overlayNotes = buildCurrentYearOverlayNotes(
+    populationMode,
+    pp1OverlayCount,
+    pp1OverrideCount
+  );
   const withPp1Note =
-    result.status === "ready" && pp1OverlayCount > 0
+    result.status === "ready" && overlayNotes.length > 0
       ? {
           ...result,
-          notes: [
-            ...result.notes,
-            populationMode === "full_market"
-              ? `Full-market overlay includes ${pp1OverlayCount} accrued Plan Preview contract${pp1OverlayCount === 1 ? "" : "s"} without a forecast Projected Final.`
-              : `Client-only population includes ${pp1OverlayCount} accrued Plan Preview contract${pp1OverlayCount === 1 ? "" : "s"} without a forecast Projected Final.`,
-          ],
+          notes: [...result.notes, ...overlayNotes],
         }
       : result;
 
@@ -561,8 +672,13 @@ export async function analyzeApprovedCutPointForecast(
     approvalScope: approvedSource.approvalScope,
     approvedAt: approvedSource.approvedAt,
     baselineYear: populationMode === "full_market" ? latestHistoricalYear : null,
-    projectedContractCount: projectedSamples.length,
+    projectedContractCount: buildCurrentYearForecastOverlay(
+      projectedSamples,
+      [],
+      measureNorm
+    ).primaryCount,
     pp1OverlayCount,
+    pp1OverrideCount,
     manualThresholds,
   };
 }
