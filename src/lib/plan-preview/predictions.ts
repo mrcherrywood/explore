@@ -64,8 +64,8 @@ export type PlanPreviewCutPointPrediction = {
   method: "clustering" | "cahps-percentile" | null;
   /**
    * Where the applied thresholds come from: official published cut points
-   * (SY2027 CAHPS), the workbook's forecast rows, or the model when the
-   * workbook has no row for this measure/year.
+   * (SY2027 CAHPS), Manual workbook forecast rows, or the Full Market model
+   * when the workbook has no row for this measure/year.
    */
   source: PlanPreviewCutPointSource;
   inverted: boolean;
@@ -75,11 +75,21 @@ export type PlanPreviewCutPointPrediction = {
   matchedBaselineCount: number;
   appendedContractCount: number;
   baselineMarketCount: number;
+  /** Full Market model sample size (current-year overlay + last-year pad). */
   sampleSize: number | null;
-  /** Thresholds applied when rating contracts. */
+  /** Client Only model sample size (PP1 + projections, no last-year pad). */
+  clientOnlySampleSize: number | null;
+  /** Thresholds applied when rating contracts (Manual / official / model fallback). */
   thresholds: MethodologyForecastThreshold[] | null;
-  /** Model-predicted thresholds, always recomputed as data accrues. */
+  /**
+   * Full Market model thresholds (current-year overlay onto last year's market).
+   * Alias of fullMarketThresholds for existing callers.
+   */
   modelThresholds: MethodologyForecastThreshold[] | null;
+  /** Full Market model thresholds — same as modelThresholds. */
+  fullMarketThresholds: MethodologyForecastThreshold[] | null;
+  /** Client Only model thresholds — PP1 + projections only. */
+  clientOnlyThresholds: MethodologyForecastThreshold[] | null;
   warningCount: number;
   notes: string[];
 };
@@ -400,8 +410,11 @@ export function buildPlanPreviewPredictions(
       appendedContractCount: 0,
       baselineMarketCount: 0,
       sampleSize: null,
+      clientOnlySampleSize: null,
       thresholds: null,
       modelThresholds: null,
+      fullMarketThresholds: null,
+      clientOnlyThresholds: null,
       warningCount: 0,
       notes: forecastFillNotes,
     };
@@ -412,7 +425,8 @@ export function buildPlanPreviewPredictions(
     // points skips the model entirely (CMS has already set the thresholds).
     const canRunModel = inUniverse && !(isCahps && workbookRow);
 
-    let modelResult: ReturnType<typeof analyzeCutPointMethodologyForecast> | null = null;
+    let fullMarketResult: ReturnType<typeof analyzeCutPointMethodologyForecast> | null = null;
+    let clientOnlyResult: ReturnType<typeof analyzeCutPointMethodologyForecast> | null = null;
     let coverage = {
       matchedBaselineCount: 0,
       appendedContractCount: 0,
@@ -431,12 +445,25 @@ export function buildPlanPreviewPredictions(
         baselineMarketCount: baselineSamples.length,
       };
       if (canRunModel) {
+        // Client Only: current-year union only (PP1 + Projected Final fills).
+        clientOnlyResult = analyzeCutPointMethodologyForecast(
+          measureNormalized,
+          starsYear,
+          projectedSamples,
+          {
+            baselineSamples: baselineSamples.filter((sample) =>
+              projectedSamples.some((projected) => projected.contractId === sample.contractId)
+            ),
+            baselineYear: baselineYear!,
+          }
+        );
+        // Full Market: current-year overlay onto last year's published market.
         const anchoredSamples = overlayProjectedSamples(
           measureNormalized,
           projectedSamples,
           baselineYear!
         );
-        modelResult = analyzeCutPointMethodologyForecast(
+        fullMarketResult = analyzeCutPointMethodologyForecast(
           measureNormalized,
           starsYear,
           anchoredSamples,
@@ -445,13 +472,19 @@ export function buildPlanPreviewPredictions(
       }
     }
 
-    const readyModel = modelResult !== null && modelResult.status === "ready" ? modelResult : null;
-    const modelThresholds = readyModel?.thresholds ?? null;
+    const readyFullMarket =
+      fullMarketResult !== null && fullMarketResult.status === "ready" ? fullMarketResult : null;
+    const readyClientOnly =
+      clientOnlyResult !== null && clientOnlyResult.status === "ready" ? clientOnlyResult : null;
+    const fullMarketThresholds = readyFullMarket?.thresholds ?? null;
+    const clientOnlyThresholds = readyClientOnly?.thresholds ?? null;
+    // Prefer Full Market for divergence / warning summaries when both exist.
+    const primaryModel = readyFullMarket ?? readyClientOnly;
 
     if (workbookRow) {
-      // Workbook thresholds are applied: official CAHPS values, or the
-      // maintained forecast for everything else. The model keeps running as
-      // data accrues so divergence can flag a workbook row worth revisiting.
+      // Manual (workbook) thresholds are applied: official CAHPS values, or the
+      // maintained forecast for everything else. Both live models keep running
+      // as data accrues so divergence can flag a Manual row worth revisiting.
       const applied: ThresholdValuesShape = {
         twoStar: workbookRow.thresholds.twoStar,
         threeStar: workbookRow.thresholds.threeStar,
@@ -466,19 +499,26 @@ export function buildPlanPreviewPredictions(
         notes.push(`Official Stars ${starsYear} CAHPS cut points from the cut point workbook.`);
       } else {
         notes.push(
-          `Workbook forecast cut points applied for Stars ${starsYear}; the model re-predicts as scores accrue.`
+          `Manual (workbook) cut points applied for Stars ${starsYear}; Full Market and Client Only models re-predict as PP1 and projections accrue.`
         );
-        if (modelThresholds) {
-          const divergence = maxModelDivergence(applied, modelThresholds);
+        if (fullMarketThresholds) {
+          const divergence = maxModelDivergence(applied, fullMarketThresholds);
           if (divergence !== null && divergence > 1) {
             notes.push(
-              `Model prediction diverges from the workbook forecast by up to ${divergence.toFixed(1)} points — revisit the workbook row if this persists as coverage grows.`
+              `Full Market model diverges from Manual by up to ${divergence.toFixed(1)} points — revisit the workbook row if this persists as coverage grows.`
             );
           }
         }
       }
-      if (modelResult && modelResult.status !== "ready" && !isCahps) {
-        notes.push(`Model prediction unavailable: ${modelResult.reason ?? "insufficient data"}.`);
+      if (fullMarketResult && fullMarketResult.status !== "ready" && !isCahps) {
+        notes.push(
+          `Full Market model unavailable: ${fullMarketResult.reason ?? "insufficient data"}.`
+        );
+      }
+      if (clientOnlyResult && clientOnlyResult.status !== "ready" && !isCahps) {
+        notes.push(
+          `Client Only model unavailable: ${clientOnlyResult.reason ?? "insufficient data"}.`
+        );
       }
 
       cutPoints.push({
@@ -486,21 +526,29 @@ export function buildPlanPreviewPredictions(
         ...coverage,
         status: "ready",
         reason: null,
-        method: readyModel
-          ? (readyModel.methodology.method as "clustering" | "cahps-percentile")
+        method: primaryModel
+          ? (primaryModel.methodology.method as "clustering" | "cahps-percentile")
           : null,
         source: isCahps ? "official" : "workbook_forecast",
         inverted,
-        sampleSize: readyModel?.sampleSize ?? null,
+        sampleSize: readyFullMarket?.sampleSize ?? null,
+        clientOnlySampleSize: readyClientOnly?.sampleSize ?? projectedSamples.length,
         thresholds: thresholdsFromWorkbook(workbookRow, baselineCutPoint),
-        modelThresholds,
-        warningCount: readyModel?.historicalMovement?.warningCount ?? 0,
-        notes: [...notes, ...forecastFillNotes, ...(readyModel?.notes ?? [])],
+        modelThresholds: fullMarketThresholds,
+        fullMarketThresholds,
+        clientOnlyThresholds,
+        warningCount: primaryModel?.historicalMovement?.warningCount ?? 0,
+        notes: [
+          ...notes,
+          ...forecastFillNotes,
+          ...(readyFullMarket?.notes ?? []),
+          ...(readyClientOnly?.notes ?? []),
+        ],
       });
       continue;
     }
 
-    // No workbook row for this measure/year: the model prediction is applied.
+    // No workbook row for this measure/year: the Full Market model is applied.
     if (!canRunModel) {
       const reason =
         baselineYear === null
@@ -511,25 +559,28 @@ export function buildPlanPreviewPredictions(
       continue;
     }
 
-    if (!readyModel) {
-      const status = (modelResult!.status === "unsupported" ? "unsupported" : "unavailable") as
+    if (!readyFullMarket) {
+      const status = (fullMarketResult!.status === "unsupported" ? "unsupported" : "unavailable") as
         | "unavailable"
         | "unsupported";
       cutPoints.push({
         ...base,
         ...coverage,
         status,
-        reason: modelResult!.status === "ready" ? null : modelResult!.reason,
+        reason: fullMarketResult!.status === "ready" ? null : fullMarketResult!.reason,
+        clientOnlySampleSize: readyClientOnly?.sampleSize ?? null,
+        clientOnlyThresholds,
+        fullMarketThresholds: null,
       });
       predictionStatusByMeasure.set(measureNormalized, status);
       continue;
     }
 
-    const thresholdValues = thresholdsFromForecast(readyModel.thresholds);
+    const thresholdValues = thresholdsFromForecast(readyFullMarket.thresholds);
     if (thresholdValues) {
       readyThresholds.set(measureNormalized, {
         thresholds: thresholdValues,
-        inverted: readyModel.inverted,
+        inverted: readyFullMarket.inverted,
       });
     }
     predictionStatusByMeasure.set(measureNormalized, "ready");
@@ -538,14 +589,21 @@ export function buildPlanPreviewPredictions(
       ...coverage,
       status: "ready",
       reason: null,
-      method: readyModel.methodology.method as "clustering" | "cahps-percentile",
+      method: readyFullMarket.methodology.method as "clustering" | "cahps-percentile",
       source: "model",
-      inverted: readyModel.inverted,
-      sampleSize: readyModel.sampleSize,
-      thresholds: readyModel.thresholds,
-      modelThresholds: readyModel.thresholds,
-      warningCount: readyModel.historicalMovement?.warningCount ?? 0,
-      notes: [...forecastFillNotes, ...readyModel.notes],
+      inverted: readyFullMarket.inverted,
+      sampleSize: readyFullMarket.sampleSize,
+      clientOnlySampleSize: readyClientOnly?.sampleSize ?? projectedSamples.length,
+      thresholds: readyFullMarket.thresholds,
+      modelThresholds: readyFullMarket.thresholds,
+      fullMarketThresholds: readyFullMarket.thresholds,
+      clientOnlyThresholds,
+      warningCount: readyFullMarket.historicalMovement?.warningCount ?? 0,
+      notes: [
+        ...forecastFillNotes,
+        ...readyFullMarket.notes,
+        ...(readyClientOnly?.notes ?? []),
+      ],
     });
   }
 

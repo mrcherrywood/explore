@@ -18,8 +18,8 @@ const STAR_LABELS: Record<(typeof THRESHOLD_ORDER)[number], string> = {
 
 const SOURCE_LABELS: Record<PlanPreviewCutPointPrediction["source"], string> = {
   official: "Official",
-  workbook_forecast: "Workbook forecast",
-  model: "Model",
+  workbook_forecast: "Manual",
+  model: "Full Market",
 };
 
 const STATUS_LABELS: Record<PlanPreviewCutPointPrediction["status"], string> = {
@@ -38,7 +38,8 @@ export const PREDICTED_CUT_POINTS_CSV_HEADERS = [
   "Market",
   ...THRESHOLD_ORDER.flatMap((key) => [
     STAR_LABELS[key],
-    `${STAR_LABELS[key]} Model`,
+    `${STAR_LABELS[key]} Full Market`,
+    `${STAR_LABELS[key]} Client Only`,
     `${STAR_LABELS[key]} Delta`,
   ]),
   "Warnings",
@@ -64,16 +65,25 @@ export function buildPredictedCutPointsCsv(
     const thresholdByKey = new Map(
       (cutPoint.thresholds ?? []).map((item) => [item.key, item] as const),
     );
-    const modelByKey = new Map(
-      (cutPoint.modelThresholds ?? []).map((item) => [item.key, item] as const),
+    const fullMarketByKey = new Map(
+      (cutPoint.fullMarketThresholds ?? cutPoint.modelThresholds ?? []).map(
+        (item) => [item.key, item] as const,
+      ),
+    );
+    const clientOnlyByKey = new Map(
+      (cutPoint.clientOnlyThresholds ?? []).map(
+        (item) => [item.key, item] as const,
+      ),
     );
 
     const thresholdCells = THRESHOLD_ORDER.flatMap((key) => {
       const threshold = thresholdByKey.get(key);
-      const model = modelByKey.get(key);
+      const fullMarket = fullMarketByKey.get(key);
+      const clientOnly = clientOnlyByKey.get(key);
       return [
         cell(threshold?.projected),
-        cell(model?.projected),
+        cell(fullMarket?.projected),
+        cell(clientOnly?.projected),
         cell(threshold?.deltaVsComparison),
       ];
     });

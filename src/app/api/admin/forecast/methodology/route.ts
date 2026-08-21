@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireApprovedAdmin } from "@/lib/admin/require-approved-admin";
-import { analyzeCutPointMethodologyForecast, isSurveyMeasure } from "@/lib/band-movement/cut-point-methodology";
+import {
+  analyzeCutPointMethodologyForecast,
+  buildManualForecastThresholds,
+  isSurveyMeasure,
+} from "@/lib/band-movement/cut-point-methodology";
 import { getAvailableMeasureYears, getMeasureYearScoreSamples } from "@/lib/band-movement/analysis";
 import {
   buildClientInformedMarketSamples,
@@ -72,20 +76,20 @@ export async function GET(request: NextRequest) {
       .filter((p) => p.measureNormalized === measure && isEligibleForecastContract(p.contractId))
       .map((p) => ({ contractId: p.contractId, score: p.finalScore }));
 
+    // Current-year union: Projected Final first, PP1 fills. Full Market then
+    // pads with last year's published scores; Client Only does not.
     let overlaySamples = projectedSamples;
     let pp1OverlayCount = 0;
-    if (populationMode === "full_market") {
-      try {
-        const pp1Samples = (
-          await loadPp1SamplesForMeasure(admin.serviceClient, run.forecastYear, measure)
-        ).filter((sample) => isEligibleForecastContract(sample.contractId));
-        const merged = mergeOverlaySamplesPreferPrimary(projectedSamples, pp1Samples);
-        overlaySamples = merged.samples;
-        pp1OverlayCount = merged.pp1FillCount;
-      } catch {
-        overlaySamples = projectedSamples;
-        pp1OverlayCount = 0;
-      }
+    try {
+      const pp1Samples = (
+        await loadPp1SamplesForMeasure(admin.serviceClient, run.forecastYear, measure)
+      ).filter((sample) => isEligibleForecastContract(sample.contractId));
+      const merged = mergeOverlaySamplesPreferPrimary(projectedSamples, pp1Samples);
+      overlaySamples = merged.samples;
+      pp1OverlayCount = merged.pp1FillCount;
+    } catch {
+      overlaySamples = projectedSamples;
+      pp1OverlayCount = 0;
     }
 
     const latestHistoricalYear = getAvailableMeasureYears().at(-1) ?? null;
@@ -116,7 +120,9 @@ export async function GET(request: NextRequest) {
             ...result,
             notes: [
               ...result.notes,
-              `Full-market overlay includes ${pp1OverlayCount} accrued Plan Preview contract${pp1OverlayCount === 1 ? "" : "s"} without a forecast Projected Final.`,
+              populationMode === "full_market"
+                ? `Full-market overlay includes ${pp1OverlayCount} accrued Plan Preview contract${pp1OverlayCount === 1 ? "" : "s"} without a forecast Projected Final.`
+                : `Client-only population includes ${pp1OverlayCount} accrued Plan Preview contract${pp1OverlayCount === 1 ? "" : "s"} without a forecast Projected Final.`,
             ],
           }
         : result;
@@ -136,6 +142,11 @@ export async function GET(request: NextRequest) {
         )
       : null;
     const status = withPp1Note.status === "unsupported" ? 400 : 200;
+    const manualThresholds = buildManualForecastThresholds(
+      measure,
+      run.forecastYear,
+      latestHistoricalYear
+    );
 
     return NextResponse.json(
       {
@@ -143,7 +154,8 @@ export async function GET(request: NextRequest) {
         populationMode,
         baselineYear: populationMode === "full_market" ? latestHistoricalYear : null,
         projectedContractCount: projectedSamples.length,
-        pp1OverlayCount: populationMode === "full_market" ? pp1OverlayCount : 0,
+        pp1OverlayCount,
+        manualThresholds,
         clientInformedScenario: clientInformed && clientInformedResult
           ? {
               ...clientInformedResult,

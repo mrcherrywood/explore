@@ -46,8 +46,11 @@ function cutPoint(
     appendedContractCount: 0,
     baselineMarketCount: 0,
     sampleSize: null,
+    clientOnlySampleSize: null,
     thresholds: null,
     modelThresholds: null,
+    fullMarketThresholds: null,
+    clientOnlyThresholds: null,
     warningCount: 0,
     forecastFillCount: 0,
     notes: [],
@@ -55,7 +58,7 @@ function cutPoint(
   };
 }
 
-test("buildPredictedCutPointsCsv splits star value, model, and delta columns", () => {
+test("buildPredictedCutPointsCsv splits star value, Full Market, Client Only, and delta columns", () => {
   const data = buildPredictedCutPointsCsv([
     cutPoint({
       displayName: "Breast Cancer Screening",
@@ -65,7 +68,7 @@ test("buildPredictedCutPointsCsv splits star value, model, and delta columns", (
       accruedContractCount: 102,
       baselineMarketCount: 499,
       warningCount: 4,
-      notes: ["Model prediction diverges from the workbook forecast."],
+      notes: ["Full Market model diverges from Manual by up to 2.0 points."],
       thresholds: [
         threshold("fiveStar", 85, 1),
         threshold("fourStar", 78, 2),
@@ -78,6 +81,18 @@ test("buildPredictedCutPointsCsv splits star value, model, and delta columns", (
         threshold("threeStar", 72, null),
         threshold("twoStar", 59, null),
       ],
+      fullMarketThresholds: [
+        threshold("fiveStar", 84, null),
+        threshold("fourStar", 76, null),
+        threshold("threeStar", 72, null),
+        threshold("twoStar", 59, null),
+      ],
+      clientOnlyThresholds: [
+        threshold("fiveStar", 86, null),
+        threshold("fourStar", 77, null),
+        threshold("threeStar", 71, null),
+        threshold("twoStar", 60, null),
+      ],
     }),
   ]);
 
@@ -87,35 +102,40 @@ test("buildPredictedCutPointsCsv splits star value, model, and delta columns", (
     "CSV headers should stay ASCII so Excel does not show star glyphs as mojibake",
   );
   assert.ok(data.headers.includes("5 Star"));
-  assert.ok(data.headers.includes("5 Star Model"));
+  assert.ok(data.headers.includes("5 Star Full Market"));
+  assert.ok(data.headers.includes("5 Star Client Only"));
   assert.ok(data.headers.includes("5 Star Delta"));
   assert.deepEqual(
-    data.headers.slice(7, 10),
-    ["5 Star", "5 Star Model", "5 Star Delta"],
+    data.headers.slice(7, 11),
+    ["5 Star", "5 Star Full Market", "5 Star Client Only", "5 Star Delta"],
   );
   assert.deepEqual(data.rows, [
     [
       "C01",
       "Breast Cancer Screening",
       "",
-      "Workbook forecast",
+      "Manual",
       "Ready",
       "102",
       "499",
       "85",
       "84",
+      "86",
       "1",
       "78",
       "76",
+      "77",
       "2",
       "73",
       "72",
+      "71",
       "2",
       "63",
       "59",
+      "60",
       "5",
       "4",
-      "Model prediction diverges from the workbook forecast.",
+      "Full Market model diverges from Manual by up to 2.0 points.",
     ],
   ]);
 });
@@ -143,8 +163,9 @@ test("buildPredictedCutPointsCsv marks inverted measures and official sources", 
   assert.equal(data.rows[0][3], "Official");
   assert.equal(data.rows[0][7], "0.1");
   assert.equal(data.rows[0][8], "");
-  assert.equal(data.rows[0][9], "-0.01");
-  assert.equal(data.rows[0][19], "");
+  assert.equal(data.rows[0][9], "");
+  assert.equal(data.rows[0][10], "-0.01");
+  assert.equal(data.rows[0][23], "");
 });
 
 test("buildPredictedCutPointsCsv keeps unavailable rows with reason notes", () => {
@@ -161,7 +182,7 @@ test("buildPredictedCutPointsCsv keeps unavailable rows with reason notes", () =
   assert.equal(data.rows[0][4], "Excluded");
   assert.equal(data.rows[0][7], "");
   assert.equal(
-    data.rows[0][20],
+    data.rows[0][24],
     "Quality Improvement is excluded from cut-point prediction.",
   );
 });

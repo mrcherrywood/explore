@@ -138,6 +138,46 @@ test("cut-point overlay fills missing PP1 contracts from forecast year-end proje
   );
 });
 
+test("Client Only model runs on PP1 + projections without last-year padding", () => {
+  const pp1Rows: AccruedMeasureScore[] = Array.from({ length: 12 }, (_, index) => ({
+    contractId: `H${String(1000 + index).padStart(4, "0")}`,
+    contractName: "Test",
+    organizationMarketingName: "Test",
+    parentOrganization: "Test Org",
+    measureCode: "C01",
+    measureDisplayName: "Breast Cancer Screening",
+    measureNormalized: "breast cancer screening partc",
+    score: 60 + index,
+    wholeScore: 60 + index,
+  }));
+  const overlay: ForecastYearEndOverlay = {
+    byMeasureNormalized: new Map([
+      [
+        "breast cancer screening partc",
+        Array.from({ length: 8 }, (_, index) => ({
+          contractId: `H${String(2000 + index).padStart(4, "0")}`,
+          score: 70 + index,
+        })),
+      ],
+    ]),
+    byMeasureCode: new Map(),
+    runIds: ["run-1"],
+  };
+
+  const result = buildPlanPreviewPredictions(pp1Rows, 2027, overlay);
+  const cutPoint = result.cutPoints.find((item) => item.measureCode === "C01");
+  assert.ok(cutPoint);
+  assert.equal(cutPoint.source, "workbook_forecast");
+  assert.equal(cutPoint.accruedContractCount, 20);
+  assert.ok(cutPoint.fullMarketThresholds, "Full Market model should be ready");
+  assert.ok(cutPoint.clientOnlyThresholds, "Client Only model should be ready with 20 current-year scores");
+  assert.equal(cutPoint.clientOnlySampleSize, 20);
+  assert.ok(
+    (cutPoint.sampleSize ?? 0) > (cutPoint.clientOnlySampleSize ?? 0),
+    "Full Market pads with last-year market contracts",
+  );
+});
+
 test("forecast year-end fill matches C01 when the normalized name differs", () => {
   const scored: AccruedMeasureScore = {
     contractId: "H0885",
@@ -221,10 +261,31 @@ test(
     const breastCancer = result.cutPoints.find((cp) => cp.measureCode === "C01");
     assert.ok(breastCancer, "C01 prediction missing");
     assert.equal(breastCancer.status, "ready");
-    // Workbook forecast rows are applied while the clustering model runs alongside.
+    // Manual (workbook) forecast rows are applied; both live models run alongside.
     assert.equal(breastCancer.source, "workbook_forecast");
     assert.equal(breastCancer.method, "clustering");
-    assert.ok(breastCancer.modelThresholds, "model thresholds should still be computed");
+    assert.ok(breastCancer.modelThresholds, "Full Market model thresholds should still be computed");
+    assert.ok(
+      breastCancer.fullMarketThresholds,
+      "Full Market model thresholds should still be computed",
+    );
+    // Client Only clusters only the current-year union. With a tiny accrued
+    // set (2 contracts in the fixture) the model may be unavailable — that is
+    // expected until more PP1/projections accrue.
+    assert.ok(
+      "clientOnlyThresholds" in breastCancer,
+      "Client Only thresholds field should be present",
+    );
+    if (breastCancer.clientOnlyThresholds) {
+      assert.ok(
+        (breastCancer.clientOnlySampleSize ?? 0) > 0,
+        "Client Only sample should be the current-year accrued set",
+      );
+      assert.ok(
+        (breastCancer.sampleSize ?? 0) >= (breastCancer.clientOnlySampleSize ?? 0),
+        "Full Market (with last-year pad) should be at least as large as Client Only",
+      );
+    }
     assert.ok(breastCancer.baselineMarketCount > 100, "should anchor to the full published market");
     assert.equal(
       breastCancer.accruedContractCount,

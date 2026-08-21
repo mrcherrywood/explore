@@ -8,7 +8,6 @@ import {
   HelpCircle,
   Info,
   Loader2,
-  Users,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,6 +104,7 @@ type ReadyFields = {
   baselineYear: number | null;
   projectedContractCount: number;
   pp1OverlayCount?: number;
+  manualThresholds?: ForecastThreshold[] | null;
   methodology: {
     method: "clustering" | "cahps-percentile";
     foldCount: number;
@@ -128,6 +128,7 @@ type ReadyResponse = ReadyFields & {
   baselineYear: number | null;
   projectedContractCount: number;
   pp1OverlayCount?: number;
+  manualThresholds?: ForecastThreshold[] | null;
   clientInformedScenario: ClientInformedScenario | null;
 };
 
@@ -330,34 +331,47 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
     const fullMarket = fullMarketReady;
     const clientInformed = clientInformedReady;
     const clientOnly = clientOnlyReady;
+    const manualThresholds =
+      fullMarketReady?.manualThresholds ??
+      clientOnlyReady?.manualThresholds ??
+      null;
     const source = fullMarket ?? clientOnly;
-    if (!source) return [];
+    if (!source && !manualThresholds?.length) return [];
     const order = ["fiveStar", "fourStar", "threeStar", "twoStar"];
-    return [...source.thresholds]
-      .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
-      .map((threshold) => {
-        const fullMarketThreshold =
-          fullMarket?.thresholds.find((item) => item.key === threshold.key) ??
-          null;
-        const clientInformedThreshold =
-          clientInformed?.thresholds.find(
-            (item) => item.key === threshold.key,
-          ) ?? null;
-        const clientOnlyThreshold =
-          clientOnly?.thresholds.find((item) => item.key === threshold.key) ??
-          null;
-        return {
-          key: threshold.key,
-          label: threshold.label,
-          comparisonActual:
-            fullMarketThreshold?.comparisonActual ??
-            clientOnlyThreshold?.comparisonActual ??
-            null,
-          fullMarket: fullMarketThreshold,
-          clientInformed: clientInformedThreshold,
-          clientOnly: clientOnlyThreshold,
-        };
-      });
+    const keys = source
+      ? [...source.thresholds]
+          .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
+          .map((threshold) => threshold.key)
+      : [...(manualThresholds ?? [])]
+          .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
+          .map((threshold) => threshold.key);
+    return keys.map((key) => {
+      const fullMarketThreshold =
+        fullMarket?.thresholds.find((item) => item.key === key) ?? null;
+      const clientInformedThreshold =
+        clientInformed?.thresholds.find((item) => item.key === key) ?? null;
+      const clientOnlyThreshold =
+        clientOnly?.thresholds.find((item) => item.key === key) ?? null;
+      const manualThreshold =
+        manualThresholds?.find((item) => item.key === key) ?? null;
+      return {
+        key,
+        label:
+          fullMarketThreshold?.label ??
+          clientOnlyThreshold?.label ??
+          manualThreshold?.label ??
+          key,
+        comparisonActual:
+          fullMarketThreshold?.comparisonActual ??
+          clientOnlyThreshold?.comparisonActual ??
+          manualThreshold?.comparisonActual ??
+          null,
+        fullMarket: fullMarketThreshold,
+        clientInformed: clientInformedThreshold,
+        clientOnly: clientOnlyThreshold,
+        manual: manualThreshold,
+      };
+    });
   }, [clientInformedReady, clientOnlyReady, fullMarketReady]);
 
   const methodologyData = fullMarketReady ?? clientOnlyReady;
@@ -506,7 +520,19 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                 <MetricCard
                   label="Client Only"
                   value={String(clientOnlyReady.sampleSize)}
-                  helper={`${clientOnlyReady.projectedContractCount} client contracts`}
+                  helper={
+                    (clientOnlyReady.pp1OverlayCount ?? 0) > 0
+                      ? `PP1 + projections (${clientOnlyReady.pp1OverlayCount} Plan Preview fills)`
+                      : "PP1 + projections"
+                  }
+                />
+              )}
+              {(fullMarketReady?.manualThresholds ??
+                clientOnlyReady?.manualThresholds) && (
+                <MetricCard
+                  label="Manual"
+                  value="Workbook"
+                  helper="Workbook forecast (official)"
                 />
               )}
               <MetricCard
@@ -667,17 +693,15 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                       <th className="px-3 py-2 text-right">Actual</th>
                       <th className="px-3 py-2 text-right">Full Market</th>
                       <th className="px-3 py-2 text-right">Delta</th>
-                      {clientOnlyReady && (
-                        <>
-                          <th className="px-3 py-2 text-right text-[var(--fep-accent)]">
-                            Client Only
-                          </th>
-                          <th className="px-3 py-2 text-right text-[var(--fep-accent)]">
-                            Delta
-                          </th>
-                          <th className="px-3 py-2 text-right">Diff</th>
-                        </>
-                      )}
+                      <th className="px-3 py-2 text-right text-[var(--fep-accent)]">
+                        Client Only
+                      </th>
+                      <th className="px-3 py-2 text-right text-[var(--fep-accent)]">
+                        Delta
+                      </th>
+                      <th className="px-3 py-2 text-right">Manual</th>
+                      <th className="px-3 py-2 text-right">Delta</th>
+                      <th className="px-3 py-2 text-right">Diff</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -685,6 +709,7 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                       const starColor = STAR_COLORS[THRESHOLD_STAR[row.key]];
                       const fullProjected = row.fullMarket?.projected ?? null;
                       const clientProjected = row.clientOnly?.projected ?? null;
+                      const manualProjected = row.manual?.projected ?? null;
                       const diff =
                         fullProjected !== null && clientProjected !== null
                           ? clientProjected - fullProjected
@@ -715,52 +740,54 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                           >
                             {fmtDelta(row.fullMarket?.deltaVsComparison ?? null)}
                           </td>
-                          {clientOnlyReady && (
-                            <>
-                              <td className="px-3 py-3 text-right tabular-nums font-medium text-[var(--fep-accent)]">
-                                {clientProjected !== null
-                                  ? clientProjected.toFixed(2)
-                                  : "—"}
-                              </td>
-                              <td
-                                className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.clientOnly?.deltaVsComparison ?? null)}`}
-                              >
-                                {fmtDelta(
-                                  row.clientOnly?.deltaVsComparison ?? null,
-                                )}
-                              </td>
-                              <td
-                                className={`px-3 py-3 text-right font-semibold tabular-nums ${
-                                  diff !== null && diff > 0
-                                    ? "text-rose-400"
-                                    : diff !== null && diff < 0
-                                      ? "text-emerald-400"
-                                      : "text-muted-foreground"
-                                }`}
-                              >
-                                {fmtDelta(diff)}
-                              </td>
-                            </>
-                          )}
+                          <td className="px-3 py-3 text-right tabular-nums font-medium text-[var(--fep-accent)]">
+                            {clientProjected !== null
+                              ? clientProjected.toFixed(2)
+                              : "—"}
+                          </td>
+                          <td
+                            className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.clientOnly?.deltaVsComparison ?? null)}`}
+                          >
+                            {fmtDelta(
+                              row.clientOnly?.deltaVsComparison ?? null,
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-right tabular-nums font-medium">
+                            {manualProjected !== null
+                              ? manualProjected.toFixed(2)
+                              : "—"}
+                          </td>
+                          <td
+                            className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.manual?.deltaVsComparison ?? null)}`}
+                          >
+                            {fmtDelta(row.manual?.deltaVsComparison ?? null)}
+                          </td>
+                          <td
+                            className={`px-3 py-3 text-right font-semibold tabular-nums ${
+                              diff !== null && diff > 0
+                                ? "text-rose-400"
+                                : diff !== null && diff < 0
+                                  ? "text-emerald-400"
+                                  : "text-muted-foreground"
+                            }`}
+                          >
+                            {fmtDelta(diff)}
+                          </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
               </div>
-              {clientOnlyReady && (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  <Users className="mr-1 inline h-3.5 w-3.5 text-[var(--fep-accent)]" />
-                  Client population: {clientOnlyReady.sampleSize} contracts (vs{" "}
-                  {fullMarketReady?.sampleSize ?? "—"} full market).
-                  &quot;Actual&quot; = latest official cut points
-                  {fullMarketReady?.comparisonYear != null
-                    ? ` (${fullMarketReady.comparisonYear})`
-                    : ""}
-                  . &quot;Diff&quot; = client projected minus full market
-                  projected.
-                </p>
-              )}
+              <p className="mt-3 text-xs text-muted-foreground">
+                Client Only: {clientOnlyReady?.sampleSize ?? "—"} contracts (PP1
+                + projections)
+                {fullMarketReady
+                  ? ` · Full Market: ${fullMarketReady.sampleSize}`
+                  : ""}
+                . Manual = workbook forecast (official). &quot;Diff&quot; =
+                client projected minus full market projected.
+              </p>
             </section>
 
             {methodNotes.length > 0 && (

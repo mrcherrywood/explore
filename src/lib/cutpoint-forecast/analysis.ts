@@ -1,7 +1,9 @@
 import {
   analyzeCutPointMethodologyForecast,
+  buildManualForecastThresholds,
   isCahpsMeasure,
   type MethodologyForecastResponse,
+  type MethodologyForecastThreshold,
 } from "@/lib/band-movement/cut-point-methodology";
 import {
   getAvailableMeasureYears,
@@ -37,8 +39,10 @@ export type CutPointForecastAnalysisResponse = MethodologyForecastResponse & {
   approvedAt: string | null;
   baselineYear: number | null;
   projectedContractCount: number | null;
-  /** PP1 contracts added to the full-market overlay (no forecast projection). */
+  /** PP1 contracts added to the current-year overlay (no forecast projection). */
   pp1OverlayCount: number | null;
+  /** Manual (workbook) cut points for the forecast year, when present. */
+  manualThresholds: MethodologyForecastThreshold[] | null;
 };
 
 type ApprovedForecastSource = {
@@ -412,8 +416,15 @@ export async function analyzeApprovedCutPointForecast(
       baselineYear: latestHistoricalYear,
       projectedContractCount: null,
       pp1OverlayCount: null,
+      manualThresholds: null,
     };
   }
+
+  const manualThresholds = buildManualForecastThresholds(
+    measureNorm,
+    effectiveForecastYear,
+    latestHistoricalYear
+  );
 
   const approvedSource = await resolveApprovedForecastSource(serviceClient, {
     runs,
@@ -448,6 +459,7 @@ export async function analyzeApprovedCutPointForecast(
         baselineYear: latestHistoricalYear,
         projectedContractCount: 0,
         pp1OverlayCount: 0,
+        manualThresholds,
       };
     }
 
@@ -469,6 +481,7 @@ export async function analyzeApprovedCutPointForecast(
       baselineYear: latestHistoricalYear,
       projectedContractCount: null,
       pp1OverlayCount: null,
+      manualThresholds,
     };
   }
 
@@ -483,25 +496,25 @@ export async function analyzeApprovedCutPointForecast(
       score: projection.finalScore,
     }));
 
+  // Current-year union: Projected Final first, PP1 fills contracts without one.
+  // Full Market then pads with last year's published scores; Client Only does not.
   let overlaySamples = projectedSamples;
   let pp1OverlayCount = 0;
-  if (populationMode === "full_market") {
-    try {
-      const pp1Samples = (
-        await loadPp1SamplesForMeasure(
-          serviceClient,
-          effectiveForecastYear,
-          measureNorm
-        )
-      ).filter((sample) => isEligibleForecastContract(sample.contractId));
-      const merged = mergeOverlaySamplesPreferPrimary(projectedSamples, pp1Samples);
-      overlaySamples = merged.samples;
-      pp1OverlayCount = merged.pp1FillCount;
-    } catch {
-      // PP1 tables may be missing in some environments; keep forecast-only overlay.
-      overlaySamples = projectedSamples;
-      pp1OverlayCount = 0;
-    }
+  try {
+    const pp1Samples = (
+      await loadPp1SamplesForMeasure(
+        serviceClient,
+        effectiveForecastYear,
+        measureNorm
+      )
+    ).filter((sample) => isEligibleForecastContract(sample.contractId));
+    const merged = mergeOverlaySamplesPreferPrimary(projectedSamples, pp1Samples);
+    overlaySamples = merged.samples;
+    pp1OverlayCount = merged.pp1FillCount;
+  } catch {
+    // PP1 tables may be missing in some environments; keep forecast-only overlay.
+    overlaySamples = projectedSamples;
+    pp1OverlayCount = 0;
   }
 
   const baselineSamples = latestHistoricalYear === null
@@ -532,7 +545,9 @@ export async function analyzeApprovedCutPointForecast(
           ...result,
           notes: [
             ...result.notes,
-            `Full-market overlay includes ${pp1OverlayCount} accrued Plan Preview contract${pp1OverlayCount === 1 ? "" : "s"} without a forecast Projected Final.`,
+            populationMode === "full_market"
+              ? `Full-market overlay includes ${pp1OverlayCount} accrued Plan Preview contract${pp1OverlayCount === 1 ? "" : "s"} without a forecast Projected Final.`
+              : `Client-only population includes ${pp1OverlayCount} accrued Plan Preview contract${pp1OverlayCount === 1 ? "" : "s"} without a forecast Projected Final.`,
           ],
         }
       : result;
@@ -547,6 +562,7 @@ export async function analyzeApprovedCutPointForecast(
     approvedAt: approvedSource.approvedAt,
     baselineYear: populationMode === "full_market" ? latestHistoricalYear : null,
     projectedContractCount: projectedSamples.length,
-    pp1OverlayCount: populationMode === "full_market" ? pp1OverlayCount : 0,
+    pp1OverlayCount,
+    manualThresholds,
   };
 }

@@ -516,7 +516,7 @@ function ClientDataControls({
   const statusText = !forecast
     ? "Loading projected client data…"
     : forecast.status === "ready"
-      ? `Applying the CMS methodology to ${forecast.populationMode === "client_only" ? "client-only" : "full-market overlaid"} projected ${forecast.forecastYear} scores${forecast.runStatus ? ` (${forecast.runStatus} run)` : ""}.`
+      ? `Applying the CMS methodology to ${forecast.populationMode === "client_only" ? "client-only (PP1 + projections)" : "full-market overlaid"} projected ${forecast.forecastYear} scores${forecast.runStatus ? ` (${forecast.runStatus} run)` : ""}.`
       : forecast.status === "unsupported"
         ? (forecast.reason ??
           "This measure is not supported for projected cut points.")

@@ -248,6 +248,57 @@ export function getWorkbookCutPointsForYear(year: number): MeasureCutPoint[] {
   return cached;
 }
 
+/**
+ * Manual (workbook) cut points for a forecast year, shaped like model
+ * thresholds so UI can show Actual | Full Market | Client Only | Manual.
+ * Returns null when the workbook has no row for this measure/year.
+ */
+export function buildManualForecastThresholds(
+  measureNorm: string,
+  forecastYear: number,
+  comparisonYear: number | null = null
+): MethodologyForecastThreshold[] | null {
+  const measure = getMeasureByNormalizedName(measureNorm);
+  if (!measure) return null;
+  const codePrefix =
+    (measure.codesByYear[forecastYear] ??
+      Object.values(measure.codesByYear)[0] ??
+      "C")[0] ?? null;
+  const workbookRow = matchCutPointToMeasureName(
+    measure.displayName,
+    codePrefix,
+    getWorkbookCutPointsForYear(forecastYear)
+  );
+  if (!workbookRow) return null;
+
+  const comparisonCutPoint =
+    comparisonYear === null
+      ? null
+      : lookupOfficialCutPoint(measure, comparisonYear, ensureOfficialCutPoints());
+
+  return THRESHOLD_KEYS.map((key) => {
+    const projected = workbookRow.thresholds[key];
+    const comparisonActual = comparisonCutPoint?.thresholds[key] ?? null;
+    const delta =
+      comparisonActual !== null
+        ? Math.round((projected - comparisonActual) * 100) / 100
+        : null;
+    return {
+      key,
+      label: THRESHOLD_LABELS[key],
+      projected,
+      comparisonActual,
+      deltaVsComparison: delta,
+      absDeltaVsComparison: delta !== null ? Math.abs(delta) : null,
+      rawSimulated: null,
+      baselineSimulated: null,
+      anchoredMovement: null,
+      movementCap: null,
+      movementWasCapped: false,
+    };
+  });
+}
+
 export function isCahpsMeasure(displayName: string): boolean {
   return CAHPS_MEASURE_NAMES.has(normalizeMeasureName(displayName));
 }

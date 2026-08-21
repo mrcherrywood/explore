@@ -214,6 +214,69 @@ test("mergeOverlaySamplesPreferPrimary keeps forecast scores and fills from PP1"
   assert.equal(merged.samples.length, 3);
 });
 
+test("Client Only population is the current-year union without last-year padding", async () => {
+  const { mergeOverlaySamplesPreferPrimary } = await import(
+    "@/lib/cutpoint-forecast/pp1-overlay"
+  );
+
+  const projected = [
+    { contractId: "H1112", score: 80 },
+    { contractId: "H2223", score: 70 },
+  ];
+  const pp1 = [
+    { contractId: "H3334", score: 65 },
+  ];
+  const currentYear = mergeOverlaySamplesPreferPrimary(projected, pp1);
+  assert.equal(currentYear.samples.length, 3);
+  assert.equal(currentYear.pp1FillCount, 1);
+
+  const regularMeasure = getAvailableOptions().measures.find(
+    (measure) => measure.displayName === "Breast Cancer Screening"
+  );
+  assert.ok(regularMeasure);
+  const baselineYear = getAvailableMeasureYears().at(-1);
+  assert.ok(baselineYear);
+
+  const fullMarket = overlayProjectedSamples(
+    regularMeasure.normalizedName,
+    currentYear.samples,
+    baselineYear
+  );
+  assert.ok(
+    fullMarket.length > currentYear.samples.length,
+    "Full Market pads with last-year contracts Client Only does not include",
+  );
+  assert.ok(
+    currentYear.samples.every((sample) =>
+      fullMarket.some((row) => row.contractId === sample.contractId)
+    ),
+    "every Client Only contract remains in the Full Market overlay",
+  );
+});
+
+test("buildManualForecastThresholds returns workbook forecast values when present", async () => {
+  const { buildManualForecastThresholds } = await import(
+    "@/lib/band-movement/cut-point-methodology"
+  );
+  const regularMeasure = getAvailableOptions().measures.find(
+    (measure) => measure.displayName === "Breast Cancer Screening"
+  );
+  assert.ok(regularMeasure);
+  const baselineYear = getAvailableMeasureYears().at(-1);
+  assert.ok(baselineYear);
+
+  const manual = buildManualForecastThresholds(
+    regularMeasure.normalizedName,
+    baselineYear + 1,
+    baselineYear
+  );
+  assert.ok(manual, "expected a Manual workbook row for the next stars year");
+  assert.equal(manual.length, 4);
+  for (const threshold of manual) {
+    assert.ok(Number.isFinite(threshold.projected));
+  }
+});
+
 test("lookupForecastYearEndSamples prefers the normalized name then measure code", async () => {
   const { lookupForecastYearEndSamples } = await import(
     "@/lib/cutpoint-forecast/pp1-overlay"

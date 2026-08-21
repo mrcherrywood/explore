@@ -58,6 +58,7 @@ type ForecastReadyResponse = {
   baselineYear: number | null;
   projectedContractCount: number | null;
   pp1OverlayCount: number | null;
+  manualThresholds: ForecastThreshold[] | null;
   methodology: {
     method: "clustering" | "cahps-percentile";
     foldCount: number;
@@ -81,6 +82,8 @@ type ForecastUnavailableResponse = {
   approvedAt: string | null;
   baselineYear: number | null;
   projectedContractCount: number | null;
+  pp1OverlayCount: number | null;
+  manualThresholds: ForecastThreshold[] | null;
 };
 
 type ForecastUnsupportedResponse = {
@@ -96,6 +99,8 @@ type ForecastUnsupportedResponse = {
   approvedAt: string | null;
   baselineYear: number | null;
   projectedContractCount: number | null;
+  pp1OverlayCount: number | null;
+  manualThresholds: ForecastThreshold[] | null;
 };
 
 type ForecastResponse =
@@ -204,32 +209,45 @@ export function CutPointForecastAnalysis({
   const clientOnlyReady =
     clientOnly?.status === "ready" ? clientOnly : null;
   const primary = fullMarket ?? clientOnly;
+  const manualThresholds =
+    (fullMarketReady ?? clientOnlyReady)?.manualThresholds ??
+    (fullMarket?.status !== "ready" ? fullMarket?.manualThresholds : null) ??
+    (clientOnly?.status !== "ready" ? clientOnly?.manualThresholds : null) ??
+    null;
 
   const thresholdRows = useMemo(() => {
     const source = fullMarketReady ?? clientOnlyReady;
-    if (!source) return [];
+    if (!source && !manualThresholds?.length) return [];
     const order = ["fiveStar", "fourStar", "threeStar", "twoStar"];
-    return [...source.thresholds]
-      .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
-      .map((threshold) => ({
-        key: threshold.key,
-        label: threshold.label,
+    const keys = source
+      ? [...source.thresholds]
+          .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
+          .map((threshold) => threshold.key)
+      : [...(manualThresholds ?? [])]
+          .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
+          .map((threshold) => threshold.key);
+    return keys.map((key) => {
+      const full = fullMarketReady?.thresholds.find((item) => item.key === key);
+      const client = clientOnlyReady?.thresholds.find((item) => item.key === key);
+      const manual = manualThresholds?.find((item) => item.key === key) ?? null;
+      return {
+        key,
+        label:
+          full?.label ??
+          client?.label ??
+          manual?.label ??
+          key,
         comparisonActual:
-          fullMarketReady?.thresholds.find((item) => item.key === threshold.key)
-            ?.comparisonActual ??
-          clientOnlyReady?.thresholds.find((item) => item.key === threshold.key)
-            ?.comparisonActual ??
+          full?.comparisonActual ??
+          client?.comparisonActual ??
+          manual?.comparisonActual ??
           null,
-        fullMarket:
-          fullMarketReady?.thresholds.find(
-            (item) => item.key === threshold.key,
-          ) ?? null,
-        clientOnly:
-          clientOnlyReady?.thresholds.find(
-            (item) => item.key === threshold.key,
-          ) ?? null,
-      }));
-  }, [clientOnlyReady, fullMarketReady]);
+        fullMarket: full ?? null,
+        clientOnly: client ?? null,
+        manual,
+      };
+    });
+  }, [clientOnlyReady, fullMarketReady, manualThresholds]);
 
   if (isLoading) {
     return (
@@ -339,7 +357,7 @@ export function CutPointForecastAnalysis({
         </div>
       )}
 
-      {(fullMarketReady || clientOnlyReady) && (
+      {(fullMarketReady || clientOnlyReady || manualThresholds) && (
         <>
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <ForecastCard
@@ -358,8 +376,22 @@ export function CutPointForecastAnalysis({
             <ForecastCard
               label="Client Only"
               value={String(clientOnlyReady?.sampleSize ?? "—")}
-              helper="Projected client contracts only"
+              helper={
+                clientOnlyReady?.pp1OverlayCount &&
+                clientOnlyReady.pp1OverlayCount > 0
+                  ? `PP1 + projections (${clientOnlyReady.pp1OverlayCount} Plan Preview fills)`
+                  : "PP1 + projections"
+              }
               accent="text-[var(--fep-accent)]"
+            />
+            <ForecastCard
+              label="Manual"
+              value={
+                manualThresholds && manualThresholds.length > 0
+                  ? String(manualThresholds.length)
+                  : "—"
+              }
+              helper="Workbook forecast (official)"
             />
             <ForecastCard
               label="Comparison Year"
@@ -371,30 +403,6 @@ export function CutPointForecastAnalysis({
                     )
               }
               helper="Latest official cut points used as Actual"
-            />
-            <ForecastCard
-              label="Run Status"
-              value={
-                (fullMarketReady ?? clientOnlyReady)?.approvalScope ===
-                "measure"
-                  ? "Measure Approved"
-                  : (fullMarketReady ?? clientOnlyReady)?.runStatus ===
-                      "approved"
-                    ? "Run Approved"
-                    : "Draft"
-              }
-              helper={
-                (fullMarketReady ?? clientOnlyReady)?.approvedAt
-                  ? `Approved ${new Date(
-                      (fullMarketReady ?? clientOnlyReady)!.approvedAt!,
-                    ).toLocaleDateString()}`
-                  : "Waiting for admin approval"
-              }
-              accent={
-                (fullMarketReady ?? clientOnlyReady)?.approvalScope
-                  ? "text-[var(--fep-accent)]"
-                  : "text-amber-500"
-              }
             />
           </section>
 
@@ -424,17 +432,15 @@ export function CutPointForecastAnalysis({
                     <th className="px-3 py-2 text-right">Actual</th>
                     <th className="px-3 py-2 text-right">Full Market</th>
                     <th className="px-3 py-2 text-right">Delta</th>
-                    {clientOnlyReady && (
-                      <>
-                        <th className="px-3 py-2 text-right text-[var(--fep-accent)]">
-                          Client Only
-                        </th>
-                        <th className="px-3 py-2 text-right text-[var(--fep-accent)]">
-                          Delta
-                        </th>
-                        <th className="px-3 py-2 text-right">Diff</th>
-                      </>
-                    )}
+                    <th className="px-3 py-2 text-right text-[var(--fep-accent)]">
+                      Client Only
+                    </th>
+                    <th className="px-3 py-2 text-right text-[var(--fep-accent)]">
+                      Delta
+                    </th>
+                    <th className="px-3 py-2 text-right">Manual</th>
+                    <th className="px-3 py-2 text-right">Delta</th>
+                    <th className="px-3 py-2 text-right">Diff</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -442,6 +448,7 @@ export function CutPointForecastAnalysis({
                     const starColor = STAR_COLORS[THRESHOLD_STAR[row.key]];
                     const fullProjected = row.fullMarket?.projected ?? null;
                     const clientProjected = row.clientOnly?.projected ?? null;
+                    const manualProjected = row.manual?.projected ?? null;
                     const diff =
                       fullProjected !== null && clientProjected !== null
                         ? clientProjected - fullProjected
@@ -472,52 +479,60 @@ export function CutPointForecastAnalysis({
                         >
                           {fmtDelta(row.fullMarket?.deltaVsComparison ?? null)}
                         </td>
-                        {clientOnlyReady && (
-                          <>
-                            <td className="px-3 py-3 text-right tabular-nums font-medium text-[var(--fep-accent)]">
-                              {clientProjected !== null
-                                ? clientProjected.toFixed(2)
-                                : "—"}
-                            </td>
-                            <td
-                              className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.clientOnly?.deltaVsComparison ?? null)}`}
-                            >
-                              {fmtDelta(
-                                row.clientOnly?.deltaVsComparison ?? null,
-                              )}
-                            </td>
-                            <td
-                              className={`px-3 py-3 text-right font-semibold tabular-nums ${
-                                diff !== null && diff > 0
-                                  ? "text-rose-400"
-                                  : diff !== null && diff < 0
-                                    ? "text-emerald-400"
-                                    : "text-muted-foreground"
-                              }`}
-                            >
-                              {fmtDelta(diff)}
-                            </td>
-                          </>
-                        )}
+                        <td className="px-3 py-3 text-right tabular-nums font-medium text-[var(--fep-accent)]">
+                          {clientProjected !== null
+                            ? clientProjected.toFixed(2)
+                            : "—"}
+                        </td>
+                        <td
+                          className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.clientOnly?.deltaVsComparison ?? null)}`}
+                        >
+                          {fmtDelta(
+                            row.clientOnly?.deltaVsComparison ?? null,
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums font-medium">
+                          {manualProjected !== null
+                            ? manualProjected.toFixed(2)
+                            : "—"}
+                        </td>
+                        <td
+                          className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.manual?.deltaVsComparison ?? null)}`}
+                        >
+                          {fmtDelta(row.manual?.deltaVsComparison ?? null)}
+                        </td>
+                        <td
+                          className={`px-3 py-3 text-right font-semibold tabular-nums ${
+                            diff !== null && diff > 0
+                              ? "text-rose-400"
+                              : diff !== null && diff < 0
+                                ? "text-emerald-400"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          {fmtDelta(diff)}
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-            {clientOnlyReady && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                <Users className="mr-1 inline h-3.5 w-3.5 text-[var(--fep-accent)]" />
-                Client population: {clientOnlyReady.sampleSize} contracts (vs{" "}
-                {fullMarketReady?.sampleSize ?? "—"} full market).
-                &quot;Actual&quot; = latest official cut points
-                {(fullMarketReady ?? clientOnlyReady)?.comparisonYear != null
-                  ? ` (${(fullMarketReady ?? clientOnlyReady)?.comparisonYear})`
-                  : ""}
-                . &quot;Diff&quot; = client projected minus full market
-                projected.
-              </p>
-            )}
+            <p className="mt-3 text-xs text-muted-foreground">
+              <Users className="mr-1 inline h-3.5 w-3.5 text-[var(--fep-accent)]" />
+              Client Only: {clientOnlyReady?.sampleSize ?? "—"} contracts (PP1 +
+              projections)
+              {fullMarketReady
+                ? ` · Full Market: ${fullMarketReady.sampleSize}`
+                : ""}
+              . Manual = workbook forecast (official applied source).
+              &quot;Actual&quot; = latest official cut points
+              {(fullMarketReady ?? clientOnlyReady)?.comparisonYear != null
+                ? ` (${(fullMarketReady ?? clientOnlyReady)?.comparisonYear})`
+                : ""}
+              . &quot;Diff&quot; = client projected minus full market
+              projected.
+            </p>
           </section>
 
           {(fullMarketReady?.notes.length || clientOnlyReady?.notes.length) && (
