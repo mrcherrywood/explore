@@ -169,11 +169,10 @@ function fmtPct(value: number | null) {
   return `${Math.round(value * 100)}%`;
 }
 
-function deltaClass(value: number | null) {
-  if (value === null) return "text-muted-foreground";
-  if (value > 0) return "text-rose-500";
-  if (value < 0) return "text-emerald-500";
-  return "text-muted-foreground";
+function deltaClass(value: number | null, inverted = false) {
+  if (value === null || value === 0) return "text-muted-foreground";
+  const worse = inverted ? value < 0 : value > 0;
+  return worse ? "text-rose-500" : "text-emerald-500";
 }
 
 function movementStatusClass(warningCount: number) {
@@ -527,14 +526,6 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                   }
                 />
               )}
-              {(fullMarketReady?.manualThresholds ??
-                clientOnlyReady?.manualThresholds) && (
-                <MetricCard
-                  label="Manual"
-                  value="Workbook"
-                  helper="Workbook forecast (official)"
-                />
-              )}
               <MetricCard
                 label="Comparison Year"
                 value={String(
@@ -690,7 +681,12 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                   <thead>
                     <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
                       <th className="px-3 py-2">Threshold</th>
-                      <th className="px-3 py-2 text-right">Actual</th>
+                      <th className="px-3 py-2 text-right">
+                        {(fullMarketReady ?? clientOnlyReady)?.comparisonYear !=
+                        null
+                          ? `Actual (${(fullMarketReady ?? clientOnlyReady)?.comparisonYear} official)`
+                          : "Actual"}
+                      </th>
                       <th className="px-3 py-2 text-right">Full Market</th>
                       <th className="px-3 py-2 text-right">Delta</th>
                       <th className="px-3 py-2 text-right text-[var(--fep-accent)]">
@@ -706,6 +702,10 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                   </thead>
                   <tbody>
                     {thresholdRows.map((row) => {
+                      const inverted =
+                        fullMarketReady?.inverted ??
+                        clientOnlyReady?.inverted ??
+                        false;
                       const starColor = STAR_COLORS[THRESHOLD_STAR[row.key]];
                       const fullProjected = row.fullMarket?.projected ?? null;
                       const clientProjected = row.clientOnly?.projected ?? null;
@@ -736,7 +736,7 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                               : "—"}
                           </td>
                           <td
-                            className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.fullMarket?.deltaVsComparison ?? null)}`}
+                            className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.fullMarket?.deltaVsComparison ?? null, inverted)}`}
                           >
                             {fmtDelta(row.fullMarket?.deltaVsComparison ?? null)}
                           </td>
@@ -746,7 +746,7 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                               : "—"}
                           </td>
                           <td
-                            className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.clientOnly?.deltaVsComparison ?? null)}`}
+                            className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.clientOnly?.deltaVsComparison ?? null, inverted)}`}
                           >
                             {fmtDelta(
                               row.clientOnly?.deltaVsComparison ?? null,
@@ -758,18 +758,12 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                               : "—"}
                           </td>
                           <td
-                            className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.manual?.deltaVsComparison ?? null)}`}
+                            className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(row.manual?.deltaVsComparison ?? null, inverted)}`}
                           >
                             {fmtDelta(row.manual?.deltaVsComparison ?? null)}
                           </td>
                           <td
-                            className={`px-3 py-3 text-right font-semibold tabular-nums ${
-                              diff !== null && diff > 0
-                                ? "text-rose-400"
-                                : diff !== null && diff < 0
-                                  ? "text-emerald-400"
-                                  : "text-muted-foreground"
-                            }`}
+                            className={`px-3 py-3 text-right font-semibold tabular-nums ${deltaClass(diff, inverted)}`}
                           >
                             {fmtDelta(diff)}
                           </td>
