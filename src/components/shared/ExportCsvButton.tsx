@@ -61,7 +61,7 @@ export function ExportCsvButton({
       onClick={handleExport}
       disabled={disabled || isExporting}
       className={cn(
-        "flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground transition hover:border-primary/60 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground transition hover:border-primary/60 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       title={label}

@@ -2,19 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 
-import { periodCaption, sliceForPeriod } from "@/lib/star-distribution/stats";
+import {
+  formatScore,
+  formatScoreDelta,
+  periodCaption,
+  scoreSliceForPeriod,
+  sliceForPeriod,
+} from "@/lib/star-distribution/stats";
 import type {
+  MetricMode,
   PeriodKey,
   RosterMode,
   StarDistributionResponse,
@@ -23,7 +20,14 @@ import {
   AllMeasuresStarShareTable,
   BookRosterOrgsTable,
   SelectedMeasureYearTable,
+  ShareStat,
+  StarShareChart,
 } from "./StarDistributionTables";
+import {
+  AllMeasuresScoreTable,
+  SelectedMeasureScoreChart,
+  SelectedMeasureScoreYearTable,
+} from "./StarDistributionScorePanel";
 
 const STAR_CATS = ["5★", "4★", "3★", "2★", "1★"] as const;
 const PERIODS: Array<{ key: PeriodKey; label: string }> = [
@@ -39,6 +43,10 @@ const ROSTERS: Array<{ key: RosterMode; label: string }> = [
   { key: "combined", label: "Forecast + PP1" },
   { key: "forecast", label: "Forecast only" },
   { key: "pp1", label: "PP1 only" },
+];
+const METRICS: Array<{ key: MetricMode; label: string }> = [
+  { key: "stars", label: "Star share" },
+  { key: "scores", label: "Average score" },
 ];
 
 function fmtPct(value: number): string {
@@ -59,9 +67,44 @@ function defaultMeasure(data: StarDistributionResponse): string {
   );
 }
 
+function PillGroup<T extends string>({
+  label,
+  items,
+  value,
+  onChange,
+}: {
+  label: string;
+  items: Array<{ key: T; label: string }>;
+  value: T;
+  onChange: (next: T) => void;
+}) {
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="flex flex-wrap gap-1">
+        {items.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => onChange(item.key)}
+            className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+              value === item.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function StarDistributionAnalysis() {
   const [roster, setRoster] = useState<RosterMode>("combined");
   const [period, setPeriod] = useState<PeriodKey>("last3W");
+  const [metric, setMetric] = useState<MetricMode>("stars");
   const [measureName, setMeasureName] = useState("breast cancer screening partc");
   const [data, setData] = useState<StarDistributionResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -102,7 +145,8 @@ export function StarDistributionAnalysis() {
 
   const selected = data?.measures.find((m) => m.normalizedName === measureName) ?? null;
   const slice = data ? sliceForPeriod(data, period, selected) : null;
-  const caption = periodCaption(period);
+  const scoreSlice = selected ? scoreSliceForPeriod(selected, period) : null;
+  const caption = periodCaption(period, metric);
 
   const chartData = useMemo(() => {
     if (!slice) return [];
@@ -122,51 +166,28 @@ export function StarDistributionAnalysis() {
       .map((measure) => ({
         measure,
         slice: sliceForPeriod(data, period, measure),
+        score: scoreSliceForPeriod(measure, period),
       }))
-      .filter((row) => row.slice.book.n > 0 || row.slice.cms.n > 0);
-  }, [data, period]);
+      .filter((row) =>
+        metric === "scores"
+          ? row.score.book.n > 0 || row.score.cms.n > 0
+          : row.slice.book.n > 0 || row.slice.cms.n > 0
+      );
+  }, [data, period, metric]);
+
+  const scoreBetter =
+    selected && scoreSlice
+      ? selected.inverted
+        ? scoreSlice.meanDelta <= 0
+        : scoreSlice.meanDelta >= 0
+      : true;
 
   return (
     <div className="space-y-5">
       <section className="flex flex-wrap items-end gap-4 rounded-2xl border border-border bg-card p-4">
-        <div>
-          <p className="mb-1 text-xs font-medium text-muted-foreground">Book roster</p>
-          <div className="flex flex-wrap gap-1">
-            {ROSTERS.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => setRoster(item.key)}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                  roster === item.key
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="mb-1 text-xs font-medium text-muted-foreground">Window</p>
-          <div className="flex flex-wrap gap-1">
-            {PERIODS.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => setPeriod(item.key)}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                  period === item.key
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <PillGroup label="Book roster" items={ROSTERS} value={roster} onChange={setRoster} />
+        <PillGroup label="Window" items={PERIODS} value={period} onChange={setPeriod} />
+        <PillGroup label="Show" items={METRICS} value={metric} onChange={setMetric} />
         <div className="min-w-[240px] flex-1">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">
             Measure
@@ -199,7 +220,7 @@ export function StarDistributionAnalysis() {
 
       {isLoading ? (
         <div className="rounded-2xl border border-border bg-card p-8 text-sm text-muted-foreground">
-          Loading book vs CMS star shares…
+          Loading book vs CMS…
         </div>
       ) : null}
       {error ? (
@@ -214,113 +235,120 @@ export function StarDistributionAnalysis() {
 
       {!isLoading && !error && data && slice ? (
         <>
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <ShareStat
-              label="4-star: our book vs CMS"
-              value={`${fmtPct(slice.book.pct[3])} vs ${fmtPct(slice.cms.pct[3])}`}
-              helper={fmtPp(slice.fourStarDelta)}
-              positive={slice.fourStarDelta >= 0}
-            />
-            <ShareStat
-              label="5-star: our book vs CMS"
-              value={`${fmtPct(slice.book.pct[4])} vs ${fmtPct(slice.cms.pct[4])}`}
-              helper={fmtPp(slice.book.pct[4] - slice.cms.pct[4])}
-              positive={slice.book.pct[4] - slice.cms.pct[4] >= 0}
-            />
-            <ShareStat
-              label="4-star+: our book vs CMS"
-              value={`${fmtPct(slice.book.fourPlus)} vs ${fmtPct(slice.cms.fourPlus)}`}
-              helper={fmtPp(slice.fourPlusDelta)}
-              positive={slice.fourPlusDelta >= 0}
-            />
-            <ShareStat
-              label="Rated contracts: book / CMS"
-              value={`${slice.book.n.toLocaleString()} / ${slice.cms.n.toLocaleString()}`}
-              helper={selected ? selected.name : "All measures pooled"}
-            />
-          </section>
+          {metric === "stars" ? (
+            <>
+              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <ShareStat
+                  label="4-star: our book vs CMS"
+                  value={`${fmtPct(slice.book.pct[3])} vs ${fmtPct(slice.cms.pct[3])}`}
+                  helper={fmtPp(slice.fourStarDelta)}
+                  positive={slice.fourStarDelta >= 0}
+                />
+                <ShareStat
+                  label="5-star: our book vs CMS"
+                  value={`${fmtPct(slice.book.pct[4])} vs ${fmtPct(slice.cms.pct[4])}`}
+                  helper={fmtPp(slice.book.pct[4] - slice.cms.pct[4])}
+                  positive={slice.book.pct[4] - slice.cms.pct[4] >= 0}
+                />
+                <ShareStat
+                  label="4-star+: our book vs CMS"
+                  value={`${fmtPct(slice.book.fourPlus)} vs ${fmtPct(slice.cms.fourPlus)}`}
+                  helper={fmtPp(slice.fourPlusDelta)}
+                  positive={slice.fourPlusDelta >= 0}
+                />
+                <ShareStat
+                  label="Rated contracts: book / CMS"
+                  value={`${slice.book.n.toLocaleString()} / ${slice.cms.n.toLocaleString()}`}
+                  helper={selected ? selected.name : "All measures pooled"}
+                />
+              </section>
 
-          <section className="rounded-2xl border border-border bg-card p-5">
-            <h3 className="text-base font-semibold text-foreground">
-              {selected
-                ? `${selected.name} — share of contracts`
-                : "Measure-star share, our book vs CMS"}
-            </h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Source: published measure stars · {caption}
-            </p>
-            <div className="mt-4 h-[260px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis
-                    unit="%"
-                    tick={{ fontSize: 12 }}
-                    domain={[0, "auto"]}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    formatter={(value) =>
-                      `${Number(value ?? 0).toFixed(1)}%`
-                    }
-                  />
-                  <Legend />
-                  <Bar dataKey="CMS" fill="#8a958d" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Our book" fill="#1a3673" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
+              <StarShareChart
+                title={
+                  selected
+                    ? `${selected.name} — share of contracts`
+                    : "Measure-star share, our book vs CMS"
+                }
+                caption={`Source: published measure stars · ${caption}`}
+                data={chartData}
+              />
 
-          {selected ? <SelectedMeasureYearTable measure={selected} /> : null}
-
-          {measureRows.length > 0 ? (
-            <AllMeasuresStarShareTable
-              rows={measureRows}
-              caption={caption}
-              roster={roster}
-              period={period}
-              selectedName={selected?.normalizedName ?? null}
-              onSelect={setMeasureName}
-            />
-          ) : null}
+              {selected ? <SelectedMeasureYearTable measure={selected} /> : null}
+              {measureRows.length > 0 ? (
+                <AllMeasuresStarShareTable
+                  rows={measureRows}
+                  caption={caption}
+                  roster={roster}
+                  period={period}
+                  selectedName={selected?.normalizedName ?? null}
+                  onSelect={setMeasureName}
+                />
+              ) : null}
+            </>
+          ) : (
+            <>
+              {selected && scoreSlice ? (
+                <>
+                  <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <ShareStat
+                      label="Average score: our book vs CMS"
+                      value={`${
+                        scoreSlice.book.n === 0 ? "—" : formatScore(scoreSlice.book.mean)
+                      } vs ${
+                        scoreSlice.cms.n === 0 ? "—" : formatScore(scoreSlice.cms.mean)
+                      }`}
+                      helper={selected.inverted ? "Lower scores are better" : selected.name}
+                      positive={
+                        scoreSlice.book.n === 0 || scoreSlice.cms.n === 0
+                          ? undefined
+                          : scoreBetter
+                      }
+                    />
+                    <ShareStat
+                      label="Difference (book − CMS)"
+                      value={
+                        scoreSlice.book.n === 0 || scoreSlice.cms.n === 0
+                          ? "—"
+                          : formatScoreDelta(scoreSlice.meanDelta)
+                      }
+                      helper={selected.inverted ? "Negative is better" : "Positive is better"}
+                      positive={
+                        scoreSlice.book.n === 0 || scoreSlice.cms.n === 0
+                          ? undefined
+                          : scoreBetter
+                      }
+                    />
+                    <ShareStat
+                      label="Rated contracts: book / CMS"
+                      value={`${scoreSlice.book.n.toLocaleString()} / ${scoreSlice.cms.n.toLocaleString()}`}
+                      helper={caption}
+                    />
+                  </section>
+                  <SelectedMeasureScoreChart measure={selected} caption={caption} />
+                  <SelectedMeasureScoreYearTable measure={selected} />
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Average scores are not pooled across measures because each measure
+                  uses its own scale. Select a measure, or use the table below.
+                </p>
+              )}
+              {measureRows.length > 0 ? (
+                <AllMeasuresScoreTable
+                  rows={measureRows}
+                  caption={caption}
+                  roster={roster}
+                  period={period}
+                  selectedName={selected?.normalizedName ?? null}
+                  onSelect={setMeasureName}
+                />
+              ) : null}
+            </>
+          )}
 
           <BookRosterOrgsTable orgs={data.orgs} />
         </>
       ) : null}
-    </div>
-  );
-}
-
-function ShareStat({
-  label,
-  value,
-  helper,
-  positive,
-}: {
-  label: string;
-  value: string;
-  helper: string;
-  positive?: boolean;
-}) {
-  return (
-    <div className="rounded-2xl border border-border bg-muted/40 p-4">
-      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-        {label}
-      </p>
-      <p
-        className={`mt-2 text-xl font-semibold ${
-          positive === undefined
-            ? "text-foreground"
-            : positive
-              ? "text-emerald-700"
-              : "text-[var(--fep-negative)]"
-        }`}
-      >
-        {value}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
     </div>
   );
 }

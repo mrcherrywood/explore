@@ -1,5 +1,19 @@
+"use client";
+
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
 import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 import { bookVsCmsStarShareCsv } from "@/lib/star-distribution/export";
+import { fepDeltaClass, starShareBetter } from "@/lib/star-distribution/stats";
 import type {
   BookRosterOrg,
   ComparisonSlice,
@@ -16,24 +30,32 @@ function fmtPct(value: number): string {
   return `${value.toFixed(1)}%`;
 }
 
-function rowTone(delta: number): string {
-  if (delta > 1) return "text-emerald-700";
-  if (delta < -1) return "text-[var(--fep-negative)]";
-  return "";
+export function BookCmsPair({
+  book,
+  cms,
+  better,
+}: {
+  book: string;
+  cms: string;
+  better: number;
+}) {
+  return (
+    <>
+      <span className={fepDeltaClass(better)}>{book}</span>
+      {` / ${cms}`}
+    </>
+  );
 }
 
-function meanTone(delta: number): string {
-  if (delta > 0.05) return "text-emerald-700";
-  if (delta < -0.05) return "text-[var(--fep-negative)]";
-  return "";
-}
-
-function bookVsCms(book: StarShare, cms: StarShare, starIndex: number) {
+function starSharePair(book: StarShare, cms: StarShare, starIndex: number) {
   const delta = book.pct[starIndex] - cms.pct[starIndex];
-  return {
-    text: `${fmtPct(book.pct[starIndex])} / ${fmtPct(cms.pct[starIndex])}`,
-    className: rowTone(delta),
-  };
+  return (
+    <BookCmsPair
+      book={fmtPct(book.pct[starIndex])}
+      cms={fmtPct(cms.pct[starIndex])}
+      better={starShareBetter(starIndex, delta)}
+    />
+  );
 }
 
 function sourceLabel(org: BookRosterOrg): string {
@@ -42,6 +64,73 @@ function sourceLabel(org: BookRosterOrg): string {
   if (org.forecast === org.contractCount && org.pp1 === 0) return "Forecast";
   if (org.pp1 === org.contractCount && org.forecast === 0) return "PP1";
   return `${org.forecast} forecast · ${org.pp1} PP1`;
+}
+
+export function ShareStat({
+  label,
+  value,
+  helper,
+  positive,
+}: {
+  label: string;
+  value: string;
+  helper: string;
+  positive?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-muted/40 p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className={`mt-2 text-xl font-semibold ${
+          positive === undefined
+            ? "text-foreground"
+            : positive
+              ? "fep-delta-pos"
+              : "fep-delta-neg"
+        }`}
+      >
+        {value}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
+    </div>
+  );
+}
+
+export function StarShareChart({
+  title,
+  caption,
+  data,
+}: {
+  title: string;
+  caption: string;
+  data: Array<{ name: string; CMS: number; "Our book": number }>;
+}) {
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5">
+      <h3 className="text-base font-semibold text-foreground">{title}</h3>
+      <p className="mt-1 text-xs text-muted-foreground">{caption}</p>
+      <div className="mt-4 h-[260px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} barGap={4}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <YAxis
+              unit="%"
+              tick={{ fontSize: 12 }}
+              domain={[0, "auto"]}
+              allowDecimals={false}
+            />
+            <Tooltip formatter={(value) => `${Number(value ?? 0).toFixed(1)}%`} />
+            <Legend />
+            <Bar dataKey="CMS" fill="#8a958d" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Our book" fill="#1a3673" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  );
 }
 
 export function SelectedMeasureYearTable({
@@ -56,7 +145,8 @@ export function SelectedMeasureYearTable({
           {measure.name} — star share by year
         </h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          Book / CMS percent of rated H+R contracts at each star.
+          Book / CMS percent of rated H+R contracts at each star. Green is a
+          better mix (more 4★/5★ or fewer 1★/2★).
         </p>
       </div>
       <table className="fep-table mt-2">
@@ -74,14 +164,11 @@ export function SelectedMeasureYearTable({
           {measure.years.map((year) => (
             <tr key={year.year}>
               <td className="l">{year.year}</td>
-              {STAR_INDEX.map((starIndex) => {
-                const cell = bookVsCms(year.book, year.cms, starIndex);
-                return (
-                  <td key={starIndex} className={cell.className}>
-                    {cell.text}
-                  </td>
-                );
-              })}
+              {STAR_INDEX.map((starIndex) => (
+                <td key={starIndex}>
+                  {starSharePair(year.book, year.cms, starIndex)}
+                </td>
+              ))}
               <td>{year.book.n}</td>
               <td>{year.cms.n}</td>
             </tr>
@@ -108,14 +195,15 @@ export function AllMeasuresStarShareTable({
   selectedName: string | null;
 }) {
   return (
-    <section className="overflow-x-auto rounded-2xl border border-border bg-card">
+    <section className="rounded-2xl border border-border bg-card">
       <div className="flex items-start justify-between gap-3 px-5 pt-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <h3 className="text-base font-semibold text-foreground">
             Book vs CMS at every star
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
             Share of rated contracts at each whole-star threshold. {caption}.
+            Green is a better mix for our book (more 4★/5★ or fewer 1★/2★).
             Click a measure for the year-by-year view.
           </p>
         </div>
@@ -124,6 +212,7 @@ export function AllMeasuresStarShareTable({
           getData={() => bookVsCmsStarShareCsv(rows)}
         />
       </div>
+      <div className="overflow-x-auto">
       <table className="fep-table mt-2">
         <thead>
           <tr>
@@ -154,22 +243,24 @@ export function AllMeasuresStarShareTable({
                   {measure.name}
                 </button>
               </td>
-              {STAR_INDEX.map((starIndex) => {
-                const cell = bookVsCms(slice.book, slice.cms, starIndex);
-                return (
-                  <td key={starIndex} className={cell.className}>
-                    {cell.text}
-                  </td>
-                );
-              })}
-              <td className={meanTone(slice.meanDelta)}>
-                {slice.book.mean.toFixed(2)} / {slice.cms.mean.toFixed(2)}
+              {STAR_INDEX.map((starIndex) => (
+                <td key={starIndex}>
+                  {starSharePair(slice.book, slice.cms, starIndex)}
+                </td>
+              ))}
+              <td>
+                <BookCmsPair
+                  book={slice.book.mean.toFixed(2)}
+                  cms={slice.cms.mean.toFixed(2)}
+                  better={slice.meanDelta}
+                />
               </td>
               <td>{slice.book.n}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }

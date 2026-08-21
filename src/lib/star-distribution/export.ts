@@ -1,6 +1,11 @@
 import type { CsvData } from "@/lib/export/csv";
 
-import type { ComparisonSlice, MeasureDistribution } from "./types";
+import { formatScore } from "./stats";
+import type {
+  ComparisonSlice,
+  MeasureDistribution,
+  ScoreSlice,
+} from "./types";
 
 const STAR_LABELS = [5, 4, 3, 2, 1] as const;
 
@@ -50,5 +55,32 @@ export function bookVsCmsStarShareCsv(
         String(slice.cms.n),
       ];
     }),
+  };
+}
+
+export function bookVsCmsScoreCsv(
+  rows: Array<{ measure: MeasureDistribution; score: ScoreSlice }>
+): CsvData {
+  return {
+    headers: [
+      "measure",
+      "part",
+      "inverted",
+      "score_book",
+      "score_cms",
+      "score_delta",
+      "n_book",
+      "n_cms",
+    ],
+    rows: rows.map(({ measure, score }) => [
+      measure.name,
+      partLabel(measure.normalizedName),
+      measure.inverted ? "yes" : "no",
+      score.book.n === 0 ? "" : formatScore(score.book.mean),
+      score.cms.n === 0 ? "" : formatScore(score.cms.mean),
+      score.book.n === 0 || score.cms.n === 0 ? "" : score.meanDelta.toFixed(2),
+      String(score.book.n),
+      String(score.cms.n),
+    ]),
   };
 }

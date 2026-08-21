@@ -1,15 +1,21 @@
 import {
   getAvailableMeasureYears,
   getAvailableOptions,
+  getMeasureYearScoreSamples,
   getMeasureYearStarSamples,
 } from "@/lib/band-movement/analysis";
 import { isEligibleOverlayContract } from "@/lib/cutpoint-forecast/pp1-overlay";
+import { isInvertedMeasure } from "@/lib/percentile-analysis/measure-matching";
 
 import {
   compareMeasuresPartThenName,
+  compareScores,
   compareShares,
+  emptyScoreSlice,
+  poolScoreShares,
   poolShares,
   recencyWeights,
+  shareFromScores,
   shareFromStars,
 } from "./stats";
 import { buildBookRosterOrgs } from "./orgs";
@@ -22,6 +28,7 @@ import {
   type MeasureDistribution,
   type MeasureYearSlice,
   type RosterMode,
+  type ScoreSlice,
   type StarDistributionResponse,
   type StarShare,
 } from "./types";
@@ -52,6 +59,30 @@ function poolMeasureYears(
       weights
     )
   );
+}
+
+function poolScoreYears(
+  years: MeasureYearSlice[],
+  filterYears?: readonly number[],
+  weights?: Record<number, number>
+): ScoreSlice {
+  const rows = filterYears
+    ? years.filter((row) => filterYears.includes(row.year))
+    : years;
+  return compareScores(
+    poolScoreShares(
+      rows.map((row) => ({ year: row.year, share: row.score.cms })),
+      weights
+    ),
+    poolScoreShares(
+      rows.map((row) => ({ year: row.year, share: row.score.book })),
+      weights
+    )
+  );
+}
+
+function sliceFromScores(cmsScores: number[], bookScores: number[]): ScoreSlice {
+  return compareScores(shareFromScores(cmsScores), shareFromScores(bookScores));
 }
 
 function poolAllMeasures(
@@ -91,17 +122,29 @@ export function analyzeStarDistribution(
       const samples = getMeasureYearStarSamples(measure.normalizedName, year).filter(
         (sample) => isEligibleOverlayContract(sample.contractId)
       );
-      if (samples.length === 0) continue;
+      const scoreSamples = getMeasureYearScoreSamples(
+        measure.normalizedName,
+        year
+      ).filter((sample) => isEligibleOverlayContract(sample.contractId));
+      if (samples.length === 0 && scoreSamples.length === 0) continue;
 
       const cmsStars = samples.map((sample) => sample.star);
       const bookStars = samples
         .filter((sample) => bookIds.has(sample.contractId))
         .map((sample) => sample.star);
+      const cmsScores = scoreSamples.map((sample) => sample.score);
+      const bookScores = scoreSamples
+        .filter((sample) => bookIds.has(sample.contractId))
+        .map((sample) => sample.score);
 
       yearSlices.push({
         year,
         code: measure.codesByYear[year] ?? "",
         ...sliceFromStars(cmsStars, bookStars),
+        score:
+          scoreSamples.length === 0
+            ? emptyScoreSlice()
+            : sliceFromScores(cmsScores, bookScores),
       });
     }
 
@@ -110,10 +153,14 @@ export function analyzeStarDistribution(
     measures.push({
       name: measure.displayName,
       normalizedName: measure.normalizedName,
+      inverted: isInvertedMeasure(measure.displayName),
       years: yearSlices,
       all: poolMeasureYears(yearSlices),
       last3: poolMeasureYears(yearSlices, LAST3_YEARS),
       last3W: poolMeasureYears(yearSlices, LAST3_YEARS, weights),
+      allScore: poolScoreYears(yearSlices),
+      last3Score: poolScoreYears(yearSlices, LAST3_YEARS),
+      last3WScore: poolScoreYears(yearSlices, LAST3_YEARS, weights),
     });
   }
 

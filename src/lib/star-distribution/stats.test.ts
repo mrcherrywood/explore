@@ -4,11 +4,18 @@ import test from "node:test";
 import {
   compareMeasuresPartThenName,
   compareShares,
+  emptyScoreSlice,
+  fepDeltaClass,
   periodCaption,
+  poolScoreShares,
   poolShares,
+  scoreDeltaBetter,
   shareFromCounts,
+  shareFromScores,
   shareFromStars,
   sliceForPeriod,
+  scoreSliceForPeriod,
+  starShareBetter,
 } from "./stats";
 import type { MeasureDistribution, StarDistributionResponse } from "./types";
 
@@ -69,14 +76,19 @@ test("sliceForPeriod reads the selected measure window", () => {
     year: 2026,
     code: "C01",
     ...compareShares(shareFromCounts([0, 0, 64, 36, 0]), shareFromCounts([0, 0, 56, 44, 0])),
+    score: emptyScoreSlice(),
   };
   const measure: MeasureDistribution = {
     name: "Breast Cancer Screening",
     normalizedName: "breast cancer screening partc",
+    inverted: false,
     years: [y2026],
     all: last3W,
     last3: last3W,
     last3W,
+    allScore: emptyScoreSlice(),
+    last3Score: emptyScoreSlice(),
+    last3WScore: emptyScoreSlice(),
   };
   const data = {
     roster: "combined",
@@ -90,4 +102,74 @@ test("sliceForPeriod reads the selected measure window", () => {
   assert.equal(sliceForPeriod(data, "last3W", measure).book.pct[3], 40);
   assert.equal(sliceForPeriod(data, "2026", measure).book.pct[3], 44);
   assert.match(periodCaption("last3W"), /recency-weighted/);
+});
+
+test("poolScoreShares applies recency weights to contract-year means", () => {
+  const pooled = poolScoreShares(
+    [
+      { year: 2024, share: shareFromScores(Array(100).fill(80)) },
+      { year: 2026, share: shareFromScores(Array(100).fill(90)) },
+    ],
+    { 2024: 1, 2026: 3 }
+  );
+  assert.equal(pooled.n, 400);
+  assert.equal(pooled.mean, 87.5);
+});
+
+test("scoreSliceForPeriod reads the selected measure window", () => {
+  const last3WScore = {
+    cms: { n: 10, mean: 80 },
+    book: { n: 4, mean: 82 },
+    meanDelta: 2,
+  };
+  const y2026Score = {
+    cms: { n: 10, mean: 81 },
+    book: { n: 4, mean: 84 },
+    meanDelta: 3,
+  };
+  const last3W = compareShares(
+    shareFromCounts([0, 0, 70, 30, 0]),
+    shareFromCounts([0, 0, 60, 40, 0])
+  );
+  const measure: MeasureDistribution = {
+    name: "Breast Cancer Screening",
+    normalizedName: "breast cancer screening partc",
+    inverted: false,
+    years: [
+      {
+        year: 2026,
+        code: "C01",
+        ...last3W,
+        score: y2026Score,
+      },
+    ],
+    all: last3W,
+    last3: last3W,
+    last3W,
+    allScore: last3WScore,
+    last3Score: last3WScore,
+    last3WScore: last3WScore,
+  };
+  assert.equal(scoreSliceForPeriod(measure, "last3W").book.mean, 82);
+  assert.equal(scoreSliceForPeriod(measure, "2026").book.mean, 84);
+  assert.match(periodCaption("last3W", "scores"), /scores/);
+});
+
+test("starShareBetter treats more 4★/5★ as better and more 1★/2★ as worse", () => {
+  assert.equal(starShareBetter(4, 3), 3);
+  assert.equal(starShareBetter(3, -2), -2);
+  assert.equal(starShareBetter(0, 4), -4);
+  assert.equal(starShareBetter(1, -1), 1);
+  assert.equal(starShareBetter(2, 8), 0);
+});
+
+test("scoreDeltaBetter flips for inverted measures", () => {
+  assert.equal(scoreDeltaBetter(1.2, false), 1);
+  assert.equal(scoreDeltaBetter(-0.4, false), -1);
+  assert.equal(scoreDeltaBetter(-0.04, true), 1);
+  assert.equal(scoreDeltaBetter(0.1, true), -1);
+  assert.equal(scoreDeltaBetter(0, true), 0);
+  assert.equal(fepDeltaClass(1), "fep-delta-pos");
+  assert.equal(fepDeltaClass(-1), "fep-delta-neg");
+  assert.equal(fepDeltaClass(0), "");
 });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getMeasureYearStarSamples } from "@/lib/band-movement/analysis";
+import { getMeasureYearScoreSamples, getMeasureYearStarSamples } from "@/lib/band-movement/analysis";
 import { isEligibleOverlayContract } from "@/lib/cutpoint-forecast/pp1-overlay";
 
 import { analyzeStarDistribution } from "./analysis";
@@ -87,4 +87,48 @@ test("recency-weighted window matches CMS when the book is the full last-3 marke
   assert.ok(slice.cms.n > measure.last3.cms.n);
   assert.equal(slice.fourStarDelta, 0);
   assert.equal(slice.book.fourPlus, slice.cms.fourPlus);
+});
+
+test("when the book is the full eligible market, average scores match CMS", () => {
+  const market = new Set(
+    getMeasureYearScoreSamples(BCS, 2026)
+      .filter((sample) => isEligibleOverlayContract(sample.contractId))
+      .map((sample) => sample.contractId)
+  );
+  const result = analyzeStarDistribution(market, "combined", {
+    ...EMPTY_INVENTORY,
+    combined: market.size,
+  });
+  const measure = result.measures.find((row) => row.normalizedName === BCS);
+  assert.ok(measure);
+  const y2026 = measure.years.find((row) => row.year === 2026);
+  assert.ok(y2026);
+  assert.equal(y2026.score.book.mean, y2026.score.cms.mean);
+  assert.equal(y2026.score.meanDelta, 0);
+  assert.equal(y2026.score.book.n, y2026.score.cms.n);
+  assert.ok(y2026.score.cms.n > 0);
+});
+
+test("an empty book reports no average score against a real CMS market", () => {
+  const result = analyzeStarDistribution(new Set(), "combined", EMPTY_INVENTORY);
+  const measure = result.measures.find((row) => row.normalizedName === BCS);
+  assert.ok(measure);
+  const y2026 = measure.years.find((row) => row.year === 2026);
+  assert.ok(y2026);
+  assert.equal(y2026.score.book.n, 0);
+  assert.equal(y2026.score.meanDelta, 0);
+  assert.ok(y2026.score.cms.n > 0);
+  assert.ok(y2026.score.cms.mean > 0);
+});
+
+test("Complaints is flagged inverted; Breast Cancer Screening is not", () => {
+  const result = analyzeStarDistribution(new Set(), "combined", EMPTY_INVENTORY);
+  const bcs = result.measures.find((row) => row.normalizedName === BCS);
+  const complaints = result.measures.find((row) =>
+    /complaint/i.test(row.name)
+  );
+  assert.ok(bcs);
+  assert.equal(bcs.inverted, false);
+  assert.ok(complaints);
+  assert.equal(complaints.inverted, true);
 });

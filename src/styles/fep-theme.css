@@ -18,6 +18,7 @@
   --fep-info-bg: #eef2f9;
   --fep-info-border: #d3ddec;
   --fep-negative: #c26a4c;
+  --fep-positive: #2f9e7e;
 
   font-family: var(--font-hanken), "Hanken Grotesk", system-ui, sans-serif;
   color: var(--fep-ink);
@@ -208,6 +209,21 @@
 }
 .fep-table tbody tr:hover {
   background: var(--fep-row-hover);
+}
+
+.fep-delta-pos {
+  color: var(--fep-positive);
+}
+.fep-delta-neg {
+  color: var(--fep-negative);
+}
+.fep-table .fep-delta-pos {
+  color: var(--fep-positive);
+  font-weight: 800;
+}
+.fep-table .fep-delta-neg {
+  color: var(--fep-negative);
+  font-weight: 800;
 }
 
 .fep-pill {

@@ -4,6 +4,7 @@ export const RECENCY_WEIGHTS: Record<number, number> = { 2024: 1, 2025: 2, 2026:
 
 export type RosterMode = "combined" | "forecast" | "pp1";
 export type PeriodKey = "all" | "last3" | "last3W" | "2023" | "2024" | "2025" | "2026";
+export type MetricMode = "stars" | "scores";
 
 export type StarCounts = [number, number, number, number, number];
 
@@ -24,18 +25,34 @@ export type ComparisonSlice = {
   fourPlusDelta: number;
 };
 
+export type ScoreShare = {
+  n: number;
+  mean: number;
+};
+
+export type ScoreSlice = {
+  cms: ScoreShare;
+  book: ScoreShare;
+  meanDelta: number;
+};
+
 export type MeasureYearSlice = ComparisonSlice & {
   year: number;
   code: string;
+  score: ScoreSlice;
 };
 
 export type MeasureDistribution = {
   name: string;
   normalizedName: string;
+  inverted: boolean;
   years: MeasureYearSlice[];
   all: ComparisonSlice;
   last3: ComparisonSlice;
   last3W: ComparisonSlice;
+  allScore: ScoreSlice;
+  last3Score: ScoreSlice;
+  last3WScore: ScoreSlice;
 };
 
 export type BookRosterInventory = {
