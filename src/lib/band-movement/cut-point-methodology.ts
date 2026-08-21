@@ -20,7 +20,7 @@ import {
 import type { MeasureCutPoint } from "@/lib/percentile-analysis/measure-likelihood-types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
-const CUT_POINTS_PATH = path.join(DATA_DIR, "Stars 2016-2028 Cut Points 07.2026_with_weights.xlsx");
+const CUT_POINTS_PATH = path.join(DATA_DIR, "Stars 2016-2028 Cut Points 08.2026_with_weights.xlsx");
 const CLIENT_CONTRACTS_PATH = path.join(DATA_DIR, "client-contracts.xlsx");
 const RESAMPLE_FOLD_COUNT = 10;
 const RESAMPLE_SEED = 8675309;

@@ -423,7 +423,7 @@ test(
     const c21 = Object.fromEntries(
       (gettingNeededCare.thresholds ?? []).map((item) => [item.key, item.projected])
     );
-    // Official SY2027 Getting Needed Care cut points from the 07.2026 workbook.
+    // Official SY2027 Getting Needed Care cut points from the 08.2026 workbook.
     assert.deepEqual(c21, { twoStar: 78, threeStar: 80, fourStar: 83, fiveStar: 84 });
 
     const h0885 = result.contracts.find((contract) => contract.contractId === "H0885");

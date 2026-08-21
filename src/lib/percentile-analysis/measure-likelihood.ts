@@ -21,7 +21,7 @@ import type {
 import { getContractPercentilesOutput, SUPPORTED_MEASURE_YEARS, YEAR_RECENCY_WEIGHTS } from "@/lib/percentile-analysis/run";
 import type { PercentileMethod } from "@/lib/percentile-analysis/workbook-types";
 
-const CUT_POINTS_WORKBOOK_PATH = path.join(process.cwd(), "data", "Stars 2016-2028 Cut Points 07.2026_with_weights.xlsx");
+const CUT_POINTS_WORKBOOK_PATH = path.join(process.cwd(), "data", "Stars 2016-2028 Cut Points 08.2026_with_weights.xlsx");
 const LOOKUP_RADII = [0, 2.5, 5, 7.5, 10, 15, 20] as const;
 
 const METHOD_DESCRIPTIONS: Record<PercentileMethod, string> = {

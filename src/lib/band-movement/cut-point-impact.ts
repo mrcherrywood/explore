@@ -18,7 +18,7 @@ export type { PerFromScoreRow };
 const DATA_DIR = path.join(process.cwd(), "data");
 const CUT_POINTS_PATH = path.join(
   DATA_DIR,
-  "Stars 2016-2028 Cut Points 07.2026_with_weights.xlsx"
+  "Stars 2016-2028 Cut Points 08.2026_with_weights.xlsx"
 );
 const FORECAST_YEARS = [2027, 2028] as const;
 const HISTORICAL_YEARS = Array.from({ length: 11 }, (_, i) => 2016 + i); // 2016-2026

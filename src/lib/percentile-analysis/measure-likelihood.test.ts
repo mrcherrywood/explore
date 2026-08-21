@@ -16,7 +16,7 @@ import {
 } from "@/lib/percentile-analysis/measure-matching";
 import type { MeasureCutPoint, MeasureObservation } from "@/lib/percentile-analysis/measure-likelihood-types";
 
-const cutPointsPath = path.join(process.cwd(), "data", "Stars 2016-2028 Cut Points 07.2026_with_weights.xlsx");
+const cutPointsPath = path.join(process.cwd(), "data", "Stars 2016-2028 Cut Points 08.2026_with_weights.xlsx");
 
 function makeCutPoint(overrides: Partial<MeasureCutPoint> = {}): MeasureCutPoint {
   return {
