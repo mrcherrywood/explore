@@ -17,6 +17,7 @@ import {
   loadPp1SamplesForMeasure,
   type MergedOverlaySamples,
 } from "./pp1-overlay";
+import { excludeUntrustedForecastSamples } from "./exclusions";
 import {
   getAllForecastProjectionsForRun,
   getForecastBookRun,
@@ -595,12 +596,15 @@ export async function analyzeApprovedCutPointForecast(
   }
 
   const projections = await getAllForecastProjectionsForRun(serviceClient, approvedSource.run.id);
-  const projectedSamples = projections
-    .filter((projection) => projection.measureNormalized === measureNorm)
-    .map((projection) => ({
-      contractId: projection.contractId,
-      score: projection.finalScore,
-    }));
+  const projectedSamples = excludeUntrustedForecastSamples(
+    projections
+      .filter((projection) => projection.measureNormalized === measureNorm)
+      .map((projection) => ({
+        contractId: projection.contractId,
+        score: projection.finalScore,
+      })),
+    measureNorm,
+  );
 
   let overlaySamples = buildCurrentYearForecastOverlay(
     projectedSamples,

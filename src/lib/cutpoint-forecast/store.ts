@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/supabase/database.types";
 import { pickForecastBookRun } from "./book-run";
+import { excludeUntrustedForecastProjections } from "./exclusions";
 import type {
   ForecastImportBatchRecord,
   ForecastMeasureApprovalRecord,
@@ -283,7 +284,7 @@ export async function insertForecastProjections(
     updatedBy: string | null;
   }
 ) {
-  const inserts = input.projections.map((projection) => ({
+  const inserts = excludeUntrustedForecastProjections(input.projections).map((projection) => ({
     run_id: input.runId,
     forecast_year: input.forecastYear,
     contract_id: projection.contractId,

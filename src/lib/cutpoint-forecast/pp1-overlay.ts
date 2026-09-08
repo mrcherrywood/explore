@@ -2,6 +2,10 @@ import type { MeasureScoreSample } from "@/lib/band-movement/analysis";
 import { getPlanPreviewScoredRows } from "@/lib/plan-preview/store";
 import type { createServiceRoleClient } from "@/lib/supabase/server";
 
+import {
+  excludeUntrustedForecastProjections,
+  excludeUntrustedForecastSamples,
+} from "./exclusions";
 import { getAllForecastProjectionsForRun, getForecastBookRun } from "./store";
 
 type ServiceClient = ReturnType<typeof createServiceRoleClient>;
@@ -142,7 +146,9 @@ export async function loadApprovedForecastSamplesForYear(
   for (const run of runs) {
     if (!run) continue;
     overlay.runIds.push(run.id);
-    const projections = await getAllForecastProjectionsForRun(serviceClient, run.id);
+    const projections = excludeUntrustedForecastProjections(
+      await getAllForecastProjectionsForRun(serviceClient, run.id),
+    );
     for (const projection of projections) {
       const contractId = projection.contractId.trim().toUpperCase();
       if (!isEligibleOverlayContract(contractId)) continue;
@@ -167,14 +173,21 @@ export function lookupForecastYearEndSamples(
 ): MeasureScoreSample[] {
   if (!overlay) return [];
   const exact = overlay.byMeasureNormalized.get(measureNormalized);
-  if (exact?.length) return exact;
+  if (exact?.length) {
+    return excludeUntrustedForecastSamples(exact, measureNormalized);
+  }
   if (measureCode) {
     const byCode = overlay.byMeasureCode.get(measureCode.toUpperCase());
-    if (byCode?.length) return byCode;
+    if (byCode?.length) {
+      return excludeUntrustedForecastSamples(byCode, measureNormalized);
+    }
   }
   const stripped = measureNormalized.replace(/\s*part\s*[cd]$/i, "").trim();
   if (stripped !== measureNormalized) {
-    return overlay.byMeasureNormalized.get(stripped) ?? [];
+    return excludeUntrustedForecastSamples(
+      overlay.byMeasureNormalized.get(stripped) ?? [],
+      measureNormalized,
+    );
   }
   return [];
 }

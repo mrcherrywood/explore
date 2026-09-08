@@ -13,6 +13,7 @@ import {
   buildCurrentYearOverlayNotes,
   buildForecastMethodologyInputs,
 } from "@/lib/cutpoint-forecast/analysis";
+import { excludeUntrustedForecastSamples } from "@/lib/cutpoint-forecast/exclusions";
 import { loadPp1SamplesForMeasure } from "@/lib/cutpoint-forecast/pp1-overlay";
 import {
   getAllForecastProjectionsForRun,
@@ -70,9 +71,12 @@ export async function GET(request: NextRequest) {
     const populationMode =
       searchParams.get("populationMode") === "client_only" ? "client_only" : "full_market";
 
-    const projectedSamples = projections
-      .filter((p) => p.measureNormalized === measure)
-      .map((p) => ({ contractId: p.contractId, score: p.finalScore }));
+    const projectedSamples = excludeUntrustedForecastSamples(
+      projections
+        .filter((p) => p.measureNormalized === measure)
+        .map((p) => ({ contractId: p.contractId, score: p.finalScore })),
+      measure,
+    );
 
     let overlaySamples = buildCurrentYearForecastOverlay(
       projectedSamples,
