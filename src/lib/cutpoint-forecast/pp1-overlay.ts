@@ -2,10 +2,7 @@ import type { MeasureScoreSample } from "@/lib/band-movement/analysis";
 import { getPlanPreviewScoredRows } from "@/lib/plan-preview/store";
 import type { createServiceRoleClient } from "@/lib/supabase/server";
 
-import {
-  getAllForecastProjectionsForRun,
-  getLatestForecastRunForYear,
-} from "./store";
+import { getAllForecastProjectionsForRun, getForecastBookRun } from "./store";
 
 type ServiceClient = ReturnType<typeof createServiceRoleClient>;
 
@@ -138,8 +135,8 @@ export async function loadApprovedForecastSamplesForYear(
   const year = Math.round(starsYear);
 
   const runs = await Promise.all([
-    getLatestForecastRunForYear(serviceClient, year, "approved", "non_cahps"),
-    getLatestForecastRunForYear(serviceClient, year, "approved", "cahps"),
+    getForecastBookRun(serviceClient, year, "non_cahps", { approvedOnly: true }),
+    getForecastBookRun(serviceClient, year, "cahps", { approvedOnly: true }),
   ]);
 
   for (const run of runs) {

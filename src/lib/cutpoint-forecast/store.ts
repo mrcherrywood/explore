@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/supabase/database.types";
+import { pickForecastBookRun } from "./book-run";
 import type {
   ForecastImportBatchRecord,
   ForecastMeasureApprovalRecord,
@@ -157,13 +158,17 @@ function mapMonthlyHistoryRow(row: MonthlyHistoryDbRow): ForecastMonthlyHistoryP
 async function insertInBatches<T extends Record<string, unknown>>(
   serviceClient: ServiceClient,
   table: keyof Database["public"]["Tables"],
-  rows: T[]
+  rows: T[],
+  onConflict?: string
 ) {
   for (let offset = 0; offset < rows.length; offset += INSERT_BATCH_SIZE) {
     const batch = rows.slice(offset, offset + INSERT_BATCH_SIZE);
     if (batch.length === 0) continue;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (serviceClient as any).from(table).insert(batch);
+    const query = (serviceClient as any).from(table);
+    const { error } = onConflict
+      ? await query.upsert(batch, { onConflict })
+      : await query.insert(batch);
     if (error) throw new Error(error.message);
   }
 }
@@ -226,7 +231,12 @@ export async function insertForecastMonthlyHistory(
     denominator_all: row.denominatorAll,
   }));
 
-  await insertInBatches(serviceClient, "forecast_monthly_measure_history", inserts);
+  await insertInBatches(
+    serviceClient,
+    "forecast_monthly_measure_history",
+    inserts,
+    "batch_id,contract_id,measure_normalized,data_year,data_month"
+  );
 }
 
 export async function createForecastProjectionRun(
@@ -298,7 +308,41 @@ export async function insertForecastProjections(
     updated_by: input.updatedBy,
   }));
 
-  await insertInBatches(serviceClient, "forecast_year_end_projections", inserts);
+  await insertInBatches(
+    serviceClient,
+    "forecast_year_end_projections",
+    inserts,
+    "run_id,contract_id,measure_normalized"
+  );
+}
+
+export async function countForecastProjectionsForRun(
+  serviceClient: ServiceClient,
+  runId: string
+): Promise<number> {
+  const { count, error } = await serviceClient
+    .from("forecast_year_end_projections")
+    .select("*", { count: "exact", head: true })
+    .eq("run_id", runId)
+    .gt("supporting_points", 0);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+export async function appendForecastRunNote(
+  serviceClient: ServiceClient,
+  runId: string,
+  note: string
+) {
+  const run = await getForecastRun(serviceClient, runId);
+  if (!run) throw new Error("Run not found.");
+  const notes = [run.notes?.trim(), note.trim()].filter(Boolean).join("\n");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (serviceClient as any)
+    .from("forecast_projection_runs")
+    .update({ notes })
+    .eq("id", runId);
+  if (error) throw new Error(error.message);
 }
 
 export async function getAllMonthlyHistoryForBatch(
@@ -519,29 +563,27 @@ export async function getForecastRun(
   return data ? mapRunRow(data) : null;
 }
 
-export async function getLatestForecastRunForYear(
+/**
+ * The accruing book run for a stars year + dataset (see `pickForecastBookRun`).
+ * With `approvedOnly`, returns null unless that book is approved.
+ */
+export async function getForecastBookRun(
   serviceClient: ServiceClient,
   forecastYear: number,
-  status?: ForecastProjectionRunRecord["status"],
-  datasetType?: ForecastProjectionRunRecord["datasetType"]
+  datasetType: ForecastProjectionRunRecord["datasetType"],
+  options?: { approvedOnly?: boolean }
 ): Promise<ForecastProjectionRunRecord | null> {
-  let query = serviceClient
+  const { data, error } = await serviceClient
     .from("forecast_projection_runs")
     .select("*")
     .eq("forecast_year", forecastYear)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (status) {
-    query = query.eq("status", status);
-  }
-  if (datasetType) {
-    query = query.eq("dataset_type", datasetType);
-  }
-
-  const { data, error } = await query.maybeSingle();
+    .eq("dataset_type", datasetType);
   if (error) throw new Error(error.message);
-  return data ? mapRunRow(data) : null;
+
+  const book = pickForecastBookRun((data ?? []).map(mapRunRow));
+  if (!book) return null;
+  if (options?.approvedOnly && book.status !== "approved") return null;
+  return book;
 }
 
 export async function getForecastProjectionsForRun(

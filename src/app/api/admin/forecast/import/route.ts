@@ -10,9 +10,25 @@ import {
 import { getAvailableMeasureYears } from "@/lib/band-movement/analysis";
 import { isEligibleForecastContract } from "@/lib/cutpoint-forecast/analysis";
 import { buildGlidepathProjections } from "@/lib/cutpoint-forecast/glidepath";
-import { createForecastImportBatch, createForecastProjectionRun, insertForecastMonthlyHistory, insertForecastProjections } from "@/lib/cutpoint-forecast/store";
+import { pickForecastBookRun } from "@/lib/cutpoint-forecast/book-run";
+import {
+  appendForecastRunNote,
+  countForecastProjectionsForRun,
+  createForecastImportBatch,
+  createForecastProjectionRun,
+  getForecastRun,
+  insertForecastMonthlyHistory,
+  insertForecastProjections,
+  listForecastProjectionRuns,
+  updateForecastRunProjectionCount,
+} from "@/lib/cutpoint-forecast/store";
 import { parseForecastWorkbook } from "@/lib/cutpoint-forecast/workbook";
-import type { ForecastDatasetType } from "@/lib/cutpoint-forecast/types";
+import type {
+  ForecastDatasetType,
+  ForecastProjectionRunRecord,
+  GlidepathProjection,
+  ImportedMonthlyMeasureRow,
+} from "@/lib/cutpoint-forecast/types";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 // CMS has already published official Star Ratings through the latest year in our
@@ -50,8 +66,8 @@ export async function POST(request: Request) {
 
     const parsed = parseForecastWorkbook(buffer);
 
-    // Generate a separate run for each unpublished stars year present in the
-    // file (e.g. SY2027, SY2028). Published years (SY2026 and earlier) are left
+    // Each unpublished stars year in the file (e.g. SY2027, SY2028) accrues onto
+    // that year's book run. Published years (SY2026 and earlier) are left
     // untouched since CMS has already released official results for them.
     const latestPublishedStarsYear = getLatestPublishedStarsYear();
     const forecastableYears = Array.from(
@@ -83,10 +99,18 @@ export async function POST(request: Request) {
 
     await insertForecastMonthlyHistory(admin.serviceClient, batch.id, parsed.rows);
 
-    const runs = [];
+    const runs: ForecastProjectionRunRecord[] = [];
     const usedProjectedFinal = parsed.rows.some(
       (row) => row.projectedFinal != null && Number.isFinite(row.projectedFinal)
     );
+    let existingRuns = await listForecastProjectionRuns(admin.serviceClient);
+    const rememberRun = (saved: ForecastProjectionRunRecord) => {
+      existingRuns = [
+        ...existingRuns.filter((run) => run.id !== saved.id),
+        saved,
+      ];
+      runs.push(saved);
+    };
     for (const forecastYear of forecastableYears) {
       const projections = buildGlidepathProjections(parsed.rows, forecastYear).filter(
         (projection) =>
@@ -107,50 +131,43 @@ export async function POST(request: Request) {
       );
 
       if (nonCahpsProjections.length > 0) {
-        const run = await createForecastProjectionRun(admin.serviceClient, {
-          sourceBatchId: batch.id,
-          forecastYear,
-          datasetType: "non_cahps",
-          asOfYear: parsed.summary.latestObservedYear,
-          asOfMonth: parsed.summary.latestObservedMonth,
-          projectionCount: nonCahpsProjections.length,
-          importedBy: admin.userId,
-          notes: usedProjectedFinal
-            ? `Imported from ${file.name} (SY${forecastYear}); year-end rates from Projected Final where provided.`
-            : `Imported from ${file.name} (SY${forecastYear})`,
-        });
-
-        await insertForecastProjections(admin.serviceClient, {
-          runId: run.id,
-          forecastYear,
-          projections: nonCahpsProjections,
-          updatedBy: admin.userId,
-        });
-
-        runs.push(run);
+        const note = usedProjectedFinal
+          ? `Imported from ${file.name} (SY${forecastYear}); year-end rates from Projected Final where provided.`
+          : `Imported from ${file.name} (SY${forecastYear})`;
+        rememberRun(
+          await saveProjectionsOntoRun(admin.serviceClient, {
+            existingRuns,
+            historyRows: parsed.rows,
+            forecastYear,
+            datasetType: "non_cahps",
+            sourceBatchId: batch.id,
+            asOfYear: parsed.summary.latestObservedYear,
+            asOfMonth: parsed.summary.latestObservedMonth,
+            projections: nonCahpsProjections,
+            importedBy: admin.userId,
+            notes: note,
+            mergeNote: `Added ${file.name} (${nonCahpsProjections.length} contract-measure rows merged).`,
+          })
+        );
       }
 
       if (cahpsProjections.length > 0) {
-        const run = await createForecastProjectionRun(admin.serviceClient, {
-          sourceBatchId: batch.id,
-          forecastYear,
-          datasetType: "cahps",
-          asOfYear: parsed.summary.latestObservedYear,
-          asOfMonth: parsed.summary.latestObservedMonth,
-          projectionCount: cahpsProjections.length,
-          importedBy: admin.userId,
-          modelVersion: "projected-final-v1",
-          notes: `Imported CAHPS year-end rates from Projected Final in ${file.name} (SY${forecastYear}).`,
-        });
-
-        await insertForecastProjections(admin.serviceClient, {
-          runId: run.id,
-          forecastYear,
-          projections: cahpsProjections,
-          updatedBy: admin.userId,
-        });
-
-        runs.push(run);
+        rememberRun(
+          await saveProjectionsOntoRun(admin.serviceClient, {
+            existingRuns,
+            historyRows: parsed.rows,
+            forecastYear,
+            datasetType: "cahps",
+            sourceBatchId: batch.id,
+            asOfYear: parsed.summary.latestObservedYear,
+            asOfMonth: parsed.summary.latestObservedMonth,
+            projections: cahpsProjections,
+            importedBy: admin.userId,
+            modelVersion: "projected-final-v1",
+            notes: `Imported CAHPS year-end rates from Projected Final in ${file.name} (SY${forecastYear}).`,
+            mergeNote: `Added ${file.name} (${cahpsProjections.length} CAHPS contract-measure rows merged).`,
+          })
+        );
       }
     }
 
@@ -225,23 +242,19 @@ async function importCahps(
     importedBy: userId,
   });
 
-  const run = await createForecastProjectionRun(serviceClient, {
-    sourceBatchId: batch.id,
+  const existingRuns = await listForecastProjectionRuns(serviceClient);
+  const run = await saveProjectionsOntoRun(serviceClient, {
+    existingRuns,
     forecastYear,
     datasetType: "cahps",
+    sourceBatchId: batch.id,
     asOfYear: reportingYear,
     asOfMonth: latestSurveyWeek || null,
-    projectionCount: projections.length,
+    projections,
     importedBy: userId,
     modelVersion: "cahps-survey-v1",
     notes: `Imported CAHPS survey from ${file.name} (through week ${latestSurveyWeek}).`,
-  });
-
-  await insertForecastProjections(serviceClient, {
-    runId: run.id,
-    forecastYear,
-    projections,
-    updatedBy: userId,
+    mergeNote: `Added ${file.name} (${projections.length} CAHPS contract-measure rows merged).`,
   });
 
   return NextResponse.json({
@@ -255,7 +268,96 @@ async function importCahps(
       runCount: 1,
       latestObservedYear: reportingYear,
       latestObservedMonth: latestSurveyWeek || null,
-      projectionCount: projections.length,
+      projectionCount: run.projectionCount,
     },
   });
+}
+
+/**
+ * Land projections on the stars year's book run so the forecast always reflects
+ * the newest data. A new run is created only when the year has none yet.
+ */
+async function saveProjectionsOntoRun(
+  serviceClient: AdminServiceClient,
+  input: {
+    existingRuns: ForecastProjectionRunRecord[];
+    historyRows?: ImportedMonthlyMeasureRow[];
+    forecastYear: number;
+    datasetType: ForecastDatasetType;
+    sourceBatchId: string;
+    asOfYear: number | null;
+    asOfMonth: number | null;
+    projections: GlidepathProjection[];
+    importedBy: string | null;
+    modelVersion?: string;
+    notes: string;
+    mergeNote: string;
+  }
+): Promise<ForecastProjectionRunRecord> {
+  const candidates = input.existingRuns.filter(
+    (run) => run.forecastYear === input.forecastYear && run.datasetType === input.datasetType
+  );
+  const mergeTarget = pickForecastBookRun(candidates);
+
+  if (!mergeTarget) {
+    return createAndInsertRun(serviceClient, input);
+  }
+
+  if (input.historyRows?.length && mergeTarget.sourceBatchId) {
+    await insertForecastMonthlyHistory(
+      serviceClient,
+      mergeTarget.sourceBatchId,
+      input.historyRows
+    );
+  }
+
+  await insertForecastProjections(serviceClient, {
+    runId: mergeTarget.id,
+    forecastYear: input.forecastYear,
+    projections: input.projections,
+    updatedBy: input.importedBy,
+  });
+  const projectionCount = await countForecastProjectionsForRun(
+    serviceClient,
+    mergeTarget.id
+  );
+  await updateForecastRunProjectionCount(serviceClient, mergeTarget.id, projectionCount);
+  await appendForecastRunNote(serviceClient, mergeTarget.id, input.mergeNote);
+  const merged = await getForecastRun(serviceClient, mergeTarget.id);
+  if (!merged) throw new Error("Failed to reload merged forecast run.");
+  return merged;
+}
+
+async function createAndInsertRun(
+  serviceClient: AdminServiceClient,
+  input: {
+    forecastYear: number;
+    datasetType: ForecastDatasetType;
+    sourceBatchId: string;
+    asOfYear: number | null;
+    asOfMonth: number | null;
+    projections: GlidepathProjection[];
+    importedBy: string | null;
+    modelVersion?: string;
+    notes: string;
+  }
+): Promise<ForecastProjectionRunRecord> {
+  const run = await createForecastProjectionRun(serviceClient, {
+    sourceBatchId: input.sourceBatchId,
+    forecastYear: input.forecastYear,
+    datasetType: input.datasetType,
+    asOfYear: input.asOfYear,
+    asOfMonth: input.asOfMonth,
+    projectionCount: input.projections.length,
+    importedBy: input.importedBy,
+    modelVersion: input.modelVersion,
+    notes: input.notes,
+  });
+  await insertForecastProjections(serviceClient, {
+    runId: run.id,
+    forecastYear: input.forecastYear,
+    projections: input.projections,
+    updatedBy: input.importedBy,
+  });
+  return run;
 }

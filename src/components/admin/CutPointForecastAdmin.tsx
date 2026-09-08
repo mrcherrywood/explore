@@ -32,7 +32,9 @@ type ProjectionRun = {
   asOfYear: number | null;
   asOfMonth: number | null;
   projectionCount: number;
+  notes: string | null;
   createdAt: string;
+  updatedAt: string;
   approvedAt: string | null;
 };
 
@@ -610,7 +612,7 @@ export function CutPointForecastAdmin() {
           <p className="text-xs text-muted-foreground">
             {datasetType === "cahps"
               ? "CAHPS surveys are collected between weeks 10–22. The current cumulative rate is used directly as the projected score (no glidepath modeling); confidence rises as the latest survey week approaches week 22. The stars year is derived from the file's reporting year (stars year = reporting year + 1)."
-              : "A separate forecast run is generated for each unpublished stars year in the file (e.g. SY2027, SY2028); years CMS has already published (SY2026 and earlier) are skipped. Non-CAHPS measures use the file's stars year directly and are projected to year-end via glidepath with guardrails (±2 points HEDIS, ±1 point Pharmacy from prior-year final)."}
+              : "Each Stars year has one accruing forecast. Uploads add their contracts to it and replace any overlapping contract+measure scores, so cut points always reflect the newest data. A new run is created only for a Stars year with no forecast yet. Published years (SY2026 and earlier) are skipped."}
           </p>
 
           {error && (
@@ -651,10 +653,16 @@ export function CutPointForecastAdmin() {
               <option key={run.id} value={run.id}>
                 {run.forecastYear} ·{" "}
                 {run.datasetType === "cahps" ? "CAHPS" : "Non-CAHPS"} ·{" "}
-                {run.status} · {new Date(run.createdAt).toLocaleString()}
+                {run.status} · {run.projectionCount.toLocaleString()} scores · updated{" "}
+                {new Date(run.updatedAt).toLocaleString()}
               </option>
             ))}
           </select>
+          {selectedRun?.notes ? (
+            <p className="mt-3 whitespace-pre-line text-xs text-muted-foreground">
+              {selectedRun.notes}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 

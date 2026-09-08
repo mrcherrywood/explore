@@ -12,8 +12,8 @@ import {
   getAllMonthlyHistoryForBatch,
   getAllForecastProjectionsForRun,
   getForecastProjectionsForRun,
+  getForecastBookRun,
   getForecastRun,
-  getLatestForecastRunForYear,
   getPriorYearFinalScoresForProjections,
   insertForecastProjections,
   listForecastMeasureApprovals,
@@ -116,11 +116,16 @@ export async function GET(request: NextRequest) {
       : [];
 
     const runs = await listForecastProjectionRuns(admin.serviceClient);
+    // Default to the accruing book for the newest stars year, not whichever
+    // run happened to be created last.
+    const defaultYear =
+      forecastYear ?? (runs.length > 0 ? Math.max(...runs.map((run) => run.forecastYear)) : undefined);
     const selectedRun = runIdParam
       ? await getForecastRun(admin.serviceClient, runIdParam)
-      : forecastYear !== undefined
-        ? await getLatestForecastRunForYear(admin.serviceClient, forecastYear)
-        : runs[0] ?? null;
+      : defaultYear !== undefined
+        ? (await getForecastBookRun(admin.serviceClient, defaultYear, "non_cahps")) ??
+          (await getForecastBookRun(admin.serviceClient, defaultYear, "cahps"))
+        : null;
 
     const projectionResult = selectedRun
       ? await getForecastProjectionsForRun(admin.serviceClient, selectedRun.id, {

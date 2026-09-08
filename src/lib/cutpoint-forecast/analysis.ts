@@ -19,7 +19,7 @@ import {
 } from "./pp1-overlay";
 import {
   getAllForecastProjectionsForRun,
-  getLatestForecastRunForYear,
+  getForecastBookRun,
   listForecastMeasureApprovalsForRuns,
   listForecastProjectionRuns,
 } from "./store";
@@ -143,11 +143,11 @@ async function resolveApprovedForecastSource(
     measureNorm: string;
   }
 ): Promise<ApprovedForecastSource | null> {
-  const runApprovedSource = await getLatestForecastRunForYear(
+  const runApprovedSource = await getForecastBookRun(
     serviceClient,
     input.forecastYear,
-    "approved",
-    input.datasetType
+    input.datasetType,
+    { approvedOnly: true }
   );
   if (runApprovedSource) {
     return {

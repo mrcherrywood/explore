@@ -15,7 +15,7 @@ import {
   emptyForecastYearEndOverlay,
   loadApprovedForecastSamplesForYear,
 } from "@/lib/cutpoint-forecast/pp1-overlay";
-import { getLatestForecastRunForYear } from "@/lib/cutpoint-forecast/store";
+import { getForecastBookRun } from "@/lib/cutpoint-forecast/store";
 
 import {
   getPlanPreviewCaiByContract,
@@ -44,15 +44,19 @@ export async function getPlanPreviewRun(
   const batches = await listPlanPreviewBatches(client, starsYear);
   const year = Math.round(starsYear);
   const [nonCahpsRun, cahpsRun] = await Promise.all([
-    getLatestForecastRunForYear(client, year, "approved", "non_cahps").catch(
+    getForecastBookRun(client, year, "non_cahps", { approvedOnly: true }).catch(
       () => null,
     ),
-    getLatestForecastRunForYear(client, year, "approved", "cahps").catch(
+    getForecastBookRun(client, year, "cahps", { approvedOnly: true }).catch(
       () => null,
     ),
   ]);
+  // Imports accrue onto the same book run, so key on its last update too.
   const forecastFingerprint =
-    [nonCahpsRun?.id, cahpsRun?.id].filter(Boolean).join(",") || "none";
+    [nonCahpsRun, cahpsRun]
+      .filter((run) => run !== null)
+      .map((run) => `${run.id}@${run.updatedAt}:${run.projectionCount}`)
+      .join(",") || "none";
   const fingerprint = `${batches.length}:${batches[0]?.createdAt ?? "none"}:fc:${forecastFingerprint}`;
 
   const cached = cache.get(starsYear);
