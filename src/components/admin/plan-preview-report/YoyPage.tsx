@@ -1,29 +1,20 @@
 "use client";
 
 import type { Ref } from "react";
-import {
-  Bar,
-  CartesianGrid,
-  Cell,
-  ComposedChart,
-  LabelList,
-  Legend,
-  Line,
-  XAxis,
-  YAxis,
-} from "recharts";
 
 import type {
   PlanPreviewContractReport,
   ReportMeasure,
 } from "@/lib/plan-preview/report-data";
 
+import { RatingTrendChart, type RatingTrendPoint } from "./report-charts";
 import {
+  MeasureLabel,
   REPORT_COLORS,
   ReportPageFrame,
   ReportSection,
   ReportStat,
-  chartValueFormatter,
+  deltaColor,
   formatCahpsStarSourceLabel,
   formatMeasureUpside,
   formatStars,
@@ -74,20 +65,20 @@ export function YoyPage({
   const predictedPartC = baseline?.score?.partCFinalRating ?? null;
   const predictedPartD = baseline?.score?.partDFinalRating ?? null;
 
-  const chartData = [
+  const chartData: RatingTrendPoint[] = [
     ...report.history.map((point) => ({
       year: String(point.year),
       overall: point.overall,
       partC: point.partC,
       partD: point.partD,
-      predicted: false,
+      highlight: false,
     })),
     {
       year: `${report.starsYear} (proj.)`,
       overall: predictedRating,
       partC: predictedPartC,
       partD: predictedPartD,
-      predicted: true,
+      highlight: true,
     },
   ];
 
@@ -113,87 +104,7 @@ export function YoyPage({
         style={{ marginTop: 12 }}
       >
         <div className="fep-report-panel" style={{ padding: "6px 8px 0" }}>
-          <ComposedChart
-            width={686}
-            height={155}
-            data={chartData}
-            margin={{ top: 14, right: 14, left: -18, bottom: 0 }}
-          >
-            <CartesianGrid stroke={REPORT_COLORS.grid} vertical={false} />
-            <XAxis
-              dataKey="year"
-              tick={{
-                fontSize: 10,
-                fontWeight: 700,
-                fill: REPORT_COLORS.ink,
-              }}
-              axisLine={{ stroke: REPORT_COLORS.grid }}
-              tickLine={false}
-            />
-            <YAxis
-              domain={[0, 5]}
-              ticks={[1, 2, 3, 4, 5]}
-              tick={{ fontSize: 9.5, fill: REPORT_COLORS.muted }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Legend
-              verticalAlign="top"
-              align="right"
-              height={20}
-              iconSize={8}
-              wrapperStyle={{ fontSize: 9.5, fontWeight: 700 }}
-            />
-            <Bar
-              dataKey="overall"
-              name="Overall"
-              radius={[4, 4, 0, 0]}
-              barSize={34}
-              isAnimationActive={false}
-            >
-              {chartData.map((entry) => (
-                <Cell
-                  key={entry.year}
-                  fill={
-                    entry.predicted ? REPORT_COLORS.accent : REPORT_COLORS.band
-                  }
-                />
-              ))}
-              <LabelList
-                dataKey="overall"
-                position="top"
-                formatter={chartValueFormatter(1)}
-                style={{
-                  fontSize: 10,
-                  fontWeight: 800,
-                  fill: REPORT_COLORS.ink,
-                  paintOrder: "stroke",
-                  stroke: "#fdfbf6",
-                  strokeWidth: 3,
-                }}
-              />
-            </Bar>
-            <Line
-              dataKey="partC"
-              name="Part C summary"
-              stroke={REPORT_COLORS.accentSoft}
-              strokeWidth={2}
-              strokeOpacity={0.35}
-              dot={{ r: 2.5, fill: REPORT_COLORS.accentSoft, fillOpacity: 0.45 }}
-              connectNulls
-              isAnimationActive={false}
-            />
-            <Line
-              dataKey="partD"
-              name="Part D summary"
-              stroke={REPORT_COLORS.negative}
-              strokeWidth={2}
-              strokeOpacity={0.35}
-              dot={{ r: 2.5, fill: REPORT_COLORS.negative, fillOpacity: 0.45 }}
-              connectNulls
-              isAnimationActive={false}
-            />
-          </ComposedChart>
+          <RatingTrendChart data={chartData} />
         </div>
       </ReportSection>
 
@@ -267,14 +178,10 @@ export function YoyPage({
                         lineHeight: 1.2,
                       }}
                     >
-                      <span
-                        style={{ fontWeight: 700, color: "var(--fep-ink)" }}
-                      >
-                        {measure.measureCode}
-                      </span>{" "}
-                      <span style={{ color: "var(--fep-muted)" }}>
-                        {measure.displayName}
-                      </span>
+                      <MeasureLabel
+                        code={measure.measureCode}
+                        name={measure.displayName}
+                      />
                       {measure.outlook?.cutPressure ? (
                         <span
                           className="fep-report-pill"
@@ -348,10 +255,7 @@ export function YoyPage({
                         fontWeight: 800,
                         paddingTop: 2,
                         paddingBottom: 2,
-                        color:
-                          measure.delta > 0
-                            ? REPORT_COLORS.positive
-                            : REPORT_COLORS.negative,
+                        color: deltaColor(measure.delta),
                       }}
                     >
                       {measure.delta > 0 ? "+" : ""}

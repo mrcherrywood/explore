@@ -9,6 +9,7 @@ import type {
 import { isScoreDeltaImprovement } from "@/lib/plan-preview/score-delta-direction";
 
 import {
+  MeasureLabel,
   REPORT_COLORS,
   ReportPageFrame,
   ReportSection,
@@ -176,14 +177,10 @@ export function MeasureScoresPage({
                           lineHeight: 1.15,
                         }}
                       >
-                        <span
-                          style={{ fontWeight: 700, color: "var(--fep-ink)" }}
-                        >
-                          {measure.measureCode}
-                        </span>{" "}
-                        <span style={{ color: "var(--fep-muted)" }}>
-                          {measure.displayName}
-                        </span>
+                        <MeasureLabel
+                          code={measure.measureCode}
+                          name={measure.displayName}
+                        />
                         {measure.outlook?.cutPressure ? (
                           <span
                             className="fep-report-pill"

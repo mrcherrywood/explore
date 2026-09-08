@@ -75,6 +75,13 @@ export function formatCahpsStarSourceLabel(
   return `Base ${baseGroupStar}→${predictedStar}`;
 }
 
+/** Positive → green, negative → red, zero/missing → faint. */
+export function deltaColor(delta: number | null | undefined): string {
+  if (delta === null || delta === undefined || delta === 0)
+    return "var(--fep-faint)";
+  return delta > 0 ? REPORT_COLORS.positive : REPORT_COLORS.negative;
+}
+
 /** Recharts LabelList formatter that renders numeric labels with fixed digits. */
 export function chartValueFormatter(
   digits: number,
@@ -210,6 +217,59 @@ export function ReportStat({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/** Label / value line inside a score-buildup panel. */
+export function BuildupRow({
+  label,
+  value,
+  emphasis,
+}: {
+  label: string;
+  value: string;
+  emphasis?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "baseline",
+        padding: "7px 0",
+        borderTop: "1px solid var(--fep-row-border)",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: emphasis ? 800 : 600,
+          color: emphasis ? "var(--fep-ink)" : "var(--fep-muted)",
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontSize: emphasis ? 15 : 12,
+          fontWeight: emphasis ? 800 : 700,
+          color: "var(--fep-ink)",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/** Bold measure code followed by the muted display name. */
+export function MeasureLabel({ code, name }: { code: string; name: string }) {
+  return (
+    <>
+      <span style={{ fontWeight: 700, color: "var(--fep-ink)" }}>{code}</span>{" "}
+      <span style={{ color: "var(--fep-muted)" }}>{name}</span>
+    </>
   );
 }
 

@@ -1,29 +1,29 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, LabelList, Legend, XAxis, YAxis } from "recharts";
-
-import type { PlanPreviewResultsReport } from "@/lib/plan-preview/results-report-data";
-
+import {
+  DomainMeansChart,
+  domainChartName,
+} from "../plan-preview-report/report-charts";
 import {
   REPORT_COLORS,
   ReportPageFrame,
   ReportSection,
-  chartValueFormatter,
+  deltaColor,
+  formatSigned,
   formatStars,
   reportEyebrowPp2,
 } from "../plan-preview-report/report-shared";
+
+import { PP2_PRODUCT_LABEL, type ResultsPageProps } from "./results-shared";
 
 export function ResultsDomainsPage({
   report,
   pageNumber,
   totalPages,
-}: {
-  report: PlanPreviewResultsReport;
-  pageNumber: number;
-  totalPages: number;
-}) {
+}: ResultsPageProps) {
+  const baselineYear = report.baselineYear ?? "—";
   const chartData = report.domains.map((domain) => ({
-    name: domain.domain.length > 34 ? `${domain.domain.slice(0, 33)}…` : domain.domain,
+    name: domainChartName(domain.domain),
     official: domain.officialMean,
     baseline: domain.baselineMean,
   }));
@@ -31,58 +31,98 @@ export function ResultsDomainsPage({
   return (
     <ReportPageFrame
       eyebrow={reportEyebrowPp2(report.starsYear)}
-      title="Performance by domain"
-      subtitle={`${report.contract.contractId} · Weighted mean of official measure stars`}
+      title="Performance by Domain"
+      subtitle={`${report.contract.contractId} · Weighted mean of official measure stars, grouped by CMS domain`}
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={report.contract.contractId}
       starsYear={report.starsYear}
       generatedAt={report.generatedAt}
-      productLabel="Plan Preview 2 official results"
+      productLabel={PP2_PRODUCT_LABEL}
     >
       <ReportSection
         title="Weighted mean stars by domain"
-        note={`Official Stars ${report.starsYear} versus published Stars ${report.baselineYear ?? "—"}.`}
+        note={`Official Stars ${report.starsYear} domain means versus this contract's published Stars ${baselineYear} domain stars.`}
       >
         <div className="fep-report-panel" style={{ padding: "14px 12px 4px" }}>
-          <BarChart
-            width={686}
-            height={Math.max(200, 26 + chartData.length * 42)}
+          <DomainMeansChart
             data={chartData}
-            layout="vertical"
-            margin={{ top: 0, right: 48, left: 4, bottom: 0 }}
-            barCategoryGap={8}
-          >
-            <CartesianGrid stroke={REPORT_COLORS.grid} horizontal={false} />
-            <XAxis type="number" domain={[0, 5]} tick={{ fontSize: 9 }} />
-            <YAxis type="category" dataKey="name" width={210} tick={{ fontSize: 9 }} />
-            <Legend wrapperStyle={{ fontSize: 10 }} />
-            <Bar dataKey="baseline" name={`Stars ${report.baselineYear ?? "prior"}`} fill={REPORT_COLORS.accentSoft}>
-              <LabelList dataKey="baseline" formatter={chartValueFormatter(2)} position="right" />
-            </Bar>
-            <Bar dataKey="official" name={`Stars ${report.starsYear}`} fill={REPORT_COLORS.accent}>
-              <LabelList dataKey="official" formatter={chartValueFormatter(2)} position="right" />
-            </Bar>
-          </BarChart>
+            series={[
+              {
+                dataKey: "baseline",
+                name: `Stars ${baselineYear} published`,
+                fill: REPORT_COLORS.band,
+              },
+              {
+                dataKey: "official",
+                name: `Official Stars ${report.starsYear}`,
+                fill: REPORT_COLORS.accent,
+                labelFill: REPORT_COLORS.accent,
+                labelWeight: 800,
+              },
+            ]}
+          />
         </div>
-        <table className="fep-table" style={{ marginTop: 12 }}>
-          <thead>
-            <tr>
-              <th className="l">Domain</th>
-              <th>Official</th>
-              <th>Prior year</th>
-            </tr>
-          </thead>
-          <tbody>
-            {report.domains.map((domain) => (
-              <tr key={domain.domain}>
-                <td className="l">{domain.domain}</td>
-                <td>{formatStars(domain.officialMean)}</td>
-                <td>{formatStars(domain.baselineMean)}</td>
+      </ReportSection>
+
+      <ReportSection title="Domain Detail" style={{ marginTop: 14 }}>
+        <div className="fep-report-panel" style={{ padding: "12px 0 4px" }}>
+          <table className="fep-report-table compact">
+            <thead>
+              <tr>
+                <th className="l">Domain</th>
+                <th className="l">Part</th>
+                <th>Measures rated</th>
+                <th>Stars {baselineYear} published</th>
+                <th>Official Stars {report.starsYear}</th>
+                <th>Change</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {report.domains.map((domain) => {
+                const delta =
+                  domain.officialMean !== null && domain.baselineMean !== null
+                    ? Math.round(
+                        (domain.officialMean - domain.baselineMean) * 100,
+                      ) / 100
+                    : null;
+                return (
+                  <tr key={domain.domain}>
+                    <td
+                      className="l"
+                      style={{
+                        fontWeight: 600,
+                        color: "var(--fep-ink)",
+                        whiteSpace: "normal",
+                      }}
+                    >
+                      {domain.domain}
+                    </td>
+                    <td className="l">{domain.part}</td>
+                    <td>
+                      {domain.ratedMeasureCount} of {domain.measureCount}
+                    </td>
+                    <td>{formatStars(domain.baselineMean, 2)}</td>
+                    <td style={{ fontWeight: 800, color: "var(--fep-ink)" }}>
+                      {formatStars(domain.officialMean, 2)}
+                    </td>
+                    <td style={{ fontWeight: 700, color: deltaColor(delta) }}>
+                      {formatSigned(delta, 2)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="fep-report-section-note" style={{ marginTop: 8 }}>
+          Stars {baselineYear} published domain means match Contract Summary:
+          published measure stars weighted by that year&apos;s measure weights.
+          Official Stars {report.starsYear} means use the Plan Preview 2 star
+          file with Stars {report.starsYear} weights. Domain groupings follow
+          CMS Stars {baselineYear} measure-to-domain assignments; measures new
+          to Stars {report.starsYear} are assigned to their CMS domain.
+        </p>
       </ReportSection>
     </ReportPageFrame>
   );

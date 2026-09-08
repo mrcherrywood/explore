@@ -1,23 +1,15 @@
 "use client";
 
 import type { Ref } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  LabelList,
-  Legend,
-  XAxis,
-  YAxis,
-} from "recharts";
 
 import type { PlanPreviewContractReport } from "@/lib/plan-preview/report-data";
 
+import { DomainMeansChart, domainChartName } from "./report-charts";
 import {
   REPORT_COLORS,
   ReportPageFrame,
   ReportSection,
-  chartValueFormatter,
+  deltaColor,
   formatSigned,
   formatStars,
   reportEyebrow,
@@ -38,15 +30,11 @@ export function DomainsPage({
 }) {
   const domains = report.domains;
   const chartData = domains.map((domain) => ({
-    name:
-      domain.domain.length > 34
-        ? `${domain.domain.slice(0, 33)}…`
-        : domain.domain,
+    name: domainChartName(domain.domain),
     predicted: domain.predictedMean,
     baseline: domain.baselineMean,
     recalculated: domain.recalculatedMean,
   }));
-  const chartHeight = Math.max(200, 26 + chartData.length * 58);
 
   return (
     <ReportPageFrame
@@ -66,101 +54,29 @@ export function DomainsPage({
         note={`Predicted Stars ${report.starsYear} domain means versus this contract's published Stars ${report.baselineYear ?? "—"} domain stars and Stars ${report.baselineYear ?? "—"} recalculated (Official CMS recalculation measure set).`}
       >
         <div className="fep-report-panel" style={{ padding: "14px 12px 4px" }}>
-          <BarChart
-            width={686}
-            height={chartHeight}
+          <DomainMeansChart
             data={chartData}
-            layout="vertical"
-            margin={{ top: 0, right: 48, left: 4, bottom: 0 }}
-            barCategoryGap={8}
-          >
-            <CartesianGrid stroke={REPORT_COLORS.grid} horizontal={false} />
-            <XAxis
-              type="number"
-              domain={[0, 5]}
-              ticks={[1, 2, 3, 4, 5]}
-              tick={{ fontSize: 10, fill: REPORT_COLORS.muted }}
-              axisLine={{ stroke: REPORT_COLORS.grid }}
-              tickLine={false}
-            />
-            <YAxis
-              type="category"
-              dataKey="name"
-              width={96}
-              tick={{ fontSize: 10, fontWeight: 600, fill: REPORT_COLORS.ink }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Legend
-              verticalAlign="top"
-              align="right"
-              height={26}
-              iconSize={9}
-              wrapperStyle={{ fontSize: 9.5, fontWeight: 700 }}
-              formatter={(value) => (
-                <span style={{ color: REPORT_COLORS.ink, fontWeight: 700 }}>
-                  {value}
-                </span>
-              )}
-            />
-            <Bar
-              dataKey="baseline"
-              name={`Stars ${report.baselineYear ?? "—"} published`}
-              fill={REPORT_COLORS.band}
-              radius={[0, 4, 4, 0]}
-              barSize={11}
-              isAnimationActive={false}
-            >
-              <LabelList
-                dataKey="baseline"
-                position="right"
-                formatter={chartValueFormatter(2)}
-                style={{
-                  fontSize: 8.5,
-                  fontWeight: 700,
-                  fill: REPORT_COLORS.ink,
-                }}
-              />
-            </Bar>
-            <Bar
-              dataKey="recalculated"
-              name={`Stars ${report.baselineYear ?? "—"} recalculated`}
-              fill={REPORT_COLORS.positive}
-              radius={[0, 4, 4, 0]}
-              barSize={11}
-              isAnimationActive={false}
-            >
-              <LabelList
-                dataKey="recalculated"
-                position="right"
-                formatter={chartValueFormatter(2)}
-                style={{
-                  fontSize: 8.5,
-                  fontWeight: 700,
-                  fill: REPORT_COLORS.positive,
-                }}
-              />
-            </Bar>
-            <Bar
-              dataKey="predicted"
-              name={`Predicted Stars ${report.starsYear}`}
-              fill={REPORT_COLORS.accent}
-              radius={[0, 4, 4, 0]}
-              barSize={11}
-              isAnimationActive={false}
-            >
-              <LabelList
-                dataKey="predicted"
-                position="right"
-                formatter={chartValueFormatter(2)}
-                style={{
-                  fontSize: 8.5,
-                  fontWeight: 800,
-                  fill: REPORT_COLORS.accent,
-                }}
-              />
-            </Bar>
-          </BarChart>
+            series={[
+              {
+                dataKey: "baseline",
+                name: `Stars ${report.baselineYear ?? "—"} published`,
+                fill: REPORT_COLORS.band,
+              },
+              {
+                dataKey: "recalculated",
+                name: `Stars ${report.baselineYear ?? "—"} recalculated`,
+                fill: REPORT_COLORS.positive,
+                labelFill: REPORT_COLORS.positive,
+              },
+              {
+                dataKey: "predicted",
+                name: `Predicted Stars ${report.starsYear}`,
+                fill: REPORT_COLORS.accent,
+                labelFill: REPORT_COLORS.accent,
+                labelWeight: 800,
+              },
+            ]}
+          />
         </div>
       </ReportSection>
 
@@ -207,17 +123,7 @@ export function DomainsPage({
                     <td style={{ fontWeight: 800, color: "var(--fep-ink)" }}>
                       {formatStars(domain.predictedMean, 2)}
                     </td>
-                    <td
-                      style={{
-                        fontWeight: 700,
-                        color:
-                          delta === null || delta === 0
-                            ? "var(--fep-faint)"
-                            : delta > 0
-                              ? REPORT_COLORS.positive
-                              : REPORT_COLORS.negative,
-                      }}
-                    >
+                    <td style={{ fontWeight: 700, color: deltaColor(delta) }}>
                       {formatSigned(delta, 2)}
                     </td>
                   </tr>

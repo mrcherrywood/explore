@@ -1,19 +1,12 @@
 "use client";
 
 import type { Ref } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  LabelList,
-  XAxis,
-  YAxis,
-} from "recharts";
 
 import type { PlanPreviewContractReport } from "@/lib/plan-preview/report-data";
 
+import { StarDistributionChart } from "./report-charts";
 import {
+  BuildupRow,
   REPORT_COLORS,
   ReportPageFrame,
   ReportSection,
@@ -24,48 +17,6 @@ import {
   formatStars,
   reportEyebrow,
 } from "./report-shared";
-
-function BuildupRow({
-  label,
-  value,
-  emphasis,
-}: {
-  label: string;
-  value: string;
-  emphasis?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "baseline",
-        padding: "7px 0",
-        borderTop: "1px solid var(--fep-row-border)",
-      }}
-    >
-      <span
-        style={{
-          fontSize: 11,
-          fontWeight: emphasis ? 800 : 600,
-          color: emphasis ? "var(--fep-ink)" : "var(--fep-muted)",
-        }}
-      >
-        {label}
-      </span>
-      <span
-        style={{
-          fontSize: emphasis ? 15 : 12,
-          fontWeight: emphasis ? 800 : 700,
-          color: "var(--fep-ink)",
-          fontVariantNumeric: "tabular-nums",
-        }}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
 
 export function OverviewPage({
   report,
@@ -94,12 +45,6 @@ export function OverviewPage({
     score?.selectedLeg === "with_qi"
       ? baseline?.thresholds.withQi
       : baseline?.thresholds.withoutQi;
-
-  const distribution = [1, 2, 3, 4, 5].map((star) => ({
-    star: `${star}★`,
-    count: report.measures.filter((measure) => measure.predictedStar === star)
-      .length,
-  }));
 
   const contractLine = [
     report.contract.contractId,
@@ -296,53 +241,9 @@ export function OverviewPage({
         style={{ marginTop: 12 }}
       >
         <div className="fep-report-panel" style={{ padding: "12px 10px 4px" }}>
-          <BarChart
-            width={686}
-            height={185}
-            data={distribution}
-            margin={{ top: 16, right: 16, left: -14, bottom: 0 }}
-          >
-            <CartesianGrid stroke={REPORT_COLORS.grid} vertical={false} />
-            <XAxis
-              dataKey="star"
-              tick={{ fontSize: 11, fontWeight: 700, fill: REPORT_COLORS.ink }}
-              axisLine={{ stroke: REPORT_COLORS.grid }}
-              tickLine={false}
-            />
-            <YAxis
-              allowDecimals={false}
-              tick={{ fontSize: 10, fill: REPORT_COLORS.muted }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Bar
-              dataKey="count"
-              radius={[5, 5, 0, 0]}
-              isAnimationActive={false}
-            >
-              {distribution.map((entry, index) => (
-                <Cell
-                  key={entry.star}
-                  fill={
-                    index >= 3
-                      ? REPORT_COLORS.accent
-                      : index === 2
-                        ? REPORT_COLORS.accentSoft
-                        : REPORT_COLORS.negative
-                  }
-                />
-              ))}
-              <LabelList
-                dataKey="count"
-                position="top"
-                style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  fill: REPORT_COLORS.ink,
-                }}
-              />
-            </Bar>
-          </BarChart>
+          <StarDistributionChart
+            stars={report.measures.map((measure) => measure.predictedStar)}
+          />
         </div>
       </ReportSection>
 
