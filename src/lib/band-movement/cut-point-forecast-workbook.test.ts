@@ -4,6 +4,7 @@ import test from "node:test";
 import * as XLSX from "xlsx";
 
 import { parseForecastWorkbook } from "@/lib/cutpoint-forecast/workbook";
+import { buildGlidepathProjections } from "@/lib/cutpoint-forecast/glidepath";
 
 function buildWorkbookBuffer(rows: unknown[][]): Buffer {
   const workbook = XLSX.utils.book_new();
@@ -251,6 +252,55 @@ test("parseForecastWorkbook skips rows not attached to contract-like ids", () =>
     parsed.rows.map((row) => row.contractId),
     ["H3923", "S8067"]
   );
+});
+
+test("parseForecastWorkbook maps Press Ganey MeasurementYear to Stars year (MY+2)", () => {
+  const buffer = buildWorkbookBuffer([
+    ["HLCode", "Contract", "Measure", "MeasurementYear", "Month", "Numerator", "Denominator", "Rate"],
+    ["HL01", "H0523", "Breast Cancer Screening", 2025, 12, 761, 1132, 67.23],
+    ["HL01", "H0523", "Breast Cancer Screening", 2025, 13, 807, 1082, 74.58],
+    ["HL20", "H0523", "Getting Needed Care", 2024, 1, "", "", 88.0],
+    ["HL32", "H0523", "Call Center - FFI / TTY (Part C)", 2024, 1, "", "", 95.0],
+  ]);
+
+  const parsed = parseForecastWorkbook(buffer);
+
+  assert.deepEqual(parsed.summary.years, [2026, 2027]);
+  assert.equal(parsed.summary.latestObservedMonth, 13);
+
+  const hedis = parsed.rows.filter((row) => row.hlCode === "HL01");
+  assert.equal(hedis.length, 2);
+  assert.ok(hedis.every((row) => row.year === 2027));
+  assert.equal(hedis.find((row) => row.normalizedMonth === 13)?.rate, 74.58);
+
+  assert.equal(
+    parsed.rows.some((row) => row.hlCode === "HL20"),
+    false,
+    "CAHPS rows without Projected Final stay on the survey import"
+  );
+
+  const callCenter = parsed.rows.find((row) => row.hlCode === "HL32");
+  assert.equal(callCenter?.year, 2026, "MY 2024 non-CAHPS maps to Stars 2026");
+
+  const projections = buildGlidepathProjections(hedis, 2027);
+  assert.equal(projections.length, 1);
+  assert.equal(projections[0]?.projectedScore, 74.58);
+  assert.ok(
+    projections[0]?.notes.some((note) => note.includes("Final hybrid rate observed at month 13")),
+    "month 13 is used as the actual year-end rate"
+  );
+});
+
+test("parseForecastWorkbook prefers stars_year over MeasurementYear when both are present", () => {
+  const buffer = buildCsvBuffer([
+    ["contract_id", "hl_code", "stars_year", "measurement_year", "month_num", "measure_value"],
+    ["H0523", "HL01", 2028, 2025, 13, 74.58],
+  ]);
+
+  const parsed = parseForecastWorkbook(buffer);
+
+  assert.equal(parsed.rows[0]?.year, 2028);
+  assert.equal(parsed.rows[0]?.rate, 74.58);
 });
 
 test("parseForecastWorkbook reads Projected Final and keeps zero-rate rows that carry it", () => {

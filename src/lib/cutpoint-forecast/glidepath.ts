@@ -83,14 +83,29 @@ function collapseObservedRows(rows: ImportedMonthlyMeasureRow[]): ObservationPoi
   );
 }
 
+function hasScoredMonth(
+  rows: ImportedMonthlyMeasureRow[],
+  year: number,
+  month: number
+): boolean {
+  return rows.some(
+    (row) =>
+      row.year === year &&
+      row.normalizedMonth === month &&
+      row.rate !== null
+  );
+}
+
+/**
+ * Year-end month for this series: scored month 13 in the forecast year wins;
+ * otherwise month 12. Blank/zero closeout rows and prior-year hybrid months
+ * do not keep the target at 13.
+ */
 export function inferYearEndMonth(
   rows: ImportedMonthlyMeasureRow[],
   forecastYear: number
 ): number {
-  const hasCloseoutMonth = rows.some(
-    (row) => row.year <= forecastYear && row.normalizedMonth === 13
-  );
-  return hasCloseoutMonth ? 13 : 12;
+  return hasScoredMonth(rows, forecastYear, 13) ? 13 : 12;
 }
 
 function fitLinearTrend(points: ObservationPoint[]): TrendFit | null {
@@ -248,10 +263,8 @@ export function projectSeriesToYearEnd(
   const latestCurrentPoint = currentYearPoints.at(-1)!;
   const baselinePoint = latestCurrentPoint;
 
-  // For non-survey measures month 12 is the final rate (hybrid measures extend
-  // to a later closeout month, e.g. 13). Once the data reaches that closeout
-  // month, the observed value IS the final rate — use it directly with no
-  // trend/seasonality modeling and no guardrail (it's actual, not a projection).
+  // HEDIS/pharmacy: a scored month 13 is the year-end rate; otherwise month 12
+  // is. Once that closeout month is observed, use it directly — no modeling.
   if (
     (measureType === "hedis" || measureType === "pharmacy") &&
     latestCurrentPoint.month >= targetMonth

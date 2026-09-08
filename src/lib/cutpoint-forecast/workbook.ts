@@ -18,6 +18,13 @@ const REQUIRED_HEADERS = ["hl code", "contract", "measure", "year", "month"] as 
 const COMPACT_HL_CODE_ALIASES = ["hlcode", "measureid", "eqcode"] as const;
 const COMPACT_CONTRACT_ALIASES = ["contractid", "contract", "contractcode"] as const;
 const COMPACT_STARS_YEAR_ALIASES = ["starsyear", "year"] as const;
+/** Press Ganey / HEDIS extracts label the column MeasurementYear (MY 2025 = Stars 2027). */
+const COMPACT_MEASUREMENT_YEAR_ALIASES = ["measurementyear", "measureyear"] as const;
+/**
+ * CMS Stars year is two years after the HEDIS measurement year
+ * (MY 2025 scores publish as Stars 2027).
+ */
+export const HEDIS_MEASUREMENT_YEAR_TO_STARS_OFFSET = 2;
 const COMPACT_MONTH_ALIASES = ["monthnum", "monthnume", "monthnumber", "month"] as const;
 const COMPACT_VALUE_ALIASES = ["measurevalue", "measureval", "rate"] as const;
 const COMPACT_PROJECTED_FINAL_ALIASES = [
@@ -235,13 +242,32 @@ function hasAnyAlias(normalizedHeaders: string[], aliases: readonly string[]): b
 
 function isCompactHeaderRow(normalizedHeaders: string[]): boolean {
   const compactHeaders = normalizedHeaders.map(normalizeCompactHeader);
+  const hasYearColumn =
+    hasAnyAlias(compactHeaders, COMPACT_STARS_YEAR_ALIASES) ||
+    hasAnyAlias(compactHeaders, COMPACT_MEASUREMENT_YEAR_ALIASES);
   return (
     hasAnyAlias(compactHeaders, COMPACT_HL_CODE_ALIASES) &&
     hasAnyAlias(compactHeaders, COMPACT_CONTRACT_ALIASES) &&
-    hasAnyAlias(compactHeaders, COMPACT_STARS_YEAR_ALIASES) &&
+    hasYearColumn &&
     hasAnyAlias(compactHeaders, COMPACT_MONTH_ALIASES) &&
     hasAnyAlias(compactHeaders, COMPACT_VALUE_ALIASES)
   );
+}
+
+function parseCompactStarsYear(
+  row: unknown[],
+  headerMap: Map<string, number>
+): number | null {
+  const starsYear = parseNullableNumber(
+    row[findColumnIndex(headerMap, COMPACT_STARS_YEAR_ALIASES, true)]
+  );
+  if (starsYear !== null) return Math.round(starsYear);
+
+  const measurementYear = parseNullableNumber(
+    row[findColumnIndex(headerMap, COMPACT_MEASUREMENT_YEAR_ALIASES, true)]
+  );
+  if (measurementYear === null) return null;
+  return Math.round(measurementYear) + HEDIS_MEASUREMENT_YEAR_TO_STARS_OFFSET;
 }
 
 function findColumnIndex(headerMap: Map<string, number>, aliases: readonly string[], compact = false): number {
@@ -322,9 +348,7 @@ function parseCompactRow(
     row[findColumnIndex(headerMap, COMPACT_HL_CODE_ALIASES, true)]
   );
   const hlCode = rawCode ? normalizeToHlCode(rawCode) : null;
-  const starsYear = parseNullableNumber(
-    row[findColumnIndex(headerMap, COMPACT_STARS_YEAR_ALIASES, true)]
-  );
+  const starsYear = parseCompactStarsYear(row, headerMap);
   const month = parseNullableNumber(
     row[findColumnIndex(headerMap, COMPACT_MONTH_ALIASES, true)]
   );
@@ -439,6 +463,7 @@ export function parseForecastWorkbook(buffer: Buffer): ForecastWorkbookParseResu
         ...COMPACT_HL_CODE_ALIASES,
         ...COMPACT_CONTRACT_ALIASES,
         ...COMPACT_STARS_YEAR_ALIASES,
+        ...COMPACT_MEASUREMENT_YEAR_ALIASES,
         ...COMPACT_MONTH_ALIASES,
         ...COMPACT_VALUE_ALIASES,
         ...COMPACT_PROJECTED_FINAL_ALIASES,

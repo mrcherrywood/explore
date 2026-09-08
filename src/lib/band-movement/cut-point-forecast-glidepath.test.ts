@@ -34,9 +34,22 @@ function makeRow(
   };
 }
 
-test("inferYearEndMonth preserves closeout month 13 when present", () => {
-  const rows = [makeRow(2025, 12, 80), makeRow(2025, 13, 82), makeRow(2026, 1, 70)];
+test("inferYearEndMonth uses scored month 13 in the forecast year", () => {
+  const rows = [makeRow(2026, 12, 80), makeRow(2026, 13, 82)];
   assert.equal(inferYearEndMonth(rows, 2026), 13);
+});
+
+test("inferYearEndMonth falls back to month 12 when forecast-year month 13 is missing or blank", () => {
+  assert.equal(
+    inferYearEndMonth([makeRow(2025, 13, 82), makeRow(2026, 12, 80)], 2026),
+    12,
+    "prior-year hybrid closeout does not keep the target at 13"
+  );
+  assert.equal(
+    inferYearEndMonth([makeRow(2026, 12, 80), makeRow(2026, 13, null)], 2026),
+    12,
+    "blank month 13 is not a closeout"
+  );
 });
 
 test("projectSeriesToYearEnd blends trend and seasonality, clamped to ±2 for HEDIS", () => {
@@ -93,10 +106,10 @@ test("hybrid HEDIS measure uses observed closeout month 13 value directly", () =
   assert.ok(projection?.notes.some((n) => n.includes("Final hybrid rate observed at month 13")));
 });
 
-test("hybrid HEDIS measure not yet at closeout projects month 12 plus prior-year hybrid bump", () => {
+test("HEDIS falls back to month 12 when forecast-year month 13 is absent", () => {
   const rows = [
     makeRow(2025, 12, 60),
-    makeRow(2025, 13, 66), // prior-year hybrid bump of +6 at closeout
+    makeRow(2025, 13, 66),
     makeRow(2026, 11, 61),
     makeRow(2026, 12, 62),
   ];
@@ -105,10 +118,24 @@ test("hybrid HEDIS measure not yet at closeout projects month 12 plus prior-year
 
   assert.ok(projection);
   assert.equal(projection?.measureType, "hedis");
-  // Target month is 13 (hybrid history present) but current year only reaches 12,
-  // so it models forward rather than using month 12 as final.
   assert.equal(projection?.lastObservedMonth, 12);
-  assert.ok((projection?.projectedScore ?? 0) > 62);
+  assert.equal(projection?.projectedScore, 62);
+  assert.ok(projection?.notes.some((n) => n.includes("Final rate observed at month 12")));
+});
+
+test("HEDIS falls back to month 12 when forecast-year month 13 is blank", () => {
+  const rows = [
+    makeRow(2026, 11, 70),
+    makeRow(2026, 12, 83),
+    makeRow(2026, 13, null),
+  ];
+
+  const projection = projectSeriesToYearEnd(rows, 2026);
+
+  assert.ok(projection);
+  assert.equal(projection?.lastObservedMonth, 12);
+  assert.equal(projection?.projectedScore, 83);
+  assert.ok(projection?.notes.some((n) => n.includes("Final rate observed at month 12")));
 });
 
 test("classifyMeasureType identifies CAHPS, HOS, pharmacy, and HEDIS", () => {
