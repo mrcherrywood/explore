@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireApprovedAdmin } from "@/lib/admin/require-approved-admin";
 import { isEligibleForecastContract } from "@/lib/cutpoint-forecast/analysis";
+import { pickDefaultForecastYear } from "@/lib/cutpoint-forecast/book-run";
 import { buildGlidepathProjections } from "@/lib/cutpoint-forecast/glidepath";
 import {
   approveForecastMeasure,
@@ -116,10 +117,9 @@ export async function GET(request: NextRequest) {
       : [];
 
     const runs = await listForecastProjectionRuns(admin.serviceClient);
-    // Default to the accruing book for the newest stars year, not whichever
-    // run happened to be created last.
-    const defaultYear =
-      forecastYear ?? (runs.length > 0 ? Math.max(...runs.map((run) => run.forecastYear)) : undefined);
+    // Default to the latest approved Stars year (the current book), not a
+    // newer unpublished draft year that has no Plan Preview yet.
+    const defaultYear = forecastYear ?? pickDefaultForecastYear(runs) ?? undefined;
     const selectedRun = runIdParam
       ? await getForecastRun(admin.serviceClient, runIdParam)
       : defaultYear !== undefined

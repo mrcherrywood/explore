@@ -16,6 +16,8 @@ import {
 } from "@/lib/cutpoint-forecast/analysis";
 import type { ForecastYearEndOverlay } from "@/lib/cutpoint-forecast/pp1-overlay";
 
+import { hasOfficialTechNotesCutPoints } from "./official-cut-points";
+
 import {
   buildPlanPreviewPredictions,
   scoreForCutPointBanding,
@@ -27,6 +29,8 @@ import type { PlanPreviewCaiParseResult, PlanPreviewMeasureParseResult } from ".
 
 const MEASURE_PATH = path.join(process.cwd(), "data/2027/SR_2027_FPP/SR_2027_measure_data.xlsx");
 const CAI_PATH = path.join(process.cwd(), "data/2027/SR_2027_FPP/SR_2027_cai.xlsx");
+/** Manual (workbook) rows apply until the Stars 2027 Technical Notes are imported. */
+const EXPECTED_2027_CUT_SOURCE = hasOfficialTechNotesCutPoints(2027) ? "official" : "workbook_forecast";
 
 function loadAccruedRows(): AccruedMeasureScore[] {
   const parsed = parsePlanPreviewWorkbook(
@@ -187,7 +191,7 @@ test("Client Only model runs on PP1 + projections without last-year padding", ()
   const result = buildPlanPreviewPredictions(pp1Rows, 2027, overlay);
   const cutPoint = result.cutPoints.find((item) => item.measureCode === "C01");
   assert.ok(cutPoint);
-  assert.equal(cutPoint.source, "workbook_forecast");
+  assert.equal(cutPoint.source, EXPECTED_2027_CUT_SOURCE);
   assert.equal(cutPoint.accruedContractCount, 20);
   assert.ok(cutPoint.fullMarketThresholds, "Full Market model should be ready");
   assert.ok(cutPoint.clientOnlyThresholds, "Client Only model should be ready with 20 current-year scores");
@@ -359,8 +363,9 @@ test(
     const breastCancer = result.cutPoints.find((cp) => cp.measureCode === "C01");
     assert.ok(breastCancer, "C01 prediction missing");
     assert.equal(breastCancer.status, "ready");
-    // Manual (workbook) forecast rows are applied; both live models run alongside.
-    assert.equal(breastCancer.source, "workbook_forecast");
+    // Official Tech Notes (or Manual workbook rows before import) are applied;
+    // both live models run alongside.
+    assert.equal(breastCancer.source, EXPECTED_2027_CUT_SOURCE);
     assert.equal(breastCancer.method, "clustering");
     assert.ok(breastCancer.modelThresholds, "Full Market model thresholds should still be computed");
     assert.ok(
@@ -461,7 +466,7 @@ test(
 
     const d01Cut = result.cutPoints.find((cp) => cp.measureCode === "D01");
     assert.ok(d01Cut);
-    assert.equal(d01Cut.source, "workbook_forecast", "mistitled Part C label must still match Part D cut points");
+    assert.equal(d01Cut.source, EXPECTED_2027_CUT_SOURCE, "mistitled Part C label must still match Part D cut points");
   }
 );
 

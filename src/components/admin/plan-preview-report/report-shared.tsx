@@ -245,6 +245,8 @@ export type ReportPageFrameProps = {
   generatedAt: string;
   /** Illustrative marketing sample — labeled in footer. */
   sample?: boolean;
+  /** Footer product line. Defaults to Plan Preview 1 projection. */
+  productLabel?: string;
   children: ReactNode;
 };
 
@@ -259,6 +261,7 @@ export function ReportPageFrame({
   starsYear,
   generatedAt,
   sample,
+  productLabel = "Plan Preview 1 projection",
   children,
 }: ReportPageFrameProps) {
   const generatedLabel = new Date(generatedAt).toLocaleDateString("en-US", {
@@ -299,7 +302,7 @@ export function ReportPageFrame({
       <footer className="fep-report-footer">
         <div className="fep-report-footer-meta">
           <span>
-            {contractId} · Stars {starsYear} Plan Preview 1 projection
+            {contractId} · Stars {starsYear} {productLabel}
             {sample ? " · Illustrative sample" : ""} · Generated{" "}
             {generatedLabel}
           </span>
@@ -321,4 +324,8 @@ export function ReportPageFrame({
 export function reportEyebrow(starsYear: number, sample?: boolean): string {
   const base = `Plan Preview 1 · Stars ${starsYear} Projection`;
   return sample ? `Sample · ${base}` : base;
+}
+
+export function reportEyebrowPp2(starsYear: number): string {
+  return `Plan Preview 2 · Stars ${starsYear} Official Results`;
 }

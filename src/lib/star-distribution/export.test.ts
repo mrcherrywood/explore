@@ -46,6 +46,7 @@ test("bookVsCmsScoreCsv writes mean scores and inverted flag", () => {
     last3: slice,
     last3W: slice,
     allScore: {
+      ...emptyScoreSlice(),
       cms: { n: 100, mean: 0.32 },
       book: { n: 12, mean: 0.28 },
       meanDelta: -0.04,
@@ -56,6 +57,7 @@ test("bookVsCmsScoreCsv writes mean scores and inverted flag", () => {
   const csv = generateCsvString(
     bookVsCmsScoreCsv([{ measure, score: measure.allScore }])
   );
-  assert.match(csv, /^measure,part,inverted,score_book,score_cms,score_delta,/);
-  assert.match(csv, /Complaints about the Health Plan,C,yes,0.28,0.32,-0.04,12,100\n?$/);
+  assert.match(csv, /^measure,part,inverted,5_star_score_book,5_star_score_cms,5_star_score_delta,/);
+  assert.match(csv, /Complaints about the Health Plan,C,yes,/);
+  assert.match(csv, /,0.28,0.32,-0.04,12,100\n?$/);
 });

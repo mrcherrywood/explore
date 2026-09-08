@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { pickForecastBookRun } from "@/lib/cutpoint-forecast/book-run";
+import {
+  pickDefaultForecastYear,
+  pickForecastBookRun,
+} from "@/lib/cutpoint-forecast/book-run";
 
 function run(
   id: string,
@@ -42,4 +45,19 @@ test("pickForecastBookRun breaks approved ties by the earlier run", () => {
   const newer = run("newer", "approved", "2026-08-01T00:00:00.000Z", 1000);
 
   assert.equal(pickForecastBookRun([newer, older])?.id, "older");
+});
+
+test("pickDefaultForecastYear prefers the latest approved Stars year over a newer draft year", () => {
+  assert.equal(
+    pickDefaultForecastYear([
+      { forecastYear: 2028, status: "draft" },
+      { forecastYear: 2027, status: "approved" },
+    ]),
+    2027
+  );
+  assert.equal(
+    pickDefaultForecastYear([{ forecastYear: 2028, status: "draft" }]),
+    2028
+  );
+  assert.equal(pickDefaultForecastYear([]), null);
 });

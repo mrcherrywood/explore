@@ -30,10 +30,14 @@ export type ScoreShare = {
   mean: number;
 };
 
+/** Mean score of contracts rated 1★ through 5★. */
+export type ScoreBands = [ScoreShare, ScoreShare, ScoreShare, ScoreShare, ScoreShare];
+
 export type ScoreSlice = {
   cms: ScoreShare;
   book: ScoreShare;
   meanDelta: number;
+  bands: { cms: ScoreBands; book: ScoreBands };
 };
 
 export type MeasureYearSlice = ComparisonSlice & {

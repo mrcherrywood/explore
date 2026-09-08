@@ -9,9 +9,17 @@ const UNKNOWN_PARENT_ORG = "Unknown parent organization";
 export function PlanPreviewReportPicker({
   starsYear,
   contracts,
+  hrefBase = "/admin/plan-preview/report",
+  title = "Contract report",
+  description = "Open a presentation report for any accrued contract. Filter by parent organization when more than one book is loaded.",
+  buttonLabel = "Open contract report →",
 }: {
   starsYear: number;
   contracts: PlanPreviewContractOption[];
+  hrefBase?: string;
+  title?: string;
+  description?: string;
+  buttonLabel?: string;
 }) {
   const [selectedParentOrg, setSelectedParentOrg] = useState("");
   const [selectedContractId, setSelectedContractId] = useState("");
@@ -54,10 +62,9 @@ export function PlanPreviewReportPicker({
     <section className="fep-card overflow-hidden">
       <div className="flex flex-wrap items-center gap-3 px-5 py-4">
         <div className="min-w-[12rem] flex-1">
-          <p className="fep-label">Contract report</p>
+          <p className="fep-label">{title}</p>
           <p className="fep-subtitle" style={{ marginTop: 4 }}>
-            Open a presentation report for any accrued contract. Filter by parent
-            organization when more than one book is loaded.
+            {description}
           </p>
         </div>
         <select
@@ -90,11 +97,11 @@ export function PlanPreviewReportPicker({
         {selectedContractId ? (
           <a
             className="fep-btn"
-            href={`/admin/plan-preview/report?starsYear=${starsYear}&contractId=${encodeURIComponent(selectedContractId)}`}
+            href={`${hrefBase}?starsYear=${starsYear}&contractId=${encodeURIComponent(selectedContractId)}`}
             target="_blank"
             rel="noreferrer"
           >
-            Open contract report →
+            {buttonLabel}
           </a>
         ) : null}
       </div>

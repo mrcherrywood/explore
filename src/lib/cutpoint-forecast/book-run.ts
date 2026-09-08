@@ -26,3 +26,15 @@ export function pickForecastBookRun<
     left.createdAt.localeCompare(right.createdAt)
   )[0];
 }
+
+/** Latest approved Stars year, else the newest year that has any run. */
+export function pickDefaultForecastYear(
+  runs: Pick<ForecastProjectionRunRecord, "forecastYear" | "status">[]
+): number | null {
+  const approvedYears = runs
+    .filter((run) => run.status === "approved")
+    .map((run) => run.forecastYear);
+  if (approvedYears.length > 0) return Math.max(...approvedYears);
+  if (runs.length === 0) return null;
+  return Math.max(...runs.map((run) => run.forecastYear));
+}

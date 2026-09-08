@@ -15,9 +15,7 @@ import {
 import { ExportCsvButton } from "@/components/shared/ExportCsvButton";
 import { bookVsCmsScoreCsv } from "@/lib/star-distribution/export";
 import {
-  fepDeltaClass,
   formatScore,
-  formatScoreDelta,
   scoreDeltaBetter,
 } from "@/lib/star-distribution/stats";
 import type {
@@ -29,8 +27,43 @@ import type {
 } from "@/lib/star-distribution/types";
 import { BookCmsPair } from "./StarDistributionTables";
 
+const STAR_HEADERS = ["5★", "4★", "3★", "2★", "1★"] as const;
+const STAR_INDEX = [4, 3, 2, 1, 0] as const;
+
 function fmtMean(share: ScoreShare): string {
   return share.n === 0 ? "—" : formatScore(share.mean);
+}
+
+function scoreBandPair(
+  score: ScoreSlice,
+  starIndex: number,
+  inverted: boolean
+) {
+  const book = score.bands.book[starIndex];
+  const cms = score.bands.cms[starIndex];
+  const delta =
+    book.n === 0 || cms.n === 0 ? 0 : Number((book.mean - cms.mean).toFixed(2));
+  return (
+    <BookCmsPair
+      book={fmtMean(book)}
+      cms={fmtMean(cms)}
+      better={scoreDeltaBetter(delta, inverted)}
+    />
+  );
+}
+
+function meanPair(score: ScoreSlice, inverted: boolean) {
+  return (
+    <BookCmsPair
+      book={fmtMean(score.book)}
+      cms={fmtMean(score.cms)}
+      better={
+        score.book.n === 0 || score.cms.n === 0
+          ? 0
+          : scoreDeltaBetter(score.meanDelta, inverted)
+      }
+    />
+  );
 }
 
 export function SelectedMeasureScoreChart({
@@ -110,7 +143,7 @@ export function SelectedMeasureScoreYearTable({
           {measure.name} — average score by year
         </h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          Mean published score for rated H+R contracts.
+          Mean published score by star for rated H+R contracts.
           {measure.inverted ? " Lower scores are better." : ""}
         </p>
       </div>
@@ -118,9 +151,10 @@ export function SelectedMeasureScoreYearTable({
         <thead>
           <tr>
             <th className="l">Year</th>
-            <th>Score book</th>
-            <th>Score CMS</th>
-            <th>Δ</th>
+            {STAR_HEADERS.map((label) => (
+              <th key={label}>{label} book / CMS</th>
+            ))}
+            <th>Mean book / CMS</th>
             <th>n book</th>
             <th>n CMS</th>
           </tr>
@@ -129,15 +163,12 @@ export function SelectedMeasureScoreYearTable({
           {measure.years.map((year) => (
             <tr key={year.year}>
               <td className="l">{year.year}</td>
-              <td className={fepDeltaClass(scoreDeltaBetter(year.score.meanDelta, measure.inverted))}>
-                {fmtMean(year.score.book)}
-              </td>
-              <td>{fmtMean(year.score.cms)}</td>
-              <td className={fepDeltaClass(scoreDeltaBetter(year.score.meanDelta, measure.inverted))}>
-                {year.score.book.n === 0 || year.score.cms.n === 0
-                  ? "—"
-                  : formatScoreDelta(year.score.meanDelta)}
-              </td>
+              {STAR_INDEX.map((starIndex) => (
+                <td key={starIndex}>
+                  {scoreBandPair(year.score, starIndex, measure.inverted)}
+                </td>
+              ))}
+              <td>{meanPair(year.score, measure.inverted)}</td>
               <td>{year.score.book.n}</td>
               <td>{year.score.cms.n}</td>
             </tr>
@@ -171,7 +202,7 @@ export function AllMeasuresScoreTable({
             Average measure score, book vs CMS
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Mean published score on each measure&apos;s own scale. {caption}.
+            Mean published score of contracts at each whole-star rating. {caption}.
             Green/red uses each measure&apos;s direction (lower is better for
             inverted measures). Click a measure for the year-by-year view.
           </p>
@@ -186,10 +217,11 @@ export function AllMeasuresScoreTable({
         <thead>
           <tr>
             <th className="l">Measure</th>
-            <th>Score book / CMS</th>
-            <th>Δ</th>
+            {STAR_HEADERS.map((label) => (
+              <th key={label}>{label} book / CMS</th>
+            ))}
+            <th>Mean book / CMS</th>
             <th>n book</th>
-            <th>n CMS</th>
           </tr>
         </thead>
         <tbody>
@@ -216,28 +248,13 @@ export function AllMeasuresScoreTable({
                   ) : null}
                 </button>
               </td>
-              <td>
-                <BookCmsPair
-                  book={fmtMean(score.book)}
-                  cms={fmtMean(score.cms)}
-                  better={
-                    score.book.n === 0 || score.cms.n === 0
-                      ? 0
-                      : scoreDeltaBetter(score.meanDelta, measure.inverted)
-                  }
-                />
-              </td>
-              <td
-                className={fepDeltaClass(
-                  scoreDeltaBetter(score.meanDelta, measure.inverted)
-                )}
-              >
-                {score.book.n === 0 || score.cms.n === 0
-                  ? "—"
-                  : formatScoreDelta(score.meanDelta)}
-              </td>
+              {STAR_INDEX.map((starIndex) => (
+                <td key={starIndex}>
+                  {scoreBandPair(score, starIndex, measure.inverted)}
+                </td>
+              ))}
+              <td>{meanPair(score, measure.inverted)}</td>
               <td>{score.book.n}</td>
-              <td>{score.cms.n}</td>
             </tr>
           ))}
         </tbody>

@@ -7,6 +7,7 @@ import {
   parseDomainWorkbook,
   rejectUnsupportedDomainFile,
 } from "./domain-workbooks";
+import { detectPp2FileKind, parsePp2Workbook } from "./pp2-workbook";
 import { resolveMeasureForPlanPreview } from "./measure-resolve";
 import type {
   ParsedPlanPreviewCaiRow,
@@ -359,11 +360,21 @@ export function parsePlanPreviewWorkbook(buffer: Buffer): PlanPreviewParseResult
     return parseDomainWorkbook(rows, sheetName, headerRowIndex, domainKind);
   }
 
+  const pp2Kind = detectPp2FileKind(rows, headerRowIndex, headerCells, sheetName);
+  if (pp2Kind === "summary_rating") {
+    return parsePp2Workbook(rows, sheetName, headerRowIndex, pp2Kind);
+  }
+
   const isCaiFile = headerCells.some(
     (cell) => cell === "overall cai value" || cell === "part c fac"
   );
+  if (isCaiFile) {
+    return parseCaiWorkbook(rows, sheetName, headerRowIndex);
+  }
 
-  return isCaiFile
-    ? parseCaiWorkbook(rows, sheetName, headerRowIndex)
-    : parseMeasureWorkbook(rows, sheetName, headerRowIndex);
+  if (pp2Kind === "measure_star" || pp2Kind === "improvement") {
+    return parsePp2Workbook(rows, sheetName, headerRowIndex, pp2Kind);
+  }
+
+  return parseMeasureWorkbook(rows, sheetName, headerRowIndex);
 }

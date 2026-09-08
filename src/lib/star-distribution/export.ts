@@ -61,26 +61,48 @@ export function bookVsCmsStarShareCsv(
 export function bookVsCmsScoreCsv(
   rows: Array<{ measure: MeasureDistribution; score: ScoreSlice }>
 ): CsvData {
+  const starHeaders = STAR_LABELS.flatMap((star) => [
+    `${star}_star_score_book`,
+    `${star}_star_score_cms`,
+    `${star}_star_score_delta`,
+  ]);
+
   return {
     headers: [
       "measure",
       "part",
       "inverted",
+      ...starHeaders,
       "score_book",
       "score_cms",
       "score_delta",
       "n_book",
       "n_cms",
     ],
-    rows: rows.map(({ measure, score }) => [
-      measure.name,
-      partLabel(measure.normalizedName),
-      measure.inverted ? "yes" : "no",
-      score.book.n === 0 ? "" : formatScore(score.book.mean),
-      score.cms.n === 0 ? "" : formatScore(score.cms.mean),
-      score.book.n === 0 || score.cms.n === 0 ? "" : score.meanDelta.toFixed(2),
-      String(score.book.n),
-      String(score.cms.n),
-    ]),
+    rows: rows.map(({ measure, score }) => {
+      const starCells = STAR_LABELS.flatMap((star) => {
+        const band = score.bands;
+        const book = band.book[star - 1];
+        const cms = band.cms[star - 1];
+        return [
+          book.n === 0 ? "" : formatScore(book.mean),
+          cms.n === 0 ? "" : formatScore(cms.mean),
+          book.n === 0 || cms.n === 0
+            ? ""
+            : (book.mean - cms.mean).toFixed(2),
+        ];
+      });
+      return [
+        measure.name,
+        partLabel(measure.normalizedName),
+        measure.inverted ? "yes" : "no",
+        ...starCells,
+        score.book.n === 0 ? "" : formatScore(score.book.mean),
+        score.cms.n === 0 ? "" : formatScore(score.cms.mean),
+        score.book.n === 0 || score.cms.n === 0 ? "" : score.meanDelta.toFixed(2),
+        String(score.book.n),
+        String(score.cms.n),
+      ];
+    }),
   };
 }

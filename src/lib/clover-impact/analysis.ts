@@ -316,8 +316,8 @@ function loadLatestEnrollment(): {
 } {
   const source = {
     year: 2026,
-    month: 5,
-    fileName: "Monthly_Report_By_Plan_2026_05_condensed.json",
+    month: 8,
+    fileName: "Monthly_Report_By_Plan_2026_08_condensed.json",
   };
   const filePath = path.join(DATA_DIR, String(source.year), source.fileName);
   const contents = readFileSync(filePath, "utf-8").replace(/:\s*NaN\b/g, ": null");

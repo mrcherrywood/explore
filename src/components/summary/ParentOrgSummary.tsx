@@ -62,7 +62,7 @@ function formatPercent(value: number | null | undefined) {
 
 function formatMonthYear(year: number, month: number) {
   const date = new Date(Date.UTC(year, month - 1));
-  return date.toLocaleString("default", { month: "long", year: "numeric" });
+  return date.toLocaleString("default", { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
 export function ParentOrgSummary({ data, onSelectContract }: Props) {

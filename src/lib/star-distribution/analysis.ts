@@ -8,10 +8,12 @@ import { isEligibleOverlayContract } from "@/lib/cutpoint-forecast/pp1-overlay";
 import { isInvertedMeasure } from "@/lib/percentile-analysis/measure-matching";
 
 import {
+  bandsFromStarScores,
   compareMeasuresPartThenName,
   compareScores,
   compareShares,
   emptyScoreSlice,
+  poolScoreBands,
   poolScoreShares,
   poolShares,
   recencyWeights,
@@ -77,12 +79,41 @@ function poolScoreYears(
     poolScoreShares(
       rows.map((row) => ({ year: row.year, share: row.score.book })),
       weights
+    ),
+    poolScoreBands(
+      rows.map((row) => ({ year: row.year, bands: row.score.bands })),
+      weights
     )
   );
 }
 
-function sliceFromScores(cmsScores: number[], bookScores: number[]): ScoreSlice {
-  return compareScores(shareFromScores(cmsScores), shareFromScores(bookScores));
+function groupScoresByStar(
+  scoreSamples: Array<{ contractId: string; score: number }>,
+  starById: Map<string, number>,
+  bookIds: Set<string>
+): { cms: number[][]; book: number[][] } {
+  const cms: number[][] = [[], [], [], [], []];
+  const book: number[][] = [[], [], [], [], []];
+  for (const sample of scoreSamples) {
+    const star = starById.get(sample.contractId);
+    if (star === undefined || star < 1 || star > 5) continue;
+    cms[star - 1].push(sample.score);
+    if (bookIds.has(sample.contractId)) book[star - 1].push(sample.score);
+  }
+  return { cms, book };
+}
+
+function sliceFromScores(
+  cmsScores: number[],
+  bookScores: number[],
+  cmsByStar: number[][],
+  bookByStar: number[][]
+): ScoreSlice {
+  return compareScores(
+    shareFromScores(cmsScores),
+    shareFromScores(bookScores),
+    bandsFromStarScores(cmsByStar, bookByStar)
+  );
 }
 
 function poolAllMeasures(
@@ -136,6 +167,10 @@ export function analyzeStarDistribution(
       const bookScores = scoreSamples
         .filter((sample) => bookIds.has(sample.contractId))
         .map((sample) => sample.score);
+      const starById = new Map(
+        samples.map((sample) => [sample.contractId, sample.star])
+      );
+      const grouped = groupScoresByStar(scoreSamples, starById, bookIds);
 
       yearSlices.push({
         year,
@@ -144,7 +179,7 @@ export function analyzeStarDistribution(
         score:
           scoreSamples.length === 0
             ? emptyScoreSlice()
-            : sliceFromScores(cmsScores, bookScores),
+            : sliceFromScores(cmsScores, bookScores, grouped.cms, grouped.book),
       });
     }
 

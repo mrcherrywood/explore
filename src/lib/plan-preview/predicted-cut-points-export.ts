@@ -1,5 +1,10 @@
 import type { CsvData } from "@/lib/export/csv";
+import { generateCsvString } from "@/lib/export/csv";
 
+import type {
+  CutPointAdditionDetailRow,
+  CutPointAdditionSummary,
+} from "./cut-point-drivers";
 import type { PlanPreviewCutPointPrediction } from "./predictions";
 
 const THRESHOLD_ORDER = [
@@ -46,6 +51,39 @@ export const PREDICTED_CUT_POINTS_CSV_HEADERS = [
   "Notes",
 ] as const;
 
+export const PREDICTED_CUT_POINTS_ADDITION_SUMMARY_HEADERS = [
+  "Added since last run",
+  ...THRESHOLD_ORDER.flatMap((key) => [
+    `${STAR_LABELS[key]} Full Market prior`,
+    `${STAR_LABELS[key]} Full Market delta`,
+    `${STAR_LABELS[key]} Client Only prior`,
+    `${STAR_LABELS[key]} Client Only delta`,
+  ]),
+  "Driver parents",
+  "Addition notes",
+] as const;
+
+const ROLE_LABELS: Record<CutPointAdditionDetailRow["role"], string> = {
+  forecast: "forecast",
+  pp1_fill: "Plan Preview fill",
+  pp1_override: "Plan Preview override",
+};
+
+export const PREDICTED_CUT_POINTS_ADDITIONS_HEADERS = [
+  "Measure Code",
+  "Measure",
+  "Contract",
+  "Contract Name",
+  "Parent Organization",
+  "Role",
+  "New to market",
+  "Current score",
+  "Prior score",
+  "Score delta",
+  "Manual star",
+  "Full Market star",
+] as const;
+
 function cell(value: number | string | null | undefined): string {
   if (value === null || value === undefined) return "";
   return String(value);
@@ -60,6 +98,7 @@ function notesFor(cutPoint: PlanPreviewCutPointPrediction): string {
 
 export function buildPredictedCutPointsCsv(
   cutPoints: PlanPreviewCutPointPrediction[],
+  additionsByMeasure?: Map<string, CutPointAdditionSummary>,
 ): CsvData {
   const rows = cutPoints.map((cutPoint) => {
     const thresholdByKey = new Map(
@@ -99,11 +138,85 @@ export function buildPredictedCutPointsCsv(
       ...thresholdCells,
       cutPoint.warningCount > 0 ? String(cutPoint.warningCount) : "",
       notesFor(cutPoint),
+      ...(additionsByMeasure
+        ? additionCells(additionsByMeasure.get(cutPoint.measureNormalized))
+        : []),
     ];
   });
 
   return {
-    headers: [...PREDICTED_CUT_POINTS_CSV_HEADERS],
+    headers: additionsByMeasure
+      ? [
+          ...PREDICTED_CUT_POINTS_CSV_HEADERS,
+          ...PREDICTED_CUT_POINTS_ADDITION_SUMMARY_HEADERS,
+        ]
+      : [...PREDICTED_CUT_POINTS_CSV_HEADERS],
     rows,
   };
+}
+
+function snapshotCells(
+  prior: CutPointAdditionSummary["fullMarketPrior"],
+  delta: CutPointAdditionSummary["fullMarketDelta"],
+  clientPrior: CutPointAdditionSummary["clientOnlyPrior"],
+  clientDelta: CutPointAdditionSummary["clientOnlyDelta"],
+): string[] {
+  return THRESHOLD_ORDER.flatMap((key) => [
+    cell(prior[key]),
+    cell(delta[key]),
+    cell(clientPrior[key]),
+    cell(clientDelta[key]),
+  ]);
+}
+
+function additionCells(summary: CutPointAdditionSummary | undefined): string[] {
+  if (!summary) {
+    return PREDICTED_CUT_POINTS_ADDITION_SUMMARY_HEADERS.map(() => "");
+  }
+  return [
+    cell(summary.addedSinceLastRun),
+    ...snapshotCells(
+      summary.fullMarketPrior,
+      summary.fullMarketDelta,
+      summary.clientOnlyPrior,
+      summary.clientOnlyDelta,
+    ),
+    summary.driverParents,
+    summary.additionNotes,
+  ];
+}
+
+export function buildPredictedCutPointAdditionsCsv(
+  detailRows: CutPointAdditionDetailRow[],
+): CsvData {
+  return {
+    headers: [...PREDICTED_CUT_POINTS_ADDITIONS_HEADERS],
+    rows: detailRows.map((row) => [
+      cell(row.measureCode),
+      row.measureDisplayName,
+      row.contractId,
+      row.contractName ?? "",
+      row.parentOrganization ?? "",
+      ROLE_LABELS[row.role],
+      row.newToMarket ? "Yes" : "",
+      cell(row.currentScore),
+      cell(row.priorScore),
+      cell(row.scoreDelta),
+      cell(row.manualStar),
+      cell(row.fullMarketStar),
+    ]),
+  };
+}
+
+export function predictedCutPointsCsvString(
+  cutPoints: PlanPreviewCutPointPrediction[],
+  additionsByMeasure?: Map<string, CutPointAdditionSummary>,
+): string {
+  return generateCsvString(buildPredictedCutPointsCsv(cutPoints, additionsByMeasure));
+}
+
+export function predictedCutPointAdditionsCsvString(
+  detailRows: CutPointAdditionDetailRow[],
+): string {
+  return generateCsvString(buildPredictedCutPointAdditionsCsv(detailRows));
 }

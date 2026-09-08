@@ -56,7 +56,7 @@ export function DataPageNav() {
   return (
     <aside
       className={cn(
-        "sticky top-0 hidden h-dvh flex-col justify-between border-r border-[var(--fep-border)] bg-[color-mix(in_srgb,var(--fep-band-bg)_35%,#f3efe6)] transition-[width] duration-200 ease-out xl:flex",
+        "sticky top-0 flex h-dvh flex-col justify-between border-r border-[var(--fep-border)] bg-[color-mix(in_srgb,var(--fep-band-bg)_35%,#f3efe6)] transition-[width] duration-200 ease-out",
         expanded ? "w-52" : "w-20",
       )}
     >

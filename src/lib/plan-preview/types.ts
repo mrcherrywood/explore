@@ -4,7 +4,16 @@ export type PlanPreviewFileType =
   | "cahps"
   | "hedis"
   | "snp_cm"
-  | "cahps_adjusted";
+  | "cahps_adjusted"
+  | "measure_star"
+  | "improvement"
+  | "summary_rating";
+
+export type PlanPreviewOfficialStarStatus =
+  | PlanPreviewMeasureStatus
+  | "too_small";
+
+export type PlanPreviewOfficialRatingType = "part_c" | "part_d" | "overall";
 
 export type PlanPreviewDecimalSource = "cahps" | "hedis" | "snp_cm";
 
@@ -156,11 +165,115 @@ export type PlanPreviewCahpsAdjustedParseResult = {
   };
 };
 
+export type ParsedPlanPreviewOfficialStar = {
+  sourceRowNumber: number;
+  contractId: string;
+  organizationMarketingName: string | null;
+  contractName: string | null;
+  parentOrganization: string | null;
+  measureCode: string;
+  measureName: string;
+  measureDisplayName: string;
+  measureNormalized: string;
+  metricCategory: "Part C" | "Part D" | "Other";
+  rawValue: string;
+  star: number | null;
+  status: PlanPreviewOfficialStarStatus;
+};
+
+export type PlanPreviewOfficialStarParseResult = {
+  fileType: "measure_star";
+  sheetName: string;
+  detectedStarsYear: number | null;
+  rows: ParsedPlanPreviewOfficialStar[];
+  summary: {
+    rowCount: number;
+    contractCount: number;
+    measureCount: number;
+    scoredCount: number;
+  };
+};
+
+export type ParsedPlanPreviewImprovement = {
+  sourceRowNumber: number;
+  contractId: string;
+  organizationMarketingName: string | null;
+  contractName: string | null;
+  parentOrganization: string | null;
+  measureCode: string;
+  measureName: string;
+  measureDisplayName: string;
+  measureNormalized: string;
+  metricCategory: "Part C" | "Part D" | "Other";
+  qiSignificance: string;
+  improvementScore: number | null;
+  ratingType: "part_c" | "part_d";
+};
+
+export type PlanPreviewImprovementParseResult = {
+  fileType: "improvement";
+  sheetName: string;
+  detectedStarsYear: number | null;
+  rows: ParsedPlanPreviewImprovement[];
+  summary: {
+    rowCount: number;
+    contractCount: number;
+    measureCount: number;
+  };
+};
+
+export type ParsedPlanPreviewOfficialSummary = {
+  sourceRowNumber: number;
+  contractId: string;
+  organizationMarketingName: string | null;
+  contractName: string | null;
+  parentOrganization: string | null;
+  ratingType: PlanPreviewOfficialRatingType;
+  contractType: string | null;
+  snpPlans: string | null;
+  disasterYear1: number | null;
+  disasterPct1: number | null;
+  disasterYear2: number | null;
+  disasterPct2: number | null;
+  measuresRequired: string | null;
+  measuresMissing: number | null;
+  measuresRated: number | null;
+  calculatedMean: number | null;
+  calculatedVariance: number | null;
+  scorePercentileRank: number | null;
+  variancePercentileRank: number | null;
+  varianceCategory: string | null;
+  rewardFactor: number | null;
+  interimSummary: number | null;
+  fac: string | null;
+  caiValue: number | null;
+  finalSummary: number | null;
+  improvementUsage: string | null;
+  newMeasureUsage: string | null;
+  finalRating: number | null;
+  partCSummaryRating: number | null;
+  partDSummaryRating: number | null;
+};
+
+export type PlanPreviewOfficialSummaryParseResult = {
+  fileType: "summary_rating";
+  sheetName: string;
+  detectedStarsYear: number | null;
+  rows: ParsedPlanPreviewOfficialSummary[];
+  summary: {
+    rowCount: number;
+    contractCount: number;
+  };
+};
+
 export type PlanPreviewParseResult =
   | PlanPreviewMeasureParseResult
   | PlanPreviewCaiParseResult
   | PlanPreviewDecimalParseResult
-  | PlanPreviewCahpsAdjustedParseResult;
+  | PlanPreviewCahpsAdjustedParseResult
+  | PlanPreviewOfficialStarParseResult
+  | PlanPreviewImprovementParseResult
+  | PlanPreviewOfficialSummaryParseResult;
 
 export type PlanPreviewBatchRecord = {
   id: string;
@@ -193,6 +306,14 @@ export type PlanPreviewAccrualSummary = {
   caiContractCount: number;
   batchCount: number;
   lastUploadAt: string | null;
+};
+
+export type PlanPreviewOfficialAccrual = {
+  starContractCount: number;
+  starMeasureCount: number;
+  summaryContractCount: number;
+  qiContractCount: number;
+  officialCutPointsLoaded: boolean;
 };
 
 export type PlanPreviewExportRow = {

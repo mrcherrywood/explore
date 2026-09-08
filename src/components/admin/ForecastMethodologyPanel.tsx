@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClusteringMethodologySteps } from "@/components/analysis/BacktestMethodologyPanels";
 import { RosterAccuracyCurve } from "@/components/analysis/RosterAccuracyCurve";
+import { formatForecastPopulationBreakdown } from "@/lib/cutpoint-forecast/population-copy";
 
 const STAR_COLORS: Record<string, string> = {
   "2": "#f97316",
@@ -498,11 +499,14 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                 <MetricCard
                   label="Anchored Full Market"
                   value={String(fullMarketReady.sampleSize)}
-                  helper={
-                    (fullMarketReady.pp1OverlayCount ?? 0) > 0
-                      ? `${fullMarketReady.projectedContractCount} client + ${fullMarketReady.pp1OverlayCount} Plan Preview + ${Math.max(0, fullMarketReady.rawSampleSize - fullMarketReady.projectedContractCount - (fullMarketReady.pp1OverlayCount ?? 0))} market baseline`
-                      : `${fullMarketReady.projectedContractCount} client + ${fullMarketReady.rawSampleSize - fullMarketReady.projectedContractCount} market baseline`
-                  }
+                  helper={formatForecastPopulationBreakdown({
+                    populationMode: "full_market",
+                    forecastCount: fullMarketReady.projectedContractCount,
+                    pp1FillCount: fullMarketReady.pp1OverlayCount ?? 0,
+                    rawSampleSize: fullMarketReady.rawSampleSize,
+                    outliersRemoved: fullMarketReady.outliersRemoved,
+                    baselineYear: fullMarketReady.baselineYear,
+                  })}
                 />
               )}
               {clientInformedReady && (
@@ -519,11 +523,13 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                 <MetricCard
                   label="Client Only"
                   value={String(clientOnlyReady.sampleSize)}
-                  helper={
-                    (clientOnlyReady.pp1OverlayCount ?? 0) > 0
-                      ? `PP1 + projections (${clientOnlyReady.pp1OverlayCount} Plan Preview fills)`
-                      : "PP1 + projections"
-                  }
+                  helper={formatForecastPopulationBreakdown({
+                    populationMode: "client_only",
+                    forecastCount: clientOnlyReady.projectedContractCount,
+                    pp1FillCount: clientOnlyReady.pp1OverlayCount ?? 0,
+                    rawSampleSize: clientOnlyReady.rawSampleSize,
+                    baselineYear: clientOnlyReady.baselineYear,
+                  })}
                 />
               )}
               <MetricCard
@@ -670,7 +676,14 @@ export function ForecastMethodologyPanel({ runId, forecastYear }: Props) {
                     {selectedDisplayName} · {forecastYear}
                     {fullMarketReady?.baselineYear !== null &&
                     fullMarketReady?.baselineYear !== undefined
-                      ? ` · full market overlay uses ${fullMarketReady.baselineYear} market baseline`
+                      ? ` · ${formatForecastPopulationBreakdown({
+                          populationMode: "full_market",
+                          forecastCount: fullMarketReady.projectedContractCount,
+                          pp1FillCount: fullMarketReady.pp1OverlayCount ?? 0,
+                          rawSampleSize: fullMarketReady.rawSampleSize,
+                          outliersRemoved: fullMarketReady.outliersRemoved,
+                          baselineYear: fullMarketReady.baselineYear,
+                        })}`
                       : ""}
                   </p>
                 </div>

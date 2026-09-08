@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { RosterAccuracyCurve } from "./RosterAccuracyCurve";
+import { formatForecastPopulationBreakdown } from "@/lib/cutpoint-forecast/population-copy";
 
 type ForecastPopulationMode = "full_market" | "client_only";
 
@@ -316,9 +317,15 @@ export function CutPointForecastAnalysis({
           </div>
           <p className="text-xs text-muted-foreground">
             {displayName}
-            {fullMarketReady?.baselineYear !== null &&
-            fullMarketReady?.baselineYear !== undefined
-              ? ` · overlaying projected client scores onto the ${fullMarketReady.baselineYear} market baseline`
+            {fullMarketReady
+              ? ` · ${formatForecastPopulationBreakdown({
+                  populationMode: "full_market",
+                  forecastCount: fullMarketReady.projectedContractCount ?? 0,
+                  pp1FillCount: fullMarketReady.pp1OverlayCount ?? 0,
+                  rawSampleSize: fullMarketReady.rawSampleSize,
+                  outliersRemoved: fullMarketReady.outliersRemoved,
+                  baselineYear: fullMarketReady.baselineYear,
+                })}`
               : ""}
           </p>
         </div>
@@ -363,12 +370,15 @@ export function CutPointForecastAnalysis({
               label="Full Market"
               value={String(fullMarketReady?.sampleSize ?? "—")}
               helper={
-                fullMarketReady?.projectedContractCount &&
-                fullMarketReady.projectedContractCount > 0
-                  ? fullMarketReady.pp1OverlayCount &&
-                    fullMarketReady.pp1OverlayCount > 0
-                    ? `${fullMarketReady.projectedContractCount} client projections + ${fullMarketReady.pp1OverlayCount} Plan Preview fills`
-                    : `${fullMarketReady.projectedContractCount} approved client projections overlaid`
+                fullMarketReady
+                  ? formatForecastPopulationBreakdown({
+                      populationMode: "full_market",
+                      forecastCount: fullMarketReady.projectedContractCount ?? 0,
+                      pp1FillCount: fullMarketReady.pp1OverlayCount ?? 0,
+                      rawSampleSize: fullMarketReady.rawSampleSize,
+                      outliersRemoved: fullMarketReady.outliersRemoved,
+                      baselineYear: fullMarketReady.baselineYear,
+                    })
                   : "Projected population size"
               }
             />
@@ -376,10 +386,15 @@ export function CutPointForecastAnalysis({
               label="Client Only"
               value={String(clientOnlyReady?.sampleSize ?? "—")}
               helper={
-                clientOnlyReady?.pp1OverlayCount &&
-                clientOnlyReady.pp1OverlayCount > 0
-                  ? `PP1 + projections (${clientOnlyReady.pp1OverlayCount} Plan Preview fills)`
-                  : "PP1 + projections"
+                clientOnlyReady
+                  ? formatForecastPopulationBreakdown({
+                      populationMode: "client_only",
+                      forecastCount: clientOnlyReady.projectedContractCount ?? 0,
+                      pp1FillCount: clientOnlyReady.pp1OverlayCount ?? 0,
+                      rawSampleSize: clientOnlyReady.rawSampleSize,
+                      baselineYear: clientOnlyReady.baselineYear,
+                    })
+                  : "Forecast + Plan Preview"
               }
               accent="text-[var(--fep-accent)]"
             />

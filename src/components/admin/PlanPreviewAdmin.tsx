@@ -18,6 +18,7 @@ import type {
   PlanPreviewAccrualSummary,
   PlanPreviewBatchRecord,
   PlanPreviewContractOption,
+  PlanPreviewOfficialAccrual,
 } from "@/lib/plan-preview/types";
 
 type OverviewResponse = {
@@ -26,6 +27,8 @@ type OverviewResponse = {
   batches: PlanPreviewBatchRecord[];
   accrual: PlanPreviewAccrualSummary;
   contracts: PlanPreviewContractOption[];
+  official?: PlanPreviewOfficialAccrual;
+  officialContracts?: PlanPreviewContractOption[];
 };
 
 const FILE_TYPE_LABELS: Record<string, string> = {
@@ -35,6 +38,9 @@ const FILE_TYPE_LABELS: Record<string, string> = {
   hedis: "HEDIS decimals",
   snp_cm: "SNP CM decimals",
   cahps_adjusted: "CAHPS adjusted (legacy)",
+  measure_star: "PP2 measure stars",
+  improvement: "PP2 QI significance",
+  summary_rating: "PP2 summary rating",
 };
 
 const DECIMAL_FILE_TYPES = new Set(["cahps", "hedis", "snp_cm"]);
@@ -43,6 +49,8 @@ const MEASURE_COUNT_FILE_TYPES = new Set([
   "cahps",
   "hedis",
   "snp_cm",
+  "measure_star",
+  "improvement",
 ]);
 
 /** Group upload batches by parent organization, most recent upload first. */
@@ -305,16 +313,14 @@ export function PlanPreviewAdmin() {
         <div className="px-5 pb-4 pt-5">
           <p className="fep-label">Upload</p>
           <p className="fep-subtitle" style={{ marginTop: 4 }}>
-            Upload CMS plan preview master table exports (.xlsx) — measure data,
-            CAI, and domain files (CAHPS, HEDIS, SNP Care Management) are
-            detected automatically. Domain decimals overlay whole-number
-            measure scores when available. CAHPS domain uploads also carry the
-            plan&apos;s Star Rating column, which is used for CAHPS measure
-            stars; without that file, official CAHPS cut points apply. Use
-            Import folder to pull in a whole release folder at once; files
-            without usable scores (appeals, CTM, disenrollment, disaster) are
-            skipped with a note. Re-uploading a contract replaces its accrued
-            rows for the selected Star year.
+            Upload CMS plan preview master table exports (.xlsx) — PP1 measure
+            data, CAI, and domain files, plus PP2 official stars, QI
+            significance, and summary rating files, are detected automatically.
+            Domain decimals overlay whole-number measure scores when available.
+            Use Import folder to pull in a whole release folder at once;
+            files without usable scores (appeals, CTM, disenrollment, disaster)
+            are skipped with a note. Re-uploading a contract replaces its
+            accrued rows for the selected Star year.
           </p>
         </div>
         <div
@@ -456,6 +462,46 @@ export function PlanPreviewAdmin() {
 
       {starsYear !== null && (overview?.contracts.length ?? 0) > 0 ? (
         <PlanPreviewReportPicker starsYear={starsYear} contracts={overview?.contracts ?? []} />
+      ) : null}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <SummaryCard
+          label="PP2 star contracts"
+          value={overview?.official?.starContractCount}
+          loading={loading}
+        />
+        <SummaryCard
+          label="PP2 measures"
+          value={overview?.official?.starMeasureCount}
+          loading={loading}
+        />
+        <SummaryCard
+          label="PP2 summaries"
+          value={overview?.official?.summaryContractCount}
+          loading={loading}
+        />
+        <SummaryCard
+          label="PP2 QI coverage"
+          value={overview?.official?.qiContractCount}
+          loading={loading}
+        />
+        <div className="fep-card px-5 py-4">
+          <p className="fep-label">Official cut points</p>
+          <p className="fep-stat-value">
+            {loading ? "…" : overview?.official?.officialCutPointsLoaded ? "Loaded" : "Not loaded"}
+          </p>
+        </div>
+      </div>
+
+      {starsYear !== null && (overview?.officialContracts?.length ?? 0) > 0 ? (
+        <PlanPreviewReportPicker
+          starsYear={starsYear}
+          contracts={overview?.officialContracts ?? []}
+          hrefBase="/admin/plan-preview/results-report"
+          title="PP2 official report"
+          description="Open the official Plan Preview 2 report for any contract with published stars. Includes PP1 prediction accuracy when PP1 scores are accrued."
+          buttonLabel="Open official report →"
+        />
       ) : null}
 
       {starsYear !== null && (accrual?.contractCount ?? 0) > 0 ? (

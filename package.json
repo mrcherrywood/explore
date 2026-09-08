@@ -3,20 +3,25 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_OPTIONS='--dns-result-order=ipv4first' next dev --turbopack",
+    "dev": "NODE_OPTIONS='--dns-result-order=ipv4first' next dev --turbopack -p 3001",
     "prebuild": "sh scripts/generate-percentile-data.sh",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
     "test:percentile-analysis": "tsx --test src/lib/percentile-analysis/*.test.ts",
-    "test:band-movement": "tsx --test src/lib/band-movement/*.test.ts",
+    "test:band-movement": "tsx --test src/lib/band-movement/*.test.ts src/lib/cutpoint-forecast/*.test.ts",
     "test:plan-preview": "tsx --test src/lib/plan-preview/*.test.ts",
     "test:star-distribution": "tsx --test src/lib/star-distribution/*.test.ts",
     "migrate": "tsx scripts/run-migration.ts",
     "import:metrics": "tsx scripts/import-ma-metrics.ts",
     "import:summary": "tsx scripts/import-summary-ratings.ts",
     "import:enrollment": "tsx scripts/import-plan-enrollment.ts",
-    "export:methodology-backtest": "tsx scripts/export-cms-methodology-backtest.ts"
+    "export:methodology-backtest": "tsx scripts/export-cms-methodology-backtest.ts",
+    "export:client-measure-yoy": "tsx scripts/export-client-measure-yoy.ts",
+    "export:client-pp1-vs-prior": "tsx scripts/export-client-pp1-vs-prior.ts",
+    "export:predicted-cut-points": "tsx scripts/export-predicted-cut-points.ts",
+    "export:aetna-book-compare": "tsx scripts/export-aetna-book-compare.ts",
+    "import:tech-notes": "tsx scripts/import-tech-notes.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.38",

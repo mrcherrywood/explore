@@ -24,6 +24,7 @@ import {
   isInvertedMeasure,
   matchCutPointToMeasureName,
 } from "@/lib/percentile-analysis/measure-matching";
+import { hasOfficialTechNotesCutPoints } from "./official-cut-points";
 import type { MeasureCutPoint } from "@/lib/percentile-analysis/measure-likelihood-types";
 
 /** Accrued plan preview scores only cover MA contracts; S-prefix PDPs are excluded. */
@@ -517,7 +518,9 @@ export function buildPlanPreviewPredictions(
       predictionStatusByMeasure.set(measureNormalized, "ready");
 
       const notes: string[] = [];
-      if (isCahps) {
+      if (hasOfficialTechNotesCutPoints(starsYear)) {
+        notes.push(`Official Stars ${starsYear} cut points from the Technical Notes.`);
+      } else if (isCahps) {
         notes.push(`Official Stars ${starsYear} CAHPS cut points from the cut point workbook.`);
       } else {
         notes.push(
@@ -551,7 +554,7 @@ export function buildPlanPreviewPredictions(
         method: primaryModel
           ? (primaryModel.methodology.method as "clustering" | "cahps-percentile")
           : null,
-        source: isCahps ? "official" : "workbook_forecast",
+        source: hasOfficialTechNotesCutPoints(starsYear) || isCahps ? "official" : "workbook_forecast",
         inverted,
         sampleSize: readyFullMarket?.sampleSize ?? null,
         clientOnlySampleSize: readyClientOnly?.sampleSize ?? projectedSamples.length,

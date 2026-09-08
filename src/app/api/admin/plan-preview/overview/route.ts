@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { requireApprovedAdmin } from "@/lib/admin/require-approved-admin";
 import { getAvailableMeasureYears } from "@/lib/band-movement/analysis";
 import {
+  getPlanPreviewOfficialAccrual,
+  listPlanPreviewOfficialContracts,
+} from "@/lib/plan-preview/store-official";
+import {
   getPlanPreviewAccrualSummary,
   listPlanPreviewBatches,
   listPlanPreviewContracts,
@@ -35,13 +39,23 @@ export async function GET(request: Request) {
       (a, b) => b - a
     );
 
-    const [batches, accrual, contracts] = await Promise.all([
+    const [batches, accrual, contracts, official, officialContracts] = await Promise.all([
       listPlanPreviewBatches(admin.serviceClient, starsYear),
       getPlanPreviewAccrualSummary(admin.serviceClient, starsYear),
       listPlanPreviewContracts(admin.serviceClient, starsYear),
+      getPlanPreviewOfficialAccrual(admin.serviceClient, starsYear),
+      listPlanPreviewOfficialContracts(admin.serviceClient, starsYear),
     ]);
 
-    return NextResponse.json({ starsYear, starsYears, batches, accrual, contracts });
+    return NextResponse.json({
+      starsYear,
+      starsYears,
+      batches,
+      accrual,
+      contracts,
+      official,
+      officialContracts,
+    });
   } catch (error) {
     console.error("Failed to load plan preview overview", error);
     return NextResponse.json(

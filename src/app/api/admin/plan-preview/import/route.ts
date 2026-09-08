@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 
 import { requireApprovedAdmin } from "@/lib/admin/require-approved-admin";
 import {
+  overlayPlanPreviewImprovementScores,
+  overlayPlanPreviewQiSignificance,
+  upsertPlanPreviewOfficialStars,
+  upsertPlanPreviewOfficialSummary,
+} from "@/lib/plan-preview/store-official";
+import {
   createPlanPreviewBatch,
   upsertPlanPreviewCai,
   upsertPlanPreviewDecimalScores,
@@ -57,7 +63,9 @@ export async function POST(request: Request) {
       parsed.fileType === "measure_data" ||
       parsed.fileType === "cahps" ||
       parsed.fileType === "hedis" ||
-      parsed.fileType === "snp_cm"
+      parsed.fileType === "snp_cm" ||
+      parsed.fileType === "measure_star" ||
+      parsed.fileType === "improvement"
         ? parsed.summary.measureCount
         : 0;
 
@@ -96,6 +104,28 @@ export async function POST(request: Request) {
       });
     } else if (parsed.fileType === "cai") {
       await upsertPlanPreviewCai(admin.serviceClient, {
+        batchId: batch.id,
+        starsYear,
+        rows: parsed.rows,
+      });
+    } else if (parsed.fileType === "measure_star") {
+      await upsertPlanPreviewOfficialStars(admin.serviceClient, {
+        batchId: batch.id,
+        starsYear,
+        rows: parsed.rows,
+      });
+    } else if (parsed.fileType === "improvement") {
+      await overlayPlanPreviewQiSignificance(admin.serviceClient, {
+        batchId: batch.id,
+        starsYear,
+        rows: parsed.rows,
+      });
+      await overlayPlanPreviewImprovementScores(admin.serviceClient, {
+        starsYear,
+        rows: parsed.rows,
+      });
+    } else if (parsed.fileType === "summary_rating") {
+      await upsertPlanPreviewOfficialSummary(admin.serviceClient, {
         batchId: batch.id,
         starsYear,
         rows: parsed.rows,

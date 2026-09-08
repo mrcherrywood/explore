@@ -4,6 +4,7 @@ import type {
   MeasureDistribution,
   MetricMode,
   PeriodKey,
+  ScoreBands,
   ScoreShare,
   ScoreSlice,
   StarCounts,
@@ -91,23 +92,56 @@ export function recencyWeights(): Record<number, number> {
 
 const EMPTY_SCORE_SHARE: ScoreShare = { n: 0, mean: 0 };
 
+function emptyBands(): ScoreBands {
+  return [
+    { n: 0, mean: 0 },
+    { n: 0, mean: 0 },
+    { n: 0, mean: 0 },
+    { n: 0, mean: 0 },
+    { n: 0, mean: 0 },
+  ];
+}
+
 export function emptyScoreSlice(): ScoreSlice {
-  return { cms: EMPTY_SCORE_SHARE, book: EMPTY_SCORE_SHARE, meanDelta: 0 };
+  return {
+    cms: EMPTY_SCORE_SHARE,
+    book: EMPTY_SCORE_SHARE,
+    meanDelta: 0,
+    bands: { cms: emptyBands(), book: emptyBands() },
+  };
 }
 
 export function shareFromScores(scores: number[]): ScoreShare {
-  if (scores.length === 0) return EMPTY_SCORE_SHARE;
+  if (scores.length === 0) return { n: 0, mean: 0 };
   const mean =
     scores.reduce((sum, score) => sum + score, 0) / scores.length;
   return { n: scores.length, mean: Number(mean.toFixed(2)) };
 }
 
-export function compareScores(cms: ScoreShare, book: ScoreShare): ScoreSlice {
+export function bandsFromStarScores(
+  cmsByStar: number[][],
+  bookByStar: number[][]
+): ScoreSlice["bands"] {
+  return {
+    cms: [0, 1, 2, 3, 4].map((index) =>
+      shareFromScores(cmsByStar[index] ?? [])
+    ) as ScoreBands,
+    book: [0, 1, 2, 3, 4].map((index) =>
+      shareFromScores(bookByStar[index] ?? [])
+    ) as ScoreBands,
+  };
+}
+
+export function compareScores(
+  cms: ScoreShare,
+  book: ScoreShare,
+  bands: ScoreSlice["bands"] = { cms: emptyBands(), book: emptyBands() }
+): ScoreSlice {
   const meanDelta =
     book.n === 0 || cms.n === 0
       ? 0
       : Number((book.mean - cms.mean).toFixed(2));
-  return { cms, book, meanDelta };
+  return { cms, book, meanDelta, bands };
 }
 
 type WeightedScoreYear = { year: number; share: ScoreShare };
@@ -127,6 +161,26 @@ export function poolScoreShares(
   }
   if (n === 0) return EMPTY_SCORE_SHARE;
   return { n, mean: Number((total / n).toFixed(2)) };
+}
+
+export function poolScoreBands(
+  years: Array<{ year: number; bands: ScoreSlice["bands"] }>,
+  weights?: Record<number, number>
+): ScoreSlice["bands"] {
+  return {
+    cms: [0, 1, 2, 3, 4].map((index) =>
+      poolScoreShares(
+        years.map((row) => ({ year: row.year, share: row.bands.cms[index] })),
+        weights
+      )
+    ) as ScoreBands,
+    book: [0, 1, 2, 3, 4].map((index) =>
+      poolScoreShares(
+        years.map((row) => ({ year: row.year, share: row.bands.book[index] })),
+        weights
+      )
+    ) as ScoreBands,
+  };
 }
 
 export function formatScore(value: number): string {

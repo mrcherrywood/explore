@@ -448,7 +448,7 @@ export function SummaryContent({
 
   const formatMonthYear = (year: number, month: number) => {
     const date = new Date(Date.UTC(year, month - 1));
-    return date.toLocaleString("default", { month: "long", year: "numeric" });
+    return date.toLocaleString("default", { month: "long", year: "numeric", timeZone: "UTC" });
   };
 
   const formatNumber = (value: number | null | undefined) => {

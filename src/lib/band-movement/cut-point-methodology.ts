@@ -18,6 +18,7 @@ import {
   normalizeMeasureName,
 } from "@/lib/percentile-analysis/measure-matching";
 import type { MeasureCutPoint } from "@/lib/percentile-analysis/measure-likelihood-types";
+import { loadOfficialTechNotesCutPoints } from "@/lib/plan-preview/official-cut-points";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const CUT_POINTS_PATH = path.join(DATA_DIR, "Stars 2016-2028 Cut Points 08.2026_with_weights.xlsx");
@@ -226,6 +227,10 @@ export function loadClientContractIds(): Set<string> {
 export function ensureOfficialCutPoints(): Map<number, MeasureCutPoint[]> {
   if (!officialCutPointsCache) {
     officialCutPointsCache = loadMeasureCutPoints(CUT_POINTS_PATH, [2022, ...getAvailableMeasureYears()]);
+    for (const year of officialCutPointsCache.keys()) {
+      const techNotes = loadOfficialTechNotesCutPoints(year);
+      if (techNotes.length > 0) officialCutPointsCache.set(year, techNotes);
+    }
   }
   return officialCutPointsCache;
 }
@@ -238,6 +243,8 @@ const fileCutPointsByYearCache = new Map<number, MeasureCutPoint[]>();
  * rows maintained in the workbook).
  */
 export function getWorkbookCutPointsForYear(year: number): MeasureCutPoint[] {
+  const techNotes = loadOfficialTechNotesCutPoints(year);
+  if (techNotes.length > 0) return techNotes;
   const official = ensureOfficialCutPoints().get(year);
   if (official) return official;
   let cached = fileCutPointsByYearCache.get(year);

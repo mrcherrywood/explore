@@ -1,0 +1,46 @@
+year,measure_code,measure_name,inverted,weight_category,weight,two_star,three_star,four_star,five_star
+2027,C01,Breast Cancer Screening,false,Process Measure,1,63,70,77,83
+2027,C02,Colorectal Cancer Screening,false,Process Measure,1,59,68,75,82
+2027,C03,Annual Flu Vaccine,false,Process Measure,1,56,60,67,72
+2027,C04,Improving or Maintaining Physical Health,false,Outcome Measure,3,67,71,73,75
+2027,C05,Improving or Maintaining Mental Health,false,Outcome Measure,3,81,83,85,87
+2027,C06,Monitoring Physical Activity,false,Process Measure,1,46,50,55,61
+2027,C07,Special Needs Plan (SNP) Care Management,false,Process Measure,1,47,65,78,92
+2027,C08,Care for Older Adults – Medication Review,false,Process Measure,1,63,90,96,99
+2027,C09,Care for Older Adults – Functional Status Assessment,false,Process Measure,1,65,78,87,95
+2027,C10,Osteoporosis Management in Women who had a Fracture,false,Process Measure,1,29,42,52,70
+2027,C11,Diabetes Care – Eye Exam,false,Process Measure,1,61,72,79,86
+2027,C12,Diabetes Care – Blood Sugar Controlled,false,Intermediate Outcome Measure,3,59,82,89,92
+2027,C13,Kidney Health Evaluation for Patients with Diabetes,false,Process Measure,1,46,63,72,83
+2027,C14,Controlling Blood Pressure,false,Intermediate Outcomes Measure,3,72,79,84,90
+2027,C15,Reducing the Risk of Falling,false,Process Measure,1,52,58,65,72
+2027,C16,Improving Bladder Control,false,Process Measure,1,37,43,47,52
+2027,C17,Plan All-Cause Readmissions,true,Outcome Measure,3,13,11,10,8
+2027,C18,Statin Therapy for Patients with Cardiovascular Disease,false,Process Measure,1,82,86,89,93
+2027,C19,Transitions of Care,false,Process Measure,1,39,56,69,80
+2027,C20,Follow-up after Emergency Department Visit for People with Multiple High-Risk Chronic Conditions,false,Process Measure,1,55,64,72,83
+2027,C21,Getting Needed Care,false,Patients’ Experience and Complaints Measure,2,78,80,83,84
+2027,C22,Getting Appointments and Care Quickly,false,Patients’ Experience and Complaints Measure,2,80,82,84,86
+2027,C23,Customer Service,false,Patients’ Experience and Complaints Measure,2,88,89,91,92
+2027,C24,Rating of Health Care Quality,false,Patients’ Experience and Complaints Measure,2,85,86,87,88
+2027,C25,Rating of Health Plan,false,Patients’ Experience and Complaints Measure,2,83,85,87,89
+2027,C26,Care Coordination,false,Patients’ Experience and Complaints Measure,2,85,86,88,89
+2027,C27,Complaints about the Health Plan,true,Patients’ Experience and Complaints Measure,2,1.29,0.66,0.33,0.15
+2027,C28,Members Choosing to Leave the Plan,true,Patients’ Experience and Complaints Measure,2,37,28,17,8
+2027,C29,Health Plan Quality Improvement,false,Improvement Measure,5,-0.184029,0,0.161052,0.336992
+2027,C30,Plan Makes Timely Decisions about Appeals,false,Measures Capturing Access,2,79,95,98,100
+2027,C31,Reviewing Appeals Decisions,false,Measures Capturing Access,2,88,96,98,100
+2027,C32,Call Center – Foreign Language Interpreter and TTY Availability,false,Measures Capturing Access,2,56,79,97,100
+2027,D01,Call Center – Foreign Language Interpreter and TTY Availability,false,Measures Capturing Access,2,50,84,97,100
+2027,D02,Complaints about the Drug Plan,true,Patients’ Experience and Complaints Measure,2,1.29,0.66,0.33,0.15
+2027,D03,Members Choosing to Leave the Plan,true,Patients’ Experience and Complaints Measure,2,37,28,17,8
+2027,D04,Drug Plan Quality Improvement,false,Improvement Measure,5,-0.296792,0,0.231209,0.513866
+2027,D05,Rating of Drug Plan,false,Patients’ Experience and Complaints Measure,2,84,86,87,89
+2027,D06,Getting Needed Prescription Drugs,false,Patients’ Experience and Complaints Measure,2,88,89,90,91
+2027,D07,MPF Price Accuracy,false,Process Measure,1,97,98,99,100
+2027,D08,Medication Adherence for Diabetes Medications,false,Intermediate Outcome Measure,3,86,89,91,93
+2027,D09,Medication Adherence for Hypertension (RAS antagonists),false,Intermediate Outcome Measure,3,84,88,90,93
+2027,D10,Medication Adherence for Cholesterol (Statins),false,Intermediate Outcome Measure,3,84,88,90,93
+2027,D11,Statin Use in Persons with Diabetes (SUPD),false,Process Measure,1,83,87,90,94
+2027,D12,Concurrent Use of Opioids and Benzodiazepines (COB),true,Process Measure,1,20,16,12,8
+2027,D13,Polypharmacy: Use of Multiple Anticholinergic Medications in Older Adults (Poly-ACH),true,Process Measure,1,15,11,7,5

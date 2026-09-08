@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { formatForecastPopulationBreakdown } from "@/lib/cutpoint-forecast/population-copy";
 import {
   getAvailableMeasureYears,
   getAvailableOptions,
@@ -277,6 +278,40 @@ test("buildCurrentYearForecastOverlay uses PP1 when Projected Final diverges sig
   assert.equal(merged.samples.find((sample) => sample.contractId === second)?.score, 80.4);
   assert.equal(merged.pp1OverrideCount, 1);
   assert.equal(merged.pp1FillCount, 0);
+});
+
+test("formatForecastPopulationBreakdown always names forecast, Plan Preview, and last-year market", () => {
+  assert.equal(
+    formatForecastPopulationBreakdown({
+      populationMode: "full_market",
+      forecastCount: 145,
+      pp1FillCount: 44,
+      rawSampleSize: 516,
+      baselineYear: 2026,
+    }),
+    "145 forecast + 44 Plan Preview + 327 Stars 2026 market"
+  );
+  assert.equal(
+    formatForecastPopulationBreakdown({
+      populationMode: "full_market",
+      forecastCount: 69,
+      pp1FillCount: 0,
+      rawSampleSize: 507,
+      outliersRemoved: 4,
+      baselineYear: 2026,
+    }),
+    "69 forecast + 0 Plan Preview + 438 Stars 2026 market · 4 outliers removed"
+  );
+  assert.equal(
+    formatForecastPopulationBreakdown({
+      populationMode: "client_only",
+      forecastCount: 145,
+      pp1FillCount: 44,
+      rawSampleSize: 189,
+      baselineYear: 2026,
+    }),
+    "145 forecast + 44 Plan Preview"
+  );
 });
 
 test("significantProjectedVsPp1Delta is tighter for complaints", () => {

@@ -107,6 +107,9 @@ test("when the book is the full eligible market, average scores match CMS", () =
   assert.equal(y2026.score.meanDelta, 0);
   assert.equal(y2026.score.book.n, y2026.score.cms.n);
   assert.ok(y2026.score.cms.n > 0);
+  assert.equal(y2026.score.bands.book[3].mean, y2026.score.bands.cms[3].mean);
+  assert.ok(y2026.score.bands.cms[4].n > 0);
+  assert.ok(y2026.score.bands.cms[4].mean > y2026.score.bands.cms[0].mean);
 });
 
 test("an empty book reports no average score against a real CMS market", () => {
@@ -119,6 +122,8 @@ test("an empty book reports no average score against a real CMS market", () => {
   assert.equal(y2026.score.meanDelta, 0);
   assert.ok(y2026.score.cms.n > 0);
   assert.ok(y2026.score.cms.mean > 0);
+  assert.equal(y2026.score.bands.book[4].n, 0);
+  assert.ok(y2026.score.bands.cms[4].n > 0);
 });
 
 test("Complaints is flagged inverted; Breast Cancer Screening is not", () => {

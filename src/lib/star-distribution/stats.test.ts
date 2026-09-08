@@ -16,6 +16,7 @@ import {
   sliceForPeriod,
   scoreSliceForPeriod,
   starShareBetter,
+  bandsFromStarScores,
 } from "./stats";
 import type { MeasureDistribution, StarDistributionResponse } from "./types";
 
@@ -118,11 +119,13 @@ test("poolScoreShares applies recency weights to contract-year means", () => {
 
 test("scoreSliceForPeriod reads the selected measure window", () => {
   const last3WScore = {
+    ...emptyScoreSlice(),
     cms: { n: 10, mean: 80 },
     book: { n: 4, mean: 82 },
     meanDelta: 2,
   };
   const y2026Score = {
+    ...emptyScoreSlice(),
     cms: { n: 10, mean: 81 },
     book: { n: 4, mean: 84 },
     meanDelta: 3,
@@ -172,4 +175,16 @@ test("scoreDeltaBetter flips for inverted measures", () => {
   assert.equal(fepDeltaClass(1), "fep-delta-pos");
   assert.equal(fepDeltaClass(-1), "fep-delta-neg");
   assert.equal(fepDeltaClass(0), "");
+});
+
+test("bandsFromStarScores averages scores inside each whole-star bucket", () => {
+  const bands = bandsFromStarScores(
+    [[10], [20], [30, 32], [40], [50]],
+    [[11], [], [31], [42], [50]]
+  );
+  assert.equal(bands.cms[0].mean, 10);
+  assert.equal(bands.cms[2].mean, 31);
+  assert.equal(bands.book[2].mean, 31);
+  assert.equal(bands.book[1].n, 0);
+  assert.equal(bands.book[3].mean, 42);
 });

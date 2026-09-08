@@ -5,9 +5,13 @@ import type { MethodologyForecastThreshold } from "@/lib/band-movement/cut-point
 import { generateCsvString } from "@/lib/export/csv";
 
 import {
+  PREDICTED_CUT_POINTS_ADDITIONS_HEADERS,
+  PREDICTED_CUT_POINTS_ADDITION_SUMMARY_HEADERS,
   PREDICTED_CUT_POINTS_CSV_HEADERS,
+  buildPredictedCutPointAdditionsCsv,
   buildPredictedCutPointsCsv,
 } from "./predicted-cut-points-export";
+import type { CutPointAdditionSummary } from "./cut-point-drivers";
 import type { PlanPreviewCutPointPrediction } from "./predictions";
 
 function threshold(
@@ -166,6 +170,7 @@ test("buildPredictedCutPointsCsv marks inverted measures and official sources", 
   assert.equal(data.rows[0][9], "");
   assert.equal(data.rows[0][10], "-0.01");
   assert.equal(data.rows[0][23], "");
+  assert.equal(data.rows[0].length, PREDICTED_CUT_POINTS_CSV_HEADERS.length);
 });
 
 test("buildPredictedCutPointsCsv keeps unavailable rows with reason notes", () => {
@@ -203,4 +208,100 @@ test("generateCsvString quotes measure names that contain commas", () => {
 
   assert.match(csv, /"Getting Needed Care, Getting Appointments"/);
   assert.match(csv, /Official/);
+});
+
+test("buildPredictedCutPointsCsv appends addition columns when drivers are provided", () => {
+  const additions = new Map<string, CutPointAdditionSummary>([
+    [
+      "breast cancer screening partc",
+      {
+        measureNormalized: "breast cancer screening partc",
+        addedSinceLastRun: 38,
+        fullMarketPrior: { fiveStar: 85, fourStar: 77, threeStar: 72, twoStar: 63 },
+        fullMarketDelta: { fiveStar: 0.48, fourStar: 0.1, threeStar: 0, twoStar: 3.09 },
+        clientOnlyPrior: { fiveStar: 85.1, fourStar: 77, threeStar: 72, twoStar: 58 },
+        clientOnlyDelta: { fiveStar: 0.87, fourStar: 0.2, threeStar: -0.1, twoStar: -0.11 },
+        driverParents: "CVS Health Corporation (38, mean score 73.5 vs prior 72.5, +1.0)",
+        additionNotes: "38 contracts were added since the prior book.",
+      },
+    ],
+  ]);
+
+  const data = buildPredictedCutPointsCsv(
+    [
+      cutPoint({
+        displayName: "Breast Cancer Screening",
+        measureNormalized: "breast cancer screening partc",
+        measureCode: "C01",
+        status: "ready",
+        source: "workbook_forecast",
+      }),
+    ],
+    additions,
+  );
+
+  assert.deepEqual(
+    data.headers.slice(PREDICTED_CUT_POINTS_CSV_HEADERS.length),
+    [...PREDICTED_CUT_POINTS_ADDITION_SUMMARY_HEADERS],
+  );
+  assert.equal(data.rows[0][25], "38");
+  assert.equal(data.rows[0][26], "85");
+  assert.equal(data.rows[0][27], "0.48");
+  assert.equal(data.rows[0][28], "85.1");
+  assert.equal(data.rows[0][29], "0.87");
+  assert.match(data.rows[0][42], /CVS Health/);
+  assert.match(data.rows[0][43], /38 contracts were added/);
+});
+
+test("buildPredictedCutPointAdditionsCsv lists overlay contracts by role", () => {
+  const data = buildPredictedCutPointAdditionsCsv([
+    {
+      measureCode: "C01",
+      measureDisplayName: "Breast Cancer Screening",
+      measureNormalized: "breast cancer screening partc",
+      contractId: "H0523",
+      contractName: "Aetna",
+      parentOrganization: "CVS Health",
+      role: "forecast",
+      newToMarket: false,
+      currentScore: 74.58,
+      priorScore: 71.2,
+      scoreDelta: 3.38,
+      manualStar: 3,
+      fullMarketStar: 3,
+    },
+    {
+      measureCode: "C01",
+      measureDisplayName: "Breast Cancer Screening",
+      measureNormalized: "breast cancer screening partc",
+      contractId: "H0504",
+      contractName: null,
+      parentOrganization: "Other",
+      role: "pp1_fill",
+      newToMarket: true,
+      currentScore: 80,
+      priorScore: null,
+      scoreDelta: null,
+      manualStar: 4,
+      fullMarketStar: 4,
+    },
+  ]);
+
+  assert.deepEqual(data.headers, [...PREDICTED_CUT_POINTS_ADDITIONS_HEADERS]);
+  assert.deepEqual(data.rows[0], [
+    "C01",
+    "Breast Cancer Screening",
+    "H0523",
+    "Aetna",
+    "CVS Health",
+    "forecast",
+    "",
+    "74.58",
+    "71.2",
+    "3.38",
+    "3",
+    "3",
+  ]);
+  assert.equal(data.rows[1][5], "Plan Preview fill");
+  assert.equal(data.rows[1][6], "Yes");
 });
