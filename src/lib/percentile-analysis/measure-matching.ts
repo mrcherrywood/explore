@@ -4,6 +4,8 @@ import * as XLSX from "xlsx";
 
 import type { MeasureCutPoint, MeasureStarRating } from "@/lib/percentile-analysis/measure-likelihood-types";
 
+export { isInvertedMeasure } from "./inverted-measure";
+
 const MANUAL_CP_TO_NORM: Record<string, string> = {
   "Glycemic Status Diabetes - GSD": "blood sugar controlled",
   "COA - Medication Review": "care for older adults medication review",
@@ -43,16 +45,6 @@ const MANUAL_CP_TO_NORM: Record<string, string> = {
     "concurrent use of opioids and benzodiazepines cob",
 };
 
-const INVERTED_KEYWORDS = [
-  "complaint",
-  "choosing to leave",
-  "readmission",
-  "anticholinerg", // Poly-ACH / Poly Rx Multi-Anticholinergics (lower is better)
-  "opioid", // Concurrent Use of Opioids and Benzodiazepines (COB)
-  "opiod", // workbook spelling
-  "benzo",
-];
-
 type RawCutPointRow = {
   HLCode?: string | null;
   MeasureName?: string | null;
@@ -90,11 +82,6 @@ export function normalizeMeasureName(value: string) {
     .trim()
     .toLowerCase();
   return NORM_ALIASES[norm] ?? norm;
-}
-
-export function isInvertedMeasure(name: string) {
-  const normalized = name.toLowerCase();
-  return INVERTED_KEYWORDS.some((keyword) => normalized.includes(keyword));
 }
 
 function toNumber(value: number | string | null | undefined) {

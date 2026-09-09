@@ -1,6 +1,6 @@
 "use client";
 
-import { isInvertedMeasure } from "@/lib/percentile-analysis/measure-matching";
+import { isInvertedMeasure } from "@/lib/percentile-analysis/inverted-measure";
 import type { ResultsMeasure } from "@/lib/plan-preview/results-report-data";
 import { isScoreDeltaImprovement } from "@/lib/plan-preview/score-delta-direction";
 
