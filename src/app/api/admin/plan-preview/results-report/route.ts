@@ -31,10 +31,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "A contract ID is required." }, { status: 400 });
     }
 
-    const [officialStars, officialSummaries] = await Promise.all([
-      getPlanPreviewOfficialStars(admin.serviceClient, starsYear, contractId),
-      getPlanPreviewOfficialSummaries(admin.serviceClient, starsYear, contractId),
+    const [marketOfficialStars, marketOfficialSummaries] = await Promise.all([
+      getPlanPreviewOfficialStars(admin.serviceClient, starsYear),
+      getPlanPreviewOfficialSummaries(admin.serviceClient, starsYear),
     ]);
+    const officialStars = marketOfficialStars.filter((row) => row.contractId === contractId);
+    const officialSummaries = marketOfficialSummaries.filter(
+      (row) => row.contractId === contractId,
+    );
     if (officialStars.length === 0 && officialSummaries.length === 0) {
       return NextResponse.json(
         { error: `Contract ${contractId} has no Plan Preview 2 official results for Stars ${starsYear}.` },
@@ -91,6 +95,8 @@ export async function GET(request: Request) {
       overallPredicted,
       overallUpside,
       pp1Published,
+      officialMarketStars: marketOfficialStars,
+      officialMarketSummaries: marketOfficialSummaries,
     });
 
     return NextResponse.json(JSON.parse(JSON.stringify(report)));

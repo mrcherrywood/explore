@@ -259,6 +259,9 @@ test("buildPlanPreviewResultsReport computes YoY and PP1 accuracy diffs", () => 
 
   assert.equal(report.accuracySummary.pp1Published?.finalScoreRaw, 3.578);
   assert.equal(report.accuracySummary.overallPredicted, 3.5);
+  assert.ok(report.scenarios.some((scenario) => scenario.id === "baseline"));
+  assert.ok(report.scenarios.some((scenario) => scenario.id === "s26NoQI"));
+  assert.ok(report.scenarios.some((scenario) => scenario.id === "removal2028"));
   assert.equal(report.accuracySummary.overallInEnvelope, true);
 
   // Official-input restatement is still computed for diagnostics.

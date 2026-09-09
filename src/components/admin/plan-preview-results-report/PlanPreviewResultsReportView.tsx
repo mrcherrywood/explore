@@ -13,9 +13,10 @@ import { ResultsMeasureScoresPage, chunkOfficialMeasuresByPart } from "./Results
 import { ResultsOverviewPage } from "./ResultsOverviewPage";
 import { ResultsQiPage } from "./ResultsQiPage";
 import { ResultsRiskOpportunityPage } from "./ResultsRiskOpportunityPage";
+import { ResultsScenariosPage } from "./ResultsScenariosPage";
 import { ResultsYoyPage } from "./ResultsYoyPage";
 
-const FIXED_PAGES_BEFORE_SCORES = 7;
+const FIXED_PAGES_BEFORE_SCORES = 8;
 
 export function PlanPreviewResultsReportView({
   report,
@@ -91,6 +92,7 @@ export function PlanPreviewResultsReportView({
         <ResultsRiskOpportunityPage report={report} pageNumber={5} totalPages={totalPages} />
         <ResultsAccuracyPage report={report} pageNumber={6} totalPages={totalPages} />
         <ResultsQiPage report={report} pageNumber={7} totalPages={totalPages} />
+        <ResultsScenariosPage report={report} pageNumber={8} totalPages={totalPages} />
         {scoreChunks.map((chunk, chunkIndex) => (
           <ResultsMeasureScoresPage
             key={`official-scores-${chunk.part}`}

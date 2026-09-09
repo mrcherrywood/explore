@@ -16,6 +16,7 @@ import {
 } from "@/lib/reward-factor";
 import { loadMeasureStarsFromFile } from "@/lib/reward-factor/backtest";
 import { getMeasureRemovalForYear } from "@/lib/reward-factor/measure-removal-projection";
+import { getOfficialForScenario } from "@/lib/reward-factor/official-threshold-data";
 import { formatMeasureAcronyms } from "./measure-acronyms";
 import { toBaselineMeasureCode } from "./measure-resolve";
 import type { PlanPreviewPredictionsResult } from "./predictions";
@@ -28,8 +29,6 @@ export const PLAN_PREVIEW_CHART_SCENARIO_IDS = [
   "s26NoQI",
   "officialRecalc",
   "s29Removal",
-  "model1",
-  "model2",
 ] as const;
 
 export type PlanPreviewFinalScoreLeg = {
@@ -170,9 +169,14 @@ function buildAnchoredPopulation(
       });
     if (predicted.length === 0) continue;
 
-    const carriedQi = (baseline.get(contract.contractId) ?? []).filter((measure) =>
-      QI_MEASURE_CODES.has(measure.code.toUpperCase())
+    const predictedHasQi = predicted.some((measure) =>
+      QI_MEASURE_CODES.has(measure.code.toUpperCase()),
     );
+    const carriedQi = predictedHasQi
+      ? []
+      : (baseline.get(contract.contractId) ?? []).filter((measure) =>
+          QI_MEASURE_CODES.has(measure.code.toUpperCase()),
+        );
     const combined = dedupeOverallMeasures([...predicted, ...carriedQi]);
     if (hasPartCAndPartD(combined) && combined.length >= MIN_OVERALL_MEASURE_COUNT) {
       population.set(contract.contractId, combined);
@@ -192,7 +196,8 @@ type LegComputation = {
 function computeLeg(
   population: Map<string, ContractMeasure[]>,
   removedCodes: Set<string>,
-  dropQi: boolean
+  dropQi: boolean,
+  officialThresholds?: PercentileThresholds | null,
 ): LegComputation {
   const statsByContract = new Map<string, ReturnType<typeof calculateContractStats>>();
   const stats = [];
@@ -204,8 +209,9 @@ function computeLeg(
     statsByContract.set(contractId, contractStats);
     stats.push(contractStats);
   }
+  const recomputed = stats.length > 0 ? computePercentileThresholds(stats) : null;
   return {
-    thresholds: stats.length > 0 ? computePercentileThresholds(stats) : null,
+    thresholds: officialThresholds ?? recomputed,
     statsByContract,
   };
 }
@@ -330,16 +336,30 @@ function scenarioDefs(): ScenarioDef[] {
   ];
 }
 
+export type PlanPreviewScenarioOptions = {
+  /** Official PP2 stars include QI; prefer that leg. PP1 leaves this off. */
+  preferWithQi?: boolean;
+  /** Use published Tech Notes RF thresholds instead of recomputing. PP1 leaves this off. */
+  useOfficialRewardFactorThresholds?: boolean;
+};
+
 function computeScenario(
   scenario: ScenarioDef,
   predictions: PlanPreviewPredictionsResult,
   population: Map<string, ContractMeasure[]>,
-  cai: PlanPreviewCaiRecords
+  cai: PlanPreviewCaiRecords,
+  options?: PlanPreviewScenarioOptions,
 ): PlanPreviewFinalScoresResult {
   const { starsYear, baselineYear } = predictions;
   const caiByContract = scenario.caiSource === "part_c" ? cai.partC : cai.overall;
-  const withQiLeg = computeLeg(population, scenario.removedCodes, false);
-  const withoutQiLeg = computeLeg(population, scenario.removedCodes, true);
+  const officialWithQi = options?.useOfficialRewardFactorThresholds
+    ? getOfficialForScenario(starsYear, "overall_mapd", true)
+    : null;
+  const officialWithoutQi = options?.useOfficialRewardFactorThresholds
+    ? getOfficialForScenario(starsYear, "overall_mapd", false)
+    : null;
+  const withQiLeg = computeLeg(population, scenario.removedCodes, false, officialWithQi);
+  const withoutQiLeg = computeLeg(population, scenario.removedCodes, true, officialWithoutQi);
   // Part C / Part D trend projections use the all-measures (baseline) population.
   const partCLeg =
     scenario.id === "baseline" ? computeCategoryLeg(population, "Part C") : null;
@@ -404,10 +424,14 @@ function computeScenario(
       continue;
     }
 
-    // QI cannot be accurately estimated from plan preview 1 data, so the
-    // without-QI leg drives every rating (with-QI kept only as a fallback
-    // when the no-QI leg cannot be computed).
-    const selectedLeg = withoutQi ? ("without_qi" as const) : ("with_qi" as const);
+    // PP1 cannot estimate QI, so the without-QI leg drives those ratings.
+    // Official PP2 stars include published QI — prefer that leg when asked.
+    const selectedLeg =
+      options?.preferWithQi && withQi
+        ? ("with_qi" as const)
+        : withoutQi
+          ? ("without_qi" as const)
+          : ("with_qi" as const);
     const selected = selectedLeg === "with_qi" ? withQi! : withoutQi!;
 
     contracts.push({
@@ -433,9 +457,15 @@ function computeScenario(
     contracts,
     notes: [
       ...scenario.notes,
-      "QI (C30/D04) is not scored in plan preview 1 files and cannot be accurately estimated yet, so all ratings exclude the QI measures (without-QI leg).",
-      "Reward factor thresholds are recomputed per leg from the baseline population with accrued contracts' predicted stars overlaid.",
-      "CAI comes from the uploaded plan preview CAI file. Disaster/EUC 'higher-of' uplift is not modeled.",
+      options?.preferWithQi
+        ? "Official Plan Preview 2 Quality Improvement stars are included when CMS scored them (with-QI leg). The No QI scenario drops those measures."
+        : "QI (C30/D04) is not scored in plan preview 1 files and cannot be accurately estimated yet, so all ratings exclude the QI measures (without-QI leg).",
+      options?.useOfficialRewardFactorThresholds
+        ? "Reward factor thresholds are the official CMS Technical Notes Overall MA-PD values (with / without improvement measures). They are not recomputed after measure removals."
+        : "Reward factor thresholds are recomputed per leg from the baseline population with accrued contracts' predicted stars overlaid.",
+      options?.preferWithQi
+        ? "CAI comes from the uploaded Plan Preview 2 summary files. Disaster/EUC 'higher-of' uplift is not modeled."
+        : "CAI comes from the uploaded plan preview CAI file. Disaster/EUC 'higher-of' uplift is not modeled.",
     ],
   };
 }
@@ -450,9 +480,10 @@ function computeScenario(
  */
 export function buildPlanPreviewScenarios(
   predictions: PlanPreviewPredictionsResult,
-  cai: PlanPreviewCaiRecords
+  cai: PlanPreviewCaiRecords,
+  options?: PlanPreviewScenarioOptions,
 ): PlanPreviewFinalScoresResult[] {
-  return buildScenarioSet(predictions, cai, scenarioDefs());
+  return buildScenarioSet(predictions, cai, scenarioDefs(), options);
 }
 
 /** Baseline (all measures) scenario only, with full CAI records. */
@@ -466,7 +497,8 @@ export function buildPlanPreviewBaselineScenario(
 function buildScenarioSet(
   predictions: PlanPreviewPredictionsResult,
   cai: PlanPreviewCaiRecords,
-  scenarios: ScenarioDef[]
+  scenarios: ScenarioDef[],
+  options?: PlanPreviewScenarioOptions,
 ): PlanPreviewFinalScoresResult[] {
   const { starsYear, baselineYear } = predictions;
 
@@ -488,7 +520,7 @@ function buildScenarioSet(
 
   const population = buildAnchoredPopulation(predictions, baselineYear);
   return scenarios.map((scenario) =>
-    computeScenario(scenario, predictions, population, cai)
+    computeScenario(scenario, predictions, population, cai, options),
   );
 }
 

@@ -12,10 +12,7 @@ import {
 } from "recharts";
 
 import { formatMeasureAcronyms } from "@/lib/plan-preview/measure-acronyms";
-import type {
-  PlanPreviewContractReport,
-  ReportScenario,
-} from "@/lib/plan-preview/report-data";
+import type { ReportScenario } from "@/lib/plan-preview/report-data";
 
 import {
   REPORT_COLORS,
@@ -38,14 +35,12 @@ const SCENARIO_SHORT_LABELS: Record<string, string> = {
   removal2029: "2029 removals",
 };
 
-/** Keep in sync with PLAN_PREVIEW_CHART_SCENARIO_IDS in final-scores.ts. */
+// Model 1 / Model 2 stay in the engine; hide from the report chart for now.
 const CHART_IDS = new Set([
   "baseline",
   "s26NoQI",
   "officialRecalc",
   "s29Removal",
-  "model1",
-  "model2",
 ]);
 
 function selectedLeg(scenario: ReportScenario) {
@@ -128,12 +123,29 @@ export function ScenariosPage({
   totalPages,
   pageRef,
   sample,
+  eyebrow,
+  subtitle,
+  productLabel,
+  chartTitle = "Predicted score by scenario",
+  chartNote = "Each scenario removes its measure set, recomputes reward factor thresholds, and re-scores at the projected cut points. Bar labels show unrounded final scores.",
+  footerNote = "Official Recalc uses Part C CAI (Part C summary). QI is excluded from every scenario on this page — it is not scored in plan preview 1. Stars 2028 / 2029 impact boxes use the CMS-announced retirement sets.",
 }: {
-  report: PlanPreviewContractReport;
+  report: {
+    starsYear: number;
+    generatedAt: string;
+    contract: { contractId: string };
+    scenarios: ReportScenario[];
+  };
   pageNumber: number;
   totalPages: number;
   pageRef?: Ref<HTMLDivElement>;
   sample?: boolean;
+  eyebrow?: string;
+  subtitle?: string;
+  productLabel?: string;
+  chartTitle?: string;
+  chartNote?: string;
+  footerNote?: string;
 }) {
   const scenarios = report.scenarios;
   const chartScenarios = scenarios.filter((scenario) =>
@@ -163,9 +175,13 @@ export function ScenariosPage({
   return (
     <ReportPageFrame
       pageRef={pageRef}
-      eyebrow={reportEyebrow(report.starsYear, sample)}
+      eyebrow={eyebrow ?? reportEyebrow(report.starsYear, sample)}
       title="Measure Removal Scenarios"
-      subtitle={`${report.contract.contractId} · Same scenario set as Clover Impact / Peer Analysis, scored on accrued plan preview stars`}
+      subtitle={
+        subtitle ??
+        `${report.contract.contractId} · Same scenario set as Clover Impact / Peer Analysis, scored on accrued plan preview stars`
+      }
+      productLabel={productLabel}
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={report.contract.contractId}
@@ -189,8 +205,8 @@ export function ScenariosPage({
       </div>
 
       <ReportSection
-        title="Predicted score by scenario"
-        note="Each scenario removes its measure set, recomputes reward factor thresholds, and re-scores at the projected cut points. Bar labels show unrounded final scores."
+        title={chartTitle}
+        note={chartNote}
         style={{ marginTop: 12 }}
       >
         <div className="fep-report-panel" style={{ padding: "10px 10px 2px" }}>
@@ -361,9 +377,7 @@ export function ScenariosPage({
             ))}
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 6 }}>
-          Official Recalc uses Part C CAI (Part C summary). QI is excluded from
-          every scenario on this page — it is not scored in plan preview 1. Stars
-          2028 / 2029 impact boxes use the CMS-announced retirement sets.
+          {footerNote}
         </p>
       </ReportSection>
     </ReportPageFrame>

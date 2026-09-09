@@ -310,7 +310,7 @@ function buildYoySummary(measures: ReportMeasure[]): ReportYoySummary {
   return summary;
 }
 
-function buildScenarios(
+export function toReportScenarios(
   scenarios: PlanPreviewFinalScoresResult[],
   contractId: string,
   contractCodes: Set<string>
@@ -446,7 +446,7 @@ export function buildPlanPreviewContractReport(options: {
   const cai = options.cai ?? { overall: {}, partC: {}, partD: {} };
   const qiSensitivity = buildPlanPreviewQiSensitivity(predictions, cai, contractId);
 
-  const reportScenarios = buildScenarios(scenarios, contractId, contractCodes);
+  const reportScenarios = toReportScenarios(scenarios, contractId, contractCodes);
   const baselineScenario = reportScenarios.find((scenario) => scenario.id === "baseline");
   const baselineScore = baselineScenario?.score ?? null;
   const baselineLeg =

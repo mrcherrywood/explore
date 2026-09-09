@@ -13,7 +13,13 @@ import {
 import type { PlanPreviewFinalScore } from "./final-scores";
 import { toBaselineMeasureCode } from "./measure-resolve";
 import type { PlanPreviewPredictionsResult } from "./predictions";
-import type { ReportHistoryPoint, ReportYoySummary } from "./report-data";
+import { buildOfficialRemovalScenarios } from "./official-scenarios";
+import {
+  toReportScenarios,
+  type ReportHistoryPoint,
+  type ReportScenario,
+  type ReportYoySummary,
+} from "./report-data";
 import {
   buildResultsBookCompare,
   type ResultsBookCompare,
@@ -140,6 +146,8 @@ export type PlanPreviewResultsReport = {
   opportunity: RiskOpportunityRow[];
   /** Contract plan preview scores vs the rest of the accrued book, in points. */
   bookCompare: ResultsBookCompare;
+  /** Same Clover / PP1 removal set, scored on official PP2 stars. */
+  scenarios: ReportScenario[];
 };
 
 type RawSummaryRow = Record<string, string | number | null | undefined>;
@@ -238,6 +246,8 @@ export function buildPlanPreviewResultsReport(options: {
   overallPredicted?: number | null;
   overallUpside?: number | null;
   pp1Published?: ResultsPp1PublishedScore | null;
+  officialMarketStars?: OfficialStarRow[];
+  officialMarketSummaries?: OfficialSummaryRow[];
 }): PlanPreviewResultsReport {
   const { starsYear, contractId, officialStars, officialSummaries, domainByCode, weightByCode } =
     options;
@@ -359,6 +369,24 @@ export function buildPlanPreviewResultsReport(options: {
   const exact = compared.filter((row) => row.delta === 0).length;
   const withinOne = compared.filter((row) => row.delta !== null && Math.abs(row.delta) <= 1).length;
   const { risk, opportunity } = buildRiskOpportunityRows(measures, starsYear);
+  const marketStars = options.officialMarketStars ?? officialStars;
+  const marketSummaries = options.officialMarketSummaries ?? officialSummaries;
+  const contractCodes = new Set(
+    officialStars
+      .filter((row) => row.star !== null)
+      .map((row) => toBaselineMeasureCode(row.measureNormalized, row.measureCode, baselineYear)),
+  );
+  const scenarios = toReportScenarios(
+    buildOfficialRemovalScenarios(
+      starsYear,
+      options.predictions ?? null,
+      marketStars,
+      marketSummaries,
+      weightByCode,
+    ),
+    contractId,
+    contractCodes,
+  );
 
   return {
     starsYear,
@@ -395,5 +423,6 @@ export function buildPlanPreviewResultsReport(options: {
       measures,
       predictions: options.predictions,
     }),
+    scenarios,
   };
 }
