@@ -67,7 +67,11 @@ export async function GET(request: Request) {
     try {
       const run = await getPlanPreviewRun(admin.serviceClient, starsYear);
       predictions = run.result;
-      const score = run.forecastBaseline.contracts.find(
+      // Same Overall the PP1 contract report publishes (scenarios[0]:
+      // applied measure stars, without-QI, PP1 RF thresholds and CAI).
+      // forecastBaseline is the pre-Tech-Notes restatement and will not
+      // match the PP1 report once official cut points are imported.
+      const score = run.scenarios[0]?.contracts.find(
         (entry) => entry.contractId === contractId
       );
       overallPredicted = score?.finalRating ?? null;

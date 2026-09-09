@@ -17,6 +17,7 @@ import {
   PP2_PRODUCT_LABEL,
   type ResultsPageProps,
   compareMeasureCodes,
+  qualityImprovementMeasure,
 } from "./results-shared";
 
 const MAX_ROWS = 32;
@@ -44,9 +45,16 @@ const TONE_COLOR: Record<SignificanceTone, string> = {
   neutral: "var(--fep-muted)",
 };
 
-function qiMeasureStar(measures: ResultsMeasure[], code: string): string {
-  const star = measures.find((m) => m.measureCode.toUpperCase() === code)?.star;
-  return star === null || star === undefined ? "—" : `${formatStars(star, 0)}★`;
+function qiMeasureStar(measures: ResultsMeasure[], part: "Part C" | "Part D"): {
+  code: string;
+  starLabel: string;
+} {
+  const measure = qualityImprovementMeasure(measures, part);
+  const star = measure?.star;
+  return {
+    code: measure?.measureCode ?? (part === "Part D" ? "Part D" : "Part C"),
+    starLabel: star === null || star === undefined ? "—" : `${formatStars(star, 0)}★`,
+  };
 }
 
 export function ResultsQiPage({
@@ -55,6 +63,8 @@ export function ResultsQiPage({
   totalPages,
 }: ResultsPageProps) {
   const baselineYear = report.baselineYear ?? "—";
+  const partCQi = qiMeasureStar(report.measures, "Part C");
+  const partDQi = qiMeasureStar(report.measures, "Part D");
   const rows = report.measures
     .filter((measure) => measure.qiSignificance)
     .map((measure) => ({
@@ -75,7 +85,7 @@ export function ResultsQiPage({
     <ReportPageFrame
       eyebrow={reportEyebrowPp2(report.starsYear)}
       title="Quality Improvement"
-      subtitle={`${report.contract.contractId} · Official per-measure improvement significance behind the C30 / D04 improvement measures`}
+      subtitle={`${report.contract.contractId} · Official per-measure improvement significance behind the Part C and Part D Quality Improvement measures`}
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={report.contract.contractId}
@@ -85,19 +95,19 @@ export function ResultsQiPage({
     >
       <ReportSection
         title="Improvement measure results"
-        note={`CMS scores Part C (C30) and Part D (D04) Quality Improvement from statistically significant year-over-year change on each eligible measure. Summary cards list official scores from the PP2 improve_c / improve_d files.`}
+        note="CMS scores Part C and Part D Quality Improvement from statistically significant year-over-year change on each eligible measure. Summary cards list official scores from the PP2 improve_c / improve_d files."
         style={{ marginTop: 12 }}
       >
         <div style={{ display: "flex", gap: 8 }}>
           <ReportStat
             label="Part C QI score"
             value={formatScore(report.partC?.improvementScore, 2)}
-            detail={`C30 rated ${qiMeasureStar(report.measures, "C30")}`}
+            detail={`${partCQi.code} rated ${partCQi.starLabel}`}
           />
           <ReportStat
             label="Part D QI score"
             value={formatScore(report.partD?.improvementScore, 2)}
-            detail={`D04 rated ${qiMeasureStar(report.measures, "D04")}`}
+            detail={`${partDQi.code} rated ${partDQi.starLabel}`}
           />
           <ReportStat
             label="Significant improvements"

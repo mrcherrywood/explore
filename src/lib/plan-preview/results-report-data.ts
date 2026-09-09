@@ -63,26 +63,29 @@ export type ResultsPp1PublishedScore = {
   finalRating: number;
 };
 
-/** The PP1 report score: without-QI leg when that is what we published. */
+/**
+ * The Overall the PP1 contract report published: the without-QI leg
+ * (QI is not scored at PP1). Pass the baseline scenario contract from
+ * `getPlanPreviewRun().scenarios[0]`, not `forecastBaseline`.
+ */
 export function publishedScoreFromForecast(
   contract: PlanPreviewFinalScore | null | undefined,
 ): ResultsPp1PublishedScore | null {
-  if (!contract || contract.finalScoreRaw === null || contract.finalRating === null) {
-    return null;
-  }
-  const leg =
-    (contract.selectedLeg === "with_qi" ? contract.withQi : contract.withoutQi) ??
-    contract.withoutQi ??
-    contract.withQi;
-  if (!leg) return null;
+  const leg = contract?.withoutQi ?? contract?.withQi;
+  if (!leg || !contract) return null;
+  const finalScoreRaw = contract.withoutQi?.finalScoreRaw ?? contract.finalScoreRaw;
+  const finalRating = contract.withoutQi
+    ? Math.round(Math.min(5, Math.max(1, contract.withoutQi.finalScoreRaw)) * 2) / 2
+    : contract.finalRating;
+  if (finalScoreRaw === null || finalRating === null) return null;
   return {
     measureCount: leg.measureCount,
     baseMean: leg.baseMean,
     weightedVariance: leg.weightedVariance,
     rewardFactor: leg.rewardFactor,
     caiValue: contract.caiValue,
-    finalScoreRaw: contract.finalScoreRaw,
-    finalRating: contract.finalRating,
+    finalScoreRaw,
+    finalRating,
   };
 }
 

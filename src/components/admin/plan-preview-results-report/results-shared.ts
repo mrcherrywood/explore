@@ -15,6 +15,21 @@ export function resultsMeasurePart(measureCode: string): ResultsMeasurePart {
   return measureCode.toUpperCase().startsWith("D") ? "Part D" : "Part C";
 }
 
+/** QI codes move (C30 in 2026, C29 in 2027); match the display name. */
+export function isQualityImprovementMeasure(displayName: string): boolean {
+  return /quality improvement/i.test(displayName);
+}
+
+export function qualityImprovementMeasure<
+  T extends { measureDisplayName: string; measureCode: string },
+>(measures: T[], part: ResultsMeasurePart): T | undefined {
+  return measures.find(
+    (row) =>
+      isQualityImprovementMeasure(row.measureDisplayName) &&
+      resultsMeasurePart(row.measureCode) === part,
+  );
+}
+
 /** Natural measure-code order (C01, C02 … C30, D01 …). */
 export function compareMeasureCodes(left: string, right: string): number {
   return left

@@ -26,6 +26,7 @@ import {
 import {
   PP2_PRODUCT_LABEL,
   type ResultsPageProps,
+  isQualityImprovementMeasure,
   weightByMeasureCode,
 } from "./results-shared";
 
@@ -33,7 +34,7 @@ const MAX_ROWS = 16;
 const CELL = { paddingTop: 2, paddingBottom: 2 } as const;
 
 function isQiAccuracyRow(row: ResultsAccuracyRow): boolean {
-  return /quality improvement/i.test(row.displayName);
+  return isQualityImprovementMeasure(row.displayName);
 }
 
 /** Official − predicted star buckets, clamped to ±2. */
@@ -83,7 +84,7 @@ function officialQiAverageStar(
 ): number | null {
   const qi = measures.filter(
     (measure) =>
-      /quality improvement/i.test(measure.measureDisplayName) && measure.star !== null,
+      isQualityImprovementMeasure(measure.measureDisplayName) && measure.star !== null,
   );
   if (qi.length === 0) return null;
   return (
@@ -232,7 +233,7 @@ export function ResultsAccuracyPage({
       {pp1Published ? (
         <ReportSection
           title="PP1 prediction vs official result"
-          note={`PP1 is the published Plan Preview 1 overall for this contract (without Quality Improvement, using the PP1 reward-factor thresholds and CAI). Official is the published Plan Preview 2 result${thresholds ? ` (${thresholds.improvementIncluded ? "with" : "without"} improvement measures, ${thresholds.newMeasuresIncluded ? "with" : "without"} new measures)` : ""}. Quality Improvement was not predicted at PP1 — the Official column is the average of the published QI stars.`}
+          note={`PP1 is the same Overall the Plan Preview 1 contract report published for this contract (without Quality Improvement, using the PP1 reward-factor thresholds and CAI). Official is the published Plan Preview 2 result${thresholds ? ` (${thresholds.improvementIncluded ? "with" : "without"} improvement measures, ${thresholds.newMeasuresIncluded ? "with" : "without"} new measures)` : ""}. Quality Improvement was not predicted at PP1 — the Official column is the average of the published QI stars.`}
           style={{ marginTop: 12 }}
         >
           <div className="fep-report-panel" style={{ padding: "6px 0 2px" }}>

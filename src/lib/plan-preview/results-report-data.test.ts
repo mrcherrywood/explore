@@ -46,7 +46,7 @@ function summary(overrides: Partial<OfficialSummaryRow> = {}): OfficialSummaryRo
   };
 }
 
-test("publishedScoreFromForecast uses the selected without-QI PP1 report score", () => {
+test("publishedScoreFromForecast uses the without-QI PP1 report score, not a with-QI restatement", () => {
   const published = publishedScoreFromForecast({
     contractId: "H8928",
     contractName: null,
@@ -83,6 +83,41 @@ test("publishedScoreFromForecast uses the selected without-QI PP1 report score",
   assert.equal(published?.rewardFactor, 0.1);
   assert.equal(published?.caiValue, 0.043);
   assert.equal(publishedScoreFromForecast(null), null);
+
+  const evenIfWithQiSelected = publishedScoreFromForecast({
+    ...{
+      contractId: "H8928",
+      contractName: null,
+      parentOrganization: null,
+      caiValue: 0.043,
+      withQi: {
+        measureCount: 43,
+        baseMean: 3.5,
+        weightedVariance: 1.1,
+        rewardFactor: 0,
+        meanCategory: "medium",
+        varianceCategory: "medium",
+        finalScoreRaw: 3.62,
+      },
+      withoutQi: {
+        measureCount: 41,
+        baseMean: 3.435,
+        weightedVariance: 1.2,
+        rewardFactor: 0.1,
+        meanCategory: "medium",
+        varianceCategory: "medium",
+        finalScoreRaw: 3.578,
+      },
+      selectedLeg: "with_qi" as const,
+      finalScoreRaw: 3.62,
+      finalRating: 3.5,
+      partCFinalRating: 3.5,
+      partDFinalRating: 4,
+      qualifiesOverall: true,
+      reason: null,
+    },
+  });
+  assert.equal(evenIfWithQiSelected?.finalScoreRaw, 3.578);
 });
 
 test("buildupChecksOut ties mean + RF + CAI to the published final summary", () => {
