@@ -24,6 +24,7 @@ export function ResultsOverviewPage({
   report,
   pageNumber,
   totalPages,
+  sample,
 }: ResultsPageProps) {
   const overall = report.overall;
   const thresholds = report.rewardFactorThresholds;
@@ -54,7 +55,7 @@ export function ResultsOverviewPage({
 
   return (
     <ReportPageFrame
-      eyebrow={reportEyebrowPp2(report.starsYear)}
+      eyebrow={reportEyebrowPp2(report.starsYear, sample)}
       title={report.contract.contractName ?? report.contract.contractId}
       subtitle={contractLine}
       pageNumber={pageNumber}
@@ -63,6 +64,7 @@ export function ResultsOverviewPage({
       starsYear={report.starsYear}
       generatedAt={report.generatedAt}
       productLabel={PP2_PRODUCT_LABEL}
+      sample={sample}
     >
       <ReportSection
         title="Official Overall Rating"

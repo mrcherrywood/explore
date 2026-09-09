@@ -46,6 +46,7 @@ export function ResultsYoyPage({
   report,
   pageNumber,
   totalPages,
+  sample,
 }: ResultsPageProps) {
   const baselineYear = report.baselineYear ?? "—";
   const chartData: RatingTrendPoint[] = [
@@ -70,7 +71,7 @@ export function ResultsYoyPage({
 
   return (
     <ReportPageFrame
-      eyebrow={reportEyebrowPp2(report.starsYear)}
+      eyebrow={reportEyebrowPp2(report.starsYear, sample)}
       title="Year-over-Year Performance"
       subtitle={`${report.contract.contractId} · Published CMS ratings history with the official Stars ${report.starsYear} result`}
       pageNumber={pageNumber}
@@ -79,6 +80,7 @@ export function ResultsYoyPage({
       starsYear={report.starsYear}
       generatedAt={report.generatedAt}
       productLabel={PP2_PRODUCT_LABEL}
+      sample={sample}
     >
       <ReportSection
         title="Overall Rating Trend"
@@ -129,7 +131,6 @@ export function ResultsYoyPage({
                 <th>Weight</th>
                 <th>Stars {baselineYear} (published)</th>
                 <th>Stars {report.starsYear} (official)</th>
-                <th>PP1 predicted</th>
                 <th>Change</th>
               </tr>
             </thead>
@@ -138,7 +139,7 @@ export function ResultsYoyPage({
                 <tr>
                   <td
                     className="l"
-                    colSpan={6}
+                    colSpan={5}
                     style={{ color: "var(--fep-faint)" }}
                   >
                     No rated measures moved versus the published baseline.
@@ -180,19 +181,6 @@ export function ResultsYoyPage({
                     <td
                       style={{
                         ...CELL,
-                        color:
-                          measure.pp1PredictedStar === null
-                            ? "var(--fep-faint)"
-                            : undefined,
-                      }}
-                    >
-                      {measure.pp1PredictedStar === null
-                        ? "—"
-                        : `${formatStars(measure.pp1PredictedStar, 0)}★`}
-                    </td>
-                    <td
-                      style={{
-                        ...CELL,
                         fontWeight: 800,
                         color: deltaColor(measure.delta),
                       }}
@@ -208,10 +196,7 @@ export function ResultsYoyPage({
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 4 }}>
           Movement reflects score change and official cut point movement.
-          Showing all {movers.length} measures that changed. PP1 predicted is
-          the Plan Preview 1 star projected for the same measure when PP1 scores
-          were accrued; see the prediction accuracy page for the full
-          comparison.
+          Showing all {movers.length} measures that changed.
         </p>
       </ReportSection>
     </ReportPageFrame>

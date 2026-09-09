@@ -359,3 +359,36 @@ test("resolveRewardFactorThresholds picks the contract's improvement/new-measure
 
   assert.equal(resolveRewardFactorThresholds(2099, summary()), null);
 });
+
+test("buildPlanPreviewResultsReport uses supplied baseline stars and history", () => {
+  const officialStars: OfficialStarRow[] = [
+    {
+      contractId: "H1304",
+      contractName: "REGENCE",
+      organizationMarketingName: "Regence",
+      parentOrganization: "Cambia",
+      measureCode: "C01",
+      measureDisplayName: "Breast Cancer Screening",
+      measureNormalized: "breast cancer screening",
+      metricCategory: "Part C",
+      star: 4,
+      status: "scored",
+      qiSignificance: null,
+    },
+  ];
+  const report = buildPlanPreviewResultsReport({
+    starsYear: 2026,
+    contractId: "H1304",
+    officialStars,
+    officialSummaries: [summary()],
+    domainByCode: new Map([["C01", "HEDIS"]]),
+    weightByCode: new Map([["C01", 1]]),
+    publishedBaselineByCode: new Map([["C01", 3]]),
+    publishedBaselineScoreByCode: new Map([["C01", 71]]),
+    history: [{ year: 2025, overall: 3.5, partC: 3.5, partD: 4 }],
+  });
+  assert.equal(report.measures[0]?.publishedBaselineStar, 3);
+  assert.equal(report.measures[0]?.publishedBaselineScore, 71);
+  assert.equal(report.yoySummary.improved, 1);
+  assert.deepEqual(report.history, [{ year: 2025, overall: 3.5, partC: 3.5, partD: 4 }]);
+});

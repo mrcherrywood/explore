@@ -16,6 +16,7 @@ export function ResultsBookComparePage({
   report,
   pageNumber,
   totalPages,
+  sample,
 }: ResultsPageProps) {
   const { bookCompare } = report;
   const contractId = report.contract.contractId;
@@ -25,7 +26,7 @@ export function ResultsBookComparePage({
 
   return (
     <ReportPageFrame
-      eyebrow={reportEyebrowPp2(report.starsYear)}
+      eyebrow={reportEyebrowPp2(report.starsYear, sample)}
       title="Contract vs Book of Business"
       subtitle={`${contractId} · Where ${contractId} leads and where it trails the rest of the Press Ganey book, in points`}
       pageNumber={pageNumber}
@@ -34,6 +35,7 @@ export function ResultsBookComparePage({
       starsYear={report.starsYear}
       generatedAt={report.generatedAt}
       productLabel={PP2_PRODUCT_LABEL}
+      sample={sample}
     >
       <ReportSection
         title="Scorecard"

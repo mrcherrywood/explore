@@ -61,16 +61,18 @@ export function ResultsQiPage({
   report,
   pageNumber,
   totalPages,
+  sample,
 }: ResultsPageProps) {
   const baselineYear = report.baselineYear ?? "—";
   const partCQi = qiMeasureStar(report.measures, "Part C");
   const partDQi = qiMeasureStar(report.measures, "Part D");
-  const rows = report.measures
-    .filter((measure) => measure.qiSignificance)
+  const evaluated = report.measures.filter((measure) => measure.qiSignificance);
+  const rows = evaluated
     .map((measure) => ({
       ...measure,
       tone: significanceTone(measure.qiSignificance),
     }))
+    .filter((measure) => measure.tone !== "neutral")
     .sort(
       (left, right) =>
         TONE_ORDER[left.tone] - TONE_ORDER[right.tone] ||
@@ -83,7 +85,7 @@ export function ResultsQiPage({
 
   return (
     <ReportPageFrame
-      eyebrow={reportEyebrowPp2(report.starsYear)}
+      eyebrow={reportEyebrowPp2(report.starsYear, sample)}
       title="Quality Improvement"
       subtitle={`${report.contract.contractId} · Official per-measure improvement significance behind the Part C and Part D Quality Improvement measures`}
       pageNumber={pageNumber}
@@ -92,6 +94,7 @@ export function ResultsQiPage({
       starsYear={report.starsYear}
       generatedAt={report.generatedAt}
       productLabel={PP2_PRODUCT_LABEL}
+      sample={sample}
     >
       <ReportSection
         title="Improvement measure results"
@@ -112,19 +115,19 @@ export function ResultsQiPage({
           <ReportStat
             label="Significant improvements"
             value={improved}
-            detail={`of ${rows.length} measures evaluated`}
+            detail={`of ${evaluated.length} measures evaluated`}
           />
           <ReportStat
             label="Significant declines"
             value={declined}
-            detail={`of ${rows.length} measures evaluated`}
+            detail={`of ${evaluated.length} measures evaluated`}
           />
         </div>
       </ReportSection>
 
       <ReportSection
         title="Measure significance"
-        note="Significant changes are listed first, then measures with no significant change, each in measure-code order."
+        note="Only measures with a significant improvement or decline, improved first, then declined, each in measure-code order."
         style={{ marginTop: 12 }}
       >
         <div className="fep-report-panel" style={{ padding: "6px 0 2px" }}>
@@ -146,8 +149,9 @@ export function ResultsQiPage({
                     colSpan={5}
                     style={{ color: "var(--fep-faint)" }}
                   >
-                    Upload the PP2 improve_c / improve_d files to show QI
-                    significance.
+                    {evaluated.length === 0
+                      ? "Upload the PP2 improve_c / improve_d files to show QI significance."
+                      : "No measures with a significant improvement or decline."}
                   </td>
                 </tr>
               ) : (

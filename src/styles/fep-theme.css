@@ -380,6 +380,7 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
+  white-space: nowrap;
 }
 
 .fep-report-footer-confidential {

@@ -248,14 +248,22 @@ export function buildPlanPreviewResultsReport(options: {
   pp1Published?: ResultsPp1PublishedScore | null;
   officialMarketStars?: OfficialStarRow[];
   officialMarketSummaries?: OfficialSummaryRow[];
+  /** When set, skip CMS published-file lookup for this contract (synthetic samples). */
+  publishedBaselineByCode?: Map<string, number | null>;
+  publishedBaselineScoreByCode?: Map<string, number | null>;
+  history?: ReportHistoryPoint[];
 }): PlanPreviewResultsReport {
   const { starsYear, contractId, officialStars, officialSummaries, domainByCode, weightByCode } =
     options;
   const baselineYear = starsYear - 1;
-  const publishedBaseline = loadMeasureStarsFromFile(baselineYear).get(contractId) ?? [];
-  const publishedStarByCode = new Map(
-    publishedBaseline.map((measure) => [measure.code.toUpperCase(), measure.starValue])
-  );
+  const publishedStarByCode =
+    options.publishedBaselineByCode ??
+    new Map(
+      (loadMeasureStarsFromFile(baselineYear).get(contractId) ?? []).map((measure) => [
+        measure.code.toUpperCase(),
+        measure.starValue,
+      ]),
+    );
   const predictedMeasures =
     options.predictions?.contracts.find((entry) => entry.contractId === contractId)?.measures ?? [];
   const predictedByCode = new Map(
@@ -270,11 +278,18 @@ export function buildPlanPreviewResultsReport(options: {
       ...row,
       domain: domainByCode.get(baselineCode) ?? NEW_MEASURE_DOMAINS[baselineCode] ?? null,
       weight: weightByCode.get(baselineCode) ?? 1,
-      publishedBaselineStar: publishedStarByCode.get(baselineCode) ?? null,
+      publishedBaselineStar:
+        publishedStarByCode.get(row.measureCode.toUpperCase()) ??
+        publishedStarByCode.get(baselineCode) ??
+        null,
       publishedBaselineScore:
-        getMeasureYearScoreSamples(row.measureNormalized, baselineYear).find(
-          (sample) => sample.contractId === contractId
-        )?.score ?? null,
+        options.publishedBaselineScoreByCode?.get(row.measureCode.toUpperCase()) ??
+        options.publishedBaselineScoreByCode?.get(baselineCode) ??
+        (options.publishedBaselineScoreByCode
+          ? null
+          : (getMeasureYearScoreSamples(row.measureNormalized, baselineYear).find(
+              (sample) => sample.contractId === contractId
+            )?.score ?? null)),
       pp1Score: predicted?.score ?? null,
       // What PP1 projected on its forecast cut points — not the applied star,
       // which is re-banded on the official Tech Notes once imported.
@@ -403,7 +418,7 @@ export function buildPlanPreviewResultsReport(options: {
     rewardFactorThresholds,
     measures,
     domains,
-    history: buildHistory(contractId, starsYear),
+    history: options.history ?? buildHistory(contractId, starsYear),
     yoySummary,
     accuracy,
     accuracySummary: {

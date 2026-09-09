@@ -105,10 +105,11 @@ export function ResultsRiskOpportunityPage({
   report,
   pageNumber,
   totalPages,
+  sample,
 }: ResultsPageProps) {
   return (
     <ReportPageFrame
-      eyebrow={reportEyebrowPp2(report.starsYear)}
+      eyebrow={reportEyebrowPp2(report.starsYear, sample)}
       title="Risk and Opportunity"
       subtitle={`${report.contract.contractId} · Plan preview scores against official Stars ${report.starsYear} cut points`}
       pageNumber={pageNumber}
@@ -117,6 +118,7 @@ export function ResultsRiskOpportunityPage({
       starsYear={report.starsYear}
       generatedAt={report.generatedAt}
       productLabel={PP2_PRODUCT_LABEL}
+      sample={sample}
     >
       <ReportSection
         title="Measures near a cut point"

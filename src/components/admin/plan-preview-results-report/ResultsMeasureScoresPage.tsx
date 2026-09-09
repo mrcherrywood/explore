@@ -62,12 +62,13 @@ export function ResultsMeasureScoresPage({
   rows,
   pageNumber,
   totalPages,
+  sample,
 }: ResultsPageProps & { part: ResultsMeasurePart; rows: ResultsMeasure[] }) {
   const baselineYear = report.baselineYear ?? "—";
 
   return (
     <ReportPageFrame
-      eyebrow={reportEyebrowPp2(report.starsYear)}
+      eyebrow={reportEyebrowPp2(report.starsYear, sample)}
       title="Score Differences by Measure"
       subtitle={`${report.contract.contractId} · ${part} · Official Stars ${report.starsYear} scores vs published Stars ${baselineYear}`}
       pageNumber={pageNumber}
@@ -76,6 +77,7 @@ export function ResultsMeasureScoresPage({
       starsYear={report.starsYear}
       generatedAt={report.generatedAt}
       productLabel={PP2_PRODUCT_LABEL}
+      sample={sample}
     >
       <ReportSection
         title={`${part} measure scores`}

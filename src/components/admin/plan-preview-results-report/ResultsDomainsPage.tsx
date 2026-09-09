@@ -20,6 +20,7 @@ export function ResultsDomainsPage({
   report,
   pageNumber,
   totalPages,
+  sample,
 }: ResultsPageProps) {
   const baselineYear = report.baselineYear ?? "—";
   const chartData = report.domains.map((domain) => ({
@@ -30,7 +31,7 @@ export function ResultsDomainsPage({
 
   return (
     <ReportPageFrame
-      eyebrow={reportEyebrowPp2(report.starsYear)}
+      eyebrow={reportEyebrowPp2(report.starsYear, sample)}
       title="Performance by Domain"
       subtitle={`${report.contract.contractId} · Weighted mean of official measure stars, grouped by CMS domain`}
       pageNumber={pageNumber}
@@ -38,6 +39,7 @@ export function ResultsDomainsPage({
       contractId={report.contract.contractId}
       starsYear={report.starsYear}
       generatedAt={report.generatedAt}
+      sample={sample}
       productLabel={PP2_PRODUCT_LABEL}
     >
       <ReportSection

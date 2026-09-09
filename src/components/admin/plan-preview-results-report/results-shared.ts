@@ -7,6 +7,7 @@ export type ResultsPageProps = {
   report: PlanPreviewResultsReport;
   pageNumber: number;
   totalPages: number;
+  sample?: boolean;
 };
 
 export type ResultsMeasurePart = "Part C" | "Part D";

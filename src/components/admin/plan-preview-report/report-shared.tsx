@@ -362,8 +362,7 @@ export function ReportPageFrame({
       <footer className="fep-report-footer">
         <div className="fep-report-footer-meta">
           <span>
-            {contractId} · Stars {starsYear} {productLabel}
-            {sample ? " · Illustrative sample" : ""} · Generated{" "}
+            {contractId} · Stars {starsYear} {productLabel} · Generated{" "}
             {generatedLabel}
           </span>
           <span>
@@ -386,6 +385,7 @@ export function reportEyebrow(starsYear: number, sample?: boolean): string {
   return sample ? `Sample · ${base}` : base;
 }
 
-export function reportEyebrowPp2(starsYear: number): string {
-  return `Plan Preview 2 · Stars ${starsYear} Official Results`;
+export function reportEyebrowPp2(starsYear: number, sample?: boolean): string {
+  const base = `Plan Preview 2 · Stars ${starsYear} Official Results`;
+  return sample ? `Sample · ${base}` : base;
 }

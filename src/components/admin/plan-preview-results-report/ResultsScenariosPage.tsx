@@ -9,13 +9,15 @@ export function ResultsScenariosPage({
   report,
   pageNumber,
   totalPages,
+  sample,
 }: ResultsPageProps) {
   return (
     <ScenariosPage
       report={report}
       pageNumber={pageNumber}
       totalPages={totalPages}
-      eyebrow={reportEyebrowPp2(report.starsYear)}
+      sample={sample}
+      eyebrow={reportEyebrowPp2(report.starsYear, sample)}
       subtitle={`${report.contract.contractId} · Official Plan Preview 2 stars under CMS-announced measure removals`}
       productLabel={PP2_PRODUCT_LABEL}
       baselineLabel={`S${String(report.starsYear).slice(-2)} Official`}

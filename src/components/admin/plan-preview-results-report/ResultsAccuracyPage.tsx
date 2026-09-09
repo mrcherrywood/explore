@@ -154,6 +154,7 @@ export function ResultsAccuracyPage({
   report,
   pageNumber,
   totalPages,
+  sample,
 }: ResultsPageProps) {
   const { accuracy, accuracySummary } = report;
   const pp1Published = accuracySummary.pp1Published;
@@ -180,7 +181,7 @@ export function ResultsAccuracyPage({
 
   return (
     <ReportPageFrame
-      eyebrow={reportEyebrowPp2(report.starsYear)}
+      eyebrow={reportEyebrowPp2(report.starsYear, sample)}
       title="PP1 Prediction vs Official"
       subtitle={`${report.contract.contractId} · Plan Preview 1 predicted measure stars versus published Plan Preview 2 stars`}
       pageNumber={pageNumber}
@@ -189,6 +190,7 @@ export function ResultsAccuracyPage({
       starsYear={report.starsYear}
       generatedAt={report.generatedAt}
       productLabel={PP2_PRODUCT_LABEL}
+      sample={sample}
     >
       <ReportSection
         title="Prediction accuracy"

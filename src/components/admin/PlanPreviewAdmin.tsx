@@ -300,14 +300,24 @@ export function PlanPreviewAdmin() {
           Accrue plan preview files, project cut points, and open contract
           reports.
         </p>
-        <a
-          className="fep-link text-xs"
-          href="/admin/plan-preview/sample"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open marketing sample report →
-        </a>
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            className="fep-link text-xs"
+            href="/admin/plan-preview/sample"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open PP1 sample →
+          </a>
+          <a
+            className="fep-link text-xs"
+            href="/admin/plan-preview/results-sample"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open PP2 sample →
+          </a>
+        </div>
       </div>
       <section className="fep-card overflow-hidden">
         <div className="px-5 pb-4 pt-5">

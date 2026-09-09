@@ -25,6 +25,7 @@ export function PlanPreviewResultsReportView({
   heading,
   subheading,
   fileName,
+  sample,
 }: {
   report: ReportData;
   backHref: string;
@@ -32,6 +33,7 @@ export function PlanPreviewResultsReportView({
   heading: string;
   subheading: string;
   fileName: string;
+  sample?: boolean;
 }) {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +80,15 @@ export function PlanPreviewResultsReportView({
         </div>
       </div>
 
+      {sample ? (
+        <div className="px-[30px] pb-4" data-export-hide>
+          <p className="fep-banner-info">
+            Illustrative sample for marketing — fictional contract and scores.
+            Safe to screenshot or export; not live plan preview data.
+          </p>
+        </div>
+      ) : null}
+
       {error ? (
         <div className="px-[30px] pb-6">
           <p className="fep-banner-error">{error}</p>
@@ -85,14 +96,14 @@ export function PlanPreviewResultsReportView({
       ) : null}
 
       <div ref={pagesRef} className="flex flex-col items-center gap-7 px-[30px] pb-12">
-        <ResultsOverviewPage report={report} pageNumber={1} totalPages={totalPages} />
-        <ResultsDomainsPage report={report} pageNumber={2} totalPages={totalPages} />
-        <ResultsYoyPage report={report} pageNumber={3} totalPages={totalPages} />
-        <ResultsBookComparePage report={report} pageNumber={4} totalPages={totalPages} />
-        <ResultsRiskOpportunityPage report={report} pageNumber={5} totalPages={totalPages} />
-        <ResultsAccuracyPage report={report} pageNumber={6} totalPages={totalPages} />
-        <ResultsQiPage report={report} pageNumber={7} totalPages={totalPages} />
-        <ResultsScenariosPage report={report} pageNumber={8} totalPages={totalPages} />
+        <ResultsOverviewPage report={report} pageNumber={1} totalPages={totalPages} sample={sample} />
+        <ResultsDomainsPage report={report} pageNumber={2} totalPages={totalPages} sample={sample} />
+        <ResultsYoyPage report={report} pageNumber={3} totalPages={totalPages} sample={sample} />
+        <ResultsBookComparePage report={report} pageNumber={4} totalPages={totalPages} sample={sample} />
+        <ResultsRiskOpportunityPage report={report} pageNumber={5} totalPages={totalPages} sample={sample} />
+        <ResultsAccuracyPage report={report} pageNumber={6} totalPages={totalPages} sample={sample} />
+        <ResultsQiPage report={report} pageNumber={7} totalPages={totalPages} sample={sample} />
+        <ResultsScenariosPage report={report} pageNumber={8} totalPages={totalPages} sample={sample} />
         {scoreChunks.map((chunk, chunkIndex) => (
           <ResultsMeasureScoresPage
             key={`official-scores-${chunk.part}`}
@@ -101,6 +112,7 @@ export function PlanPreviewResultsReportView({
             rows={chunk.rows}
             pageNumber={FIXED_PAGES_BEFORE_SCORES + chunkIndex + 1}
             totalPages={totalPages}
+            sample={sample}
           />
         ))}
       </div>
