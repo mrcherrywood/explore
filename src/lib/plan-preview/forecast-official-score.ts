@@ -13,10 +13,26 @@ import type { OfficialStarRow } from "./store-official";
 
 const QI_WEIGHT = 5;
 
+export type ForecastOfficialQiMeasure = {
+  measureCode: string;
+  star: number;
+};
+
 export type ForecastOfficialScore = {
   measureCount: number;
-  /** Official C30 / D04 stars folded into the projection (per Improvement Measure Usage). */
+  /** Official improvement-measure stars folded into the projection (per Improvement Measure Usage). */
   qiIncluded: boolean;
+  qiMeasures: ForecastOfficialQiMeasure[];
+  /**
+   * Same projection with QI left out. Null when CMS did not use improvement
+   * measures, so the main fields are already the without-QI score.
+   */
+  withoutQi: {
+    measureCount: number;
+    baseMean: number;
+    finalScoreRaw: number;
+    finalRating: number;
+  } | null;
   baseMean: number;
   weightedVariance: number;
   rewardFactor: number;
@@ -27,6 +43,27 @@ export type ForecastOfficialScore = {
 
 function roundToHalf(value: number): number {
   return Math.round(value * 2) / 2;
+}
+
+function scoreMeasureSet(
+  contractId: string,
+  measures: ContractMeasure[],
+  thresholds: PercentileThresholds,
+  caiValue: number,
+): Omit<ForecastOfficialScore, "qiIncluded" | "qiMeasures" | "withoutQi"> | null {
+  const stats = calculateContractStats(contractId, measures, null);
+  if (stats.measureCount <= 1) return null;
+  const result = calculateRewardFactor(stats, thresholds, "overall_mapd");
+  const finalScoreRaw = result.adjustedRating + caiValue;
+  return {
+    measureCount: stats.measureCount,
+    baseMean: result.weightedMean,
+    weightedVariance: result.weightedVariance,
+    rewardFactor: result.rFactor,
+    caiValue,
+    finalScoreRaw,
+    finalRating: roundToHalf(Math.min(5, Math.max(1, finalScoreRaw))),
+  };
 }
 
 /**
@@ -70,37 +107,54 @@ export function scoreForecastOnOfficialInputs(options: {
     });
   if (forecast.length === 0) return null;
 
-  const officialQi: ContractMeasure[] = options.improvementIncluded
-    ? options.officialStars
-        .filter((row) => row.star !== null && isQi(row.measureNormalized, row.measureCode))
-        .map((row) => {
-          const code = toBaselineMeasureCode(row.measureNormalized, row.measureCode, baselineYear);
-          return {
-            code,
-            starValue: row.star as number,
-            weight: QI_WEIGHT,
-            category: code.startsWith("D") ? "Part D" : "Part C",
-          };
-        })
-    : [];
-
-  const measures = [...forecast, ...officialQi].filter(
-    (measure) => !OVERALL_DEDUP_DROP_CODES.has(measure.code.toUpperCase())
+  const officialQiRows = options.officialStars.filter(
+    (row) => row.star !== null && isQi(row.measureNormalized, row.measureCode),
   );
-  const stats = calculateContractStats(options.contractId, measures, null);
-  if (stats.measureCount <= 1) return null;
+  const officialQi: ContractMeasure[] = options.improvementIncluded
+    ? officialQiRows.map((row) => {
+        const code = toBaselineMeasureCode(row.measureNormalized, row.measureCode, baselineYear);
+        return {
+          code,
+          starValue: row.star as number,
+          weight: QI_WEIGHT,
+          category: code.startsWith("D") ? "Part D" : "Part C",
+        };
+      })
+    : [];
+  const qiMeasures: ForecastOfficialQiMeasure[] = officialQiRows
+    .filter((row) => row.star !== null)
+    .map((row) => ({
+      measureCode: row.measureCode.toUpperCase(),
+      star: row.star as number,
+    }))
+    .sort((left, right) => left.measureCode.localeCompare(right.measureCode, undefined, { numeric: true }));
 
-  const result = calculateRewardFactor(stats, thresholds, "overall_mapd");
   const caiValue = options.caiValue ?? 0;
-  const finalScoreRaw = result.adjustedRating + caiValue;
+  const withoutQiMeasures = forecast.filter(
+    (measure) => !OVERALL_DEDUP_DROP_CODES.has(measure.code.toUpperCase()),
+  );
+  const withQiMeasures = [...forecast, ...officialQi].filter(
+    (measure) => !OVERALL_DEDUP_DROP_CODES.has(measure.code.toUpperCase()),
+  );
+  const scored = scoreMeasureSet(options.contractId, withQiMeasures, thresholds, caiValue);
+  if (!scored) return null;
+
+  const withoutQiScored =
+    officialQi.length > 0
+      ? scoreMeasureSet(options.contractId, withoutQiMeasures, thresholds, caiValue)
+      : null;
+
   return {
-    measureCount: stats.measureCount,
+    ...scored,
     qiIncluded: officialQi.length > 0,
-    baseMean: result.weightedMean,
-    weightedVariance: result.weightedVariance,
-    rewardFactor: result.rFactor,
-    caiValue,
-    finalScoreRaw,
-    finalRating: roundToHalf(Math.min(5, Math.max(1, finalScoreRaw))),
+    qiMeasures,
+    withoutQi: withoutQiScored
+      ? {
+          measureCount: withoutQiScored.measureCount,
+          baseMean: withoutQiScored.baseMean,
+          finalScoreRaw: withoutQiScored.finalScoreRaw,
+          finalRating: withoutQiScored.finalRating,
+        }
+      : null,
   };
 }

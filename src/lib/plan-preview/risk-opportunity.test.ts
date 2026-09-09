@@ -11,9 +11,9 @@ import {
 const CUTS = { twoStar: 58, threeStar: 71, fourStar: 76, fiveStar: 84 };
 const INVERTED_CUTS = { twoStar: 1.34, threeStar: 0.71, fourStar: 0.32, fiveStar: 0.11 };
 
-test("closeThreshold is 2 points for standard measures, 1 for CAHPS, and 0.05 for inverted", () => {
-  assert.equal(closeThreshold(false), 2);
-  assert.equal(closeThreshold(false, "Breast Cancer Screening"), 2);
+test("closeThreshold is 1 point for standard and CAHPS measures, and 0.05 for inverted", () => {
+  assert.equal(closeThreshold(false), 1);
+  assert.equal(closeThreshold(false, "Breast Cancer Screening"), 1);
   assert.equal(closeThreshold(false, "Getting Needed Care"), 1);
   assert.equal(closeThreshold(false, "Annual Flu Vaccine"), 1);
   assert.equal(closeThreshold(true), 0.05);
@@ -66,14 +66,25 @@ test("classifyRiskOpportunity keeps only measures inside the close band", () => 
     measureCode: "C01",
     displayName: "Breast Cancer Screening",
     officialStar: 4,
-    score: 82.5,
+    score: 83.2,
     inverted: false,
     thresholds: CUTS,
     weight: 1,
   });
   assert.equal(opportunity.length, 1);
   assert.equal(opportunity[0]?.kind, "opportunity");
-  assert.equal(opportunity[0]?.gap, 1.5);
+  assert.equal(opportunity[0]?.gap, 0.8);
+
+  const justOutside = classifyRiskOpportunity({
+    measureCode: "C01",
+    displayName: "Breast Cancer Screening",
+    officialStar: 4,
+    score: 82.5,
+    inverted: false,
+    thresholds: CUTS,
+    weight: 1,
+  });
+  assert.equal(justOutside.length, 0);
 
   const safe = classifyRiskOpportunity({
     measureCode: "C01",

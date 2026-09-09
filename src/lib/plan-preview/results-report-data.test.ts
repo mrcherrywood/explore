@@ -179,6 +179,8 @@ test("buildPlanPreviewResultsReport computes YoY and PP1 accuracy diffs", () => 
   const buildup = report.accuracySummary.predictedBuildup;
   assert.ok(buildup);
   assert.equal(buildup.qiIncluded, true);
+  assert.deepEqual(buildup.qiMeasures, [{ measureCode: "C30", star: 2 }]);
+  assert.equal(buildup.withoutQi?.baseMean, 4);
   assert.equal(buildup.measureCount, 3);
   assert.equal(Math.round(buildup.baseMean * 1000) / 1000, 2.571);
   assert.equal(buildup.rewardFactor, 0);
@@ -239,6 +241,9 @@ test("scoreForecastOnOfficialInputs drops QI when CMS did not use improvement me
   assert.ok(withQi);
   assert.equal(withQi.qiIncluded, true);
   assert.equal(withQi.measureCount, 3);
+  assert.deepEqual(withQi.qiMeasures, [{ measureCode: "C30", star: 1 }]);
+  assert.equal(withQi.withoutQi?.baseMean, 4);
+  assert.equal(withQi.withoutQi?.finalRating, 4.5);
 
   const withoutQi = scoreForecastOnOfficialInputs({ ...base, improvementIncluded: false });
   assert.ok(withoutQi);

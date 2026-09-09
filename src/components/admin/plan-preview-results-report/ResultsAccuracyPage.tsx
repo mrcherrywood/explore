@@ -32,6 +32,10 @@ import {
 const MAX_ROWS = 16;
 const CELL = { paddingTop: 2, paddingBottom: 2 } as const;
 
+function isQiAccuracyRow(row: ResultsAccuracyRow): boolean {
+  return /quality improvement/i.test(row.displayName);
+}
+
 /** Official − predicted star buckets, clamped to ±2. */
 function deltaDistribution(rows: ResultsAccuracyRow[]): CountBar[] {
   const buckets: { key: number; label: string; fill: string }[] = [
@@ -97,6 +101,18 @@ function buildupRows(
     digits,
     emphasis,
   });
+  const qiImpact =
+    buildup.qiIncluded && buildup.withoutQi
+      ? Math.round((buildup.finalScoreRaw - buildup.withoutQi.finalScoreRaw) * 1000) / 1000
+      : null;
+  const qiOfficial =
+    buildup.qiMeasures.length > 0
+      ? `${formatStars(
+          buildup.qiMeasures.reduce((sum, measure) => sum + measure.star, 0) /
+            buildup.qiMeasures.length,
+        )}★`
+      : "—";
+
   return [
     row(
       `Calculated mean (${buildup.measureCount} vs ${official?.measuresRated ?? "—"} measures)`,
@@ -105,6 +121,17 @@ function buildupRows(
       3,
       formatScore,
     ),
+    ...(qiImpact !== null
+      ? [
+          {
+            label: "Quality Improvement",
+            predicted: "Not included",
+            official: qiOfficial,
+            delta: qiImpact,
+            digits: 3,
+          } satisfies BuildupCompareRow,
+        ]
+      : []),
     row("Weighted variance", buildup.weightedVariance, official?.calculatedVariance, 3, formatScore),
     row("Reward factor", buildup.rewardFactor, official?.rewardFactor, 1, formatSigned),
     row("CAI adjustment", buildup.caiValue, official?.caiValue, 3, formatSigned),
@@ -135,7 +162,7 @@ export function ResultsAccuracyPage({
         compared.length
       : null;
   const misses = compared
-    .filter((row) => row.delta !== 0)
+    .filter((row) => row.delta !== 0 && !isQiAccuracyRow(row))
     .sort(
       (left, right) =>
         Math.abs(right.delta ?? 0) - Math.abs(left.delta ?? 0) ||
@@ -201,7 +228,7 @@ export function ResultsAccuracyPage({
       {buildup ? (
         <ReportSection
           title="Overall rating on official inputs"
-          note={`The PP1 measure-star projection re-scored the way CMS scored the official rating: ${buildup.qiIncluded ? "the contract's actual C30 / D04 Quality Improvement stars, " : ""}the official Stars ${report.starsYear} reward-factor thresholds${thresholds ? ` (${thresholds.improvementIncluded ? "with" : "without"} improvement measures, ${thresholds.newMeasuresIncluded ? "with" : "without"} new measures)` : ""}, and the official CAI. Any remaining gap is cut-point forecast error.`}
+          note={`The PP1 measure-star projection re-scored the way CMS scored the official rating: ${buildup.qiIncluded ? "the contract's actual Quality Improvement stars, " : ""}the official Stars ${report.starsYear} reward-factor thresholds${thresholds ? ` (${thresholds.improvementIncluded ? "with" : "without"} improvement measures, ${thresholds.newMeasuresIncluded ? "with" : "without"} new measures)` : ""}, and the official CAI. Quality Improvement is not predicted at PP1 — the Official column is the average of the published QI stars and Delta is the change in the unrounded PP1 final summary from adding those measures. Any remaining gap on the other rows is cut-point forecast error.`}
           style={{ marginTop: 12 }}
         >
           <div className="fep-report-panel" style={{ padding: "6px 0 2px" }}>
@@ -249,7 +276,7 @@ export function ResultsAccuracyPage({
 
       <ReportSection
         title="Measures that differed"
-        note="Sorted by size of miss, then measure weight."
+        note="Sorted by size of miss, then measure weight. Quality Improvement is compared in the score buildup above, not here."
         style={{ marginTop: 12 }}
       >
         <div className="fep-report-panel" style={{ padding: "6px 0 2px" }}>
@@ -299,7 +326,11 @@ export function ResultsAccuracyPage({
                     <td style={CELL}>
                       {weights.get(row.measureCode.toUpperCase()) ?? "—"}
                     </td>
-                    <td style={CELL}>{formatStars(row.predictedStar, 0)}★</td>
+                    <td style={CELL}>
+                      {row.predictedStar === null
+                        ? "—"
+                        : `${formatStars(row.predictedStar, 0)}★`}
+                    </td>
                     <td
                       style={{
                         ...CELL,
@@ -307,7 +338,9 @@ export function ResultsAccuracyPage({
                         color: "var(--fep-ink)",
                       }}
                     >
-                      {formatStars(row.officialStar, 0)}★
+                      {row.officialStar === null
+                        ? "—"
+                        : `${formatStars(row.officialStar, 0)}★`}
                     </td>
                     <td
                       style={{

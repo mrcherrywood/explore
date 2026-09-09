@@ -120,7 +120,7 @@ export function ResultsRiskOpportunityPage({
     >
       <ReportSection
         title="Measures near a cut point"
-        note="Close means within 2 points of the cut for standard measures, 1 point for CAHPS, and 0.05 for inverted measures such as Complaints. Weight totals show how much of the summary rating sits near a threshold."
+        note="Close means within 1 point of the cut for standard and CAHPS measures, and 0.05 for inverted measures such as Complaints. Weight totals show how much of the summary rating sits near a threshold."
         style={{ marginTop: 12 }}
       >
         <div style={{ display: "flex", gap: 8 }}>

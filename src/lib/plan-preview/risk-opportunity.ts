@@ -31,7 +31,7 @@ export type RiskOpportunityRow = {
   weight: number;
 };
 
-const STANDARD_CLOSE_POINTS = 2;
+const STANDARD_CLOSE_POINTS = 1;
 const CAHPS_CLOSE_POINTS = 1;
 const INVERTED_CLOSE_POINTS = 0.05;
 
