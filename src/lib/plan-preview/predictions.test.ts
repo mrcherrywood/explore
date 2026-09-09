@@ -8,7 +8,11 @@ import {
   buildPlanPreviewScenarios,
 } from "./final-scores";
 import { getAvailableMeasureYears, getLatestContractRecords } from "@/lib/band-movement/analysis";
-import { analyzeCutPointMethodologyForecast } from "@/lib/band-movement/cut-point-methodology";
+import {
+  analyzeCutPointMethodologyForecast,
+  getForecastWorkbookCutPointsForYear,
+} from "@/lib/band-movement/cut-point-methodology";
+import { matchCutPointToMeasureName } from "@/lib/percentile-analysis/measure-matching";
 import {
   buildCurrentYearForecastOverlay,
   buildForecastMethodologyInputs,
@@ -22,6 +26,7 @@ import {
   buildPlanPreviewPredictions,
   scoreForCutPointBanding,
   starFromThresholds,
+  withForecastStars,
   type AccruedMeasureScore,
 } from "./predictions";
 import { parsePlanPreviewWorkbook } from "./workbook";
@@ -105,6 +110,45 @@ test("CMS data-issue cells get 1 star and stay out of the cut-point overlay", ()
   assert.ok(cutPoint);
   assert.equal(cutPoint.accruedContractCount, 1, "data-issue cells must not enter the overlay");
   assert.equal(cutPoint.forecastFillCount, 0);
+});
+
+test("forecastStar keeps the PP1 workbook forecast once official cut points are applied", () => {
+  const row: AccruedMeasureScore = {
+    contractId: "H0885",
+    contractName: "Test",
+    organizationMarketingName: "Test",
+    parentOrganization: "Test Org",
+    measureCode: "C01",
+    measureDisplayName: "Breast Cancer Screening",
+    measureNormalized: "breast cancer screening partc",
+    score: 76,
+    wholeScore: 76,
+  };
+  const result = buildPlanPreviewPredictions([row], 2027);
+  const measure = result.contracts[0]?.measures.find((item) => item.measureCode === "C01");
+  assert.ok(measure);
+  assert.notEqual(measure.forecastStar, null);
+
+  const workbookRow = matchCutPointToMeasureName(
+    "Breast Cancer Screening",
+    "C",
+    getForecastWorkbookCutPointsForYear(2027),
+    row.measureNormalized
+  );
+  assert.ok(workbookRow, "the workbook keeps a Manual 2027 row for C01");
+  assert.equal(measure.forecastStar, starFromThresholds(76, workbookRow.thresholds, false));
+  if (!hasOfficialTechNotesCutPoints(2027)) {
+    assert.equal(measure.forecastStar, measure.predictedStar);
+  }
+
+  const forecastView = withForecastStars(result);
+  const forecastMeasure = forecastView.contracts[0]?.measures.find(
+    (item) => item.measureCode === "C01"
+  );
+  assert.equal(forecastMeasure?.predictedStar, measure.forecastStar);
+  if (measure.forecastStar === measure.predictedStar) {
+    assert.equal(forecastView, result, "unchanged results are returned as-is");
+  }
 });
 
 test("cut-point overlay fills missing PP1 contracts from forecast year-end projections", () => {

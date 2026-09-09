@@ -26,6 +26,7 @@ export function ResultsOverviewPage({
   totalPages,
 }: ResultsPageProps) {
   const overall = report.overall;
+  const thresholds = report.rewardFactorThresholds;
   const ratedCount = report.measures.filter((m) => m.star !== null).length;
 
   const disaster =
@@ -143,7 +144,7 @@ export function ResultsOverviewPage({
               value={formatSigned(overall?.rewardFactor, 1)}
             />
             <BuildupRow
-              label={`CAI adjustment${overall?.fac ? ` (FAC ${overall.fac})` : ""}`}
+              label="CAI adjustment"
               value={formatSigned(overall?.caiValue, 3)}
             />
             <BuildupRow
@@ -163,8 +164,10 @@ export function ResultsOverviewPage({
                 color: "var(--fep-faint)",
               }}
             >
-              Values are read directly from the CMS summary rating file — no
-              modeled thresholds. Improvement measures used:{" "}
+              Values are read directly from the CMS summary rating file.
+              Contract mean at {formatPercentile(overall?.scorePercentileRank)}{" "}
+              and variance at {formatPercentile(overall?.variancePercentileRank)}{" "}
+              of the MA-PD population. Improvement measures used:{" "}
               {overall?.improvementUsage ?? "—"}
               {overall?.newMeasureUsage
                 ? `; new measures used: ${overall.newMeasureUsage}`
@@ -175,7 +178,15 @@ export function ResultsOverviewPage({
         </div>
       </ReportSection>
 
-      <ReportSection title="Published Inputs" style={{ marginTop: 12 }}>
+      <ReportSection
+        title="Published Inputs"
+        note={
+          thresholds
+            ? `Official Stars ${report.starsYear} Overall MA-PD reward-factor thresholds from the CMS Technical Notes (${thresholds.improvementIncluded ? "with" : "without"} improvement measures, ${thresholds.newMeasuresIncluded ? "with" : "without"} new measures).`
+            : undefined
+        }
+        style={{ marginTop: 12 }}
+      >
         <div style={{ display: "flex", gap: 10 }}>
           <ReportStat
             label="Measures rated"
@@ -189,21 +200,26 @@ export function ResultsOverviewPage({
           <ReportStat
             label="Reward factor"
             value={formatSigned(overall?.rewardFactor, 1)}
-            detail={`Mean ${formatPercentile(overall?.scorePercentileRank)} · Variance ${formatPercentile(overall?.variancePercentileRank)}`}
+            detail={
+              thresholds
+                ? `Mean P65 ${thresholds.mean65th.toFixed(3)} / P85 ${thresholds.mean85th.toFixed(3)}`
+                : "Thresholds unavailable"
+            }
           />
           <ReportStat
             label="Weighted variance"
             value={formatScore(overall?.calculatedVariance)}
             detail={
-              overall?.varianceCategory
-                ? `${overall.varianceCategory} variance`
-                : undefined
+              thresholds
+                ? `Var P30 ${thresholds.variance30th.toFixed(3)} / P70 ${thresholds.variance70th.toFixed(3)}`
+                : overall?.varianceCategory
+                  ? `${overall.varianceCategory} variance`
+                  : undefined
             }
           />
           <ReportStat
             label="CAI adjustment"
             value={formatSigned(overall?.caiValue, 3)}
-            detail={overall?.fac ? `Final adjustment category ${overall.fac}` : undefined}
           />
         </div>
       </ReportSection>

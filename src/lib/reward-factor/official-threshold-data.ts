@@ -100,6 +100,58 @@ export function getOfficialForScenario(
   return { mean65th: mean65, mean85th: mean85, variance30th: var30, variance70th: var70 };
 }
 
+export type OfficialThresholdUsage = {
+  improvementIncluded: boolean;
+  newMeasuresIncluded: boolean;
+};
+
+let thresholdRowsCache: { mean: Array<Record<string, string>>; variance: Array<Record<string, string>> } | null =
+  null;
+
+function loadThresholdRows() {
+  if (!thresholdRowsCache) {
+    thresholdRowsCache = {
+      mean: parseThresholdCsv(readFileSync(MEAN_THRESHOLDS_PATH, "utf-8")),
+      variance: parseThresholdCsv(readFileSync(VARIANCE_THRESHOLDS_PATH, "utf-8")),
+    };
+  }
+  return thresholdRowsCache;
+}
+
+/**
+ * Official thresholds for the exact improvement × new-measures variant CMS
+ * applied to a contract (the summary file's Improvement / New Measure Usage),
+ * rather than the "With new measures" default used by the backtest.
+ */
+export function getOfficialForUsage(
+  year: number,
+  ratingType: RatingType,
+  usage: OfficialThresholdUsage,
+): PercentileThresholds | null {
+  const column = Object.entries(CSV_COLUMN_TO_RATING_TYPE).find(([, rt]) => rt === ratingType)?.[0];
+  if (!column) return null;
+  const { mean, variance } = loadThresholdRows();
+  const pick = (rows: Array<Record<string, string>>, percentile: number): number | null => {
+    const row = rows.find(
+      (candidate) =>
+        Number(candidate.Year) === year &&
+        Number(candidate.Percentile) === percentile &&
+        (candidate.Improvement ?? "").trim() === (usage.improvementIncluded ? "With" : "Without") &&
+        (candidate["New Measures"] ?? "").trim() === (usage.newMeasuresIncluded ? "With" : "Without"),
+    );
+    const value = row ? Number(row[column]) : NaN;
+    return Number.isFinite(value) ? value : null;
+  };
+  const mean65th = pick(mean, 65);
+  const mean85th = pick(mean, 85);
+  const variance30th = pick(variance, 30);
+  const variance70th = pick(variance, 70);
+  if (mean65th === null || mean85th === null || variance30th === null || variance70th === null) {
+    return null;
+  }
+  return { mean65th, mean85th, variance30th, variance70th };
+}
+
 export function hasOfficialThresholdsForYear(year: number): boolean {
   const cache = loadOfficialThresholds();
   return cache.has(`${year}_with_mean65_part_c`);

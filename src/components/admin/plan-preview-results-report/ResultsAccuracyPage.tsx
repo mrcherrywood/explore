@@ -1,6 +1,10 @@
 "use client";
 
-import type { ResultsAccuracyRow } from "@/lib/plan-preview/results-report-data";
+import type { ForecastOfficialScore } from "@/lib/plan-preview/forecast-official-score";
+import type {
+  ResultsAccuracyRow,
+  ResultsOfficialSummary,
+} from "@/lib/plan-preview/results-report-data";
 
 import {
   CountBarChart,
@@ -13,6 +17,7 @@ import {
   ReportSection,
   ReportStat,
   deltaColor,
+  formatScore,
   formatSigned,
   formatStars,
   reportEyebrowPp2,
@@ -47,6 +52,67 @@ function deltaDistribution(rows: ResultsAccuracyRow[]): CountBar[] {
   }));
 }
 
+function overallDetail(
+  summary: ResultsPageProps["report"]["accuracySummary"],
+): string {
+  const { overallPredicted, overallOfficial, overallInEnvelope } = summary;
+  if (overallPredicted === null || overallOfficial === null) {
+    return "No PP1 overall prediction";
+  }
+  const delta = Math.round((overallOfficial - overallPredicted) * 10) / 10;
+  if (delta === 0) return "Matched the official rating";
+  if (overallInEnvelope) return "Inside base → upside envelope";
+  return `Official ${delta > 0 ? "above" : "below"} PP1 by ${Math.abs(delta).toFixed(1)}★`;
+}
+
+type BuildupCompareRow = {
+  label: string;
+  predicted: string;
+  official: string;
+  delta: number | null;
+  digits: number;
+  emphasis?: boolean;
+};
+
+/** PP1 projection scored on official inputs, side by side with the CMS buildup. */
+function buildupRows(
+  buildup: ForecastOfficialScore,
+  official: ResultsOfficialSummary | null,
+): BuildupCompareRow[] {
+  const row = (
+    label: string,
+    predicted: number | null,
+    officialValue: number | null | undefined,
+    digits: number,
+    format: (value: number | null | undefined, digits: number) => string,
+    emphasis?: boolean,
+  ): BuildupCompareRow => ({
+    label,
+    predicted: format(predicted, digits),
+    official: format(officialValue, digits),
+    delta:
+      predicted === null || officialValue === null || officialValue === undefined
+        ? null
+        : Math.round((officialValue - predicted) * 10 ** digits) / 10 ** digits,
+    digits,
+    emphasis,
+  });
+  return [
+    row(
+      `Calculated mean (${buildup.measureCount} vs ${official?.measuresRated ?? "—"} measures)`,
+      buildup.baseMean,
+      official?.calculatedMean,
+      3,
+      formatScore,
+    ),
+    row("Weighted variance", buildup.weightedVariance, official?.calculatedVariance, 3, formatScore),
+    row("Reward factor", buildup.rewardFactor, official?.rewardFactor, 1, formatSigned),
+    row("CAI adjustment", buildup.caiValue, official?.caiValue, 3, formatSigned),
+    row("Final summary (unrounded)", buildup.finalScoreRaw, official?.finalSummary, 3, formatScore, true),
+    row("Rating (rounded to half star)", buildup.finalRating, official?.finalRating, 1, formatStars, true),
+  ];
+}
+
 function percent(numerator: number, denominator: number): string {
   return denominator > 0
     ? `${Math.round((numerator / denominator) * 100)}% of compared measures`
@@ -59,6 +125,8 @@ export function ResultsAccuracyPage({
   totalPages,
 }: ResultsPageProps) {
   const { accuracy, accuracySummary } = report;
+  const buildup = accuracySummary.predictedBuildup;
+  const thresholds = report.rewardFactorThresholds;
   const weights = weightByMeasureCode(report);
   const compared = accuracy.filter((row) => row.delta !== null);
   const meanAbsError =
@@ -125,16 +193,49 @@ export function ResultsAccuracyPage({
           <ReportStat
             label="Overall rating"
             value={`${formatStars(accuracySummary.overallPredicted)} → ${formatStars(accuracySummary.overallOfficial)}`}
-            detail={
-              accuracySummary.overallInEnvelope === null
-                ? "No PP1 overall prediction"
-                : accuracySummary.overallInEnvelope
-                  ? "Inside base → upside envelope"
-                  : "Outside base → upside envelope"
-            }
+            detail={overallDetail(accuracySummary)}
           />
         </div>
       </ReportSection>
+
+      {buildup ? (
+        <ReportSection
+          title="Overall rating on official inputs"
+          note={`The PP1 measure-star projection re-scored the way CMS scored the official rating: ${buildup.qiIncluded ? "the contract's actual C30 / D04 Quality Improvement stars, " : ""}the official Stars ${report.starsYear} reward-factor thresholds${thresholds ? ` (${thresholds.improvementIncluded ? "with" : "without"} improvement measures, ${thresholds.newMeasuresIncluded ? "with" : "without"} new measures)` : ""}, and the official CAI. Any remaining gap is cut-point forecast error.`}
+          style={{ marginTop: 12 }}
+        >
+          <div className="fep-report-panel" style={{ padding: "6px 0 2px" }}>
+            <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>
+              <thead>
+                <tr>
+                  <th className="l">Component</th>
+                  <th>PP1 projection</th>
+                  <th>Official</th>
+                  <th>Delta</th>
+                </tr>
+              </thead>
+              <tbody>
+                {buildupRows(buildup, report.overall).map((row) => (
+                  <tr key={row.label}>
+                    <td className="l" style={{ ...CELL, fontWeight: row.emphasis ? 800 : 500 }}>
+                      {row.label}
+                    </td>
+                    <td style={{ ...CELL, fontWeight: row.emphasis ? 800 : 500 }}>
+                      {row.predicted}
+                    </td>
+                    <td style={{ ...CELL, fontWeight: 800, color: "var(--fep-ink)" }}>
+                      {row.official}
+                    </td>
+                    <td style={{ ...CELL, fontWeight: 800, color: deltaColor(row.delta) }}>
+                      {row.delta === null ? "—" : formatSigned(row.delta, row.digits)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </ReportSection>
+      ) : null}
 
       <ReportSection
         title="Official minus predicted star"

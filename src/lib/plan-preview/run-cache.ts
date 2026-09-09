@@ -3,12 +3,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
 import {
+  buildPlanPreviewBaselineScenario,
   buildPlanPreviewScenarios,
   type PlanPreviewCaiRecords,
   type PlanPreviewFinalScoresResult,
 } from "./final-scores";
 import {
   buildPlanPreviewPredictions,
+  withForecastStars,
   type PlanPreviewPredictionsResult,
 } from "./predictions";
 import {
@@ -29,6 +31,11 @@ export type PlanPreviewRun = {
   fingerprint: string;
   result: PlanPreviewPredictionsResult;
   scenarios: PlanPreviewFinalScoresResult[];
+  /**
+   * Baseline scenario rated on PP1 forecast stars (pre-Tech-Notes cut
+   * points). Same object as scenarios[0] until official cut points diverge.
+   */
+  forecastBaseline: PlanPreviewFinalScoresResult;
   cai: PlanPreviewCaiRecords;
 };
 
@@ -70,10 +77,16 @@ export async function getPlanPreviewRun(
     ),
   ]);
   const result = buildPlanPreviewPredictions(rows, starsYear, forecastOverlay);
+  const scenarios = buildPlanPreviewScenarios(result, caiByContract);
+  const forecastResult = withForecastStars(result);
   const run: PlanPreviewRun = {
     fingerprint,
     result,
-    scenarios: buildPlanPreviewScenarios(result, caiByContract),
+    scenarios,
+    forecastBaseline:
+      forecastResult === result
+        ? scenarios[0]
+        : buildPlanPreviewBaselineScenario(forecastResult, caiByContract),
     cai: caiByContract,
   };
   cache.set(starsYear, run);

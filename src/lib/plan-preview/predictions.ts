@@ -7,6 +7,7 @@ import {
 import {
   analyzeCutPointMethodologyForecast,
   ensureOfficialCutPoints,
+  getForecastWorkbookCutPointsForYear,
   getWorkbookCutPointsForYear,
   isCahpsMeasure,
   type MethodologyForecastThreshold,
@@ -121,6 +122,13 @@ export type PlanPreviewContractMeasurePrediction = {
    */
   baseGroupStar: number | null;
   baselineOfficialStar: number | null;
+  /**
+   * Star under the PP1 forecast cut points (Manual workbook row, else the
+   * Full Market model) — what PP1 projected before the year's Tech Notes were
+   * imported. Equals predictedStar until official cut points replace the
+   * forecast, after which it is the honest input for PP1-vs-official accuracy.
+   */
+  forecastStar: number | null;
   predictionStatus: PlanPreviewCutPointPrediction["status"];
 };
 
@@ -339,8 +347,14 @@ export function buildPlanPreviewPredictions(
 
   const cutPoints: PlanPreviewCutPointPrediction[] = [];
   const readyThresholds = new Map<string, { thresholds: ThresholdValuesShape; inverted: boolean }>();
+  // Pre-Tech-Notes forecast thresholds, kept so PP1-vs-official accuracy can
+  // still score what PP1 projected once official cut points are applied.
+  const forecastThresholds = new Map<string, { thresholds: ThresholdValuesShape; inverted: boolean }>();
   const predictionStatusByMeasure = new Map<string, PlanPreviewCutPointPrediction["status"]>();
   const workbookCutPoints = getWorkbookCutPointsForYear(starsYear);
+  const forecastWorkbookCutPoints = hasOfficialTechNotesCutPoints(starsYear)
+    ? getForecastWorkbookCutPointsForYear(starsYear)
+    : workbookCutPoints;
 
   for (const [measureNormalized, measureRows] of rowsByMeasure) {
     const displayName = measureRows[0].measureDisplayName;
@@ -354,6 +368,15 @@ export function buildPlanPreviewPredictions(
       workbookCutPoints,
       measureNormalized
     );
+    const forecastWorkbookRow =
+      forecastWorkbookCutPoints === workbookCutPoints
+        ? workbookRow
+        : matchCutPointToMeasureName(
+            displayName,
+            codePrefix,
+            forecastWorkbookCutPoints,
+            measureNormalized
+          );
     const baselineCutPoint = lookupBaselineCutPoint(
       measureNormalized,
       displayName,
@@ -504,6 +527,23 @@ export function buildPlanPreviewPredictions(
     // Prefer Full Market for divergence / warning summaries when both exist.
     const primaryModel = readyFullMarket ?? readyClientOnly;
 
+    // What PP1 forecast on its own: the workbook row when maintained, else
+    // the Full Market model. Matches the applied thresholds until Tech Notes
+    // replace them with official values.
+    const forecastValues: ThresholdValuesShape | null = forecastWorkbookRow
+      ? {
+          twoStar: forecastWorkbookRow.thresholds.twoStar,
+          threeStar: forecastWorkbookRow.thresholds.threeStar,
+          fourStar: forecastWorkbookRow.thresholds.fourStar,
+          fiveStar: forecastWorkbookRow.thresholds.fiveStar,
+        }
+      : readyFullMarket
+        ? thresholdsFromForecast(readyFullMarket.thresholds)
+        : null;
+    if (forecastValues) {
+      forecastThresholds.set(measureNormalized, { thresholds: forecastValues, inverted });
+    }
+
     if (workbookRow) {
       // Manual (workbook) thresholds are applied: official CAHPS values, or the
       // maintained forecast for everything else. Both live models keep running
@@ -637,6 +677,7 @@ export function buildPlanPreviewPredictions(
   const contracts = buildContractPredictions(
     maRows,
     readyThresholds,
+    forecastThresholds,
     predictionStatusByMeasure,
     starsYear,
     baselineYear
@@ -667,9 +708,33 @@ export function buildPlanPreviewPredictions(
   };
 }
 
+/**
+ * The same result rated on PP1 forecast stars instead of the applied stars.
+ * Returns the input untouched when no measure differs (no Tech Notes yet).
+ */
+export function withForecastStars(
+  result: PlanPreviewPredictionsResult
+): PlanPreviewPredictionsResult {
+  const differs = result.contracts.some((contract) =>
+    contract.measures.some((measure) => measure.forecastStar !== measure.predictedStar)
+  );
+  if (!differs) return result;
+  return {
+    ...result,
+    contracts: result.contracts.map((contract) => ({
+      ...contract,
+      measures: contract.measures.map((measure) => ({
+        ...measure,
+        predictedStar: measure.forecastStar,
+      })),
+    })),
+  };
+}
+
 function buildContractPredictions(
   rows: AccruedMeasureScore[],
   readyThresholds: Map<string, { thresholds: ThresholdValuesShape; inverted: boolean }>,
+  forecastThresholds: Map<string, { thresholds: ThresholdValuesShape; inverted: boolean }>,
   predictionStatusByMeasure: Map<string, PlanPreviewCutPointPrediction["status"]>,
   starsYear: number,
   baselineYear: number | null
@@ -691,6 +756,7 @@ function buildContractPredictions(
     for (const row of contractRows) {
       const inverted = isInvertedMeasure(row.measureDisplayName);
       const ready = readyThresholds.get(row.measureNormalized) ?? null;
+      const forecast = forecastThresholds.get(row.measureNormalized) ?? null;
       const baselineCutPoint = lookupBaselineCutPoint(
         row.measureNormalized,
         row.measureDisplayName,
@@ -722,6 +788,7 @@ function buildContractPredictions(
           starSource: row.cmsDataIssue ? "cms_data_issue" : null,
           baseGroupStar: null,
           baselineOfficialStar: null,
+          forecastStar: predictedStar,
           predictionStatus: row.cmsDataIssue
             ? "ready"
             : (predictionStatusByMeasure.get(row.measureNormalized) ?? "unavailable"),
@@ -766,6 +833,11 @@ function buildContractPredictions(
       const predictedStar = planStar ?? cutPointStar;
       const starSource: PlanPreviewStarSource | null =
         planStar !== null ? "cahps_plan_file" : cutPointStar !== null ? "cut_points" : null;
+      // Plan-file CAHPS stars were real PP1 inputs; everything else re-bands
+      // the same score against the forecast thresholds.
+      const forecastStar =
+        planStar ??
+        (forecast ? starFromThresholds(bandingScore, forecast.thresholds, forecast.inverted) : null);
       const baselineOfficialStar = baselineCutPoint
         ? deriveMeasureStarRating(bandingScore, baselineCutPoint, inverted)
         : null;
@@ -790,6 +862,7 @@ function buildContractPredictions(
         starSource,
         baseGroupStar,
         baselineOfficialStar,
+        forecastStar,
         predictionStatus,
       });
     }

@@ -3,7 +3,13 @@ import path from "path";
 
 import { getMeasureYearScoreSamples } from "@/lib/band-movement/analysis";
 import { loadMeasureStarsFromFile } from "@/lib/reward-factor/backtest";
+import { getOfficialForUsage } from "@/lib/reward-factor/official-threshold-data";
+import type { PercentileThresholds } from "@/lib/reward-factor/types";
 
+import {
+  scoreForecastOnOfficialInputs,
+  type ForecastOfficialScore,
+} from "./forecast-official-score";
 import { toBaselineMeasureCode } from "./measure-resolve";
 import type { PlanPreviewPredictionsResult } from "./predictions";
 import type { ReportHistoryPoint, ReportYoySummary } from "./report-data";
@@ -37,6 +43,11 @@ export type ResultsDomain = {
   baselineMean: number | null;
 };
 
+export type ResultsRewardFactorThresholds = PercentileThresholds & {
+  improvementIncluded: boolean;
+  newMeasuresIncluded: boolean;
+};
+
 export type ResultsAccuracyRow = {
   measureCode: string;
   displayName: string;
@@ -58,6 +69,11 @@ export type PlanPreviewResultsReport = {
   overall: ResultsOfficialSummary | null;
   partC: ResultsOfficialSummary | null;
   partD: ResultsOfficialSummary | null;
+  /**
+   * Official Overall MA-PD reward-factor thresholds (Technical Notes) for the
+   * improvement / new-measure variant CMS applied to this contract.
+   */
+  rewardFactorThresholds: ResultsRewardFactorThresholds | null;
   measures: ResultsMeasure[];
   domains: ResultsDomain[];
   history: ReportHistoryPoint[];
@@ -67,9 +83,15 @@ export type PlanPreviewResultsReport = {
     compared: number;
     exact: number;
     withinOne: number;
+    /**
+     * PP1 forecast measure stars scored on official inputs (actual QI stars,
+     * Tech Notes reward-factor thresholds, official CAI) when available;
+     * otherwise the PP1 run's own modeled Overall.
+     */
     overallPredicted: number | null;
     overallOfficial: number | null;
     overallInEnvelope: boolean | null;
+    predictedBuildup: ForecastOfficialScore | null;
   };
   risk: RiskOpportunityRow[];
   opportunity: RiskOpportunityRow[];
@@ -134,6 +156,24 @@ export function publishedFinalRating(summary: ResultsOfficialSummary | null): nu
   return summary?.finalRating ?? null;
 }
 
+/** CMS summary usage text ("Yes"/"No", "With"/"Without") → included flag; defaults to included. */
+function usageIncluded(value: string | null | undefined): boolean {
+  const text = (value ?? "").trim().toLowerCase();
+  return !(text === "no" || text === "without" || text === "n" || text === "false");
+}
+
+export function resolveRewardFactorThresholds(
+  starsYear: number,
+  overall: ResultsOfficialSummary | null
+): ResultsRewardFactorThresholds | null {
+  const usage = {
+    improvementIncluded: usageIncluded(overall?.improvementUsage),
+    newMeasuresIncluded: usageIncluded(overall?.newMeasureUsage),
+  };
+  const thresholds = getOfficialForUsage(starsYear, "overall_mapd", usage);
+  return thresholds ? { ...thresholds, ...usage } : null;
+}
+
 export function buildupChecksOut(summary: ResultsOfficialSummary | null, digits = 6): boolean {
   if (!summary || summary.calculatedMean === null || summary.finalSummary === null) return false;
   const reward = summary.rewardFactor ?? 0;
@@ -160,10 +200,10 @@ export function buildPlanPreviewResultsReport(options: {
   const publishedStarByCode = new Map(
     publishedBaseline.map((measure) => [measure.code.toUpperCase(), measure.starValue])
   );
+  const predictedMeasures =
+    options.predictions?.contracts.find((entry) => entry.contractId === contractId)?.measures ?? [];
   const predictedByCode = new Map(
-    (options.predictions?.contracts.find((entry) => entry.contractId === contractId)?.measures ?? []).map(
-      (measure) => [measure.measureCode.toUpperCase(), measure]
-    )
+    predictedMeasures.map((measure) => [measure.measureCode.toUpperCase(), measure])
   );
 
   const first = officialStars[0];
@@ -180,7 +220,9 @@ export function buildPlanPreviewResultsReport(options: {
           (sample) => sample.contractId === contractId
         )?.score ?? null,
       pp1Score: predicted?.score ?? null,
-      pp1PredictedStar: predicted?.predictedStar ?? null,
+      // What PP1 projected on its forecast cut points — not the applied star,
+      // which is re-banded on the official Tech Notes once imported.
+      pp1PredictedStar: predicted?.forecastStar ?? null,
       pp1UpsideStar: null,
       inverted: predicted?.inverted,
     };
@@ -231,7 +273,17 @@ export function buildPlanPreviewResultsReport(options: {
       return left.domain.localeCompare(right.domain);
     });
 
-  const overallPredicted = options.overallPredicted ?? null;
+  const rewardFactorThresholds = resolveRewardFactorThresholds(starsYear, overall);
+  const predictedBuildup = scoreForecastOnOfficialInputs({
+    contractId,
+    baselineYear,
+    predictedMeasures,
+    officialStars,
+    thresholds: rewardFactorThresholds,
+    caiValue: overall?.caiValue ?? null,
+    improvementIncluded: rewardFactorThresholds?.improvementIncluded ?? true,
+  });
+  const overallPredicted = predictedBuildup?.finalRating ?? options.overallPredicted ?? null;
   const overallOfficial = overall?.finalRating ?? null;
   const overallInEnvelope =
     overallPredicted === null || overallOfficial === null
@@ -272,6 +324,7 @@ export function buildPlanPreviewResultsReport(options: {
     overall,
     partC,
     partD,
+    rewardFactorThresholds,
     measures,
     domains,
     history: buildHistory(contractId, starsYear),
@@ -284,6 +337,7 @@ export function buildPlanPreviewResultsReport(options: {
       overallPredicted,
       overallOfficial,
       overallInEnvelope,
+      predictedBuildup,
     },
     risk,
     opportunity,

@@ -452,10 +452,26 @@ export function buildPlanPreviewScenarios(
   predictions: PlanPreviewPredictionsResult,
   cai: PlanPreviewCaiRecords
 ): PlanPreviewFinalScoresResult[] {
+  return buildScenarioSet(predictions, cai, scenarioDefs());
+}
+
+/** Baseline (all measures) scenario only, with full CAI records. */
+export function buildPlanPreviewBaselineScenario(
+  predictions: PlanPreviewPredictionsResult,
+  cai: PlanPreviewCaiRecords
+): PlanPreviewFinalScoresResult {
+  return buildScenarioSet(predictions, cai, [scenarioDefs()[0]])[0];
+}
+
+function buildScenarioSet(
+  predictions: PlanPreviewPredictionsResult,
+  cai: PlanPreviewCaiRecords,
+  scenarios: ScenarioDef[]
+): PlanPreviewFinalScoresResult[] {
   const { starsYear, baselineYear } = predictions;
 
   if (baselineYear === null) {
-    return scenarioDefs().map((scenario) => ({
+    return scenarios.map((scenario) => ({
       id: scenario.id,
       label: scenario.label,
       description: scenario.description,
@@ -471,7 +487,7 @@ export function buildPlanPreviewScenarios(
   }
 
   const population = buildAnchoredPopulation(predictions, baselineYear);
-  return scenarioDefs().map((scenario) =>
+  return scenarios.map((scenario) =>
     computeScenario(scenario, predictions, population, cai)
   );
 }

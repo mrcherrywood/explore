@@ -59,12 +59,15 @@ export async function GET(request: Request) {
 
     let predictions = null;
     let overallPredicted: number | null = null;
-    let overallUpside: number | null = null;
+    const overallUpside: number | null = null;
     try {
       const run = await getPlanPreviewRun(admin.serviceClient, starsYear);
       predictions = run.result;
-      const baseline = run.scenarios.find((scenario) => scenario.id === "baseline");
-      const score = baseline?.contracts.find((entry) => entry.contractId === contractId);
+      // Rated on PP1 forecast stars so accuracy compares the pre-Tech-Notes
+      // projection, not a re-band on the official cut points.
+      const score = run.forecastBaseline.contracts.find(
+        (entry) => entry.contractId === contractId
+      );
       overallPredicted = score?.finalRating ?? null;
     } catch {
       predictions = null;

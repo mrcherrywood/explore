@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { scoreForecastOnOfficialInputs } from "./forecast-official-score";
 import {
   buildPlanPreviewResultsReport,
   buildupChecksOut,
+  resolveRewardFactorThresholds,
 } from "./results-report-data";
 import type { OfficialStarRow, OfficialSummaryRow } from "./store-official";
 
@@ -76,6 +78,19 @@ test("buildPlanPreviewResultsReport computes YoY and PP1 accuracy diffs", () => 
       status: "scored",
       qiSignificance: null,
     },
+    {
+      contractId: "H1304",
+      contractName: "REGENCE",
+      organizationMarketingName: "Regence",
+      parentOrganization: "Cambia",
+      measureCode: "C30",
+      measureDisplayName: "Health Plan Quality Improvement",
+      measureNormalized: "health plan quality improvement",
+      metricCategory: "Part C",
+      star: 2,
+      status: "scored",
+      qiSignificance: null,
+    },
   ];
 
   const report = buildPlanPreviewResultsReport({
@@ -126,6 +141,7 @@ test("buildPlanPreviewResultsReport computes YoY and PP1 accuracy diffs", () => 
               starSource: "cut_points",
               baseGroupStar: null,
               baselineOfficialStar: 3,
+              forecastStar: 4,
               predictionStatus: "ready",
             },
             {
@@ -135,10 +151,13 @@ test("buildPlanPreviewResultsReport computes YoY and PP1 accuracy diffs", () => 
               score: 90,
               weight: 1,
               inverted: false,
-              predictedStar: 4,
+              // Applied star re-banded on the official Tech Notes (matches
+              // PP2); the PP1 forecast on workbook cut points was a star lower.
+              predictedStar: 5,
               starSource: "cut_points",
               baseGroupStar: null,
               baselineOfficialStar: 4,
+              forecastStar: 4,
               predictionStatus: "ready",
             },
           ],
@@ -153,8 +172,99 @@ test("buildPlanPreviewResultsReport computes YoY and PP1 accuracy diffs", () => 
   assert.equal(report.accuracySummary.compared, 2);
   assert.equal(report.accuracySummary.exact, 1);
   assert.equal(report.accuracy.find((row) => row.measureCode === "C02")?.delta, 1);
+
+  // PP1 forecast stars (4★, 4★) scored on official inputs: the contract's
+  // actual C30 (2★, weight 5), the 2026 With/With Overall thresholds, and the
+  // official CAI — not the PP1 run's modeled Overall (3.5 passed in).
+  const buildup = report.accuracySummary.predictedBuildup;
+  assert.ok(buildup);
+  assert.equal(buildup.qiIncluded, true);
+  assert.equal(buildup.measureCount, 3);
+  assert.equal(Math.round(buildup.baseMean * 1000) / 1000, 2.571);
+  assert.equal(buildup.rewardFactor, 0);
+  assert.equal(buildup.caiValue, -0.040422);
+  assert.equal(buildup.finalRating, 2.5);
+  assert.equal(report.accuracySummary.overallPredicted, 2.5);
+  // Official 3.5 sits inside the 2.5 base → 4.0 upside envelope passed in.
   assert.equal(report.accuracySummary.overallInEnvelope, true);
-  assert.equal(report.domains[0]?.officialMean, 4.5);
+
+  assert.equal(
+    report.domains.find((domain) => domain.domain === "Staying Healthy")?.officialMean,
+    4.5
+  );
   assert.ok(Array.isArray(report.risk));
   assert.ok(Array.isArray(report.opportunity));
+});
+
+test("scoreForecastOnOfficialInputs drops QI when CMS did not use improvement measures", () => {
+  const predicted = {
+    measureNormalized: "breast cancer screening",
+    displayName: "Breast Cancer Screening",
+    measureCode: "C01",
+    score: 80,
+    weight: 1,
+    inverted: false,
+    predictedStar: 4,
+    starSource: "cut_points" as const,
+    baseGroupStar: null,
+    baselineOfficialStar: 3,
+    forecastStar: 4,
+    predictionStatus: "ready" as const,
+  };
+  const partD = { ...predicted, measureNormalized: "rating of drug plan", displayName: "Rating of Drug Plan", measureCode: "D07" };
+  const qi: OfficialStarRow = {
+    contractId: "H1304",
+    contractName: null,
+    organizationMarketingName: null,
+    parentOrganization: null,
+    measureCode: "C30",
+    measureDisplayName: "Health Plan Quality Improvement",
+    measureNormalized: "health plan quality improvement",
+    metricCategory: "Part C",
+    star: 1,
+    status: "scored",
+    qiSignificance: null,
+  };
+  const thresholds = { mean65th: 3.5, mean85th: 3.9, variance30th: 0.9, variance70th: 1.3 };
+  const base = {
+    contractId: "H1304",
+    baselineYear: 2025,
+    predictedMeasures: [predicted, partD],
+    officialStars: [qi],
+    thresholds,
+    caiValue: 0.1,
+  };
+
+  const withQi = scoreForecastOnOfficialInputs({ ...base, improvementIncluded: true });
+  assert.ok(withQi);
+  assert.equal(withQi.qiIncluded, true);
+  assert.equal(withQi.measureCount, 3);
+
+  const withoutQi = scoreForecastOnOfficialInputs({ ...base, improvementIncluded: false });
+  assert.ok(withoutQi);
+  assert.equal(withoutQi.qiIncluded, false);
+  assert.equal(withoutQi.measureCount, 2);
+  assert.equal(withoutQi.baseMean, 4);
+  assert.equal(withoutQi.rewardFactor, 0.4);
+  assert.equal(Math.round(withoutQi.finalScoreRaw * 1000) / 1000, 4.5);
+  assert.equal(withoutQi.finalRating, 4.5);
+
+  assert.equal(scoreForecastOnOfficialInputs({ ...base, thresholds: null, improvementIncluded: true }), null);
+});
+
+test("resolveRewardFactorThresholds picks the contract's improvement/new-measure variant", () => {
+  const withBoth = resolveRewardFactorThresholds(2026, summary());
+  assert.equal(withBoth?.improvementIncluded, true);
+  assert.equal(withBoth?.newMeasuresIncluded, true);
+  assert.equal(withBoth?.mean65th, 3.649351);
+  assert.equal(withBoth?.variance30th, 0.91485);
+
+  const withoutImprovement = resolveRewardFactorThresholds(
+    2026,
+    summary({ improvementUsage: "No", newMeasureUsage: "No" })
+  );
+  assert.equal(withoutImprovement?.improvementIncluded, false);
+  assert.equal(withoutImprovement?.mean65th, 3.7);
+
+  assert.equal(resolveRewardFactorThresholds(2099, summary()), null);
 });

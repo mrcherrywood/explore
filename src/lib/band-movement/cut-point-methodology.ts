@@ -247,6 +247,15 @@ export function getWorkbookCutPointsForYear(year: number): MeasureCutPoint[] {
   if (techNotes.length > 0) return techNotes;
   const official = ensureOfficialCutPoints().get(year);
   if (official) return official;
+  return getForecastWorkbookCutPointsForYear(year);
+}
+
+/**
+ * The maintained workbook rows only (Manual forecast plus official CAHPS),
+ * ignoring imported Tech Notes — i.e. the cut points PP1 was projected on
+ * before CMS published the year's official values.
+ */
+export function getForecastWorkbookCutPointsForYear(year: number): MeasureCutPoint[] {
   let cached = fileCutPointsByYearCache.get(year);
   if (!cached) {
     cached = loadMeasureCutPoints(CUT_POINTS_PATH, [year]).get(year) ?? [];
