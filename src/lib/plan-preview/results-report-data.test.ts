@@ -5,6 +5,7 @@ import { scoreForecastOnOfficialInputs } from "./forecast-official-score";
 import {
   buildPlanPreviewResultsReport,
   buildupChecksOut,
+  publishedScoreFromForecast,
   resolveRewardFactorThresholds,
 } from "./results-report-data";
 import type { OfficialStarRow, OfficialSummaryRow } from "./store-official";
@@ -44,6 +45,45 @@ function summary(overrides: Partial<OfficialSummaryRow> = {}): OfficialSummaryRo
     ...overrides,
   };
 }
+
+test("publishedScoreFromForecast uses the selected without-QI PP1 report score", () => {
+  const published = publishedScoreFromForecast({
+    contractId: "H8928",
+    contractName: null,
+    parentOrganization: null,
+    caiValue: 0.043,
+    withQi: {
+      measureCount: 43,
+      baseMean: 3.5,
+      weightedVariance: 1.1,
+      rewardFactor: 0,
+      meanCategory: "medium",
+      varianceCategory: "medium",
+      finalScoreRaw: 3.543,
+    },
+    withoutQi: {
+      measureCount: 41,
+      baseMean: 3.435,
+      weightedVariance: 1.2,
+      rewardFactor: 0.1,
+      meanCategory: "medium",
+      varianceCategory: "medium",
+      finalScoreRaw: 3.578,
+    },
+    selectedLeg: "without_qi",
+    finalScoreRaw: 3.578,
+    finalRating: 3.5,
+    partCFinalRating: 3.5,
+    partDFinalRating: 4,
+    qualifiesOverall: true,
+    reason: null,
+  });
+  assert.equal(published?.finalScoreRaw, 3.578);
+  assert.equal(published?.baseMean, 3.435);
+  assert.equal(published?.rewardFactor, 0.1);
+  assert.equal(published?.caiValue, 0.043);
+  assert.equal(publishedScoreFromForecast(null), null);
+});
 
 test("buildupChecksOut ties mean + RF + CAI to the published final summary", () => {
   assert.equal(buildupChecksOut(summary()), true);
@@ -166,6 +206,15 @@ test("buildPlanPreviewResultsReport computes YoY and PP1 accuracy diffs", () => 
     },
     overallPredicted: 3.5,
     overallUpside: 4,
+    pp1Published: {
+      measureCount: 38,
+      baseMean: 3.478,
+      weightedVariance: 1.2,
+      rewardFactor: 0.1,
+      caiValue: 0,
+      finalScoreRaw: 3.578,
+      finalRating: 3.5,
+    },
   });
 
   assert.equal(report.overall?.finalRating, 3.5);
@@ -173,9 +222,11 @@ test("buildPlanPreviewResultsReport computes YoY and PP1 accuracy diffs", () => 
   assert.equal(report.accuracySummary.exact, 1);
   assert.equal(report.accuracy.find((row) => row.measureCode === "C02")?.delta, 1);
 
-  // PP1 forecast stars (4★, 4★) scored on official inputs: the contract's
-  // actual C30 (2★, weight 5), the 2026 With/With Overall thresholds, and the
-  // official CAI — not the PP1 run's modeled Overall (3.5 passed in).
+  assert.equal(report.accuracySummary.pp1Published?.finalScoreRaw, 3.578);
+  assert.equal(report.accuracySummary.overallPredicted, 3.5);
+  assert.equal(report.accuracySummary.overallInEnvelope, true);
+
+  // Official-input restatement is still computed for diagnostics.
   const buildup = report.accuracySummary.predictedBuildup;
   assert.ok(buildup);
   assert.equal(buildup.qiIncluded, true);
@@ -186,9 +237,6 @@ test("buildPlanPreviewResultsReport computes YoY and PP1 accuracy diffs", () => 
   assert.equal(buildup.rewardFactor, 0);
   assert.equal(buildup.caiValue, -0.040422);
   assert.equal(buildup.finalRating, 2.5);
-  assert.equal(report.accuracySummary.overallPredicted, 2.5);
-  // Official 3.5 sits inside the 2.5 base → 4.0 upside envelope passed in.
-  assert.equal(report.accuracySummary.overallInEnvelope, true);
 
   assert.equal(
     report.domains.find((domain) => domain.domain === "Staying Healthy")?.officialMean,

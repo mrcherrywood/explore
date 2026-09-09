@@ -1,5 +1,6 @@
 "use client";
 
+import { isInvertedMeasure } from "@/lib/percentile-analysis/measure-matching";
 import type { ResultsMeasure } from "@/lib/plan-preview/results-report-data";
 import { isScoreDeltaImprovement } from "@/lib/plan-preview/score-delta-direction";
 
@@ -68,7 +69,7 @@ export function ResultsMeasureScoresPage({
     <ReportPageFrame
       eyebrow={reportEyebrowPp2(report.starsYear)}
       title="Score Differences by Measure"
-      subtitle={`${report.contract.contractId} · ${part} · Plan preview scores vs published Stars ${baselineYear}, with official Stars ${report.starsYear} stars`}
+      subtitle={`${report.contract.contractId} · ${part} · Official Stars ${report.starsYear} scores vs published Stars ${baselineYear}`}
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={report.contract.contractId}
@@ -78,7 +79,7 @@ export function ResultsMeasureScoresPage({
     >
       <ReportSection
         title={`${part} measure scores`}
-        note={`Numeric plan preview score vs published CMS score for Stars ${baselineYear}, with the official Stars ${report.starsYear} star and the PP1 predicted star for context. Sorted by measure code.`}
+        note={`Official Stars ${report.starsYear} score and star vs published CMS for Stars ${baselineYear}. Sorted by measure code.`}
         style={{ marginTop: 12 }}
       >
         <div
@@ -91,14 +92,13 @@ export function ResultsMeasureScoresPage({
           >
             <colgroup>
               <col />
-              <col style={{ width: "5%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "8%" }} />
               <col style={{ width: "9%" }} />
               <col style={{ width: "9%" }} />
-              <col style={{ width: "7%" }} />
               <col style={{ width: "8%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "7%" }} />
             </colgroup>
             <thead>
               <tr>
@@ -107,11 +107,10 @@ export function ResultsMeasureScoresPage({
                 </th>
                 <th style={HEAD}>Wt</th>
                 <th style={HEAD}>{baselineYear} score</th>
-                <th style={HEAD}>PP1 score</th>
+                <th style={HEAD}>{report.starsYear} score</th>
                 <th style={HEAD}>Δ</th>
                 <th style={HEAD}>{baselineYear} ★</th>
                 <th style={HEAD}>{report.starsYear} ★</th>
-                <th style={HEAD}>PP1 ★</th>
                 <th style={HEAD}>Δ★</th>
               </tr>
             </thead>
@@ -120,7 +119,7 @@ export function ResultsMeasureScoresPage({
                 <tr>
                   <td
                     className="l"
-                    colSpan={9}
+                    colSpan={8}
                     style={{ color: "var(--fep-faint)" }}
                   >
                     No official {part} measures to compare.
@@ -141,7 +140,8 @@ export function ResultsMeasureScoresPage({
                     scoreDelta !== 0 &&
                     isScoreDeltaImprovement(
                       scoreDelta,
-                      measure.inverted ?? false,
+                      measure.inverted ??
+                        isInvertedMeasure(measure.measureDisplayName),
                     );
                   const starDelta =
                     measure.star !== null &&
@@ -213,17 +213,6 @@ export function ResultsMeasureScoresPage({
                       <td
                         style={{
                           ...CELL,
-                          color:
-                            measure.pp1PredictedStar === null
-                              ? "var(--fep-faint)"
-                              : undefined,
-                        }}
-                      >
-                        {starCell(measure.pp1PredictedStar)}
-                      </td>
-                      <td
-                        style={{
-                          ...CELL,
                           fontWeight: 800,
                           color: deltaColor(starDelta),
                         }}
@@ -238,13 +227,13 @@ export function ResultsMeasureScoresPage({
           </table>
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 5 }}>
-          Published scores come from CMS measure data for Stars {baselineYear}.
-          PP1 scores are the accrued Plan Preview 1 values behind the official
-          stars. Score Δ is colored by whether the change is an improvement for
-          that measure (lower is better for inverted measures such as
-          Complaints). {report.starsYear} ★ is the official Plan Preview 2
-          star; PP1 ★ is the star projected at Plan Preview 1 when available;
-          Δ★ compares the official star with Stars {baselineYear}.
+          {baselineYear} scores come from published CMS measure data.{" "}
+          {report.starsYear} scores are the plan preview rates CMS used for the
+          official stars (Plan Preview 2 does not republish a separate score
+          file). Score Δ is colored by whether the change is an improvement
+          (lower is better for inverted measures such as Complaints). Δ★
+          compares the official Stars {report.starsYear} star with Stars{" "}
+          {baselineYear}.
         </p>
       </ReportSection>
     </ReportPageFrame>

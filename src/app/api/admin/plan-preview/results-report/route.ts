@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { requireApprovedAdmin } from "@/lib/admin/require-approved-admin";
-import { buildPlanPreviewResultsReport } from "@/lib/plan-preview/results-report-data";
+import {
+  buildPlanPreviewResultsReport,
+  publishedScoreFromForecast,
+} from "@/lib/plan-preview/results-report-data";
 import { getPlanPreviewRun } from "@/lib/plan-preview/run-cache";
 import {
   getPlanPreviewOfficialStars,
@@ -59,16 +62,16 @@ export async function GET(request: Request) {
 
     let predictions = null;
     let overallPredicted: number | null = null;
+    let pp1Published = null;
     const overallUpside: number | null = null;
     try {
       const run = await getPlanPreviewRun(admin.serviceClient, starsYear);
       predictions = run.result;
-      // Rated on PP1 forecast stars so accuracy compares the pre-Tech-Notes
-      // projection, not a re-band on the official cut points.
       const score = run.forecastBaseline.contracts.find(
         (entry) => entry.contractId === contractId
       );
       overallPredicted = score?.finalRating ?? null;
+      pp1Published = publishedScoreFromForecast(score);
     } catch {
       predictions = null;
     }
@@ -83,6 +86,7 @@ export async function GET(request: Request) {
       predictions,
       overallPredicted,
       overallUpside,
+      pp1Published,
     });
 
     return NextResponse.json(JSON.parse(JSON.stringify(report)));

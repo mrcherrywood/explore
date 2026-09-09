@@ -10,6 +10,7 @@ import {
   scoreForecastOnOfficialInputs,
   type ForecastOfficialScore,
 } from "./forecast-official-score";
+import type { PlanPreviewFinalScore } from "./final-scores";
 import { toBaselineMeasureCode } from "./measure-resolve";
 import type { PlanPreviewPredictionsResult } from "./predictions";
 import type { ReportHistoryPoint, ReportYoySummary } from "./report-data";
@@ -52,6 +53,39 @@ export type ResultsRewardFactorThresholds = PercentileThresholds & {
   newMeasuresIncluded: boolean;
 };
 
+export type ResultsPp1PublishedScore = {
+  measureCount: number;
+  baseMean: number;
+  weightedVariance: number;
+  rewardFactor: number;
+  caiValue: number | null;
+  finalScoreRaw: number;
+  finalRating: number;
+};
+
+/** The PP1 report score: without-QI leg when that is what we published. */
+export function publishedScoreFromForecast(
+  contract: PlanPreviewFinalScore | null | undefined,
+): ResultsPp1PublishedScore | null {
+  if (!contract || contract.finalScoreRaw === null || contract.finalRating === null) {
+    return null;
+  }
+  const leg =
+    (contract.selectedLeg === "with_qi" ? contract.withQi : contract.withoutQi) ??
+    contract.withoutQi ??
+    contract.withQi;
+  if (!leg) return null;
+  return {
+    measureCount: leg.measureCount,
+    baseMean: leg.baseMean,
+    weightedVariance: leg.weightedVariance,
+    rewardFactor: leg.rewardFactor,
+    caiValue: contract.caiValue,
+    finalScoreRaw: contract.finalScoreRaw,
+    finalRating: contract.finalRating,
+  };
+}
+
 export type ResultsAccuracyRow = {
   measureCode: string;
   displayName: string;
@@ -88,13 +122,15 @@ export type PlanPreviewResultsReport = {
     exact: number;
     withinOne: number;
     /**
-     * PP1 forecast measure stars scored on official inputs (actual QI stars,
-     * Tech Notes reward-factor thresholds, official CAI) when available;
-     * otherwise the PP1 run's own modeled Overall.
+     * Published Plan Preview 1 Overall (without QI) — what the PP1 report
+     * showed this contract. Falls back to the official-input restatement
+     * only when that PP1 score is missing.
      */
     overallPredicted: number | null;
     overallOfficial: number | null;
     overallInEnvelope: boolean | null;
+    /** Published PP1 score buildup (without QI, PP1 thresholds and CAI). */
+    pp1Published: ResultsPp1PublishedScore | null;
     predictedBuildup: ForecastOfficialScore | null;
   };
   risk: RiskOpportunityRow[];
@@ -198,6 +234,7 @@ export function buildPlanPreviewResultsReport(options: {
   predictions?: PlanPreviewPredictionsResult | null;
   overallPredicted?: number | null;
   overallUpside?: number | null;
+  pp1Published?: ResultsPp1PublishedScore | null;
 }): PlanPreviewResultsReport {
   const { starsYear, contractId, officialStars, officialSummaries, domainByCode, weightByCode } =
     options;
@@ -289,7 +326,9 @@ export function buildPlanPreviewResultsReport(options: {
     caiValue: overall?.caiValue ?? null,
     improvementIncluded: rewardFactorThresholds?.improvementIncluded ?? true,
   });
-  const overallPredicted = predictedBuildup?.finalRating ?? options.overallPredicted ?? null;
+  const pp1Published = options.pp1Published ?? null;
+  const overallPredicted =
+    pp1Published?.finalRating ?? options.overallPredicted ?? predictedBuildup?.finalRating ?? null;
   const overallOfficial = overall?.finalRating ?? null;
   const overallInEnvelope =
     overallPredicted === null || overallOfficial === null
@@ -343,6 +382,7 @@ export function buildPlanPreviewResultsReport(options: {
       overallPredicted,
       overallOfficial,
       overallInEnvelope,
+      pp1Published,
       predictedBuildup,
     },
     risk,

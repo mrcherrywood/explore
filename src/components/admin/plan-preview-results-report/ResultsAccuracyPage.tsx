@@ -1,9 +1,9 @@
 "use client";
 
-import type { ForecastOfficialScore } from "@/lib/plan-preview/forecast-official-score";
 import type {
   ResultsAccuracyRow,
   ResultsOfficialSummary,
+  ResultsPp1PublishedScore,
 } from "@/lib/plan-preview/results-report-data";
 
 import {
@@ -78,10 +78,24 @@ type BuildupCompareRow = {
   emphasis?: boolean;
 };
 
-/** PP1 projection scored on official inputs, side by side with the CMS buildup. */
+function officialQiAverageStar(
+  measures: { measureDisplayName: string; star: number | null }[],
+): number | null {
+  const qi = measures.filter(
+    (measure) =>
+      /quality improvement/i.test(measure.measureDisplayName) && measure.star !== null,
+  );
+  if (qi.length === 0) return null;
+  return (
+    qi.reduce((sum, measure) => sum + (measure.star as number), 0) / qi.length
+  );
+}
+
+/** Published PP1 overall vs the published PP2 official buildup. */
 function buildupRows(
-  buildup: ForecastOfficialScore,
+  pp1: ResultsPp1PublishedScore,
   official: ResultsOfficialSummary | null,
+  qiAverageStar: number | null,
 ): BuildupCompareRow[] {
   const row = (
     label: string,
@@ -101,42 +115,31 @@ function buildupRows(
     digits,
     emphasis,
   });
-  const qiImpact =
-    buildup.qiIncluded && buildup.withoutQi
-      ? Math.round((buildup.finalScoreRaw - buildup.withoutQi.finalScoreRaw) * 1000) / 1000
-      : null;
-  const qiOfficial =
-    buildup.qiMeasures.length > 0
-      ? `${formatStars(
-          buildup.qiMeasures.reduce((sum, measure) => sum + measure.star, 0) /
-            buildup.qiMeasures.length,
-        )}★`
-      : "—";
 
   return [
     row(
-      `Calculated mean (${buildup.measureCount} vs ${official?.measuresRated ?? "—"} measures)`,
-      buildup.baseMean,
+      `Calculated mean (${pp1.measureCount} vs ${official?.measuresRated ?? "—"} measures)`,
+      pp1.baseMean,
       official?.calculatedMean,
       3,
       formatScore,
     ),
-    ...(qiImpact !== null
+    ...(qiAverageStar !== null
       ? [
           {
             label: "Quality Improvement",
             predicted: "Not included",
-            official: qiOfficial,
-            delta: qiImpact,
-            digits: 3,
+            official: `${formatStars(qiAverageStar)}★`,
+            delta: null,
+            digits: 1,
           } satisfies BuildupCompareRow,
         ]
       : []),
-    row("Weighted variance", buildup.weightedVariance, official?.calculatedVariance, 3, formatScore),
-    row("Reward factor", buildup.rewardFactor, official?.rewardFactor, 1, formatSigned),
-    row("CAI adjustment", buildup.caiValue, official?.caiValue, 3, formatSigned),
-    row("Final summary (unrounded)", buildup.finalScoreRaw, official?.finalSummary, 3, formatScore, true),
-    row("Rating (rounded to half star)", buildup.finalRating, official?.finalRating, 1, formatStars, true),
+    row("Weighted variance", pp1.weightedVariance, official?.calculatedVariance, 3, formatScore),
+    row("Reward factor", pp1.rewardFactor, official?.rewardFactor, 1, formatSigned),
+    row("CAI adjustment", pp1.caiValue, official?.caiValue, 3, formatSigned),
+    row("Final summary (unrounded)", pp1.finalScoreRaw, official?.finalSummary, 3, formatScore, true),
+    row("Rating (rounded to half star)", pp1.finalRating, official?.finalRating, 1, formatStars, true),
   ];
 }
 
@@ -152,8 +155,9 @@ export function ResultsAccuracyPage({
   totalPages,
 }: ResultsPageProps) {
   const { accuracy, accuracySummary } = report;
-  const buildup = accuracySummary.predictedBuildup;
+  const pp1Published = accuracySummary.pp1Published;
   const thresholds = report.rewardFactorThresholds;
+  const qiAverageStar = officialQiAverageStar(report.measures);
   const weights = weightByMeasureCode(report);
   const compared = accuracy.filter((row) => row.delta !== null);
   const meanAbsError =
@@ -225,10 +229,10 @@ export function ResultsAccuracyPage({
         </div>
       </ReportSection>
 
-      {buildup ? (
+      {pp1Published ? (
         <ReportSection
-          title="Overall rating on official inputs"
-          note={`The PP1 measure-star projection re-scored the way CMS scored the official rating: ${buildup.qiIncluded ? "the contract's actual Quality Improvement stars, " : ""}the official Stars ${report.starsYear} reward-factor thresholds${thresholds ? ` (${thresholds.improvementIncluded ? "with" : "without"} improvement measures, ${thresholds.newMeasuresIncluded ? "with" : "without"} new measures)` : ""}, and the official CAI. Quality Improvement is not predicted at PP1 — the Official column is the average of the published QI stars and Delta is the change in the unrounded PP1 final summary from adding those measures. Any remaining gap on the other rows is cut-point forecast error.`}
+          title="PP1 prediction vs official result"
+          note={`PP1 is the published Plan Preview 1 overall for this contract (without Quality Improvement, using the PP1 reward-factor thresholds and CAI). Official is the published Plan Preview 2 result${thresholds ? ` (${thresholds.improvementIncluded ? "with" : "without"} improvement measures, ${thresholds.newMeasuresIncluded ? "with" : "without"} new measures)` : ""}. Quality Improvement was not predicted at PP1 — the Official column is the average of the published QI stars.`}
           style={{ marginTop: 12 }}
         >
           <div className="fep-report-panel" style={{ padding: "6px 0 2px" }}>
@@ -236,13 +240,13 @@ export function ResultsAccuracyPage({
               <thead>
                 <tr>
                   <th className="l">Component</th>
-                  <th>PP1 projection</th>
-                  <th>Official</th>
+                  <th>PP1 prediction</th>
+                  <th>PP2 official</th>
                   <th>Delta</th>
                 </tr>
               </thead>
               <tbody>
-                {buildupRows(buildup, report.overall).map((row) => (
+                {buildupRows(pp1Published, report.overall, qiAverageStar).map((row) => (
                   <tr key={row.label}>
                     <td className="l" style={{ ...CELL, fontWeight: row.emphasis ? 800 : 500 }}>
                       {row.label}
