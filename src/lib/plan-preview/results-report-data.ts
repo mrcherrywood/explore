@@ -14,6 +14,10 @@ import { toBaselineMeasureCode } from "./measure-resolve";
 import type { PlanPreviewPredictionsResult } from "./predictions";
 import type { ReportHistoryPoint, ReportYoySummary } from "./report-data";
 import {
+  buildResultsBookCompare,
+  type ResultsBookCompare,
+} from "./results-book-compare";
+import {
   buildRiskOpportunityRows,
   type RiskOpportunityRow,
 } from "./risk-opportunity";
@@ -95,6 +99,8 @@ export type PlanPreviewResultsReport = {
   };
   risk: RiskOpportunityRow[];
   opportunity: RiskOpportunityRow[];
+  /** Contract plan preview scores vs the rest of the accrued book, in points. */
+  bookCompare: ResultsBookCompare;
 };
 
 type RawSummaryRow = Record<string, string | number | null | undefined>;
@@ -341,5 +347,10 @@ export function buildPlanPreviewResultsReport(options: {
     },
     risk,
     opportunity,
+    bookCompare: buildResultsBookCompare({
+      contractId,
+      measures,
+      predictions: options.predictions,
+    }),
   };
 }

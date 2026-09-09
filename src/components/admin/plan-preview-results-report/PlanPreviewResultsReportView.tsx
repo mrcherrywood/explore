@@ -7,6 +7,7 @@ import { exportPagesToPdf } from "@/lib/export/pdf";
 import type { PlanPreviewResultsReport as ReportData } from "@/lib/plan-preview/results-report-data";
 
 import { ResultsAccuracyPage } from "./ResultsAccuracyPage";
+import { ResultsBookComparePage } from "./ResultsBookComparePage";
 import { ResultsDomainsPage } from "./ResultsDomainsPage";
 import { ResultsMeasureScoresPage, chunkOfficialMeasuresByPart } from "./ResultsMeasureScoresPage";
 import { ResultsOverviewPage } from "./ResultsOverviewPage";
@@ -14,7 +15,7 @@ import { ResultsQiPage } from "./ResultsQiPage";
 import { ResultsRiskOpportunityPage } from "./ResultsRiskOpportunityPage";
 import { ResultsYoyPage } from "./ResultsYoyPage";
 
-const FIXED_PAGES_BEFORE_SCORES = 6;
+const FIXED_PAGES_BEFORE_SCORES = 7;
 
 export function PlanPreviewResultsReportView({
   report,
@@ -86,9 +87,10 @@ export function PlanPreviewResultsReportView({
         <ResultsOverviewPage report={report} pageNumber={1} totalPages={totalPages} />
         <ResultsDomainsPage report={report} pageNumber={2} totalPages={totalPages} />
         <ResultsYoyPage report={report} pageNumber={3} totalPages={totalPages} />
-        <ResultsRiskOpportunityPage report={report} pageNumber={4} totalPages={totalPages} />
-        <ResultsAccuracyPage report={report} pageNumber={5} totalPages={totalPages} />
-        <ResultsQiPage report={report} pageNumber={6} totalPages={totalPages} />
+        <ResultsBookComparePage report={report} pageNumber={4} totalPages={totalPages} />
+        <ResultsRiskOpportunityPage report={report} pageNumber={5} totalPages={totalPages} />
+        <ResultsAccuracyPage report={report} pageNumber={6} totalPages={totalPages} />
+        <ResultsQiPage report={report} pageNumber={7} totalPages={totalPages} />
         {scoreChunks.map((chunk, chunkIndex) => (
           <ResultsMeasureScoresPage
             key={`official-scores-${chunk.part}`}
