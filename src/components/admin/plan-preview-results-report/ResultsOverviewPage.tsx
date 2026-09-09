@@ -192,9 +192,9 @@ export function ResultsOverviewPage({
             label="Measures rated"
             value={overall?.measuresRated ?? ratedCount}
             detail={
-              overall?.measuresRequired
-                ? `${overall.measuresRequired} required; ${overall.measuresMissing ?? 0} missing`
-                : `${report.measures.length} measures in the official star file`
+              overall?.measuresMissing != null && overall.measuresMissing > 0
+                ? `${overall.measuresRequired ? `${overall.measuresRequired} required; ` : ""}${overall.measuresMissing} missing`
+                : undefined
             }
           />
           <ReportStat
