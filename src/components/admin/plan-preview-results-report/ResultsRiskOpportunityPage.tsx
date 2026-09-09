@@ -152,10 +152,7 @@ export function ResultsRiskOpportunityPage({
         note="A small score drop, or a slightly harder cut next year, would lose a star on these measures."
         style={{ marginTop: 12 }}
       >
-        <div
-          className="fep-report-panel"
-          style={{ padding: "6px 0 2px", borderColor: REPORT_COLORS.negative }}
-        >
+        <div className="fep-report-panel" style={{ padding: "6px 0 2px" }}>
           <ProximityTable
             rows={report.risk}
             cutLabel="Lower cut"
@@ -170,10 +167,7 @@ export function ResultsRiskOpportunityPage({
         note="A small score gain, or a slightly easier cut next year, would earn another star on these measures."
         style={{ marginTop: 12 }}
       >
-        <div
-          className="fep-report-panel"
-          style={{ padding: "6px 0 2px", borderColor: REPORT_COLORS.positive }}
-        >
+        <div className="fep-report-panel" style={{ padding: "6px 0 2px" }}>
           <ProximityTable
             rows={report.opportunity}
             cutLabel="Next cut"

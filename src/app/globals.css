@@ -218,9 +218,10 @@ a {
   color: #46524c !important;
 }
 
-/* Hide borders during PDF/image export (var()-based border colors can render
-   as solid boxes in dom-to-image, so neutralize them while capturing). */
-.pdf-export-mode *,
+/* Hide analysis-card borders during PDF/image export (oklch / hsl(var())
+   border colors can paint as solid fills in dom-to-image). Letter report
+   pages keep their panel, table, and accent borders. */
+.pdf-export-mode *:not(.fep-report-page *),
 .export-hide-borders * {
   border-color: transparent !important;
 }
