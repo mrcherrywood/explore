@@ -28,6 +28,7 @@ export const PLAN_PREVIEW_CHART_SCENARIO_IDS = [
   "baseline",
   "s26NoQI",
   "officialRecalc",
+  "removal2028",
   "s29Removal",
 ] as const;
 

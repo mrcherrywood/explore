@@ -31,17 +31,18 @@ const SCENARIO_SHORT_LABELS: Record<string, string> = {
   s29Removal: "S29 Removal",
   model1: "Model 1",
   model2: "Model 2",
-  removal2028: "2028 removals",
+  removal2028: "S28 Removal",
   removal2029: "2029 removals",
 };
 
 // Model 1 / Model 2 stay in the engine; hide from the report chart for now.
-const CHART_IDS = new Set([
+const CHART_ORDER = [
   "baseline",
   "s26NoQI",
   "officialRecalc",
+  "removal2028",
   "s29Removal",
-]);
+] as const;
 
 function selectedLeg(scenario: ReportScenario) {
   const score = scenario.score;
@@ -129,6 +130,7 @@ export function ScenariosPage({
   chartTitle = "Predicted score by scenario",
   chartNote = "Each scenario removes its measure set, recomputes reward factor thresholds, and re-scores at the projected cut points. Bar labels show unrounded final scores.",
   footerNote = "Official Recalc uses Part C CAI (Part C summary). QI is excluded from every scenario on this page — it is not scored in plan preview 1. Stars 2028 / 2029 impact boxes use the CMS-announced retirement sets.",
+  baselineLabel = "All measures",
 }: {
   report: {
     starsYear: number;
@@ -146,19 +148,23 @@ export function ScenariosPage({
   chartTitle?: string;
   chartNote?: string;
   footerNote?: string;
+  baselineLabel?: string;
 }) {
   const scenarios = report.scenarios;
-  const chartScenarios = scenarios.filter((scenario) =>
-    CHART_IDS.has(scenario.id),
+  const chartScenarios = CHART_ORDER.flatMap((id) =>
+    scenarios.filter((scenario) => scenario.id === id),
   );
   const baselineScore =
     scenarios.find((s) => s.id === "baseline")?.score?.finalScoreRaw ?? null;
   const removal2028 = scenarios.find((s) => s.id === "removal2028");
   const removal2029 = scenarios.find((s) => s.id === "removal2029");
 
+  const shortLabel = (id: string) =>
+    id === "baseline" ? baselineLabel : (SCENARIO_SHORT_LABELS[id] ?? id);
+
   const chartData = chartScenarios.map((scenario) => ({
     id: scenario.id,
-    name: SCENARIO_SHORT_LABELS[scenario.id] ?? scenario.label,
+    name: shortLabel(scenario.id),
     score: scenario.score?.finalScoreRaw ?? null,
   }));
 
@@ -276,7 +282,7 @@ export function ScenariosPage({
                 <th>Reward factor</th>
                 <th>CAI</th>
                 <th>Final score</th>
-                <th>vs. all measures</th>
+                <th>vs. {baselineLabel}</th>
               </tr>
             </thead>
             <tbody>
@@ -289,7 +295,7 @@ export function ScenariosPage({
                       className="l"
                       style={{ fontWeight: 700, color: "var(--fep-ink)" }}
                     >
-                      {SCENARIO_SHORT_LABELS[scenario.id] ?? scenario.label}
+                      {shortLabel(scenario.id)}
                     </td>
                     <td>{scenario.removedContractCodes.length}</td>
                     <td>{leg?.measureCount ?? "—"}</td>
@@ -349,7 +355,7 @@ export function ScenariosPage({
                     color: "var(--fep-ink)",
                   }}
                 >
-                  {SCENARIO_SHORT_LABELS[scenario.id] ?? scenario.label}
+                  {shortLabel(scenario.id)}
                 </p>
                 <p
                   style={{
