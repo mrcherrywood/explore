@@ -35,8 +35,10 @@ const SCENARIO_SHORT_LABELS: Record<string, string> = {
   removal2029: "2029 removals",
 };
 
-// Model 1 / Model 2 stay in the engine; hide from the report chart for now.
-const CHART_ORDER = [
+const ANNOUNCED_REMOVAL_IDS = new Set(["removal2028", "removal2029", "s29Removal"]);
+
+/** PP1 default: keep No QI, hide Model 1 / Model 2. PP2 passes its own order. */
+const PP1_CHART_ORDER = [
   "baseline",
   "s26NoQI",
   "officialRecalc",
@@ -118,6 +120,55 @@ function ImpactCallout({
   );
 }
 
+function ScenarioRemoveCard({
+  title,
+  description,
+  removedCodes,
+}: {
+  title: string;
+  description?: string;
+  removedCodes: string[];
+}) {
+  return (
+    <div>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 10,
+          fontWeight: 800,
+          color: "var(--fep-ink)",
+        }}
+      >
+        {title}
+      </p>
+      {description ? (
+        <p
+          style={{
+            margin: "2px 0 0",
+            fontSize: 8,
+            lineHeight: 1.3,
+            color: "var(--fep-muted)",
+          }}
+        >
+          {description}
+        </p>
+      ) : null}
+      <p
+        style={{
+          margin: "4px 0 0",
+          fontSize: 8,
+          fontWeight: 700,
+          color: "var(--fep-accent)",
+        }}
+      >
+        {removedCodes.length > 0
+          ? `Removed here: ${formatMeasureAcronyms(removedCodes)}`
+          : "No accrued measures affected."}
+      </p>
+    </div>
+  );
+}
+
 export function ScenariosPage({
   report,
   pageNumber,
@@ -131,6 +182,7 @@ export function ScenariosPage({
   chartNote = "Each scenario removes its measure set, recomputes reward factor thresholds, and re-scores at the projected cut points. Bar labels show unrounded final scores.",
   footerNote = "Official Recalc uses Part C CAI (Part C summary). QI is excluded from every scenario on this page — it is not scored in plan preview 1. Stars 2028 / 2029 impact boxes use the CMS-announced retirement sets.",
   baselineLabel = "All measures",
+  chartOrder = PP1_CHART_ORDER,
 }: {
   report: {
     starsYear: number;
@@ -149,10 +201,14 @@ export function ScenariosPage({
   chartNote?: string;
   footerNote?: string;
   baselineLabel?: string;
+  chartOrder?: readonly string[];
 }) {
   const scenarios = report.scenarios;
-  const chartScenarios = CHART_ORDER.flatMap((id) =>
+  const chartScenarios = chartOrder.flatMap((id) =>
     scenarios.filter((scenario) => scenario.id === id),
+  );
+  const announcedRemovals = chartScenarios.filter((scenario) =>
+    ANNOUNCED_REMOVAL_IDS.has(scenario.id),
   );
   const baselineScore =
     scenarios.find((s) => s.id === "baseline")?.score?.finalScoreRaw ?? null;
@@ -177,6 +233,77 @@ export function ScenariosPage({
   const yMax = scoreValues.length
     ? Math.min(5, Math.ceil(Math.max(...scoreValues) + 0.2))
     : 5;
+
+  const removalCard =
+    announcedRemovals.length > 0 ? (
+      <div
+        key="s28-s29"
+        className="fep-report-panel"
+        style={{ padding: "7px 9px" }}
+      >
+        <p
+          style={{
+            margin: 0,
+            fontSize: 10,
+            fontWeight: 800,
+            color: "var(--fep-ink)",
+          }}
+        >
+          S28 / S29 Removal
+        </p>
+        <p
+          style={{
+            margin: "2px 0 0",
+            fontSize: 8,
+            lineHeight: 1.3,
+            color: "var(--fep-muted)",
+          }}
+        >
+          CMS-announced Stars 2028 retirements, then the later 2029 set.
+          Lists below are the measures this contract actually scored.
+        </p>
+        {announcedRemovals.map((scenario) => (
+          <p
+            key={scenario.id}
+            style={{
+              margin: "4px 0 0",
+              fontSize: 8,
+              fontWeight: 700,
+              color: "var(--fep-accent)",
+              lineHeight: 1.3,
+            }}
+          >
+            {`${shortLabel(scenario.id)}: `}
+            {scenario.removedContractCodes.length > 0
+              ? formatMeasureAcronyms(scenario.removedContractCodes)
+              : "no accrued measures affected"}
+          </p>
+        ))}
+      </div>
+    ) : null;
+
+  let placedRemovals = false;
+  const removeDetailCards = chartScenarios.flatMap((scenario) => {
+    if (scenario.id === "baseline") return [];
+    if (ANNOUNCED_REMOVAL_IDS.has(scenario.id)) {
+      if (placedRemovals || !removalCard) return [];
+      placedRemovals = true;
+      return [removalCard];
+    }
+    return [
+      <div
+        key={scenario.id}
+        className="fep-report-panel"
+        style={{ padding: "7px 9px" }}
+      >
+        <ScenarioRemoveCard
+          title={shortLabel(scenario.id)}
+          description={scenario.description}
+          removedCodes={scenario.removedContractCodes}
+        />
+      </div>,
+    ];
+  });
 
   return (
     <ReportPageFrame
@@ -242,7 +369,7 @@ export function ScenariosPage({
             <Bar
               dataKey="score"
               radius={[5, 5, 0, 0]}
-              barSize={56}
+              barSize={chartData.length > 5 ? 46 : 56}
               isAnimationActive={false}
             >
               {chartData.map((entry) => (
@@ -339,48 +466,7 @@ export function ScenariosPage({
             gap: 6,
           }}
         >
-          {chartScenarios
-            .filter((scenario) => scenario.id !== "baseline")
-            .map((scenario) => (
-              <div
-                key={scenario.id}
-                className="fep-report-panel"
-                style={{ padding: "7px 9px" }}
-              >
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 10,
-                    fontWeight: 800,
-                    color: "var(--fep-ink)",
-                  }}
-                >
-                  {shortLabel(scenario.id)}
-                </p>
-                <p
-                  style={{
-                    margin: "2px 0 0",
-                    fontSize: 8,
-                    lineHeight: 1.3,
-                    color: "var(--fep-muted)",
-                  }}
-                >
-                  {scenario.description}
-                </p>
-                <p
-                  style={{
-                    margin: "4px 0 0",
-                    fontSize: 8,
-                    fontWeight: 700,
-                    color: "var(--fep-accent)",
-                  }}
-                >
-                  {scenario.removedContractCodes.length > 0
-                    ? `Removed here: ${formatMeasureAcronyms(scenario.removedContractCodes)}`
-                    : "No accrued measures affected."}
-                </p>
-              </div>
-            ))}
+          {removeDetailCards}
         </div>
         <p className="fep-report-section-note" style={{ marginTop: 6 }}>
           {footerNote}

@@ -3,6 +3,16 @@ import type { PlanPreviewResultsReport } from "@/lib/plan-preview/results-report
 /** Footer product line on every Plan Preview 2 report page. */
 export const PP2_PRODUCT_LABEL = "Plan Preview 2 official results";
 
+/** Official + Clover models + announced removals. No QI stays in the engine only. */
+export const PP2_SCENARIO_CHART_ORDER = [
+  "baseline",
+  "officialRecalc",
+  "removal2028",
+  "s29Removal",
+  "model1",
+  "model2",
+] as const;
+
 export type ResultsPageProps = {
   report: PlanPreviewResultsReport;
   pageNumber: number;

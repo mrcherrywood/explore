@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { PP2_SCENARIO_CHART_ORDER } from "@/components/admin/plan-preview-results-report/results-shared";
+
 import { getMarketingSampleResultsReport } from "./marketing-sample-results-report";
 import { buildupChecksOut } from "./results-report-data";
 import { OFFICIAL_STARS, SAMPLE_CONTRACT_ID } from "./synthetic-pp2-catalog";
@@ -140,4 +142,18 @@ test("PP2 marketing sample official buildup and PP1 accuracy hold together", () 
     Math.abs((baseline?.score?.finalScoreRaw ?? 0) - (overall?.finalSummary ?? 0)) < 0.01,
     "All-measures scenario should match the published official final summary",
   );
+  assert.deepEqual([...PP2_SCENARIO_CHART_ORDER], [
+    "baseline",
+    "officialRecalc",
+    "removal2028",
+    "s29Removal",
+    "model1",
+    "model2",
+  ]);
+  for (const id of PP2_SCENARIO_CHART_ORDER) {
+    assert.ok(
+      report.scenarios.some((scenario) => scenario.id === id),
+      `PP2 chart is missing ${id}`,
+    );
+  }
 });
