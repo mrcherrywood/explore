@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const starsYear = Math.round(starsYearValue);
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const parsed = parsePlanPreviewWorkbook(buffer);
+    const parsed = parsePlanPreviewWorkbook(buffer, file.name);
 
     if (parsed.fileType === "cahps_adjusted") {
       return NextResponse.json(

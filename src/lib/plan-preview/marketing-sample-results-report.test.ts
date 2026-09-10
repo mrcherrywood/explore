@@ -41,6 +41,15 @@ test("PP2 marketing sample matches official-report structure on synthetic Norths
   assert.ok(report.bookCompare.bookContractCount >= 6);
   assert.ok(report.bookCompare.leads >= 10);
   assert.ok(report.bookCompare.trails >= 10);
+  const bookMovers = report.bookCompare.rows.filter((row) => Math.abs(row.advantage) > 1);
+  assert.ok(bookMovers.length >= 20);
+  for (const row of bookMovers) {
+    const printed = Math.abs(row.advantage).toFixed(1);
+    assert.ok(
+      !printed.endsWith(".0"),
+      `${row.measureCode} advantage ${row.advantage} should print as a decimal, not ${printed}`,
+    );
+  }
 
   const blob = JSON.stringify(report);
   for (const contractId of LIVE_CONTRACT_IDS) {

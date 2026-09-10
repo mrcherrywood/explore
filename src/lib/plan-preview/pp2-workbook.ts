@@ -68,9 +68,10 @@ export function classifyOfficialStarValue(rawValue: string): {
     return { star: null, status: "insufficient_data" };
   }
   if (lowered.includes("cms identified issues")) return { star: null, status: "cms_data_issue" };
-  const parsed = parseNumber(rawValue);
-  if (parsed !== null && Number.isInteger(parsed) && parsed >= 1 && parsed <= 5) {
-    return { star: parsed, status: "scored" };
+  // Official measure stars are bare 1–5. Reject rates ("5%", "95") so a
+  // mis-routed measure_data file cannot mint fake stars.
+  if (/^\s*[1-5](\.0+)?\s*$/.test(rawValue)) {
+    return { star: Number(rawValue), status: "scored" };
   }
   return { star: null, status: "other" };
 }
@@ -108,20 +109,29 @@ function headerJoin(headerCells: string[]): string {
   return headerCells.join(" | ");
 }
 
+/** CMS measure-score files share the star-file legend; name is the discriminator. */
+export function isPp2MeasureDataSource(sheetName: string, fileName = ""): boolean {
+  const source = `${sheetName} ${fileName}`.toLowerCase();
+  return /measure[_\s-]*data/.test(source) && !/measure[_\s-]*star/.test(source);
+}
+
 export function detectPp2FileKind(
   rows: unknown[][],
   headerRowIndex: number,
   headerCells: string[],
-  sheetName: string
+  sheetName: string,
+  fileName = "",
 ): "measure_star" | "improvement" | "summary_rating" | null {
+  if (isPp2MeasureDataSource(sheetName, fileName)) return null;
+
   const joined = headerJoin(headerCells);
   if (joined.includes("calculated summary mean") && joined.includes("final summary")) {
     return "summary_rating";
   }
 
-  const sheet = sheetName.toLowerCase();
-  if (sheet.includes("improve")) return "improvement";
-  if (sheet.includes("measure_star") || sheet.includes("measure star")) return "measure_star";
+  const source = `${sheetName} ${fileName}`.toLowerCase();
+  if (source.includes("improve")) return "improvement";
+  if (source.includes("measure_star") || source.includes("measure star")) return "measure_star";
 
   const blob = rows
     .slice(0, Math.min(rows.length, 40))
@@ -136,7 +146,9 @@ export function detectPp2FileKind(
   ) {
     return "improvement";
   }
-  if (blob.includes("star rating legend") || blob.includes("plan too small to be measured")) {
+  // Shared CMS sentinels like "plan too small to be measured" also appear on
+  // measure_data files — do not treat them as official stars.
+  if (blob.includes("star rating legend")) {
     return "measure_star";
   }
   return null;

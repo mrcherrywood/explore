@@ -187,18 +187,38 @@ function summaryRow(
   };
 }
 
+function codeHash(code: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < code.length; i++) {
+    hash ^= code.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+/** Point gap that will not print as n.0 on the one-decimal book chart. */
+function bookGap(code: string, scale: number): number {
+  const hash = codeHash(code);
+  const min = scale < 6 ? 1.15 : scale < 12 ? 1.35 : 1.55;
+  const max = scale < 6 ? 2.35 : scale < 12 ? 3.25 : 3.85;
+  let gap = min + (((hash % 97) + 1) / 98) * (max - min);
+  if (Math.round(gap * 10) % 10 === 0) {
+    gap += gap + 0.3 > max ? -0.3 : 0.3;
+  }
+  return Math.round(gap * 100) / 100;
+}
+
 function peerScoreShift(
   measureCode: string,
   peerIndex: number,
   inverted: boolean,
   scale: number,
 ): number {
-  const spread = (peerIndex - 3.5) * Math.min(0.6, scale * 0.05);
+  const spread = (peerIndex - 3.5) * Math.min(0.55, scale * 0.045);
   const lead = BOOK_LEAD_CODES.has(measureCode);
   const trail = BOOK_TRAIL_CODES.has(measureCode);
   if (!lead && !trail) return spread;
-  const magnitude = Math.min(4, Math.max(1.2, scale * 0.35));
-  const bias = (lead ? -magnitude : magnitude) * (inverted ? -1 : 1);
+  const bias = (lead ? -bookGap(measureCode, scale) : bookGap(measureCode, scale)) * (inverted ? -1 : 1);
   return spread + bias;
 }
 

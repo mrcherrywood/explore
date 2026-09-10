@@ -329,7 +329,7 @@ function parseCaiWorkbook(
   };
 }
 
-export function parsePlanPreviewWorkbook(buffer: Buffer): PlanPreviewParseResult {
+export function parsePlanPreviewWorkbook(buffer: Buffer, fileName = ""): PlanPreviewParseResult {
   const cahpsAdjusted = parseCahpsAdjustedWorkbook(buffer);
   if (cahpsAdjusted) return cahpsAdjusted;
 
@@ -360,7 +360,7 @@ export function parsePlanPreviewWorkbook(buffer: Buffer): PlanPreviewParseResult
     return parseDomainWorkbook(rows, sheetName, headerRowIndex, domainKind);
   }
 
-  const pp2Kind = detectPp2FileKind(rows, headerRowIndex, headerCells, sheetName);
+  const pp2Kind = detectPp2FileKind(rows, headerRowIndex, headerCells, sheetName, fileName);
   if (pp2Kind === "summary_rating") {
     return parsePp2Workbook(rows, sheetName, headerRowIndex, pp2Kind);
   }

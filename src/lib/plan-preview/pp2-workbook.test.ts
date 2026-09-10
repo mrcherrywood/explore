@@ -7,6 +7,7 @@ import { classifyOfficialStarValue } from "./pp2-workbook";
 import { parsePlanPreviewWorkbook } from "./workbook";
 import type {
   PlanPreviewImprovementParseResult,
+  PlanPreviewMeasureParseResult,
   PlanPreviewOfficialStarParseResult,
   PlanPreviewOfficialSummaryParseResult,
 } from "./types";
@@ -20,9 +21,12 @@ function workbookBuffer(sheetName: string, rows: unknown[][]): Buffer {
 
 test("classifyOfficialStarValue maps stars and PP2 sentinels", () => {
   assert.deepEqual(classifyOfficialStarValue("4"), { star: 4, status: "scored" });
+  assert.deepEqual(classifyOfficialStarValue("5.0"), { star: 5, status: "scored" });
   assert.equal(classifyOfficialStarValue("Plan too small to be measured").status, "too_small");
   assert.equal(classifyOfficialStarValue("Plan not required to report measure").status, "not_required");
   assert.equal(classifyOfficialStarValue("Not enough data available").status, "insufficient_data");
+  assert.deepEqual(classifyOfficialStarValue("5%"), { star: null, status: "other" });
+  assert.deepEqual(classifyOfficialStarValue("95"), { star: null, status: "other" });
 });
 
 test("parses measure_star workbooks including too-small sentinels", () => {
@@ -68,6 +72,39 @@ test("parses improve files and the trailing QI score", () => {
   assert.equal(result.rows[0]?.qiSignificance, "Significant improvement");
   assert.equal(result.rows[0]?.improvementScore, 0.28);
   assert.equal(result.rows[0]?.ratingType, "part_c");
+});
+
+test("filename measure_data wins even when the sheet name is generic", () => {
+  const buffer = workbookBuffer("Sheet1", [
+    ["Star Ratings and Display Measures - CY 2027 Star Ratings"],
+    ["Contract Number", "Organization Marketing Name", "Contract Name", "Parent Organization"],
+    [null, null, null, null, "C01: Breast Cancer Screening"],
+    ["H3668", "MediGold", "MEDIGOLD", "Trinity Health Corporation", "75%"],
+    ["Plan too small to be measured"],
+  ]);
+  const parsed = parsePlanPreviewWorkbook(buffer, "fwq_pgmedigoldproductdiscussion/SR_2027_measure_data (2).xlsx");
+  assert.equal(parsed.fileType, "measure_data");
+});
+
+test("measure_data files with the shared too-small legend stay measure scores", () => {
+  const buffer = workbookBuffer("SR_2027_measure_data", [
+    ["Star Ratings and Display Measures - CY 2027 Star Ratings"],
+    [],
+    ["Medicare Part C and D Report Card Master Table"],
+    ["Contract Number", "Organization Marketing Name", "Contract Name", "Parent Organization"],
+    [null, null, null, null, "C01: Breast Cancer Screening", "D01: Call Center - Foreign Language Interpreter and TTY Availability"],
+    ["H3668", "MediGold", "MEDIGOLD", "Trinity Health Corporation", "75%", "95"],
+    [],
+    ["Star Rating Legend"],
+    ["Plan too small to be measured"],
+  ]);
+
+  const parsed = parsePlanPreviewWorkbook(buffer, "SR_2027_measure_data (2).xlsx");
+  assert.equal(parsed.fileType, "measure_data");
+  const result = parsed as PlanPreviewMeasureParseResult;
+  const breast = result.rows.find((row) => row.contractId === "H3668" && row.measureCode === "C01");
+  assert.equal(breast?.score, 75);
+  assert.equal(breast?.status, "scored");
 });
 
 test("parses overall summary from headers, not the sheet name", () => {

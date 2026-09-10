@@ -145,9 +145,20 @@ export function PlanPreviewAdmin() {
     if (allFiles.length === 0 || !starsYear) return;
 
     // Excel lock files (~$...) and non-workbook files are skipped up front.
-    const workbooks = allFiles.filter(
-      (file) => /\.(xlsx|xls)$/i.test(file.name) && !file.name.startsWith("~$"),
-    );
+    const workbooks = allFiles
+      .filter((file) => /\.(xlsx|xls)$/i.test(file.name) && !file.name.startsWith("~$"))
+      .sort((left, right) => {
+        const rank = (name: string) => {
+          const lower = name.toLowerCase();
+          if (/measure[_\s-]*data/.test(lower)) return 10;
+          if (/\b(cahps|hedis|snp|cai)\b/.test(lower)) return 15;
+          if (/measure[_\s-]*star/.test(lower)) return 20;
+          if (/improve/.test(lower)) return 30;
+          if (/summary|overall/.test(lower)) return 40;
+          return 25;
+        };
+        return rank(left.name) - rank(right.name) || left.name.localeCompare(right.name);
+      });
     if (workbooks.length === 0) {
       setError("No .xlsx files found in the selection.");
       return;
