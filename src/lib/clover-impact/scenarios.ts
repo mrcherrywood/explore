@@ -31,9 +31,9 @@ export const OFFICIAL_RECALC_REMOVED_CODES = new Set([
   "C31", // Plan Makes Timely Decisions about Appeals
   "C32", // Reviewing Appeals Decisions
   "C33", // Call Center – Foreign Language Interpreter and TTY Availability (Part C)
-  // All Part D measures
+  // All Part D measures (D01–D12 are the Stars 2026 set; D13 is Stars 2027+ Poly-ACH)
   "D01", "D02", "D03", "D04", "D05", "D06",
-  "D07", "D08", "D09", "D10", "D11", "D12",
+  "D07", "D08", "D09", "D10", "D11", "D12", "D13",
 ]);
 
 export type CloverComputedScenario = {
@@ -130,6 +130,7 @@ export const CLOVER_COMPUTED_SCENARIOS: CloverComputedScenario[] = [
       "D10",
       "D11",
       "D12",
+      "D13",
     ]),
     holdQiConstant: true,
   },

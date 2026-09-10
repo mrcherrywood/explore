@@ -11,6 +11,7 @@ import {
   type ForecastOfficialScore,
 } from "./forecast-official-score";
 import type { PlanPreviewFinalScore } from "./final-scores";
+import { loadOfficialMeasureWeights } from "./official-cut-points";
 import { toBaselineMeasureCode } from "./measure-resolve";
 import type { PlanPreviewPredictionsResult } from "./predictions";
 import { buildOfficialRemovalScenarios } from "./official-scenarios";
@@ -279,15 +280,21 @@ export function buildPlanPreviewResultsReport(options: {
   const qiScoreForCode = (measureCode: string): number | null =>
     (measureCode.toUpperCase().startsWith("D") ? partD : partC)?.improvementScore ?? null;
 
+  const officialWeights = loadOfficialMeasureWeights(starsYear);
   const first = officialStars[0];
   const measures: ResultsMeasure[] = officialStars.map((row) => {
     const baselineCode = toBaselineMeasureCode(row.measureNormalized, row.measureCode, baselineYear);
     const predicted = predictedByCode.get(row.measureCode.toUpperCase());
     const isQi = /quality improvement/i.test(row.measureDisplayName);
+    const code = row.measureCode.toUpperCase();
     return {
       ...row,
       domain: domainByCode.get(baselineCode) ?? NEW_MEASURE_DOMAINS[baselineCode] ?? null,
-      weight: weightByCode.get(baselineCode) ?? 1,
+      weight:
+        officialWeights.get(code) ??
+        weightByCode.get(code) ??
+        weightByCode.get(baselineCode) ??
+        (isQi ? 5 : 1),
       publishedBaselineStar:
         publishedStarByCode.get(row.measureCode.toUpperCase()) ??
         publishedStarByCode.get(baselineCode) ??

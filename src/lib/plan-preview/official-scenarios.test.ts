@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { CLOVER_COMPUTED_SCENARIOS, OFFICIAL_RECALC_REMOVED_CODES } from "@/lib/clover-impact/scenarios";
+
 import {
   buildOfficialRemovalScenarios,
   caiFromOfficialSummaries,
@@ -156,6 +158,14 @@ test("buildOfficialRemovalScenarios uses official Technical Notes reward-factor 
   const baseline = scenarios.find((scenario) => scenario.id === "baseline");
   assert.ok(baseline?.notes.some((note) => /Technical Notes/.test(note)));
   assert.equal(baseline?.thresholds.withQi?.mean65th, 3.545455);
+});
+
+test("official recalc and Model 2 drop Stars 2027 Poly-ACH (D13)", () => {
+  assert.ok(OFFICIAL_RECALC_REMOVED_CODES.has("D13"));
+  const model2 = CLOVER_COMPUTED_SCENARIOS.find((scenario) => scenario.id === "model2");
+  const model1 = CLOVER_COMPUTED_SCENARIOS.find((scenario) => scenario.id === "model1");
+  assert.ok(model2?.removedCodes.has("D13"));
+  assert.equal(model1?.removedCodes.has("D13"), false);
 });
 
 test("caiFromOfficialSummaries splits Overall / Part C / Part D CAI", () => {

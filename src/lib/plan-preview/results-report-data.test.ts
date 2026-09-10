@@ -291,6 +291,39 @@ test("buildPlanPreviewResultsReport computes YoY and PP1 accuracy diffs", () => 
   assert.ok(![...report.risk, ...report.opportunity].some((row) => row.measureCode === "C30"));
 });
 
+test("SY2027 Improving or Maintaining Physical and Mental Health use Tech Notes weight 3", () => {
+  const hos = (code: string, name: string): OfficialStarRow => ({
+    contractId: "H3668",
+    contractName: "MediGold",
+    organizationMarketingName: "MediGold",
+    parentOrganization: "Trinity",
+    measureCode: code,
+    measureDisplayName: name,
+    measureNormalized: name.toLowerCase(),
+    metricCategory: "Part C",
+    star: 2,
+    status: "scored",
+    qiSignificance: null,
+  });
+  const report = buildPlanPreviewResultsReport({
+    starsYear: 2027,
+    contractId: "H3668",
+    officialStars: [
+      hos("C04", "Improving or Maintaining Physical Health"),
+      hos("C05", "Improving or Maintaining Mental Health"),
+    ],
+    officialSummaries: [summary({ contractId: "H3668" })],
+    domainByCode: new Map(),
+    // Prior-year ma_measures still has these as 1-weight HOS rows.
+    weightByCode: new Map([
+      ["C04", 1],
+      ["C05", 1],
+    ]),
+  });
+  assert.equal(report.measures.find((measure) => measure.measureCode === "C04")?.weight, 3);
+  assert.equal(report.measures.find((measure) => measure.measureCode === "C05")?.weight, 3);
+});
+
 test("scoreForecastOnOfficialInputs drops QI when CMS did not use improvement measures", () => {
   const predicted = {
     measureNormalized: "breast cancer screening",
