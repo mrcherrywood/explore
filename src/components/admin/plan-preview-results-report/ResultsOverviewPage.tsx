@@ -193,11 +193,6 @@ export function ResultsOverviewPage({
           <ReportStat
             label="Measures rated"
             value={overall?.measuresRated ?? ratedCount}
-            detail={
-              overall?.measuresMissing != null && overall.measuresMissing > 0
-                ? `${overall.measuresRequired ? `${overall.measuresRequired} required; ` : ""}${overall.measuresMissing} missing`
-                : undefined
-            }
           />
           <ReportStat
             label="Reward factor"
