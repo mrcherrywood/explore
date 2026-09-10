@@ -125,46 +125,100 @@ export async function overlayPlanPreviewQiSignificance(
   );
 }
 
+export function officialSummaryKey(contractId: string, ratingType: string): string {
+  return `${contractId}|${ratingType}`;
+}
+
+export function withPreservedImprovementScore<T extends Record<string, unknown>>(
+  row: T,
+  contractId: string,
+  ratingType: string,
+  existing: Map<string, number>
+): T {
+  const preserved = existing.get(officialSummaryKey(contractId, ratingType));
+  return preserved == null ? row : { ...row, improvement_score: preserved };
+}
+
+async function loadExistingImprovementScores(
+  client: ServiceClient,
+  starsYear: number,
+  contractIds: string[]
+): Promise<Map<string, number>> {
+  const existing = new Map<string, number>();
+  const unique = [...new Set(contractIds.filter(Boolean))];
+  const pageSize = 200;
+  for (let offset = 0; offset < unique.length; offset += pageSize) {
+    const { data, error } = await client
+      .from("plan_preview_official_summary")
+      .select("contract_id, rating_type, improvement_score")
+      .eq("stars_year", starsYear)
+      .in("contract_id", unique.slice(offset, offset + pageSize))
+      .not("improvement_score", "is", null);
+    if (error) throw new Error(error.message);
+    for (const row of (data ?? []) as Array<{
+      contract_id: string;
+      rating_type: string;
+      improvement_score: number | null;
+    }>) {
+      if (row.improvement_score == null) continue;
+      existing.set(officialSummaryKey(row.contract_id, row.rating_type), Number(row.improvement_score));
+    }
+  }
+  return existing;
+}
+
 export async function upsertPlanPreviewOfficialSummary(
   client: ServiceClient,
   input: { batchId: string; starsYear: number; rows: ParsedPlanPreviewOfficialSummary[] }
 ): Promise<void> {
+  const existingScores = await loadExistingImprovementScores(
+    client,
+    input.starsYear,
+    input.rows.map((row) => row.contractId)
+  );
   await upsertChunks(
     client,
     "plan_preview_official_summary",
-    input.rows.map((row) => ({
-      batch_id: input.batchId,
-      stars_year: input.starsYear,
-      contract_id: row.contractId,
-      rating_type: row.ratingType,
-      organization_marketing_name: row.organizationMarketingName,
-      contract_name: row.contractName,
-      parent_organization: row.parentOrganization,
-      contract_type: row.contractType,
-      snp_plans: row.snpPlans,
-      disaster_year_1: row.disasterYear1,
-      disaster_pct_1: row.disasterPct1,
-      disaster_year_2: row.disasterYear2,
-      disaster_pct_2: row.disasterPct2,
-      measures_required: row.measuresRequired,
-      measures_missing: row.measuresMissing,
-      measures_rated: row.measuresRated,
-      calculated_mean: row.calculatedMean,
-      calculated_variance: row.calculatedVariance,
-      score_percentile_rank: row.scorePercentileRank,
-      variance_percentile_rank: row.variancePercentileRank,
-      variance_category: row.varianceCategory,
-      reward_factor: row.rewardFactor,
-      interim_summary: row.interimSummary,
-      fac: row.fac,
-      cai_value: row.caiValue,
-      final_summary: row.finalSummary,
-      improvement_usage: row.improvementUsage,
-      new_measure_usage: row.newMeasureUsage,
-      final_rating: row.finalRating,
-      part_c_summary_rating: row.partCSummaryRating,
-      part_d_summary_rating: row.partDSummaryRating,
-    })),
+    input.rows.map((row) =>
+      withPreservedImprovementScore(
+        {
+          batch_id: input.batchId,
+          stars_year: input.starsYear,
+          contract_id: row.contractId,
+          rating_type: row.ratingType,
+          organization_marketing_name: row.organizationMarketingName,
+          contract_name: row.contractName,
+          parent_organization: row.parentOrganization,
+          contract_type: row.contractType,
+          snp_plans: row.snpPlans,
+          disaster_year_1: row.disasterYear1,
+          disaster_pct_1: row.disasterPct1,
+          disaster_year_2: row.disasterYear2,
+          disaster_pct_2: row.disasterPct2,
+          measures_required: row.measuresRequired,
+          measures_missing: row.measuresMissing,
+          measures_rated: row.measuresRated,
+          calculated_mean: row.calculatedMean,
+          calculated_variance: row.calculatedVariance,
+          score_percentile_rank: row.scorePercentileRank,
+          variance_percentile_rank: row.variancePercentileRank,
+          variance_category: row.varianceCategory,
+          reward_factor: row.rewardFactor,
+          interim_summary: row.interimSummary,
+          fac: row.fac,
+          cai_value: row.caiValue,
+          final_summary: row.finalSummary,
+          improvement_usage: row.improvementUsage,
+          new_measure_usage: row.newMeasureUsage,
+          final_rating: row.finalRating,
+          part_c_summary_rating: row.partCSummaryRating,
+          part_d_summary_rating: row.partDSummaryRating,
+        },
+        row.contractId,
+        row.ratingType,
+        existingScores
+      )
+    ),
     "stars_year,contract_id,rating_type"
   );
 }
