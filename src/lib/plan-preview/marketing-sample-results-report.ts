@@ -6,7 +6,7 @@
  * just rebuilding this module; there is no live-contract snapshot.
  */
 
-import type { PlanPreviewResultsReport } from "./results-report-data";
+import type { PlanPreviewResultsReport } from "./results-report-types";
 import { buildSyntheticPp2SampleReport } from "./synthetic-pp2-sample";
 
 /** Static illustrative official report — same structure as a live PP2 report. */

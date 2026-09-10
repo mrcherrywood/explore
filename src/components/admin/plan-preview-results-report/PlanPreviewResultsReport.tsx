@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import type { PlanPreviewResultsReport as ReportData } from "@/lib/plan-preview/results-report-data";
+import type { PlanPreviewResultsReport as ReportData } from "@/lib/plan-preview/results-report-types";
 
 import { PlanPreviewResultsReportView } from "./PlanPreviewResultsReportView";
 

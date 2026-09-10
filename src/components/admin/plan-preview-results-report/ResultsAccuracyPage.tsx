@@ -4,7 +4,7 @@ import type {
   ResultsAccuracyRow,
   ResultsOfficialSummary,
   ResultsPp1PublishedScore,
-} from "@/lib/plan-preview/results-report-data";
+} from "@/lib/plan-preview/results-report-types";
 
 import {
   CountBarChart,

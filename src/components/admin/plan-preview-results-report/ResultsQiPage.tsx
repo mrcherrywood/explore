@@ -1,6 +1,6 @@
 "use client";
 
-import type { ResultsMeasure } from "@/lib/plan-preview/results-report-data";
+import type { ResultsMeasure } from "@/lib/plan-preview/results-report-types";
 
 import {
   MeasureLabel,

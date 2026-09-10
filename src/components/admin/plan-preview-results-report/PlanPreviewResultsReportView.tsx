@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
 
 import { exportPagesToPdf } from "@/lib/export/pdf";
-import type { PlanPreviewResultsReport as ReportData } from "@/lib/plan-preview/results-report-data";
+import type { PlanPreviewResultsReport as ReportData } from "@/lib/plan-preview/results-report-types";
 
 import { ResultsAccuracyPage } from "./ResultsAccuracyPage";
 import { ResultsBookComparePage } from "./ResultsBookComparePage";

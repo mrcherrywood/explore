@@ -17,19 +17,13 @@ import {
 } from "./official-cut-points";
 import type { ThresholdValues } from "./star-outlook";
 
-export type RiskOpportunityKind = "risk" | "opportunity";
+import type {
+  ResultsRiskOpportunityKind,
+  ResultsRiskOpportunityRow,
+} from "./results-report-types";
 
-export type RiskOpportunityRow = {
-  measureCode: string;
-  displayName: string;
-  officialStar: number;
-  score: number;
-  inverted: boolean;
-  kind: RiskOpportunityKind;
-  cut: number;
-  gap: number;
-  weight: number;
-};
+export type RiskOpportunityKind = ResultsRiskOpportunityKind;
+export type RiskOpportunityRow = ResultsRiskOpportunityRow;
 
 const STANDARD_CLOSE_POINTS = 1;
 const CAHPS_CLOSE_POINTS = 1;

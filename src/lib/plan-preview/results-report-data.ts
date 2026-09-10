@@ -4,71 +4,41 @@ import path from "path";
 import { getMeasureYearScoreSamples } from "@/lib/band-movement/analysis";
 import { loadMeasureStarsFromFile } from "@/lib/reward-factor/backtest";
 import { getOfficialForUsage } from "@/lib/reward-factor/official-threshold-data";
-import type { PercentileThresholds } from "@/lib/reward-factor/types";
 
-import {
-  scoreForecastOnOfficialInputs,
-  type ForecastOfficialScore,
-} from "./forecast-official-score";
+import { scoreForecastOnOfficialInputs } from "./forecast-official-score";
 import type { PlanPreviewFinalScore } from "./final-scores";
-import { loadOfficialMeasureWeights } from "./official-cut-points";
 import { toBaselineMeasureCode } from "./measure-resolve";
 import type { PlanPreviewPredictionsResult } from "./predictions";
 import { buildOfficialRemovalScenarios } from "./official-scenarios";
 import {
   toReportScenarios,
   type ReportHistoryPoint,
-  type ReportScenario,
   type ReportYoySummary,
 } from "./report-data";
-import {
-  buildResultsBookCompare,
-  type ResultsBookCompare,
-} from "./results-book-compare";
-import {
-  buildRiskOpportunityRows,
-  type RiskOpportunityRow,
-} from "./risk-opportunity";
-import type { OfficialStarRow, OfficialSummaryRow } from "./store-official";
+import { buildResultsBookCompare } from "./results-book-compare";
+import { buildRiskOpportunityRows } from "./risk-opportunity";
+import type { OfficialStarRow, OfficialSummaryRow } from "./official-row-types";
+import type {
+  PlanPreviewResultsReport,
+  ResultsAccuracyRow,
+  ResultsDomain,
+  ResultsMeasure,
+  ResultsOfficialSummary,
+  ResultsPp1PublishedScore,
+  ResultsRewardFactorThresholds,
+} from "./results-report-types";
+
+export type {
+  PlanPreviewResultsReport,
+  ResultsAccuracyRow,
+  ResultsDomain,
+  ResultsMeasure,
+  ResultsOfficialSummary,
+  ResultsPp1PublishedScore,
+  ResultsRewardFactorThresholds,
+} from "./results-report-types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
-
-export type ResultsOfficialSummary = OfficialSummaryRow;
-
-export type ResultsMeasure = OfficialStarRow & {
-  domain: string | null;
-  weight: number;
-  publishedBaselineStar: number | null;
-  publishedBaselineScore: number | null;
-  pp1Score: number | null;
-  pp1PredictedStar: number | null;
-  pp1UpsideStar: number | null;
-  inverted?: boolean;
-};
-
-export type ResultsDomain = {
-  domain: string;
-  part: "Part C" | "Part D" | "Mixed";
-  measureCount: number;
-  ratedMeasureCount: number;
-  officialMean: number | null;
-  baselineMean: number | null;
-};
-
-export type ResultsRewardFactorThresholds = PercentileThresholds & {
-  improvementIncluded: boolean;
-  newMeasuresIncluded: boolean;
-};
-
-export type ResultsPp1PublishedScore = {
-  measureCount: number;
-  baseMean: number;
-  weightedVariance: number;
-  rewardFactor: number;
-  caiValue: number | null;
-  finalScoreRaw: number;
-  finalRating: number;
-};
 
 /**
  * The Overall the PP1 contract report published: the without-QI leg
@@ -95,61 +65,6 @@ export function publishedScoreFromForecast(
     finalRating,
   };
 }
-
-export type ResultsAccuracyRow = {
-  measureCode: string;
-  displayName: string;
-  predictedStar: number | null;
-  officialStar: number | null;
-  delta: number | null;
-  inUpsideEnvelope: boolean | null;
-};
-
-export type PlanPreviewResultsReport = {
-  starsYear: number;
-  baselineYear: number | null;
-  generatedAt: string;
-  contract: {
-    contractId: string;
-    contractName: string | null;
-    parentOrganization: string | null;
-  };
-  overall: ResultsOfficialSummary | null;
-  partC: ResultsOfficialSummary | null;
-  partD: ResultsOfficialSummary | null;
-  /**
-   * Official Overall MA-PD reward-factor thresholds (Technical Notes) for the
-   * improvement / new-measure variant CMS applied to this contract.
-   */
-  rewardFactorThresholds: ResultsRewardFactorThresholds | null;
-  measures: ResultsMeasure[];
-  domains: ResultsDomain[];
-  history: ReportHistoryPoint[];
-  yoySummary: ReportYoySummary;
-  accuracy: ResultsAccuracyRow[];
-  accuracySummary: {
-    compared: number;
-    exact: number;
-    withinOne: number;
-    /**
-     * Published Plan Preview 1 Overall (without QI) — what the PP1 report
-     * showed this contract. Falls back to the official-input restatement
-     * only when that PP1 score is missing.
-     */
-    overallPredicted: number | null;
-    overallOfficial: number | null;
-    overallInEnvelope: boolean | null;
-    /** Published PP1 score buildup (without QI, PP1 thresholds and CAI). */
-    pp1Published: ResultsPp1PublishedScore | null;
-    predictedBuildup: ForecastOfficialScore | null;
-  };
-  risk: RiskOpportunityRow[];
-  opportunity: RiskOpportunityRow[];
-  /** Contract plan preview scores vs the rest of the accrued book, in points. */
-  bookCompare: ResultsBookCompare;
-  /** Same Clover / PP1 removal set, scored on official PP2 stars. */
-  scenarios: ReportScenario[];
-};
 
 type RawSummaryRow = Record<string, string | number | null | undefined>;
 
@@ -280,7 +195,6 @@ export function buildPlanPreviewResultsReport(options: {
   const qiScoreForCode = (measureCode: string): number | null =>
     (measureCode.toUpperCase().startsWith("D") ? partD : partC)?.improvementScore ?? null;
 
-  const officialWeights = loadOfficialMeasureWeights(starsYear);
   const first = officialStars[0];
   const measures: ResultsMeasure[] = officialStars.map((row) => {
     const baselineCode = toBaselineMeasureCode(row.measureNormalized, row.measureCode, baselineYear);
@@ -291,7 +205,6 @@ export function buildPlanPreviewResultsReport(options: {
       ...row,
       domain: domainByCode.get(baselineCode) ?? NEW_MEASURE_DOMAINS[baselineCode] ?? null,
       weight:
-        officialWeights.get(code) ??
         weightByCode.get(code) ??
         weightByCode.get(baselineCode) ??
         (isQi ? 5 : 1),

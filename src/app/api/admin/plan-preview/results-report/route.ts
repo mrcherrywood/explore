@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireApprovedAdmin } from "@/lib/admin/require-approved-admin";
+import { overlayOfficialMeasureWeights } from "@/lib/plan-preview/official-cut-points";
 import {
   buildPlanPreviewResultsReport,
   publishedScoreFromForecast,
@@ -63,6 +64,7 @@ export async function GET(request: Request) {
         weightByCode.set(code, Number(row.weight));
       }
     }
+    overlayOfficialMeasureWeights(starsYear, weightByCode);
 
     let predictions = null;
     let overallPredicted: number | null = null;

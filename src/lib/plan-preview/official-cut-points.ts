@@ -40,6 +40,17 @@ export function loadOfficialMeasureWeights(starsYear: number): Map<string, numbe
   return weights;
 }
 
+/** Overlay Tech Notes weights onto last-year ma_measures so SY27 HOS outcomes stay 3. */
+export function overlayOfficialMeasureWeights(
+  starsYear: number,
+  weights: Map<string, number>
+): Map<string, number> {
+  for (const [code, weight] of loadOfficialMeasureWeights(starsYear)) {
+    weights.set(code, weight);
+  }
+  return weights;
+}
+
 export function parseOfficialCutPointsCsv(content: string): OfficialCutPointRow[] {
   const lines = content
     .split(/\r?\n/)

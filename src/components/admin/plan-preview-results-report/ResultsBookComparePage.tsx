@@ -1,6 +1,6 @@
 "use client";
 
-import { splitBookCompareRows } from "@/lib/plan-preview/results-book-compare";
+import { splitBookCompareRows } from "@/lib/plan-preview/book-compare-split";
 
 import {
   ReportPageFrame,

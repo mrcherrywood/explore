@@ -1,4 +1,4 @@
-import type { PlanPreviewResultsReport } from "@/lib/plan-preview/results-report-data";
+import type { PlanPreviewResultsReport } from "@/lib/plan-preview/results-report-types";
 
 /** Footer product line on every Plan Preview 2 report page. */
 export const PP2_PRODUCT_LABEL = "Plan Preview 2 official results";

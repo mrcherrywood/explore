@@ -1,34 +1,9 @@
+import { BOOK_COMPARE_EVEN_TOLERANCE, splitBookCompareRows } from "./book-compare-split";
 import type { PlanPreviewPredictionsResult } from "./predictions";
+import type { ResultsBookCompare, ResultsBookCompareRow } from "./results-report-types";
 
-/**
- * Selected contract's plan preview score versus the mean of every other
- * contract in the accrued plan preview book, in score points.
- */
-export type ResultsBookCompareRow = {
-  measureCode: string;
-  measureDisplayName: string;
-  weight: number;
-  inverted: boolean;
-  contractScore: number;
-  bookMean: number;
-  bookContracts: number;
-  /** Contract score minus book mean (raw, signed). */
-  delta: number;
-  /**
-   * Points of advantage: positive means the contract leads the book. For
-   * inverted measures (lower is better) the sign of `delta` is flipped.
-   */
-  advantage: number;
-};
-
-export type ResultsBookCompare = {
-  /** Other contracts in the accrued plan preview book (excludes the report contract). */
-  bookContractCount: number;
-  leads: number;
-  trails: number;
-  even: number;
-  rows: ResultsBookCompareRow[];
-};
+export type { ResultsBookCompare, ResultsBookCompareRow } from "./results-report-types";
+export { splitBookCompareRows };
 
 export type ResultsBookCompareMeasure = {
   measureCode: string;
@@ -38,7 +13,7 @@ export type ResultsBookCompareMeasure = {
   inverted?: boolean;
 };
 
-const EVEN_TOLERANCE = 1;
+const EVEN_TOLERANCE = BOOK_COMPARE_EVEN_TOLERANCE;
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -120,17 +95,3 @@ export function buildResultsBookCompare(input: {
   };
 }
 
-/** Rows split for the leads / trails chart; even measures are listed separately. */
-export function splitBookCompareRows(compare: ResultsBookCompare): {
-  leads: ResultsBookCompareRow[];
-  trails: ResultsBookCompareRow[];
-  even: ResultsBookCompareRow[];
-} {
-  return {
-    leads: compare.rows.filter((row) => row.advantage > EVEN_TOLERANCE),
-    trails: compare.rows
-      .filter((row) => row.advantage < -EVEN_TOLERANCE)
-      .sort((left, right) => left.advantage - right.advantage),
-    even: compare.rows.filter((row) => Math.abs(row.advantage) <= EVEN_TOLERANCE),
-  };
-}

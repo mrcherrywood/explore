@@ -2,7 +2,7 @@
 
 import { Bar, BarChart, LabelList, XAxis, YAxis } from "recharts";
 
-import type { ResultsBookCompareRow } from "@/lib/plan-preview/results-book-compare";
+import type { ResultsBookCompareRow } from "@/lib/plan-preview/results-report-types";
 
 import { REPORT_CHART_WIDTH } from "../plan-preview-report/report-charts";
 import { REPORT_COLORS } from "../plan-preview-report/report-shared";

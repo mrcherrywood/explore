@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { overlayOfficialMeasureWeights } from "./official-cut-points";
 import { scoreForecastOnOfficialInputs } from "./forecast-official-score";
 import {
   buildPlanPreviewResultsReport,
@@ -314,11 +315,15 @@ test("SY2027 Improving or Maintaining Physical and Mental Health use Tech Notes 
     ],
     officialSummaries: [summary({ contractId: "H3668" })],
     domainByCode: new Map(),
-    // Prior-year ma_measures still has these as 1-weight HOS rows.
-    weightByCode: new Map([
-      ["C04", 1],
-      ["C05", 1],
-    ]),
+    // Prior-year ma_measures still has these as 1-weight HOS rows; the
+    // results API overlays official Tech Notes weights on top.
+    weightByCode: overlayOfficialMeasureWeights(
+      2027,
+      new Map([
+        ["C04", 1],
+        ["C05", 1],
+      ]),
+    ),
   });
   assert.equal(report.measures.find((measure) => measure.measureCode === "C04")?.weight, 3);
   assert.equal(report.measures.find((measure) => measure.measureCode === "C05")?.weight, 3);

@@ -1,6 +1,6 @@
 "use client";
 
-import type { RiskOpportunityRow } from "@/lib/plan-preview/risk-opportunity";
+import type { ResultsRiskOpportunityRow as RiskOpportunityRow } from "@/lib/plan-preview/results-report-types";
 
 import {
   MeasureLabel,
