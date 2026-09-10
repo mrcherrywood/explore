@@ -208,6 +208,9 @@ export function buildRiskOpportunityRows(
   const rows: RiskOpportunityRow[] = [];
   for (const measure of measures) {
     if (measure.star === null || measure.pp1Score === null) continue;
+    // QI scores are derived from the other measures' movement on a ±0.5
+    // scale, so point-based closeness to a cut is not meaningful.
+    if (/quality improvement/i.test(measure.measureDisplayName)) continue;
     const thresholds = thresholdsForMeasure({
       starsYear,
       measureCode: measure.measureCode,

@@ -270,10 +270,20 @@ export function buildPlanPreviewResultsReport(options: {
     predictedMeasures.map((measure) => [measure.measureCode.toUpperCase(), measure])
   );
 
+  const overall = officialSummaries.find((row) => row.ratingType === "overall") ?? null;
+  const partC = officialSummaries.find((row) => row.ratingType === "part_c") ?? null;
+  const partD = officialSummaries.find((row) => row.ratingType === "part_d") ?? null;
+
+  // QI is never in the PP2 measure-data pool; its score arrives with the
+  // improve_c / improve_d files and lives on the Part C / Part D summary rows.
+  const qiScoreForCode = (measureCode: string): number | null =>
+    (measureCode.toUpperCase().startsWith("D") ? partD : partC)?.improvementScore ?? null;
+
   const first = officialStars[0];
   const measures: ResultsMeasure[] = officialStars.map((row) => {
     const baselineCode = toBaselineMeasureCode(row.measureNormalized, row.measureCode, baselineYear);
     const predicted = predictedByCode.get(row.measureCode.toUpperCase());
+    const isQi = /quality improvement/i.test(row.measureDisplayName);
     return {
       ...row,
       domain: domainByCode.get(baselineCode) ?? NEW_MEASURE_DOMAINS[baselineCode] ?? null,
@@ -290,7 +300,7 @@ export function buildPlanPreviewResultsReport(options: {
           : (getMeasureYearScoreSamples(row.measureNormalized, baselineYear).find(
               (sample) => sample.contractId === contractId
             )?.score ?? null)),
-      pp1Score: predicted?.score ?? null,
+      pp1Score: predicted?.score ?? (isQi ? qiScoreForCode(row.measureCode) : null),
       // What PP1 projected on its forecast cut points — not the applied star,
       // which is re-banded on the official Tech Notes once imported.
       pp1PredictedStar: predicted?.forecastStar ?? null,
@@ -298,10 +308,6 @@ export function buildPlanPreviewResultsReport(options: {
       inverted: predicted?.inverted,
     };
   });
-
-  const overall = officialSummaries.find((row) => row.ratingType === "overall") ?? null;
-  const partC = officialSummaries.find((row) => row.ratingType === "part_c") ?? null;
-  const partD = officialSummaries.find((row) => row.ratingType === "part_d") ?? null;
 
   const yoySummary: ReportYoySummary = { declined: 0, held: 0, improved: 0, newOrUnrated: 0 };
   for (const measure of measures) {

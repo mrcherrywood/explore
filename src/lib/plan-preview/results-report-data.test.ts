@@ -282,6 +282,13 @@ test("buildPlanPreviewResultsReport computes YoY and PP1 accuracy diffs", () => 
   );
   assert.ok(Array.isArray(report.risk));
   assert.ok(Array.isArray(report.opportunity));
+
+  // QI is not in the PP2 measure pool; its score comes from the Part C/D
+  // summary (improve_c / improve_d) and stays out of cut-proximity rows.
+  const qi = report.measures.find((measure) => measure.measureCode === "C30");
+  assert.equal(qi?.pp1Score, 0.28);
+  assert.equal(report.measures.find((measure) => measure.measureCode === "C01")?.pp1Score, 80);
+  assert.ok(![...report.risk, ...report.opportunity].some((row) => row.measureCode === "C30"));
 });
 
 test("scoreForecastOnOfficialInputs drops QI when CMS did not use improvement measures", () => {

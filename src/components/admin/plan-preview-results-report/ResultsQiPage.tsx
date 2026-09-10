@@ -104,12 +104,12 @@ export function ResultsQiPage({
         <div style={{ display: "flex", gap: 8 }}>
           <ReportStat
             label="Part C QI score"
-            value={formatScore(report.partC?.improvementScore, 2)}
+            value={formatScore(report.partC?.improvementScore)}
             detail={`${partCQi.code} rated ${partCQi.starLabel}`}
           />
           <ReportStat
             label="Part D QI score"
-            value={formatScore(report.partD?.improvementScore, 2)}
+            value={formatScore(report.partD?.improvementScore)}
             detail={`${partDQi.code} rated ${partDQi.starLabel}`}
           />
           <ReportStat

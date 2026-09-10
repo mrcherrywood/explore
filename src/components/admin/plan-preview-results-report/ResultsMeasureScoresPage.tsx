@@ -29,7 +29,9 @@ const HEAD = { paddingBottom: 3, fontSize: 7.5 } as const;
 function formatMeasureScore(value: number | null | undefined): string {
   if (value === null || value === undefined) return "—";
   if (Number.isInteger(value)) return value.toFixed(0);
-  if (Math.abs(value) < 1) return value.toFixed(2);
+  // Sub-1 rates (Complaints, QI) keep CMS's printed precision: two decimals,
+  // or three when the third is significant (QI scores like 0.048).
+  if (Math.abs(value) < 1) return value.toFixed(3).replace(/0$/, "");
   return value.toFixed(1);
 }
 
