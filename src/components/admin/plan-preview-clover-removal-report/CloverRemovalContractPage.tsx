@@ -47,7 +47,7 @@ export function CloverRemovalContractPage({
   const best = contract.minSets[0] ?? null;
   const sharedAtFour = (contract.sharedScore?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF;
   const anyMeasure = report.lensId === "any";
-  const removedAll = anyMeasure ? "All available measures removed" : "All eligible removed";
+  const removedAll = "Highest score that still leaves a rating";
 
   return (
     <ReportPageFrame
@@ -75,7 +75,7 @@ export function CloverRemovalContractPage({
         />
       </div>
 
-      <ReportSection title="Score buildup" note="Own minimum is the shortest set for this contract alone. Shared list is the one list for the whole organization. Both use the Quality Improvement stars CMS assigned.">
+        <ReportSection title="Score buildup" note="Own minimum is the removal set for this contract alone. Shared list is the one list for the whole organization. Both use the Quality Improvement stars CMS assigned.">
         <div style={{ display: "flex", gap: 12 }}>
           <div className="fep-report-panel" style={{ flex: 1, padding: "8px 12px" }}>
             <p className="fep-label">Own minimum</p>
@@ -113,8 +113,8 @@ export function CloverRemovalContractPage({
         title="Own minimum sets"
         note={
           contract.minSets.length === 0
-            ? `No set of ${report.maxRemovals} or fewer ${anyMeasure ? "available measures" : "eligible measures"} gets this contract to a 4.0 Overall.`
-            : "Shortest sets that reach 4.0 for this contract alone, sorted by the resulting score. Up to 10 shown."
+            ? `No removal leaves this contract at 4.0 while keeping at least ${report.minRatedMeasures} Part C and Part D measures.`
+            : "The removal set that reaches 4.0 for this contract alone."
         }
       >
         {contract.minSets.length === 0 ? (

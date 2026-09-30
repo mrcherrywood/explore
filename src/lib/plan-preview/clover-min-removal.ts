@@ -12,12 +12,11 @@ import {
 
 import {
   FOUR_STAR_CUTOFF,
-  MAX_CLOVER_REMOVALS,
-  MAX_LISTED_MIN_SETS,
+  MIN_RATED_MEASURES,
   removalDropsPartDQi,
 } from "./clover-removal-constants";
 
-export { FOUR_STAR_CUTOFF, MAX_CLOVER_REMOVALS, MAX_LISTED_MIN_SETS };
+export { FOUR_STAR_CUTOFF, MIN_RATED_MEASURES };
 
 const OVERALL_PART_D_CODES = [
   "D01", "D04", "D05", "D06", "D07", "D08", "D09", "D10", "D11", "D12", "D13",
@@ -50,6 +49,8 @@ export type CloverContractSearchResult = {
   contractId: string;
   baseline: CloverRemovalLegScore | null;
   fullPool: CloverRemovalLegScore | null;
+  /** Every helpful measure that can be removed while a rating remains. */
+  ceilingCodes: string[];
   candidates: string[];
   minK: number | null;
   minSets: Array<{ codes: string[]; score: CloverRemovalLegScore }>;
@@ -291,39 +292,26 @@ function evaluatePrepared(
   return withoutQi;
 }
 
-/** Stop enumerating when this many combinations would be scored at one size. */
-const FULL_SCAN_LIMIT = 25_000;
+/** Lower rank is removed first. Eligible measures, then other domains, HEDIS last. */
+export type RemovalPriority = (code: string) => number;
 
-function combinationCount(n: number, k: number): number {
-  if (k < 0 || k > n) return 0;
-  if (k === 0 || k === n) return 1;
-  const take = Math.min(k, n - k);
-  let result = 1;
-  for (let i = 1; i <= take; i += 1) {
-    result = (result * (n - take + i)) / i;
-  }
-  return result;
-}
+const DOMAIN_REMOVAL_ORDER = ["Operations", "Pharmacy", "CAHPS", "HOS"];
 
-function forEachCombination(
-  n: number,
-  k: number,
-  visit: (idx: number[]) => boolean | void,
-): void {
-  if (k === 0) {
-    visit([]);
-    return;
-  }
-  if (k > n) return;
-  const idx = Array.from({ length: k }, (_, i) => i);
-  while (true) {
-    if (visit(idx) === false) return;
-    let i = k - 1;
-    while (i >= 0 && idx[i] === n - k + i) i -= 1;
-    if (i < 0) break;
-    idx[i] += 1;
-    for (let j = i + 1; j < k; j += 1) idx[j] = idx[j - 1] + 1;
-  }
+export function removalPriority(options: {
+  eligible: ReadonlySet<string>;
+  hedis: ReadonlySet<string>;
+  domainByCode?: ReadonlyMap<string, string>;
+}): RemovalPriority {
+  const eligible = new Set([...options.eligible].map((code) => code.toUpperCase()));
+  const hedis = new Set([...options.hedis].map((code) => code.toUpperCase()));
+  return (code: string) => {
+    const upper = code.toUpperCase();
+    if (hedis.has(upper) || isHedisDomain(options.domainByCode?.get(upper))) return 1000;
+    if (eligible.has(upper)) return 0;
+    const domain = (options.domainByCode?.get(upper) ?? "").trim().toLowerCase();
+    const index = DOMAIN_REMOVAL_ORDER.findIndex((name) => name.toLowerCase() === domain);
+    return index === -1 ? 500 : index + 1;
+  };
 }
 
 function caiBounds(prep: ContractPrep): { low: number; high: number } {
@@ -337,42 +325,85 @@ function removalTargetMean(prep: ContractPrep): number {
   return FOUR_STAR_CUTOFF - caiBounds(prep).low;
 }
 
-/**
- * True when some set of at most k removals can push the weighted mean to the target.
- * Measures at or above the target cannot help, so only lower stars are counted.
- */
-function meanCanReach(
-  prep: ContractPrep,
-  rows: MeasureSums[],
-  k: number,
-  targetMean: number,
-): boolean {
-  if (prep.w <= 0) return false;
-  const deficit = targetMean * prep.w - prep.ws;
-  if (deficit <= 1e-8) return true;
-  const benefits = rows
-    .map((row) => row.weight * (targetMean - row.star))
-    .filter((benefit) => benefit > 0)
-    .sort((left, right) => right - left);
-  const partDQi = prep.byCode.get("D04");
-  let sum = 0;
-  if (partDQi && !rows.some((row) => row.code === "D04")) {
-    const benefit = partDQi.weight * (targetMean - partDQi.star);
-    if (benefit > 0) sum += benefit;
+/** A removal still produces an Overall only when Part C, Part D, and 15 measures remain. */
+function removalKeepsRating(prep: ContractPrep, removedCodes: Iterable<string>): boolean {
+  const removed = new Set([...removedCodes].map((code) => code.toUpperCase()));
+  if (removalDropsPartDQi(prep.measures.map((row) => row.code), removed)) removed.add("D04");
+  let n = 0;
+  let partC = false;
+  let partD = false;
+  for (const row of prep.measures) {
+    if (removed.has(row.code)) continue;
+    n += 1;
+    if (row.code.startsWith("D")) partD = true;
+    else partC = true;
   }
-  const take = Math.min(k, benefits.length);
-  for (let i = 0; i < take; i += 1) sum += benefits[i];
-  return sum + 1e-8 >= deficit;
+  return n >= MIN_RATED_MEASURES && partC && partD;
 }
 
-function helpfulRows(prep: ContractPrep, candidateCodes: readonly string[]): MeasureSums[] {
-  const targetMean = removalTargetMean(prep);
-  const rows: MeasureSums[] = [];
-  for (const code of candidateCodes) {
-    const row = prep.byCode.get(code);
-    if (row && row.star < targetMean) rows.push(row);
+/** Measures below the 4.0 line, eligible set first, then other domains, HEDIS last. */
+function removalOrder(prep: ContractPrep, priority?: RemovalPriority): MeasureSums[] {
+  const target = removalTargetMean(prep);
+  const rank = priority ?? (() => 0);
+  return prep.candidates
+    .map((code) => prep.byCode.get(code))
+    .filter((row): row is MeasureSums => row != null && row.star < target)
+    .sort((left, right) => {
+      const tier = rank(left.code) - rank(right.code);
+      if (tier !== 0) return tier;
+      const gain = right.weight * (target - right.star) - left.weight * (target - left.star);
+      if (gain !== 0) return gain;
+      return left.code.localeCompare(right.code, undefined, { numeric: true });
+    });
+}
+
+function walkRemovals(
+  prep: ContractPrep,
+  withQiThresholds: PercentileThresholds,
+  withoutQiThresholds: PercentileThresholds,
+  priority?: RemovalPriority,
+): Array<{ codes: string[]; score: CloverRemovalLegScore }> {
+  const chosen: string[] = [];
+  const steps: Array<{ codes: string[]; score: CloverRemovalLegScore }> = [];
+  for (const row of removalOrder(prep, priority)) {
+    const trial = [...chosen, row.code];
+    if (!removalKeepsRating(prep, trial)) continue;
+    const score = evaluatePrepared(prep, trial, withQiThresholds, withoutQiThresholds);
+    if (!score || score.measureCount < MIN_RATED_MEASURES) continue;
+    chosen.push(row.code);
+    steps.push({ codes: [...chosen], score });
   }
-  return rows;
+  return steps;
+}
+
+function scoreShared(
+  preps: ContractPrep[],
+  codes: string[],
+  withQiThresholds: PercentileThresholds,
+  withoutQiThresholds: PercentileThresholds,
+): CloverSharedLadderRow {
+  let contractsAtFour = 0;
+  let enrollmentAtFour = 0;
+  let totalScore = 0;
+  const perContract = preps.map((prep) => {
+    const score = evaluatePrepared(prep, codes, withQiThresholds, withoutQiThresholds);
+    const atFour = isFourStar(score) && (score?.measureCount ?? 0) >= MIN_RATED_MEASURES;
+    if (atFour) {
+      contractsAtFour += 1;
+      enrollmentAtFour += prep.enrollment;
+    }
+    totalScore += score?.finalScoreRaw ?? 0;
+    return { contractId: prep.contractId, atFour, score };
+  });
+  return {
+    k: codes.length,
+    codes,
+    contractsAtFour,
+    enrollmentAtFour,
+    totalScore,
+    coversReachable: false,
+    perContract,
+  };
 }
 
 export function findContractMinRemovals(
@@ -380,17 +411,20 @@ export function findContractMinRemovals(
   withQiThresholds: PercentileThresholds,
   withoutQiThresholds: PercentileThresholds,
   pool = cloverCandidatePool(),
-  maxK = MAX_CLOVER_REMOVALS,
+  priority?: RemovalPriority,
 ): CloverContractSearchResult {
   const prep = prepareContract(input, pool);
   const baseline = evaluatePrepared(prep, [], withQiThresholds, withoutQiThresholds);
-  const fullPool = evaluatePrepared(prep, prep.candidates, withQiThresholds, withoutQiThresholds);
+  const steps = walkRemovals(prep, withQiThresholds, withoutQiThresholds, priority);
+  const ceiling = steps.length > 0 ? steps[steps.length - 1].score : baseline;
+  const ceilingCodes = steps.length > 0 ? steps[steps.length - 1].codes : [];
   const alreadyAtFour = isFourStar(baseline);
   if (alreadyAtFour) {
     return {
       contractId: input.contractId,
       baseline,
-      fullPool,
+      fullPool: ceiling,
+      ceilingCodes,
       candidates: prep.candidates,
       minK: 0,
       minSets: baseline ? [{ codes: [], score: baseline }] : [],
@@ -398,54 +432,18 @@ export function findContractMinRemovals(
       alreadyAtFour: true,
     };
   }
-  const listed: CloverContractSearchResult["minSets"] = [];
-  let minK: number | null = null;
-  const searchRows = helpfulRows(prep, prep.candidates);
-  const targetMean = removalTargetMean(prep);
-  const maxSearch = Math.min(maxK, searchRows.length);
-  for (let k = 1; k <= maxSearch; k += 1) {
-    if (!meanCanReach(prep, searchRows, k, targetMean)) continue;
-    const wide = combinationCount(searchRows.length, k) > FULL_SCAN_LIMIT;
-    forEachCombination(searchRows.length, k, (idx) => {
-      const codes = idx.map((i) => searchRows[i].code);
-      const score = evaluatePrepared(prep, codes, withQiThresholds, withoutQiThresholds);
-      if (!isFourStar(score)) return;
-      if (minK === null) minK = k;
-      if (k === minK && listed.length < MAX_LISTED_MIN_SETS) {
-        listed.push({ codes, score: score! });
-      }
-      if (wide && listed.length >= 1) return false;
-    });
-    if (minK !== null) break;
-  }
-  listed.sort((left, right) => right.score.finalScoreRaw - left.score.finalScoreRaw);
+  const hit = steps.find((step) => isFourStar(step.score));
   return {
     contractId: input.contractId,
     baseline,
-    fullPool,
+    fullPool: ceiling,
+    ceilingCodes,
     candidates: prep.candidates,
-    minK,
-    minSets: listed,
-    reachableWithinMax: minK !== null,
+    minK: hit ? hit.codes.length : null,
+    minSets: hit ? [hit] : [],
+    reachableWithinMax: hit != null,
     alreadyAtFour: false,
   };
-}
-
-function betterLadder(
-  candidate: Omit<CloverSharedLadderRow, "coversReachable">,
-  current: Omit<CloverSharedLadderRow, "coversReachable"> | null,
-): boolean {
-  if (!current) return true;
-  if (candidate.contractsAtFour !== current.contractsAtFour) {
-    return candidate.contractsAtFour > current.contractsAtFour;
-  }
-  if (candidate.enrollmentAtFour !== current.enrollmentAtFour) {
-    return candidate.enrollmentAtFour > current.enrollmentAtFour;
-  }
-  if (candidate.totalScore !== current.totalScore) {
-    return candidate.totalScore > current.totalScore;
-  }
-  return candidate.codes.join(",") < current.codes.join(",");
 }
 
 export function findSharedRemovalLadder(
@@ -454,19 +452,21 @@ export function findSharedRemovalLadder(
   withoutQiThresholds: PercentileThresholds,
   reachableIds: Set<string>,
   pool = cloverCandidatePool(),
-  maxK = MAX_CLOVER_REMOVALS,
+  priority?: RemovalPriority,
 ): CloverSharedLadderRow[] {
   const preps = inputs.map((input) => prepareContract(input, pool));
-  const helpful = new Set<string>();
-  const stillShort: ContractPrep[] = [];
-  for (const prep of preps) {
-    if (!reachableIds.has(prep.contractId)) continue;
+  const rank = priority ?? (() => 0);
+  const stillShort = preps.filter((prep) => {
+    if (!reachableIds.has(prep.contractId)) return false;
     const baseline = evaluatePrepared(prep, [], withQiThresholds, withoutQiThresholds);
-    if (isFourStar(baseline)) continue;
-    stillShort.push(prep);
-    for (const row of helpfulRows(prep, prep.candidates)) helpful.add(row.code);
+    return !isFourStar(baseline);
+  });
+  if (stillShort.length === 0) {
+    const row = scoreShared(preps, [], withQiThresholds, withoutQiThresholds);
+    const atFour = new Set(row.perContract.filter((item) => item.atFour).map((item) => item.contractId));
+    return [{ ...row, coversReachable: [...reachableIds].every((id) => atFour.has(id)) }];
   }
-  const sharedPool = pool.filter((code) => helpful.has(code) && preps.some((prep) => prep.byCode.has(code)));
+
   const benefit = (code: string) => {
     let total = 0;
     for (const prep of stillShort) {
@@ -477,133 +477,52 @@ export function findSharedRemovalLadder(
     }
     return total;
   };
-  sharedPool.sort((left, right) => benefit(right) - benefit(left) || left.localeCompare(right));
+  const codes = [...new Set(stillShort.flatMap((prep) => removalOrder(prep, priority).map((row) => row.code)))];
+  codes.sort(
+    (left, right) => rank(left) - rank(right) || benefit(right) - benefit(left) || left.localeCompare(right, undefined, { numeric: true }),
+  );
+
+  const chosen: string[] = [];
+  const protectedIds = new Set(
+    preps
+      .filter((prep) => isFourStar(evaluatePrepared(prep, [], withQiThresholds, withoutQiThresholds)))
+      .map((prep) => prep.contractId),
+  );
   const ladder: CloverSharedLadderRow[] = [];
-  const maxSearch = Math.min(maxK, sharedPool.length);
-  for (let k = 0; k <= maxSearch; k += 1) {
-    if (
-      k > 0 &&
-      stillShort.some((prep) => !meanCanReach(prep, helpfulRows(prep, sharedPool), k, removalTargetMean(prep)))
-    ) {
-      continue;
-    }
-    const wide = combinationCount(sharedPool.length, k) > FULL_SCAN_LIMIT;
-    // A closure assignment is invisible to control-flow narrowing, so a `let`
-    // updated inside forEachCombination stays `null` and then collapses to `never`.
-    const bestBox: { row: Omit<CloverSharedLadderRow, "coversReachable"> | null } = { row: null };
-    let seen = 0;
-    forEachCombination(sharedPool.length, k, (idx) => {
-      seen += 1;
-      if (seen > FULL_SCAN_LIMIT) return false;
-      const codes = idx.map((i) => sharedPool[i]);
-      let contractsAtFour = 0;
-      let enrollmentAtFour = 0;
-      let totalScore = 0;
-      const perContract = preps.map((prep) => {
-        const score = evaluatePrepared(prep, codes, withQiThresholds, withoutQiThresholds);
-        const atFour = isFourStar(score);
-        if (atFour) {
-          contractsAtFour += 1;
-          enrollmentAtFour += prep.enrollment;
-        }
-        totalScore += score?.finalScoreRaw ?? 0;
-        return { contractId: prep.contractId, atFour, score };
-      });
-      const row = { k, codes, contractsAtFour, enrollmentAtFour, totalScore, perContract };
-      if (betterLadder(row, bestBox.row)) bestBox.row = row;
-      if (wide && sharedSetCovers(row, reachableIds)) return false;
-    });
-    const best = bestBox.row;
-    if (!best) continue;
-    const atFour = new Set(best.perContract.filter((row) => row.atFour).map((row) => row.contractId));
-    ladder.push({
-      ...best,
-      coversReachable: [...reachableIds].every((id) => atFour.has(id)),
-    });
-    if (ladder[ladder.length - 1].coversReachable) break;
+  for (const code of codes) {
+    const trial = [...chosen, code];
+    if (preps.some((prep) => !removalKeepsRating(prep, trial))) continue;
+    const row = scoreShared(preps, trial, withQiThresholds, withoutQiThresholds);
+    const atFour = new Set(row.perContract.filter((item) => item.atFour).map((item) => item.contractId));
+    if ([...protectedIds].some((id) => !atFour.has(id))) continue;
+    chosen.push(code);
+    for (const id of atFour) protectedIds.add(id);
+    const coversReachable = [...reachableIds].every((id) => atFour.has(id));
+    ladder.push({ ...row, coversReachable });
+    if (coversReachable) break;
   }
   return ladder;
 }
 
-function sharedSetCovers(
-  row: { perContract: Array<{ contractId: string; atFour: boolean }> },
-  reachableIds: Set<string>,
-): boolean {
-  const atFour = new Set(row.perContract.filter((item) => item.atFour).map((item) => item.contractId));
-  return [...reachableIds].every((id) => atFour.has(id));
-}
-
-/**
- * Shortest removal set that reaches 4.0 without HEDIS.
- * HEDIS is added only when no non-HEDIS set of maxK or fewer works.
- */
+/** Non-HEDIS measures come off first. HEDIS is used only after those still leave the contract short of 4.0. */
 export function findContractMinRemovalsSparingHedis(
   input: CloverContractSearchInput,
   withQiThresholds: PercentileThresholds,
   withoutQiThresholds: PercentileThresholds,
   pool: string[],
   hedisCodes: ReadonlySet<string>,
-  maxK = MAX_CLOVER_REMOVALS,
 ): CloverContractSearchResult {
-  const hedis = (code: string) => hedisCodes.has(code.toUpperCase());
-  const preferred = pool.filter((code) => !hedis(code));
-  const spared = findContractMinRemovals(
+  const hedis = new Set([...hedisCodes].map((code) => code.toUpperCase()));
+  return findContractMinRemovals(
     input,
-    withQiThresholds,
-    withoutQiThresholds,
-    preferred,
-    maxK,
-  );
-  const present = new Set(
-    input.measures
-      .filter((measure) => measure.weight > 0 && measure.starValue > 0)
-      .map((measure) => measure.code.toUpperCase()),
-  );
-  const candidates = pool.filter((code) => present.has(code.toUpperCase()));
-  const fullPool = evaluateCloverRemoval(
-    input,
-    candidates,
     withQiThresholds,
     withoutQiThresholds,
     pool,
+    (code) => (hedis.has(code.toUpperCase()) ? 1 : 0),
   );
-  if (spared.reachableWithinMax || spared.alreadyAtFour) {
-    return { ...spared, candidates, fullPool };
-  }
-
-  const hedisPresent = candidates.filter((code) => hedis(code));
-  const others = candidates.filter((code) => !hedis(code));
-  // A closure assignment is invisible to control-flow narrowing, so a `let`
-  // updated inside forEachCombination stays `null` and then collapses to `never`.
-  const bestBox: { row: CloverContractSearchResult | null } = { row: null };
-  const maxH = Math.min(hedisPresent.length, maxK);
-  for (let h = 1; h <= maxH && !bestBox.row; h += 1) {
-    forEachCombination(hedisPresent.length, h, (hIdx) => {
-      const hedisPick = hIdx.map((i) => hedisPresent[i]);
-      const found = findContractMinRemovals(
-        input,
-        withQiThresholds,
-        withoutQiThresholds,
-        [...others, ...hedisPick],
-        maxK,
-      );
-      if (!found.reachableWithinMax) return;
-      const foundK = found.minK ?? maxK;
-      const bestK = bestBox.row?.minK ?? maxK + 1;
-      if (!bestBox.row || foundK < bestK) bestBox.row = found;
-    });
-  }
-  const best = bestBox.row;
-  if (!best) {
-    return { ...spared, candidates, fullPool };
-  }
-  return { ...best, candidates, fullPool, baseline: spared.baseline };
 }
 
-/**
- * Shared list that leaves HEDIS in place until no other list of maxK or fewer
- * measures gets every reachable contract to 4.0.
- */
+/** Shared list that leaves HEDIS in place until earlier measures cannot get every reachable contract to 4.0. */
 export function findSharedRemovalLadderSparingHedis(
   inputs: CloverContractSearchInput[],
   withQiThresholds: PercentileThresholds,
@@ -611,46 +530,15 @@ export function findSharedRemovalLadderSparingHedis(
   reachableIds: Set<string>,
   pool: string[],
   hedisCodes: ReadonlySet<string>,
-  maxK = MAX_CLOVER_REMOVALS,
 ): CloverSharedLadderRow[] {
-  const hedis = (code: string) => hedisCodes.has(code.toUpperCase());
-  const preferred = pool.filter((code) => !hedis(code));
-  const spared = findSharedRemovalLadder(
+  const hedis = new Set([...hedisCodes].map((code) => code.toUpperCase()));
+  return findSharedRemovalLadder(
     inputs,
     withQiThresholds,
     withoutQiThresholds,
     reachableIds,
-    preferred,
-    maxK,
-  );
-  if (spared.some((row) => row.coversReachable)) return spared;
-
-  const hedisOnBook = pool.filter((code) => hedis(code));
-  const others = preferred;
-  const winnerBox: { row: CloverSharedLadderRow | null } = { row: null };
-  const maxH = Math.min(hedisOnBook.length, maxK);
-  for (let h = 1; h <= maxH && !winnerBox.row; h += 1) {
-    forEachCombination(hedisOnBook.length, h, (hIdx) => {
-      const hedisPick = hIdx.map((i) => hedisOnBook[i]);
-      const ladder = findSharedRemovalLadder(
-        inputs,
-        withQiThresholds,
-        withoutQiThresholds,
-        reachableIds,
-        [...others, ...hedisPick],
-        maxK,
-      );
-      const cover = ladder.find((row) => row.coversReachable);
-      if (!cover) return;
-      const winner = winnerBox.row;
-      if (!winner || cover.k < winner.k || (cover.k === winner.k && betterLadder(cover, winner))) {
-        winnerBox.row = cover;
-      }
-    });
-  }
-  const winner = winnerBox.row;
-  if (!winner) return spared;
-  return [...spared, winner].sort(
-    (left, right) => left.k - right.k || left.codes.join(",").localeCompare(right.codes.join(",")),
+    pool,
+    (code) => (hedis.has(code.toUpperCase()) ? 1 : 0),
   );
 }
+

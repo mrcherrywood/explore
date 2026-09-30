@@ -1,7 +1,7 @@
 /** Unrounded Overall needed to round to a 4.0 rating. */
 export const FOUR_STAR_CUTOFF = 3.75;
-export const MAX_CLOVER_REMOVALS = 8;
-export const MAX_LISTED_MIN_SETS = 10;
+/** Minimum rated measures for an Overall MA-PD rating. Matches MIN_OVERALL_MEASURE_COUNT. */
+export const MIN_RATED_MEASURES = 15;
 
 export type CloverRemovalQiDirection = "up" | "down" | "flat";
 

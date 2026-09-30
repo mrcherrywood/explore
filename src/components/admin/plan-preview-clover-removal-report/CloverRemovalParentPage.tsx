@@ -57,7 +57,7 @@ export function CloverRemovalParentPage({
         <ReportStat
           label="Shared list"
           value={recommended ? recommended.k : "—"}
-          detail={recommended ? `${recommended.contractsAtFour} contracts at 4.0` : `None within ${report.maxRemovals}`}
+          detail={recommended ? `${recommended.contractsAtFour} contracts at 4.0` : `None while ${report.minRatedMeasures} measures remain`}
         />
         <ReportStat
           label="Members at 4.0"
@@ -72,18 +72,18 @@ export function CloverRemovalParentPage({
           {report.lensId === "any" ? (
             <>
               <strong>Any measure</strong> means every rated measure can be removed, except Quality Improvement. The Part D copies of Complaints and Members Choosing to Leave stay out of Overall.{" "}
-              <strong>HEDIS last</strong> means a HEDIS measure is removed only when no other combination of {report.maxRemovals} or fewer measures reaches 4.0.{" "}
-              <strong>Shared list</strong> is the shortest set that follows that rule and, removed for every contract, gets each reachable contract to 4.0.{" "}
+              <strong>Order</strong> starts with the Stars 2026 Recalc and Model 2 measures, then the other domains, and HEDIS only if the contract is still short of 4.0.{" "}
+              <strong>Shared list</strong> follows that order and, removed for every contract, gets each reachable contract to 4.0.{" "}
             </>
           ) : (
             <>
               <strong>Eligible measures</strong> are the Stars 2026 Recalc set plus Model 2. Quality Improvement is not chosen for removal, and the Part D copies of Complaints and Members Choosing to Leave are left out of Overall.{" "}
-              <strong>Shared list</strong> is the shortest set of eligible measures that, removed for every contract, gets each reachable contract to 4.0.{" "}
+              <strong>Shared list</strong> is the set of eligible measures that, removed for every contract, gets each reachable contract to 4.0.{" "}
             </>
           )}
-          <strong>Reachable</strong> means 4.0 is possible by removing {report.maxRemovals} or fewer {measureWord}.{" "}
+          <strong>Reachable</strong> means 4.0 is possible while at least {report.minRatedMeasures} Part C and Part D measures remain.{" "}
           <strong>Own minimum</strong> follows the same rule for one contract alone, so it can be smaller than the shared list.{" "}
-          <strong>Ceiling</strong> is the score if every measure this lens can remove is taken out. 4.0 requires an unrounded final of {FOUR_STAR_CUTOFF} or higher.
+          <strong>Ceiling</strong> is the highest score that still leaves a rating. 4.0 requires an unrounded final of {FOUR_STAR_CUTOFF} or higher.
         </p>
       </div>
 
@@ -119,19 +119,23 @@ export function CloverRemovalParentPage({
           )
         ) : (
           <p style={{ margin: 0, fontSize: 12, color: "var(--fep-muted)" }}>
-            No list of {report.maxRemovals} or fewer {measureWord} gets every reachable contract to 4.0. The sizes below show the best list at each length.
+            No removal list gets every reachable contract to 4.0 while leaving at least {report.minRatedMeasures} measures. The sizes below show the list as measures are added.
           </p>
         )}
         {report.recommendedUsesHedis ? (
           <p style={{ margin: "8px 0 0", fontSize: 10, color: "var(--fep-muted)" }}>
-            HEDIS is on this list because no other combination of {report.maxRemovals} or fewer measures gets every reachable contract to 4.0.
+            HEDIS is on this list because the earlier measures were not enough to get every reachable contract to 4.0.
           </p>
         ) : null}
       </ReportSection>
 
       <ReportSection
         title="List by size"
-        note="The best shared list at each length. When two lists tie, the one covering more members wins, then the one with the higher total score."
+        note={
+          report.lensId === "any"
+            ? "Each row adds the next measure. Recalc and Model 2 measures come first, then the other domains, and HEDIS last."
+            : "Each row adds the next eligible measure."
+        }
         style={{ marginTop: 12 }}
       >
         <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>

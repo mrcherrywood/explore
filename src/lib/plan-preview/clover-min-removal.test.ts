@@ -68,6 +68,7 @@ const PAIR_MEASURES = [
   measure("D04", 4, 5),
   measure("C28", 1, 5),
   measure("C33", 1, 5),
+  ...Array.from({ length: 6 }, (_, index) => measure(`C${40 + index}`, 4)),
 ];
 
 function emptyPredictions(contractId: string, measures: ContractMeasure[]): PlanPreviewPredictionsResult {
@@ -322,6 +323,7 @@ test("any-measure search leaves HEDIS in place when another combination reaches 
     measure("C01", 1, 4),
     measure("C28", 1, 2),
     measure("C33", 1, 2),
+    ...Array.from({ length: 4 }, (_, index) => measure(`C${40 + index}`, 4)),
   ]);
   const pool = ["C01", "C28", "C33"];
   const hedis = new Set(["C01"]);
@@ -347,7 +349,11 @@ test("any-measure search removes HEDIS only when nothing else reaches 4.0", () =
   const keep = ["C06", "C08", "C10", "C11", "C12", "C13", "C14", "C18", "C30", "D04"].map((code) =>
     measure(code, 4),
   );
-  const row = input("H2", [...keep, measure("C01", 1)]);
+  const row = input("H2", [
+    ...keep,
+    measure("C01", 1, 2),
+    ...Array.from({ length: 5 }, (_, index) => measure(`C${40 + index}`, 4)),
+  ]);
   const pool = ["C01", "C06"];
   const hedis = new Set(["C01"]);
   const found = findContractMinRemovalsSparingHedis(row, ZERO_RF, ZERO_RF, pool, hedis);
@@ -365,6 +371,54 @@ test("any-measure search removes HEDIS only when nothing else reaches 4.0", () =
   );
   const recommended = ladder.find((entry) => entry.coversReachable);
   assert.deepEqual(recommended?.codes, ["C01"]);
+});
+
+test("a contract can remove more than eight measures when a rating still remains", () => {
+  const keep = [
+    ...Array.from({ length: 14 }, (_, index) => measure(`C${40 + index}`, 4)),
+    measure("C30", 4, 5),
+    measure("D04", 4, 5),
+    measure("D07", 4),
+  ];
+  const lows = Array.from({ length: 12 }, (_, index) => measure(`C${60 + index}`, 1));
+  const row = input("H12", [...keep, ...lows]);
+  const pool = lows.map((item) => item.code);
+  const found = findContractMinRemovals(row, ZERO_RF, ZERO_RF, pool);
+  assert.ok((found.minK ?? 0) > 8);
+  assert.equal(found.reachableWithinMax, true);
+  assert.ok((found.minSets[0]?.score.measureCount ?? 0) >= 15);
+  assert.ok((found.minSets[0]?.score.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF);
+});
+
+test("removals stop when fewer than 15 measures would remain", () => {
+  const measures = [
+    ...Array.from({ length: 13 }, (_, index) => measure(`C${40 + index}`, 3)),
+    measure("C30", 3, 5),
+    measure("D04", 1, 5),
+  ];
+  const found = findContractMinRemovals(input("H15", measures), ZERO_RF, ZERO_RF, ["D04", "C30"]);
+  assert.equal(found.reachableWithinMax, false);
+  assert.equal(found.minK, null);
+});
+
+test("eligible measures come off before a later domain, and HEDIS waits until both are short", () => {
+  const keep = [
+    ...Array.from({ length: 16 }, (_, index) => measure(`C${40 + index}`, 4)),
+    measure("C30", 4),
+    measure("D04", 4),
+  ];
+  const row = input("Horder", [
+    ...keep,
+    measure("C28", 2),
+    measure("C21", 1),
+    measure("C01", 1),
+  ]);
+  const pool = ["C28", "C21", "C01"];
+  const priority = (code: string) => (code === "C01" ? 1000 : code === "C28" ? 0 : 2);
+  const found = findContractMinRemovals(row, ZERO_RF, ZERO_RF, pool, priority);
+  assert.equal(found.reachableWithinMax, true);
+  assert.deepEqual(found.minSets[0]?.codes[0], "C28");
+  assert.equal(found.minSets[0]?.codes.includes("C01"), false);
 });
 
 test("a large any-measure pool still resolves within a couple of seconds", () => {

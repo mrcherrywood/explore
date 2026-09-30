@@ -5,7 +5,12 @@ import { QI_MEASURE_CODES } from "@/lib/clover-impact/scenarios";
 import { getOfficialForScenario } from "@/lib/reward-factor/official-threshold-data";
 import type { ContractMeasure } from "@/lib/reward-factor";
 
-import { qiScoreDirection, cloverMeasurePath, type CloverRemovalQiDirection } from "./clover-removal-constants";
+import {
+  qiScoreDirection,
+  cloverMeasurePath,
+  MIN_RATED_MEASURES,
+  type CloverRemovalQiDirection,
+} from "./clover-removal-constants";
 import { guessRemainingQi } from "./clover-qi-guess";
 
 import {
@@ -15,12 +20,10 @@ import {
   cloverCandidatePool,
   evaluateCloverRemoval,
   findContractMinRemovals,
-  findContractMinRemovalsSparingHedis,
   findSharedRemovalLadder,
-  findSharedRemovalLadderSparingHedis,
   FOUR_STAR_CUTOFF,
   isHedisDomain,
-  MAX_CLOVER_REMOVALS,
+  removalPriority,
   type CloverRemovalLegScore,
   type CloverContractSearchInput,
   type CloverSharedLadderRow,
@@ -95,6 +98,8 @@ export type CloverRemovalContractPage = {
   qiImproved: number;
   qiDeclined: number;
   qiDirection: CloverRemovalQiDirection;
+  /** Shared list, or every allowed removal when this contract cannot reach 4.0. */
+  qiBasis: "shared" | "full";
   qiGuess: CloverRemovalQiGuess | null;
   qiOptions: CloverRemovalQiOption[];
   pathMeasures: CloverRemovalPathMeasure[];
@@ -134,7 +139,7 @@ export type CloverRemovalReport = {
   parentOrganization: string;
   generatedAt: string;
   enrollmentSource: { year: number; month: number; fileName: string };
-  maxRemovals: number;
+  minRatedMeasures: number;
   excluded: CloverRemovalExcludedContract[];
   lenses: CloverRemovalLens[];
 } & CloverRemovalLens;
@@ -302,24 +307,27 @@ export function buildCloverRemovalReport(input: {
   const qiCuts = loadQiCutPoints(starsYear);
 
   const buildLens = (lensId: CloverRemovalLensId, pool: string[]): CloverRemovalLens => {
+  const priority = lensId === "any"
+    ? removalPriority({
+        eligible: new Set(cloverCandidatePool()),
+        hedis: hedisCodes,
+        domainByCode: input.domainByCode,
+      })
+    : undefined;
   const perContract = searchInputs.map((row) =>
-    lensId === "any"
-      ? findContractMinRemovalsSparingHedis(row, withQi, withoutQi, pool, hedisCodes)
-      : findContractMinRemovals(row, withQi, withoutQi, pool),
+    findContractMinRemovals(row, withQi, withoutQi, pool, priority),
   );
   const reachableIds = new Set(
     perContract.filter((row) => row.reachableWithinMax || row.alreadyAtFour).map((row) => row.contractId),
   );
-  const ladder = lensId === "any"
-    ? findSharedRemovalLadderSparingHedis(
-        searchInputs,
-        withQi,
-        withoutQi,
-        reachableIds,
-        pool,
-        hedisCodes,
-      )
-    : findSharedRemovalLadder(searchInputs, withQi, withoutQi, reachableIds, pool);
+  const ladder = findSharedRemovalLadder(
+    searchInputs,
+    withQi,
+    withoutQi,
+    reachableIds,
+    pool,
+    priority,
+  );
   const recommended = ladder.find((row) => row.coversReachable) ?? null;
   const sharedCodes = (recommended ?? ladder[ladder.length - 1])?.codes ?? [];
   const sharedById = new Map(
@@ -352,15 +360,17 @@ export function buildCloverRemovalReport(input: {
     }
     const qiDirection = qiScoreDirection(qiImproved, qiDeclined);
     const sharedScore = sharedById.get(row.contractId) ?? null;
-    const partDRemoved = sharedScore?.partDQiRemoved ?? false;
-    const guessed = guessRemainingQi(qiLabels, sharedCodes, qiCuts);
+    const qiBasis = row.reachableWithinMax || row.alreadyAtFour ? "shared" : "full";
+    const qiCodes = qiBasis === "full" ? row.ceilingCodes : sharedCodes;
+    const partDRemoved = (qiBasis === "full" ? row.fullPool : sharedScore)?.partDQiRemoved ?? false;
+    const guessed = guessRemainingQi(qiLabels, qiCodes, qiCuts);
     const qiScore = searchInput
       ? evaluateCloverRemoval(
           assumeQiStars(searchInput, {
             ...(guessed.partC.star != null ? { C30: guessed.partC.star } : {}),
             ...(partDRemoved || guessed.partD.star == null ? {} : { D04: guessed.partD.star }),
           }),
-          sharedCodes,
+          qiCodes,
           withQi,
           withoutQi,
           pool,
@@ -379,7 +389,7 @@ export function buildCloverRemovalReport(input: {
           };
     const qiOptions: CloverRemovalQiOption[] = [1, 2, 3, 4, 5].map((qiStar) => {
       const score = searchInput
-        ? evaluateCloverRemoval(assumeQiStar(searchInput, qiStar), sharedCodes, withQi, withoutQi, pool)
+        ? evaluateCloverRemoval(assumeQiStar(searchInput, qiStar), qiCodes, withQi, withoutQi, pool)
         : null;
       return {
         qiStar,
@@ -441,6 +451,7 @@ export function buildCloverRemovalReport(input: {
       qiImproved,
       qiDeclined,
       qiDirection,
+      qiBasis,
       qiGuess,
       qiOptions,
       pathMeasures,
@@ -487,11 +498,11 @@ export function buildCloverRemovalReport(input: {
     notes: [
       "Reward-factor thresholds are the official CMS Technical Notes Overall MA-PD values and are not recomputed after measure removals.",
       "The sensitivity row shows the recommended list with thresholds recomputed from the full H+R market.",
-      "Removal lists use the Quality Improvement stars CMS assigned. When a removal set leaves no other Part D measures, Part D QI is removed with them. The measure pages list every rated measure and why it is or is not on the path. The best guess drops the shared-list measures out of the year-over-year labels, weights significant improvement as +1 and significant decline as -1, counts no change and hold harmless as 0, and bands that score with the official QI cut points.",
+      "Removal lists use the Quality Improvement stars CMS assigned. When a removal set leaves no other Part D measures, Part D QI is removed with them. The measure pages list every rated measure and why it is or is not on the path. The best guess drops those removed measures out of the year-over-year labels, weights significant improvement as +1 and significant decline as -1, counts no change and hold harmless as 0, and bands that score with the official QI cut points.",
       "Disaster/EUC higher-of uplift is not modeled.",
       lensId === "any"
-        ? `Any rated measure can be removed except Quality Improvement. The Part D copies of Complaints and Members Choosing to Leave stay out of Overall. HEDIS is removed only when no other combination of ${MAX_CLOVER_REMOVALS} or fewer measures reaches 4.0.`
-        : "Eligible measures are the Stars 2026 Recalc set plus Model 2, excluding the Part D twins of Complaints and Members Choosing to Leave. Quality Improvement is not chosen for removal. When a removal set leaves no other Part D measures, Part D QI is removed with them.",
+        ? `Any rated measure can be removed except Quality Improvement. Removals start with the Stars 2026 Recalc and Model 2 measures, then the other domains, and HEDIS only if the contract is still short of 4.0. At least ${MIN_RATED_MEASURES} Part C and Part D measures have to remain.`
+        : `Eligible measures are the Stars 2026 Recalc set plus Model 2, excluding the Part D twins of Complaints and Members Choosing to Leave. Quality Improvement is not chosen for removal. As many eligible measures as needed can be removed, as long as at least ${MIN_RATED_MEASURES} Part C and Part D measures remain.`,
     ],
   };
   };
@@ -502,7 +513,7 @@ export function buildCloverRemovalReport(input: {
     parentOrganization: parent,
     generatedAt: new Date().toISOString(),
     enrollmentSource: enrollment.source,
-    maxRemovals: MAX_CLOVER_REMOVALS,
+    minRatedMeasures: MIN_RATED_MEASURES,
     excluded,
     lenses,
     ...lenses[0],

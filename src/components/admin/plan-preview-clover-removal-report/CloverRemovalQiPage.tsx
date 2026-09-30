@@ -2,45 +2,38 @@
 
 import { FOUR_STAR_CUTOFF, qiStarSupported } from "@/lib/plan-preview/clover-removal-constants";
 import type { CloverRemovalContractPage, CloverRemovalReport } from "@/lib/plan-preview/clover-removal-report-data";
-import { measureAcronym } from "@/lib/plan-preview/measure-acronyms";
 
 import {
   REPORT_COLORS,
   ReportPageFrame,
   ReportSection,
   formatScore,
-  formatSigned,
 } from "../plan-preview-report/report-shared";
 
 const CELL = { paddingTop: 3, paddingBottom: 3 } as const;
 const PRODUCT_LABEL = "Stars 2026 Recalc 4-star path";
 const QI_STARS = [1, 2, 3, 4, 5] as const;
 
-function publishedQiLabel(contract: CloverRemovalContractPage): string {
-  if (contract.publishedQi.length === 0) return "None";
-  return contract.publishedQi
-    .map((row) => `${measureAcronym(row.code)} ${row.star}★`)
-    .join(" · ");
+function qiStar(contract: CloverRemovalContractPage, code: "C30" | "D04"): string {
+  const row = contract.publishedQi.find((item) => item.code === code);
+  return row ? `${row.star}★` : "—";
 }
 
-function isCmsStar(contract: CloverRemovalContractPage, qiStar: number): boolean {
-  return contract.publishedQi.some((row) => row.star === qiStar);
+function removalLabel(contract: CloverRemovalContractPage): string {
+  return contract.qiBasis === "full" ? "All allowed" : "Shared list";
 }
 
-function guessParts(contract: CloverRemovalContractPage): string[] {
+function guessLabel(contract: CloverRemovalContractPage): string[] {
   const guess = contract.qiGuess;
   if (!guess) return [];
   return [
-    guess.partCStar != null ? `QI (C) ${guess.partCStar}★` : null,
-    guess.partDRemoved ? "QI (D) removed" : guess.partDStar != null ? `QI (D) ${guess.partDStar}★` : null,
+    guess.partCStar != null ? `Part C ${guess.partCStar}★` : null,
+    guess.partDRemoved ? "Part D removed" : guess.partDStar != null ? `Part D ${guess.partDStar}★` : null,
   ].filter((part): part is string => part != null);
 }
 
-function directionNote(contract: CloverRemovalContractPage): string {
-  if (contract.qiDirection === "up") return `${contract.qiImproved} improved`;
-  if (contract.qiDirection === "down") return `${contract.qiDeclined} declined`;
-  if (contract.qiImproved === 0 && contract.qiDeclined === 0) return "No significance";
-  return "Mixed";
+function scoreColor(atFour: boolean): string {
+  return atFour ? REPORT_COLORS.positive : "var(--fep-ink)";
 }
 
 export function CloverRemovalQiPage({
@@ -52,13 +45,11 @@ export function CloverRemovalQiPage({
   pageNumber: number;
   totalPages: number;
 }) {
-  const listSize = report.recommended?.k ?? report.ladder[report.ladder.length - 1]?.k ?? 0;
-
   return (
     <ReportPageFrame
       eyebrow={`Plan Preview 2 · Stars ${report.starsYear} Recalc 4-star path`}
-      title="Quality Improvement options"
-      subtitle={`${report.parentOrganization} · QI stars after the shared list, plus each whole-star QI rating`}
+      title="If Quality Improvement changed"
+      subtitle={`${report.parentOrganization}. The removed measures stay put. Only the QI stars change.`}
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={report.parentOrganization}
@@ -66,18 +57,70 @@ export function CloverRemovalQiPage({
       generatedAt={report.generatedAt}
       productLabel={PRODUCT_LABEL}
     >
+      <div className="fep-report-panel" style={{ padding: "8px 12px" }}>
+        <p className="fep-label">How to read this</p>
+        <p style={{ margin: "4px 0 0", fontSize: 10, lineHeight: 1.4 }}>
+          <strong>Shared list</strong> is the one removal list for contracts that can reach 4.0.{" "}
+          <strong>All allowed</strong> is every measure a contract can still lose and keep a rating. Those contracts cannot reach 4.0 with the QI stars CMS assigned, so the what-if uses that larger set.{" "}
+          <strong>Best guess</strong> rebuilds QI from the measures that remain: significant improvement counts as +1, significant decline as −1, and no change counts as 0.{" "}
+          The 1★–5★ columns set Part C and Part D QI to that same star. A highlighted cell is a star CMS already assigned. <strong>Not expected</strong> means this contract’s measure changes do not support that star. Green is an unrounded Overall of {FOUR_STAR_CUTOFF} or higher.
+        </p>
+      </div>
+
       <ReportSection
-        title="Shared list at each QI rating"
-        note={`Highlighted cells are the QI stars CMS assigned. The shared list uses those stars. Best guess rebuilds the improvement score without the removed measures: significant improvement counts +1, significant decline counts −1, and no change or hold harmless counts 0, then the official QI cut points assign the star. Blank cells are stars the contract's improvement and decline counts do not support. Each shown score keeps the ${listSize}-measure shared list. 4.0 requires ${FOUR_STAR_CUTOFF} or higher.`}
+        title="CMS stars and best guess"
+        note="Overall uses the removal in that row and the QI stars in that column."
+        style={{ marginTop: 12 }}
       >
-        <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>
+        <table className="fep-report-table compact" style={{ fontSize: 10 }}>
           <thead>
             <tr>
               <th className="l">Contract</th>
-              <th className="l">CMS QI</th>
+              <th className="l">Removal</th>
+              <th>Part C</th>
+              <th>Part D</th>
+              <th>Overall</th>
               <th className="l">Best guess</th>
-              <th className="l">Improved vs declined</th>
-              <th>With CMS QI</th>
+              <th>Overall</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.contracts.map((contract) => {
+              const published = contract.qiBasis === "full" ? contract.fullPool : contract.sharedScore;
+              return (
+                <tr key={contract.contractId}>
+                  <td className="l" style={{ ...CELL, fontWeight: 700 }}>{contract.contractId}</td>
+                  <td className="l" style={CELL}>{removalLabel(contract)}</td>
+                  <td style={{ ...CELL, fontWeight: 800, background: REPORT_COLORS.band }}>{qiStar(contract, "C30")}</td>
+                  <td style={{ ...CELL, fontWeight: 800, background: REPORT_COLORS.band }}>{qiStar(contract, "D04")}</td>
+                  <td style={{ ...CELL, fontWeight: 800, color: scoreColor((published?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF) }}>
+                    {formatScore(published?.finalScoreRaw, 3)}
+                  </td>
+                  <td className="l" style={CELL}>
+                    {guessLabel(contract).length === 0
+                      ? "—"
+                      : guessLabel(contract).map((part) => <div key={part}>{part}</div>)}
+                  </td>
+                  <td style={{ ...CELL, fontWeight: 800, color: scoreColor(contract.qiGuess?.atFour ?? false) }}>
+                    {formatScore(contract.qiGuess?.finalScoreRaw, 3)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </ReportSection>
+
+      <ReportSection
+        title="If Part C and Part D QI were the same star"
+        note="A contract with only one QI measure changes that measure. The other column stays blank in the table above."
+        style={{ marginTop: 12 }}
+      >
+        <table className="fep-report-table compact" style={{ fontSize: 10 }}>
+          <thead>
+            <tr>
+              <th className="l">Contract</th>
+              <th className="l">Removal</th>
               {QI_STARS.map((star) => (
                 <th key={star}>{star}★</th>
               ))}
@@ -86,39 +129,10 @@ export function CloverRemovalQiPage({
           <tbody>
             {report.contracts.map((contract) => (
               <tr key={contract.contractId}>
-                <td className="l" style={{ ...CELL, fontWeight: 700 }}>
-                  {contract.contractId}
-                </td>
-                <td className="l" style={{ ...CELL, fontWeight: 800, background: REPORT_COLORS.band }}>
-                  {publishedQiLabel(contract)}
-                </td>
-                <td
-                  className="l"
-                  style={{
-                    ...CELL,
-                    fontWeight: 800,
-                    color: contract.qiGuess?.atFour ? REPORT_COLORS.positive : "var(--fep-ink)",
-                  }}
-                >
-                  {guessParts(contract).length === 0
-                    ? "—"
-                    : guessParts(contract).map((part) => <div key={part}>{part}</div>)}
-                  {contract.qiGuess ? (
-                    <div style={{ fontSize: 8, fontWeight: 700 }}>
-                      {formatScore(contract.qiGuess.finalScoreRaw, 3)}
-                      {" · "}
-                      {formatSigned(contract.qiGuess.rewardFactor, 1)}
-                    </div>
-                  ) : null}
-                </td>
-                <td className="l" style={CELL}>
-                  {directionNote(contract)}
-                </td>
-                <td style={{ ...CELL, fontWeight: 800, background: REPORT_COLORS.band }}>
-                  {formatScore(contract.sharedScore?.finalScoreRaw, 3)}
-                </td>
+                <td className="l" style={{ ...CELL, fontWeight: 700 }}>{contract.contractId}</td>
+                <td className="l" style={CELL}>{removalLabel(contract)}</td>
                 {contract.qiOptions.map((option) => {
-                  const cms = isCmsStar(contract, option.qiStar);
+                  const cms = contract.publishedQi.some((row) => row.star === option.qiStar);
                   const supported = qiStarSupported(
                     contract.qiDirection,
                     contract.publishedQi.map((row) => row.star),
@@ -129,21 +143,14 @@ export function CloverRemovalQiPage({
                       key={option.qiStar}
                       style={{
                         ...CELL,
-                        fontWeight: cms || option.atFour ? 800 : 500,
-                        color: !supported
-                          ? "var(--fep-faint)"
-                          : option.atFour
-                            ? REPORT_COLORS.positive
-                            : "var(--fep-ink)",
+                        fontWeight: 800,
+                        color: scoreColor(option.atFour),
                         background: cms ? REPORT_COLORS.band : undefined,
                       }}
                     >
-                      {supported ? formatScore(option.finalScoreRaw, 3) : "—"}
-                      {cms ? <div style={{ fontSize: 8, fontWeight: 800 }}>CMS</div> : null}
-                      {supported ? (
-                        <div style={{ fontSize: 8, fontWeight: 600, color: "var(--fep-faint)" }}>
-                          {formatSigned(option.rewardFactor, 1)}
-                        </div>
+                      {formatScore(option.finalScoreRaw, 3)}
+                      {!supported ? (
+                        <div style={{ fontSize: 8, fontWeight: 600, color: "var(--fep-faint)" }}>Not expected</div>
                       ) : null}
                     </td>
                   );

@@ -67,8 +67,8 @@ export function CloverRemovalMeasuresPage({
         title={`${part} measure scores`}
         note={
           report.lensId === "any"
-            ? "Highlighted rows are removed. HEDIS, last resort was removed only because no other combination reaches 4.0. Kept: HEDIS was left in place. On the shared list applies to every contract. This contract only is on the own minimum but not the shared list. Kept: 4★ or 5★ would lower the score if removed. Kept: not required is a lower star the shortest set did not need. Not eligible is Quality Improvement or a Part D twin left out of Overall."
-            : "Highlighted rows are removed. On the shared list applies to every contract. This contract only is on the own minimum but not the shared list. Kept: 4★ or 5★ would lower the score if removed. Kept: not required is a lower star the shortest set did not need. Not eligible is outside the Stars 2026 Recalc and Model 2 set."
+            ? "Highlighted rows are removed. HEDIS, last resort was removed only because the earlier measures were not enough to reach 4.0. Kept: HEDIS was left in place. On the shared list applies to every contract. This contract only is on the own minimum but not the shared list. Kept: 4★ or 5★ would lower the score if removed. Kept: not required is a lower star the removal set did not need. Not eligible is Quality Improvement or a Part D twin left out of Overall."
+            : "Highlighted rows are removed. On the shared list applies to every contract. This contract only is on the own minimum but not the shared list. Kept: 4★ or 5★ would lower the score if removed. Kept: not required is a lower star the removal set did not need. Not eligible is outside the Stars 2026 Recalc and Model 2 set."
         }
       >
         <table className="fep-report-table compact" style={{ fontSize: 9, width: "100%", tableLayout: "fixed" }}>
