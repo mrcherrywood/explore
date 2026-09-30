@@ -26,7 +26,7 @@ function pathLabel(contract: ContractRow): string {
   if (contract.minK === null) {
     return contract.fullPool && contract.fullPool.finalScoreRaw >= FOUR_STAR_CUTOFF
       ? `Reachable only above ${contract.candidates.length} removals`
-      : "Not reachable from the Stars 2026 Recalc pool";
+      : "Not reachable from the Stars 2026 Recalc and Model 2 pool";
   }
   return `${contract.minK} measure${contract.minK === 1 ? "" : "s"}`;
 }
@@ -116,13 +116,13 @@ export function CloverRemovalContractPage({
         title="Minimum own sets"
         note={
           contract.minSets.length === 0
-            ? "No Stars 2026 Recalc subset of 8 or fewer measures reaches a 4.0 Overall."
+            ? "No Stars 2026 Recalc or Model 2 subset of 8 or fewer measures reaches a 4.0 Overall."
             : "Smallest sets that reach 4.0, sorted by resulting score. Up to 10 shown."
         }
       >
         {contract.minSets.length === 0 ? (
           <p style={{ margin: 0, fontSize: 12, color: "var(--fep-muted)" }}>
-            Removing the whole Stars 2026 Recalc pool leaves a modeled final of{" "}
+            Removing the whole Stars 2026 Recalc and Model 2 pool leaves a modeled final of{" "}
             {formatScore(contract.fullPool?.finalScoreRaw, 3)}.
           </p>
         ) : (

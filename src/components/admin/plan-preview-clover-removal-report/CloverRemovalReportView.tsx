@@ -8,12 +8,13 @@ import type { CloverRemovalReport } from "@/lib/plan-preview/clover-removal-repo
 
 import { CloverRemovalContractPage } from "./CloverRemovalContractPage";
 import { CloverRemovalParentPage } from "./CloverRemovalParentPage";
+import { CloverRemovalQiPage } from "./CloverRemovalQiPage";
 
 export function CloverRemovalReportView({ report }: { report: CloverRemovalReport }) {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pagesRef = useRef<HTMLDivElement | null>(null);
-  const totalPages = 1 + report.contracts.length;
+  const totalPages = 2 + report.contracts.length;
   const slug = report.parentOrganization.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const fileName = `recalc-4-star-path_${slug}_stars-${report.starsYear}`;
 
@@ -80,12 +81,13 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
 
       <div ref={pagesRef} className="flex flex-col items-center gap-7 px-[30px] pb-12">
         <CloverRemovalParentPage report={report} pageNumber={1} totalPages={totalPages} />
+        <CloverRemovalQiPage report={report} pageNumber={2} totalPages={totalPages} />
         {report.contracts.map((contract, index) => (
           <CloverRemovalContractPage
             key={contract.contractId}
             report={report}
             contract={contract}
-            pageNumber={index + 2}
+            pageNumber={index + 3}
             totalPages={totalPages}
           />
         ))}

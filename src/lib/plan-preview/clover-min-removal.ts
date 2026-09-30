@@ -1,5 +1,6 @@
 import { OVERALL_DEDUP_DROP_CODES } from "@/lib/clover-impact/analysis";
 import {
+  CLOVER_COMPUTED_SCENARIOS,
   OFFICIAL_RECALC_REMOVED_CODES,
   QI_MEASURE_CODES,
 } from "@/lib/clover-impact/scenarios";
@@ -68,16 +69,41 @@ export type CloverSharedLadderRow = {
   }>;
 };
 
-/** Official Stars 2026 recalc removals, minus D02/D03 twins and QI. */
+/** Stars 2026 recalc removals plus the Model 2 Clover set, minus D02/D03 twins and QI. */
 export function cloverCandidatePool(): string[] {
   const pool = new Set(
     [...OFFICIAL_RECALC_REMOVED_CODES].map((code) => code.toUpperCase()),
   );
+  const model2 = CLOVER_COMPUTED_SCENARIOS.find((scenario) => scenario.id === "model2");
+  for (const code of model2?.removedCodes ?? []) pool.add(code.toUpperCase());
   for (const code of OVERALL_DEDUP_DROP_CODES) pool.delete(code);
   for (const code of QI_MEASURE_CODES) pool.delete(code);
   return [...pool].sort((left, right) =>
     left.localeCompare(right, undefined, { numeric: true }),
   );
+}
+
+/** Replace this contract's published QI stars. Other measures stay put. */
+export function assumeQiStars(
+  input: CloverContractSearchInput,
+  starsByCode: Partial<Record<"C30" | "D04", number>>,
+): CloverContractSearchInput {
+  return {
+    ...input,
+    measures: input.measures.map((measure) => {
+      const code = measure.code.toUpperCase();
+      const star = code === "C30" || code === "D04" ? starsByCode[code] : undefined;
+      return star == null ? measure : { ...measure, starValue: star };
+    }),
+  };
+}
+
+/** Set both Part C and Part D QI to the same star. */
+export function assumeQiStar(
+  input: CloverContractSearchInput,
+  qiStar: number,
+): CloverContractSearchInput {
+  return assumeQiStars(input, { C30: qiStar, D04: qiStar });
 }
 
 export function removalUsesPartCCai(removed: Iterable<string>): boolean {

@@ -5,6 +5,7 @@ import type { ContractMeasure, PercentileThresholds } from "@/lib/reward-factor"
 import { getOfficialForScenario } from "@/lib/reward-factor/official-threshold-data";
 
 import {
+  assumeQiStar,
   cloverCandidatePool,
   evaluateCloverRemoval,
   findContractMinRemovals,
@@ -13,6 +14,7 @@ import {
   removalUsesPartCCai,
   type CloverContractSearchInput,
 } from "./clover-min-removal";
+import { qiScoreDirection, qiStarSupported } from "./clover-removal-constants";
 import { matchesParentOrganization } from "./clover-removal-report-data";
 import {
   buildAnchoredPopulation,
@@ -109,15 +111,16 @@ function emptyPredictions(contractId: string, measures: ContractMeasure[]): Plan
   };
 }
 
-test("clover candidate pool is the Stars 2026 Recalc set without D02/D03 or QI", () => {
+test("clover candidate pool is Stars 2026 Recalc plus Model 2, without D02/D03 or QI", () => {
   const pool = cloverCandidatePool();
-  assert.equal(pool.length, 16);
+  assert.equal(pool.length, 26);
+  assert.ok(pool.includes("C04"));
+  assert.ok(pool.includes("C05"));
   assert.ok(pool.includes("C07"));
+  assert.ok(pool.includes("C15"));
   assert.ok(pool.includes("C33"));
   assert.ok(pool.includes("D08"));
   assert.ok(pool.includes("D13"));
-  assert.ok(!pool.includes("C03"));
-  assert.ok(!pool.includes("C04"));
   assert.ok(!pool.includes("D02"));
   assert.ok(!pool.includes("D03"));
   assert.ok(!pool.includes("C30"));
@@ -180,6 +183,22 @@ test("prefers the with-QI leg when published QI is present", () => {
   const score = evaluateCloverRemoval(input("H1", measures, { overallCai: 0.04 }), [], highRf, highRf);
   assert.ok(score);
   assert.equal(score.selectedLeg, "with_qi");
+});
+
+test("QI star assumption replaces published QI stars and raises the final score", () => {
+  const measures = [
+    ...KEEP_C.map((code) => measure(code, 4)),
+    measure("C30", 1, 5),
+    measure("D08", 4),
+    measure("D04", 1, 5),
+  ];
+  const base = input("H1", measures);
+  const low = evaluateCloverRemoval(assumeQiStar(base, 1), [], ZERO_RF, ZERO_RF);
+  const high = evaluateCloverRemoval(assumeQiStar(base, 5), [], ZERO_RF, ZERO_RF);
+  assert.ok(low && high);
+  assert.equal(base.measures.find((row) => row.code === "C30")?.starValue, 1);
+  assert.ok(high.baseMean > low.baseMean);
+  assert.ok(high.finalScoreRaw > low.finalScoreRaw);
 });
 
 test("Part C CAI is used when the set removes every Part D measure", () => {
@@ -264,6 +283,19 @@ test("shared ladder is monotonic and ignores unreachable contracts", () => {
   assert.ok(atFour.has("HA"));
   assert.ok(atFour.has("HB"));
   assert.equal(atFour.has("HC"), false);
+});
+
+test("QI options stay at or above the CMS star when more measures improved", () => {
+  assert.equal(qiScoreDirection(4, 1), "up");
+  assert.equal(qiScoreDirection(1, 4), "down");
+  assert.equal(qiScoreDirection(2, 2), "flat");
+  assert.equal(qiStarSupported("up", [3], 2), false);
+  assert.equal(qiStarSupported("up", [3], 3), true);
+  assert.equal(qiStarSupported("up", [3], 5), true);
+  assert.equal(qiStarSupported("down", [3], 4), false);
+  assert.equal(qiStarSupported("down", [3], 1), true);
+  assert.equal(qiStarSupported("flat", [3, 4], 3), true);
+  assert.equal(qiStarSupported("flat", [3, 4], 5), false);
 });
 
 test("parent organization matching treats blank as unknown", () => {

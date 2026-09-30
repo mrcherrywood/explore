@@ -42,7 +42,7 @@ export function CloverRemovalParentPage({
     <ReportPageFrame
       eyebrow={`Plan Preview 2 · Stars ${report.starsYear} Recalc 4-star path`}
       title={report.parentOrganization}
-      subtitle={`Smallest shared Stars 2026 Recalc removal list that gets every reachable contract to 4.0. Enrollment from CMS ${enrollmentSource}.`}
+      subtitle={`Smallest shared removal list from the Stars 2026 Recalc and Model 2 measures that gets every reachable contract to 4.0. Enrollment from CMS ${enrollmentSource}.`}
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={report.parentOrganization}
@@ -74,7 +74,7 @@ export function CloverRemovalParentPage({
           recommended.k === 0 ? (
             <p style={{ margin: 0, fontSize: 12, color: "var(--fep-muted)" }}>
               {report.contracts.every((row) => row.alreadyAtFour)
-                ? "Every rated contract is already at 4.0. No Stars 2026 Recalc removals are needed."
+                ? "Every rated contract is already at 4.0. No removals are needed."
                 : "Every contract that can reach 4.0 from this pool is already there. No additional removals are recommended."}
             </p>
           ) : (
@@ -97,7 +97,7 @@ export function CloverRemovalParentPage({
           )
         ) : (
           <p style={{ margin: 0, fontSize: 12, color: "var(--fep-muted)" }}>
-            No shared list of {report.maxRemovals} or fewer Stars 2026 Recalc measures gets every
+            No shared list of {report.maxRemovals} or fewer Stars 2026 Recalc or Model 2 measures gets every
             reachable contract to 4.0. The ladder below shows the best list at each size.
           </p>
         )}

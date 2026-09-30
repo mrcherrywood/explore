@@ -1,9 +1,18 @@
+import { readFileSync } from "node:fs";
+
 import { loadLatestEnrollment } from "@/lib/clover-impact/analysis";
+import { QI_MEASURE_CODES } from "@/lib/clover-impact/scenarios";
 import { getOfficialForScenario } from "@/lib/reward-factor/official-threshold-data";
 import type { ContractMeasure } from "@/lib/reward-factor";
 
+import { qiScoreDirection, type CloverRemovalQiDirection } from "./clover-removal-constants";
+import { guessRemainingQi } from "./clover-qi-guess";
+
 import {
+  assumeQiStar,
+  assumeQiStars,
   cloverCandidatePool,
+  evaluateCloverRemoval,
   findContractMinRemovals,
   findSharedRemovalLadder,
   FOUR_STAR_CUTOFF,
@@ -18,6 +27,12 @@ import {
 } from "./final-scores";
 import { measureAcronym } from "./measure-acronyms";
 import { toBaselineMeasureCode } from "./measure-resolve";
+import {
+  loadOfficialMeasureWeights,
+  officialCutPointsPath,
+  parseOfficialCutPointsCsv,
+  type OfficialCutPointRow,
+} from "./official-cut-points";
 import {
   caiFromOfficialSummaries,
   overlayOfficialStarsOnPredictions,
@@ -35,6 +50,22 @@ export type CloverRemovalMeasureRef = {
   weight: number | null;
 };
 
+export type CloverRemovalQiOption = {
+  qiStar: number;
+  finalScoreRaw: number | null;
+  finalRating: number | null;
+  rewardFactor: number | null;
+  atFour: boolean;
+};
+
+export type CloverRemovalQiGuess = {
+  partCStar: number | null;
+  partDStar: number | null;
+  finalScoreRaw: number | null;
+  rewardFactor: number | null;
+  atFour: boolean;
+};
+
 export type CloverRemovalContractPage = {
   contractId: string;
   contractName: string | null;
@@ -50,6 +81,12 @@ export type CloverRemovalContractPage = {
   reachableWithinMax: boolean;
   alreadyAtFour: boolean;
   sharedScore: CloverRemovalLegScore | null;
+  publishedQi: Array<{ code: string; star: number }>;
+  qiImproved: number;
+  qiDeclined: number;
+  qiDirection: CloverRemovalQiDirection;
+  qiGuess: CloverRemovalQiGuess | null;
+  qiOptions: CloverRemovalQiOption[];
 };
 
 export type CloverRemovalExcludedContract = {
@@ -81,6 +118,25 @@ export type CloverRemovalReport = {
   sensitivity: CloverRemovalSensitivityRow[] | null;
   notes: string[];
 };
+
+function loadQiCutPoints(starsYear: number): {
+  partC: OfficialCutPointRow | null;
+  partD: OfficialCutPointRow | null;
+} {
+  const rows = parseOfficialCutPointsCsv(readFileSync(officialCutPointsPath(starsYear), "utf8"));
+  const qi = rows.filter((row) => /quality improvement/i.test(row.measureName));
+  return {
+    partC: qi.find((row) => row.measureCode.toUpperCase().startsWith("C")) ?? null,
+    partD: qi.find((row) => row.measureCode.toUpperCase().startsWith("D")) ?? null,
+  };
+}
+
+function qiSignal(value: string | null): "improvement" | "decline" | null {
+  if (!value) return null;
+  if (/improv/i.test(value)) return "improvement";
+  if (/declin|decreas|worse/i.test(value)) return "decline";
+  return null;
+}
 
 export function matchesParentOrganization(
   value: string | null | undefined,
@@ -226,13 +282,72 @@ export function buildCloverRemovalReport(input: {
     pool,
   );
   const recommended = ladder.find((row) => row.coversReachable) ?? null;
+  const sharedCodes = (recommended ?? ladder[ladder.length - 1])?.codes ?? [];
   const sharedById = new Map(
     (recommended ?? ladder[ladder.length - 1])?.perContract.map((row) => [row.contractId, row.score]) ?? [],
   );
+  const inputById = new Map(searchInputs.map((row) => [row.contractId, row]));
+  const qiCuts = loadQiCutPoints(starsYear);
 
   const contracts: CloverRemovalContractPage[] = perContract.map((row) => {
     const measures = measuresById.get(row.contractId) ?? [];
     const summary = overallById.get(row.contractId);
+    const searchInput = inputById.get(row.contractId);
+    let qiImproved = 0;
+    let qiDeclined = 0;
+    const qiLabels = [];
+    for (const starRow of input.officialStars) {
+      if (starRow.contractId !== row.contractId) continue;
+      const code = toBaselineMeasureCode(starRow.measureNormalized, starRow.measureCode, baselineYear);
+      if (QI_MEASURE_CODES.has(code)) continue;
+      const signal = qiSignal(starRow.qiSignificance);
+      if (signal === "improvement") qiImproved += 1;
+      if (signal === "decline") qiDeclined += 1;
+      const weight = input.weightByCode.get(starRow.measureCode.toUpperCase());
+      if (!starRow.qiSignificance || weight == null) continue;
+      qiLabels.push({
+        baselineCode: code,
+        part: /part d/i.test(starRow.metricCategory) ? ("part_d" as const) : ("part_c" as const),
+        significance: starRow.qiSignificance,
+        weight,
+      });
+    }
+    const qiDirection = qiScoreDirection(qiImproved, qiDeclined);
+    const guessed = guessRemainingQi(qiLabels, sharedCodes, qiCuts);
+    const qiScore = searchInput
+      ? evaluateCloverRemoval(
+          assumeQiStars(searchInput, {
+            ...(guessed.partC.star != null ? { C30: guessed.partC.star } : {}),
+            ...(guessed.partD.star != null ? { D04: guessed.partD.star } : {}),
+          }),
+          sharedCodes,
+          withQi,
+          withoutQi,
+          pool,
+        )
+      : null;
+    const qiGuess: CloverRemovalQiGuess | null =
+      guessed.partC.star == null && guessed.partD.star == null
+        ? null
+        : {
+            partCStar: guessed.partC.star,
+            partDStar: guessed.partD.star,
+            finalScoreRaw: qiScore?.finalScoreRaw ?? null,
+            rewardFactor: qiScore?.rewardFactor ?? null,
+            atFour: (qiScore?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF,
+          };
+    const qiOptions: CloverRemovalQiOption[] = [1, 2, 3, 4, 5].map((qiStar) => {
+      const score = searchInput
+        ? evaluateCloverRemoval(assumeQiStar(searchInput, qiStar), sharedCodes, withQi, withoutQi, pool)
+        : null;
+      return {
+        qiStar,
+        finalScoreRaw: score?.finalScoreRaw ?? null,
+        finalRating: score?.finalRating ?? null,
+        rewardFactor: score?.rewardFactor ?? null,
+        atFour: (score?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF,
+      };
+    });
     return {
       contractId: row.contractId,
       contractName: names.get(row.contractId) ?? summary?.contractName ?? null,
@@ -251,6 +366,15 @@ export function buildCloverRemovalReport(input: {
       reachableWithinMax: row.reachableWithinMax,
       alreadyAtFour: row.alreadyAtFour,
       sharedScore: sharedById.get(row.contractId) ?? null,
+      publishedQi: measures
+        .filter((measure) => QI_MEASURE_CODES.has(measure.code.toUpperCase()) && measure.starValue > 0)
+        .map((measure) => ({ code: measure.code.toUpperCase(), star: measure.starValue }))
+        .sort((left, right) => left.code.localeCompare(right.code)),
+      qiImproved,
+      qiDeclined,
+      qiDirection,
+      qiGuess,
+      qiOptions,
     };
   });
 
@@ -296,9 +420,9 @@ export function buildCloverRemovalReport(input: {
     notes: [
       "Reward-factor thresholds are the official CMS Technical Notes Overall MA-PD values and are not recomputed after measure removals.",
       "The sensitivity row shows the recommended list with thresholds recomputed from the full H+R market.",
-      "Quality Improvement stars stay at the published Plan Preview 2 values; they cannot be recomputed after removals.",
+      "Removal lists use the Quality Improvement stars CMS assigned. The best guess drops the shared-list measures out of the year-over-year labels, weights significant improvement as +1 and significant decline as -1, counts no change and hold harmless as 0, and bands that score with the official QI cut points.",
       "Disaster/EUC higher-of uplift is not modeled.",
-      "The candidate pool is the official Stars 2026 recalculation set (June 17, 2026): six named Part C measures plus Part D, excluding shared-measure twins D02/D03 and Quality Improvement. Part C and Part D Quality Improvement are never removed.",
+      "The candidate pool is the official Stars 2026 recalculation set plus the Model 2 Clover measures, excluding shared-measure twins D02/D03 and Quality Improvement. Part C and Part D Quality Improvement are never removed.",
     ],
   };
 }
