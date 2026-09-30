@@ -3,7 +3,7 @@ import { CloverRemovalReport } from "@/components/admin/plan-preview-clover-remo
 export const metadata = {
   title: "Stars 2026 Recalc 4-star path • Program Insight Studio",
   description:
-    "Parent-organization report of the fewest Stars 2026 Recalc or Model 2 measures CMS would need to remove to reach a 4-star Overall rating.",
+    "The shortest shared removal list that gets a parent organization to a 4.0 Overall, using Stars 2026 Recalc and Model 2 measures.",
 };
 
 export default async function CloverRemovalReportPage({

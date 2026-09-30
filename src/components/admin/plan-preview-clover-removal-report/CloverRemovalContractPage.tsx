@@ -21,12 +21,14 @@ import {
 const CELL = { paddingTop: 2, paddingBottom: 2 } as const;
 const PRODUCT_LABEL = "Stars 2026 Recalc 4-star path";
 
-function pathLabel(contract: ContractRow): string {
+function pathLabel(contract: ContractRow, anyMeasure: boolean): string {
   if (contract.alreadyAtFour) return "Already at 4.0";
   if (contract.minK === null) {
     return contract.fullPool && contract.fullPool.finalScoreRaw >= FOUR_STAR_CUTOFF
-      ? `Reachable only above ${contract.candidates.length} removals`
-      : "Not reachable from the Stars 2026 Recalc and Model 2 pool";
+      ? `Needs more than ${contract.candidates.length} removals`
+      : anyMeasure
+        ? "Cannot reach 4.0 from these measures"
+        : "Cannot reach 4.0 from the eligible measures";
   }
   return `${contract.minK} measure${contract.minK === 1 ? "" : "s"}`;
 }
@@ -44,12 +46,14 @@ export function CloverRemovalContractPage({
 }) {
   const best = contract.minSets[0] ?? null;
   const sharedAtFour = (contract.sharedScore?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF;
+  const anyMeasure = report.lensId === "any";
+  const removedAll = anyMeasure ? "All available measures removed" : "All eligible removed";
 
   return (
     <ReportPageFrame
       eyebrow={`Plan Preview 2 · Stars ${report.starsYear} Recalc 4-star path`}
       title={contract.contractName ?? contract.contractId}
-      subtitle={`${contract.contractId} · ${formatEnrollment(contract.enrollment)} members · own path: ${pathLabel(contract)}`}
+      subtitle={`${contract.contractId} · ${report.lensLabel} · ${formatEnrollment(contract.enrollment)} members · own minimum: ${pathLabel(contract, anyMeasure)}`}
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={contract.contractId}
@@ -63,18 +67,18 @@ export function CloverRemovalContractPage({
           value={`${formatStars(contract.publishedRating, 1)}★`}
           detail={formatScore(contract.publishedFinal, 3)}
         />
-        <ReportStat label="Own minimum" value={contract.minK ?? "—"} detail={pathLabel(contract)} />
+        <ReportStat label="Own minimum" value={contract.minK ?? "—"} detail={pathLabel(contract, anyMeasure)} />
         <ReportStat
-          label="Full-pool ceiling"
+          label="Ceiling"
           value={formatScore(contract.fullPool?.finalScoreRaw, 3)}
-          detail={contract.fullPool ? `${formatStars(contract.fullPool.finalRating, 1)}★` : undefined}
+          detail={contract.fullPool ? `${removedAll} · ${formatStars(contract.fullPool.finalRating, 1)}★` : removedAll}
         />
       </div>
 
-      <ReportSection title="Score buildup" note="Base mean + reward factor + CAI, using published Quality Improvement stars.">
+      <ReportSection title="Score buildup" note="Own minimum is the shortest set for this contract alone. Shared list is the one list for the whole organization. Both use the Quality Improvement stars CMS assigned.">
         <div style={{ display: "flex", gap: 12 }}>
           <div className="fep-report-panel" style={{ flex: 1, padding: "8px 12px" }}>
-            <p className="fep-label">{best ? "Best own set" : "Own set"}</p>
+            <p className="fep-label">Own minimum</p>
             <BuildupRow label="Base mean" value={formatScore(best?.score.baseMean, 3)} />
             <BuildupRow label="Reward factor" value={formatScore(best?.score.rewardFactor, 1)} />
             <BuildupRow label="CAI" value={formatScore(best?.score.caiValue, 3)} />
@@ -106,16 +110,16 @@ export function CloverRemovalContractPage({
       </ReportSection>
 
       <ReportSection
-        title="Minimum own sets"
+        title="Own minimum sets"
         note={
           contract.minSets.length === 0
-            ? "No Stars 2026 Recalc or Model 2 subset of 8 or fewer measures reaches a 4.0 Overall."
-            : "Smallest sets that reach 4.0, sorted by resulting score. Up to 10 shown."
+            ? `No set of ${report.maxRemovals} or fewer ${anyMeasure ? "available measures" : "eligible measures"} gets this contract to a 4.0 Overall.`
+            : "Shortest sets that reach 4.0 for this contract alone, sorted by the resulting score. Up to 10 shown."
         }
       >
         {contract.minSets.length === 0 ? (
           <p style={{ margin: 0, fontSize: 12, color: "var(--fep-muted)" }}>
-            Removing the whole Stars 2026 Recalc and Model 2 pool leaves a modeled final of{" "}
+            Removing every {anyMeasure ? "available measure" : "eligible measure"} leaves a final of{" "}
             {formatScore(contract.fullPool?.finalScoreRaw, 3)}.
           </p>
         ) : (
@@ -159,7 +163,7 @@ export function CloverRemovalContractPage({
       </ReportSection>
 
       {best && best.measures.length > 0 ? (
-        <ReportSection title="Removed measure stars" note="Published Plan Preview 2 stars for the best own set.">
+        <ReportSection title="Measures on the own minimum" note="Official stars for the shortest set that reaches 4.0 for this contract alone.">
           <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>
             <thead>
               <tr>

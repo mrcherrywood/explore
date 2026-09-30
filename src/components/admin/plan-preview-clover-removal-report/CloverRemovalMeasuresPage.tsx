@@ -55,7 +55,7 @@ export function CloverRemovalMeasuresPage({
     <ReportPageFrame
       eyebrow={`Plan Preview 2 · Stars ${report.starsYear} Recalc 4-star path`}
       title="Measure scores"
-      subtitle={`${contract.contractId} · ${part} · why each measure is or is not on the path to 4.0`}
+      subtitle={`${contract.contractId} · ${part} · why each measure is on or off the path to 4.0`}
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={contract.contractId}
@@ -65,7 +65,11 @@ export function CloverRemovalMeasuresPage({
     >
       <ReportSection
         title={`${part} measure scores`}
-        note="Highlighted rows are removed. High star means a 4★ or 5★ that would lower the score if removed. Not needed means a lower star that was not required for the smallest set. Outside the pool means the measure is not in the Stars 2026 Recalc or Model 2 set."
+        note={
+          report.lensId === "any"
+            ? "Highlighted rows are removed. HEDIS, last resort was removed only because no other combination reaches 4.0. Kept: HEDIS was left in place. On the shared list applies to every contract. This contract only is on the own minimum but not the shared list. Kept: 4★ or 5★ would lower the score if removed. Kept: not required is a lower star the shortest set did not need. Not eligible is Quality Improvement or a Part D twin left out of Overall."
+            : "Highlighted rows are removed. On the shared list applies to every contract. This contract only is on the own minimum but not the shared list. Kept: 4★ or 5★ would lower the score if removed. Kept: not required is a lower star the shortest set did not need. Not eligible is outside the Stars 2026 Recalc and Model 2 set."
+        }
       >
         <table className="fep-report-table compact" style={{ fontSize: 9, width: "100%", tableLayout: "fixed" }}>
           <colgroup>

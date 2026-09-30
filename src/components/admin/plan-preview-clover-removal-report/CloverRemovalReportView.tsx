@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
 
 import { exportPagesToPdf } from "@/lib/export/pdf";
-import type { CloverRemovalReport } from "@/lib/plan-preview/clover-removal-report-data";
+import type {
+  CloverRemovalLensId,
+  CloverRemovalReport,
+} from "@/lib/plan-preview/clover-removal-report-data";
 
 import { CloverRemovalContractPage } from "./CloverRemovalContractPage";
 import { CloverRemovalMeasuresPage, cloverMeasurePages } from "./CloverRemovalMeasuresPage";
@@ -12,15 +15,18 @@ import { CloverRemovalParentPage } from "./CloverRemovalParentPage";
 import { CloverRemovalQiPage } from "./CloverRemovalQiPage";
 
 export function CloverRemovalReportView({ report }: { report: CloverRemovalReport }) {
+  const [lensId, setLensId] = useState<CloverRemovalLensId>("eligible");
+  const active = report.lenses.find((lens) => lens.lensId === lensId) ?? report.lenses[0];
+  const view = { ...report, ...active };
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pagesRef = useRef<HTMLDivElement | null>(null);
-  const measurePages = report.contracts.flatMap((contract) =>
+  const measurePages = view.contracts.flatMap((contract) =>
     cloverMeasurePages(contract.pathMeasures).map((page) => ({ contract, ...page })),
   );
-  const totalPages = 2 + report.contracts.length + measurePages.length;
-  const slug = report.parentOrganization.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  const fileName = `recalc-4-star-path_${slug}_stars-${report.starsYear}`;
+  const totalPages = 2 + view.contracts.length + measurePages.length;
+  const slug = view.parentOrganization.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const fileName = `recalc-4-star-path_${slug}_stars-${view.starsYear}_${view.lensId}`;
 
   const handleDownload = useCallback(async () => {
     const container = pagesRef.current;
@@ -50,8 +56,7 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
         <div>
           <h1 className="fep-title">Stars 2026 Recalc 4-star path</h1>
           <p className="fep-subtitle">
-            {report.parentOrganization} · Stars {report.starsYear} · fewest official
-            recalc measures to a 4.0 Overall, formatted for 8.5×11 PDF export.
+            {view.parentOrganization} · Stars {view.starsYear} · {view.lensLabel}.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -64,13 +69,27 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 px-[30px] pb-4" data-export-hide>
+        {report.lenses.map((lens) => (
+          <button
+            key={lens.lensId}
+            type="button"
+            className={lens.lensId === view.lensId ? "fep-btn" : "fep-btn-outline"}
+            aria-pressed={lens.lensId === view.lensId}
+            onClick={() => setLensId(lens.lensId)}
+          >
+            {lens.lensLabel}
+          </button>
+        ))}
+      </div>
+
       <div className="px-[30px] pb-4" data-export-hide>
         <details>
           <summary className="fep-label" style={{ cursor: "pointer" }}>
             Method notes
           </summary>
           <ul className="fep-subtitle" style={{ marginTop: 8, paddingLeft: 18 }}>
-            {report.notes.map((note) => (
+            {view.notes.map((note) => (
               <li key={note}>{note}</li>
             ))}
           </ul>
@@ -84,10 +103,10 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
       ) : null}
 
       <div ref={pagesRef} className="flex flex-col items-center gap-7 px-[30px] pb-12">
-        <CloverRemovalParentPage report={report} pageNumber={1} totalPages={totalPages} />
-        <CloverRemovalQiPage report={report} pageNumber={2} totalPages={totalPages} />
-        {report.contracts.map((contract, index) => {
-          const precedingMeasures = report.contracts
+        <CloverRemovalParentPage report={view} pageNumber={1} totalPages={totalPages} />
+        <CloverRemovalQiPage report={view} pageNumber={2} totalPages={totalPages} />
+        {view.contracts.map((contract, index) => {
+          const precedingMeasures = view.contracts
             .slice(0, index)
             .reduce((count, row) => count + cloverMeasurePages(row.pathMeasures).length, 0);
           const contractPage = 3 + index + precedingMeasures;
@@ -95,7 +114,7 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
           return (
             <div key={contract.contractId} className="flex flex-col items-center gap-7">
               <CloverRemovalContractPage
-                report={report}
+                report={view}
                 contract={contract}
                 pageNumber={contractPage}
                 totalPages={totalPages}
@@ -103,7 +122,7 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
               {pages.map((page, pageIndex) => (
                 <CloverRemovalMeasuresPage
                   key={`${contract.contractId}-${page.part}`}
-                  report={report}
+                  report={view}
                   contract={contract}
                   part={page.part}
                   rows={page.rows}

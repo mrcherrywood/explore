@@ -58,7 +58,7 @@ export function CloverRemovalQiPage({
     <ReportPageFrame
       eyebrow={`Plan Preview 2 · Stars ${report.starsYear} Recalc 4-star path`}
       title="Quality Improvement options"
-      subtitle={`${report.parentOrganization} · best guess from the measures that remain, plus each whole-star QI rating`}
+      subtitle={`${report.parentOrganization} · QI stars after the shared list, plus each whole-star QI rating`}
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={report.parentOrganization}
@@ -67,8 +67,8 @@ export function CloverRemovalQiPage({
       productLabel={PRODUCT_LABEL}
     >
       <ReportSection
-        title="Shared list by QI rating"
-        note={`Highlighted cells are the Quality Improvement stars CMS assigned, and those stars are still the estimate used for the removal lists. Best guess drops the shared-list measures out of the year-over-year labels, then bands the weighted score with the official QI cut points. Blank cells are not supported by the contract's overall score movement. Shown cells keep the ${listSize}-measure shared list and recalculate the reward factor. 4.0 requires ${FOUR_STAR_CUTOFF}+.`}
+        title="Shared list at each QI rating"
+        note={`Highlighted cells are the QI stars CMS assigned. The shared list uses those stars. Best guess rebuilds the improvement score without the removed measures: significant improvement counts +1, significant decline counts −1, and no change or hold harmless counts 0, then the official QI cut points assign the star. Blank cells are stars the contract's improvement and decline counts do not support. Each shown score keeps the ${listSize}-measure shared list. 4.0 requires ${FOUR_STAR_CUTOFF} or higher.`}
       >
         <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>
           <thead>
@@ -76,8 +76,8 @@ export function CloverRemovalQiPage({
               <th className="l">Contract</th>
               <th className="l">CMS QI</th>
               <th className="l">Best guess</th>
-              <th className="l">Score movement</th>
-              <th>At CMS QI</th>
+              <th className="l">Improved vs declined</th>
+              <th>With CMS QI</th>
               {QI_STARS.map((star) => (
                 <th key={star}>{star}★</th>
               ))}

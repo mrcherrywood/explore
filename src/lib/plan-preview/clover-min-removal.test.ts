@@ -9,7 +9,9 @@ import {
   cloverCandidatePool,
   evaluateCloverRemoval,
   findContractMinRemovals,
+  findContractMinRemovalsSparingHedis,
   findSharedRemovalLadder,
+  findSharedRemovalLadderSparingHedis,
   FOUR_STAR_CUTOFF,
   removalUsesPartCCai,
   type CloverContractSearchInput,
@@ -311,6 +313,60 @@ test("shared ladder is monotonic and ignores unreachable contracts", () => {
   assert.equal(atFour.has("HC"), false);
 });
 
+test("any-measure search leaves HEDIS in place when another combination reaches 4.0", () => {
+  const keep = ["C06", "C08", "C10", "C11", "C12", "C13", "C14", "C18", "C30", "D04"].map((code) =>
+    measure(code, 5),
+  );
+  const row = input("H1", [
+    ...keep,
+    measure("C01", 1, 4),
+    measure("C28", 1, 2),
+    measure("C33", 1, 2),
+  ]);
+  const pool = ["C01", "C28", "C33"];
+  const hedis = new Set(["C01"]);
+  const found = findContractMinRemovalsSparingHedis(row, ZERO_RF, ZERO_RF, pool, hedis);
+  assert.equal(found.minK, 2);
+  assert.deepEqual(found.minSets[0]?.codes, ["C28", "C33"]);
+  assert.equal(found.minSets.some((set) => set.codes.includes("C01")), false);
+  assert.ok((found.minSets[0]?.score.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF);
+
+  const ladder = findSharedRemovalLadderSparingHedis(
+    [row],
+    ZERO_RF,
+    ZERO_RF,
+    new Set(["H1"]),
+    pool,
+    hedis,
+  );
+  const recommended = ladder.find((entry) => entry.coversReachable);
+  assert.deepEqual(recommended?.codes, ["C28", "C33"]);
+});
+
+test("any-measure search removes HEDIS only when nothing else reaches 4.0", () => {
+  const keep = ["C06", "C08", "C10", "C11", "C12", "C13", "C14", "C18", "C30", "D04"].map((code) =>
+    measure(code, 4),
+  );
+  const row = input("H2", [...keep, measure("C01", 1)]);
+  const pool = ["C01", "C06"];
+  const hedis = new Set(["C01"]);
+  const found = findContractMinRemovalsSparingHedis(row, ZERO_RF, ZERO_RF, pool, hedis);
+  assert.equal(found.minK, 1);
+  assert.deepEqual(found.minSets[0]?.codes, ["C01"]);
+  assert.ok((found.baseline?.finalScoreRaw ?? 0) < FOUR_STAR_CUTOFF);
+
+  const ladder = findSharedRemovalLadderSparingHedis(
+    [row],
+    ZERO_RF,
+    ZERO_RF,
+    new Set(["H2"]),
+    pool,
+    hedis,
+  );
+  const recommended = ladder.find((entry) => entry.coversReachable);
+  assert.deepEqual(recommended?.codes, ["C01"]);
+});
+
 test("measure path labels explain why a measure is kept or removed", () => {
   assert.deepEqual(
     cloverMeasurePath({
@@ -323,7 +379,7 @@ test("measure path labels explain why a measure is kept or removed", () => {
       partDQiRemoved: false,
       alreadyAtFour: false,
     }),
-    { role: "removed", reason: "Shared list" },
+    { role: "removed", reason: "On the shared list" },
   );
   assert.equal(
     cloverMeasurePath({
@@ -336,7 +392,7 @@ test("measure path labels explain why a measure is kept or removed", () => {
       partDQiRemoved: false,
       alreadyAtFour: false,
     }).reason,
-    "High star",
+    "Kept: 4★ or 5★",
   );
   assert.equal(
     cloverMeasurePath({
@@ -349,7 +405,7 @@ test("measure path labels explain why a measure is kept or removed", () => {
       partDQiRemoved: false,
       alreadyAtFour: false,
     }).reason,
-    "Not needed",
+    "Kept: not required",
   );
   assert.equal(
     cloverMeasurePath({
@@ -362,7 +418,7 @@ test("measure path labels explain why a measure is kept or removed", () => {
       partDQiRemoved: false,
       alreadyAtFour: false,
     }).reason,
-    "Outside the pool",
+    "Not eligible",
   );
   assert.equal(
     cloverMeasurePath({
@@ -376,6 +432,34 @@ test("measure path labels explain why a measure is kept or removed", () => {
       alreadyAtFour: false,
     }).reason,
     "Removed with Part D",
+  );
+  assert.equal(
+    cloverMeasurePath({
+      isQi: false,
+      isPartDQi: false,
+      isHedis: true,
+      star: 2,
+      inPool: true,
+      onShared: false,
+      onOwnMin: false,
+      partDQiRemoved: false,
+      alreadyAtFour: false,
+    }).reason,
+    "Kept: HEDIS",
+  );
+  assert.equal(
+    cloverMeasurePath({
+      isQi: false,
+      isPartDQi: false,
+      isHedis: true,
+      star: 1,
+      inPool: true,
+      onShared: true,
+      onOwnMin: false,
+      partDQiRemoved: false,
+      alreadyAtFour: false,
+    }).reason,
+    "HEDIS, last resort",
   );
 });
 

@@ -71,6 +71,21 @@ export type CloverSharedLadderRow = {
   }>;
 };
 
+export function isHedisDomain(domain: string | null | undefined): boolean {
+  return (domain ?? "").trim().toLowerCase() === "hedis";
+}
+
+/** Every rated measure except Quality Improvement and the Part D twins dropped from Overall. */
+export function anyMeasurePool(codes: Iterable<string>): string[] {
+  const pool = new Set<string>();
+  for (const code of codes) {
+    const upper = code.toUpperCase();
+    if (QI_MEASURE_CODES.has(upper) || OVERALL_DEDUP_DROP_CODES.has(upper)) continue;
+    pool.add(upper);
+  }
+  return [...pool].sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+}
+
 /** Stars 2026 recalc removals plus the Model 2 Clover set, minus D02/D03 twins and QI. */
 export function cloverCandidatePool(): string[] {
   const pool = new Set(
@@ -405,4 +420,161 @@ export function findSharedRemovalLadder(
     if (ladder[ladder.length - 1].coversReachable) break;
   }
   return ladder;
+}
+
+function sortCodes(codes: string[]): string[] {
+  return [...codes].sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+}
+
+function scoreSharedCodes(
+  preps: ContractPrep[],
+  codes: string[],
+  withQiThresholds: PercentileThresholds,
+  withoutQiThresholds: PercentileThresholds,
+): Omit<CloverSharedLadderRow, "coversReachable"> {
+  let contractsAtFour = 0;
+  let enrollmentAtFour = 0;
+  let totalScore = 0;
+  const perContract = preps.map((prep) => {
+    const score = evaluatePrepared(prep, codes, withQiThresholds, withoutQiThresholds);
+    const atFour = isFourStar(score);
+    if (atFour) {
+      contractsAtFour += 1;
+      enrollmentAtFour += prep.enrollment;
+    }
+    totalScore += score?.finalScoreRaw ?? 0;
+    return { contractId: prep.contractId, atFour, score };
+  });
+  return { k: codes.length, codes, contractsAtFour, enrollmentAtFour, totalScore, perContract };
+}
+
+function sharedSetCovers(
+  row: { perContract: Array<{ contractId: string; atFour: boolean }> },
+  reachableIds: Set<string>,
+): boolean {
+  const atFour = new Set(row.perContract.filter((item) => item.atFour).map((item) => item.contractId));
+  return [...reachableIds].every((id) => atFour.has(id));
+}
+
+/**
+ * Shortest removal set that reaches 4.0 without HEDIS.
+ * HEDIS is added only when no non-HEDIS set of maxK or fewer works.
+ */
+export function findContractMinRemovalsSparingHedis(
+  input: CloverContractSearchInput,
+  withQiThresholds: PercentileThresholds,
+  withoutQiThresholds: PercentileThresholds,
+  pool: string[],
+  hedisCodes: ReadonlySet<string>,
+  maxK = MAX_CLOVER_REMOVALS,
+): CloverContractSearchResult {
+  const hedis = (code: string) => hedisCodes.has(code.toUpperCase());
+  const preferred = pool.filter((code) => !hedis(code));
+  const spared = findContractMinRemovals(
+    input,
+    withQiThresholds,
+    withoutQiThresholds,
+    preferred,
+    maxK,
+  );
+  const present = new Set(
+    input.measures
+      .filter((measure) => measure.weight > 0 && measure.starValue > 0)
+      .map((measure) => measure.code.toUpperCase()),
+  );
+  const candidates = pool.filter((code) => present.has(code.toUpperCase()));
+  const fullPool = evaluateCloverRemoval(
+    input,
+    candidates,
+    withQiThresholds,
+    withoutQiThresholds,
+    pool,
+  );
+  if (spared.reachableWithinMax || spared.alreadyAtFour) {
+    return { ...spared, candidates, fullPool };
+  }
+
+  const prep = prepareContract(input, pool);
+  const hedisPresent = candidates.filter((code) => hedis(code));
+  const others = candidates.filter((code) => !hedis(code));
+  const listed: CloverContractSearchResult["minSets"] = [];
+  let minK: number | null = null;
+  const maxH = Math.min(hedisPresent.length, maxK);
+  for (let h = 1; h <= maxH && minK === null; h += 1) {
+    for (let extra = 0; extra <= maxK - h && minK === null; extra += 1) {
+      forEachCombination(hedisPresent.length, h, (hIdx) => {
+        const hedisPick = hIdx.map((i) => hedisPresent[i]);
+        forEachCombination(others.length, extra, (pIdx) => {
+          const codes = sortCodes([...pIdx.map((i) => others[i]), ...hedisPick]);
+          const score = evaluatePrepared(prep, codes, withQiThresholds, withoutQiThresholds);
+          if (!isFourStar(score)) return;
+          if (minK === null) minK = h + extra;
+          if (listed.length < MAX_LISTED_MIN_SETS) listed.push({ codes, score: score! });
+        });
+      });
+    }
+  }
+  listed.sort((left, right) => right.score.finalScoreRaw - left.score.finalScoreRaw);
+  return {
+    contractId: input.contractId,
+    baseline: spared.baseline,
+    fullPool,
+    candidates,
+    minK,
+    minSets: listed,
+    reachableWithinMax: minK !== null,
+    alreadyAtFour: false,
+  };
+}
+
+/**
+ * Shared list that leaves HEDIS in place until no other list of maxK or fewer
+ * measures gets every reachable contract to 4.0.
+ */
+export function findSharedRemovalLadderSparingHedis(
+  inputs: CloverContractSearchInput[],
+  withQiThresholds: PercentileThresholds,
+  withoutQiThresholds: PercentileThresholds,
+  reachableIds: Set<string>,
+  pool: string[],
+  hedisCodes: ReadonlySet<string>,
+  maxK = MAX_CLOVER_REMOVALS,
+): CloverSharedLadderRow[] {
+  const hedis = (code: string) => hedisCodes.has(code.toUpperCase());
+  const preferred = pool.filter((code) => !hedis(code));
+  const spared = findSharedRemovalLadder(
+    inputs,
+    withQiThresholds,
+    withoutQiThresholds,
+    reachableIds,
+    preferred,
+    maxK,
+  );
+  if (spared.some((row) => row.coversReachable)) return spared;
+
+  const preps = inputs.map((input) => prepareContract(input, pool));
+  const onBook = (code: string) => preps.some((prep) => prep.byCode.has(code.toUpperCase()));
+  const hedisOnBook = pool.filter((code) => hedis(code) && onBook(code));
+  const others = preferred.filter((code) => onBook(code));
+  let winner: CloverSharedLadderRow | null = null;
+  const maxH = Math.min(hedisOnBook.length, maxK);
+  for (let h = 1; h <= maxH && !winner; h += 1) {
+    for (let extra = 0; extra <= maxK - h && !winner; extra += 1) {
+      const bestBox: { row: Omit<CloverSharedLadderRow, "coversReachable"> | null } = { row: null };
+      forEachCombination(hedisOnBook.length, h, (hIdx) => {
+        const hedisPick = hIdx.map((i) => hedisOnBook[i]);
+        forEachCombination(others.length, extra, (pIdx) => {
+          const codes = sortCodes([...pIdx.map((i) => others[i]), ...hedisPick]);
+          const row = scoreSharedCodes(preps, codes, withQiThresholds, withoutQiThresholds);
+          if (!sharedSetCovers(row, reachableIds)) return;
+          if (betterLadder(row, bestBox.row)) bestBox.row = row;
+        });
+      });
+      if (bestBox.row) winner = { ...bestBox.row, coversReachable: true };
+    }
+  }
+  if (!winner) return spared;
+  return [...spared, winner].sort(
+    (left, right) => left.k - right.k || left.codes.join(",").localeCompare(right.codes.join(",")),
+  );
 }

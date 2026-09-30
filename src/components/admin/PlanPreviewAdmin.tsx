@@ -522,7 +522,7 @@ export function PlanPreviewAdmin() {
           hrefBase="/admin/plan-preview/clover-removal-report"
           mode="parent"
           title="Stars 2026 Recalc 4-star path"
-          description="Find the fewest Stars 2026 Recalc or Model 2 measures CMS would need to remove to lift every reachable contract in a parent organization to a 4.0 Overall."
+          description="The shortest shared removal list, drawn from the Stars 2026 Recalc and Model 2 measures, that gets every contract that can reach 4.0 up to a 4.0 Overall."
           buttonLabel="Open 4-star path report →"
         />
       ) : null}

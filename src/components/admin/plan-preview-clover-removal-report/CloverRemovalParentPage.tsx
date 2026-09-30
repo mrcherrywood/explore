@@ -37,12 +37,13 @@ export function CloverRemovalParentPage({
   const alreadyAtFour = report.contracts.filter((row) => row.alreadyAtFour).length;
   const reachable = report.contracts.filter((row) => row.reachableWithinMax).length;
   const enrollmentSource = `${report.enrollmentSource.year}-${String(report.enrollmentSource.month).padStart(2, "0")}`;
+  const measureWord = report.lensId === "any" ? "available measures" : "eligible measures";
 
   return (
     <ReportPageFrame
       eyebrow={`Plan Preview 2 · Stars ${report.starsYear} Recalc 4-star path`}
       title={report.parentOrganization}
-      subtitle={`Smallest shared removal list from the Stars 2026 Recalc and Model 2 measures that gets every reachable contract to 4.0. Enrollment from CMS ${enrollmentSource}.`}
+      subtitle={`${report.lensLabel}. One removal list for every contract that can reach 4.0. Enrollment from CMS ${enrollmentSource}.`}
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={report.parentOrganization}
@@ -54,7 +55,7 @@ export function CloverRemovalParentPage({
         <ReportStat label="Rated contracts" value={report.contracts.length} />
         <ReportStat label="Already 4.0+" value={alreadyAtFour} detail={`${reachable} can reach 4.0`} />
         <ReportStat
-          label="Shared removals"
+          label="Shared list"
           value={recommended ? recommended.k : "—"}
           detail={recommended ? `${recommended.contractsAtFour} contracts at 4.0` : `None within ${report.maxRemovals}`}
         />
@@ -65,9 +66,30 @@ export function CloverRemovalParentPage({
         />
       </div>
 
+      <div className="fep-report-panel" style={{ marginTop: 12, padding: "8px 12px" }}>
+        <p className="fep-label">How to read this</p>
+        <p style={{ margin: "4px 0 0", fontSize: 10, lineHeight: 1.4 }}>
+          {report.lensId === "any" ? (
+            <>
+              <strong>Any measure</strong> means every rated measure can be removed, except Quality Improvement. The Part D copies of Complaints and Members Choosing to Leave stay out of Overall.{" "}
+              <strong>HEDIS last</strong> means a HEDIS measure is removed only when no other combination of {report.maxRemovals} or fewer measures reaches 4.0.{" "}
+              <strong>Shared list</strong> is the shortest set that follows that rule and, removed for every contract, gets each reachable contract to 4.0.{" "}
+            </>
+          ) : (
+            <>
+              <strong>Eligible measures</strong> are the Stars 2026 Recalc set plus Model 2. Quality Improvement is not chosen for removal, and the Part D copies of Complaints and Members Choosing to Leave are left out of Overall.{" "}
+              <strong>Shared list</strong> is the shortest set of eligible measures that, removed for every contract, gets each reachable contract to 4.0.{" "}
+            </>
+          )}
+          <strong>Reachable</strong> means 4.0 is possible by removing {report.maxRemovals} or fewer {measureWord}.{" "}
+          <strong>Own minimum</strong> follows the same rule for one contract alone, so it can be smaller than the shared list.{" "}
+          <strong>Ceiling</strong> is the score if every measure this lens can remove is taken out. 4.0 requires an unrounded final of {FOUR_STAR_CUTOFF} or higher.
+        </p>
+      </div>
+
       <ReportSection
         title="Recommended shared list"
-        note={`One CMS removal list applied to every ${report.parentOrganization} contract. 4.0 requires an unrounded final of ${FOUR_STAR_CUTOFF}+.`}
+        note="The same measures would be removed for every contract in this organization."
         style={{ marginTop: 12 }}
       >
         {recommended ? (
@@ -75,7 +97,7 @@ export function CloverRemovalParentPage({
             <p style={{ margin: 0, fontSize: 12, color: "var(--fep-muted)" }}>
               {report.contracts.every((row) => row.alreadyAtFour)
                 ? "Every rated contract is already at 4.0. No removals are needed."
-                : "Every contract that can reach 4.0 from this pool is already there. No additional removals are recommended."}
+                : `Every contract that can reach 4.0 from the ${measureWord} is already there. No additional removals are recommended.`}
             </p>
           ) : (
             <table className="fep-report-table compact" style={{ fontSize: 10 }}>
@@ -97,15 +119,19 @@ export function CloverRemovalParentPage({
           )
         ) : (
           <p style={{ margin: 0, fontSize: 12, color: "var(--fep-muted)" }}>
-            No shared list of {report.maxRemovals} or fewer Stars 2026 Recalc or Model 2 measures gets every
-            reachable contract to 4.0. The ladder below shows the best list at each size.
+            No list of {report.maxRemovals} or fewer {measureWord} gets every reachable contract to 4.0. The sizes below show the best list at each length.
           </p>
         )}
+        {report.recommendedUsesHedis ? (
+          <p style={{ margin: "8px 0 0", fontSize: 10, color: "var(--fep-muted)" }}>
+            HEDIS is on this list because no other combination of {report.maxRemovals} or fewer measures gets every reachable contract to 4.0.
+          </p>
+        ) : null}
       </ReportSection>
 
       <ReportSection
-        title="Shared-list ladder"
-        note="Best list at each size. Ties break by members at 4.0, then total score."
+        title="List by size"
+        note="The best shared list at each length. When two lists tie, the one covering more members wins, then the one with the higher total score."
         style={{ marginTop: 12 }}
       >
         <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>
@@ -119,7 +145,7 @@ export function CloverRemovalParentPage({
           </thead>
           <tbody>
             {report.ladder.map((row) => (
-              <tr key={row.k}>
+              <tr key={`${row.k}:${row.codes.join(",")}`}>
                 <td style={{ ...CELL, fontWeight: 800 }}>{row.k}</td>
                 <td className="l" style={{ ...CELL, fontSize: 9 }}>
                   {formatList(row.codes)}
@@ -135,8 +161,8 @@ export function CloverRemovalParentPage({
       </ReportSection>
 
       <ReportSection
-        title="Contract path"
-        note="Modeled Overall before and after the recommended shared list."
+        title="Contract results"
+        note="Before is the modeled Overall with nothing removed. Own minimum is how many measures this contract alone would need removed. Shared is the Overall after the shared list."
         style={{ marginTop: 12 }}
       >
         <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>
@@ -144,8 +170,8 @@ export function CloverRemovalParentPage({
             <tr>
               <th className="l">Contract</th>
               <th>Published</th>
-              <th>Modeled</th>
-              <th>Own min</th>
+              <th>Before</th>
+              <th>Own minimum</th>
               <th>Shared</th>
               <th>Enrollment</th>
             </tr>
@@ -182,15 +208,15 @@ export function CloverRemovalParentPage({
         </table>
         {report.excluded.length > 0 ? (
           <p style={{ margin: "8px 0 0", fontSize: 10, color: "var(--fep-faint)" }}>
-            Excluded from the shared goal:{" "}
+            Excluded from the shared list:{" "}
             {report.excluded.map((row) => `${row.contractId} (${row.reason})`).join(" · ")}
           </p>
         ) : null}
         {report.sensitivity ? (
           <p style={{ margin: "8px 0 0", fontSize: 10, color: "var(--fep-muted)" }}>
-            Recomputed-threshold check:{" "}
+            Recomputed reward-factor check:{" "}
             {report.sensitivity.every((row) => row.officialAtFour === row.recomputedAtFour)
-              ? "the same contracts stay at 4.0 if CMS recomputes reward-factor thresholds."
+              ? "the same contracts stay at 4.0 if the reward-factor cutoffs are recalculated for the whole market."
               : report.sensitivity
                   .filter((row) => row.officialAtFour !== row.recomputedAtFour)
                   .map(

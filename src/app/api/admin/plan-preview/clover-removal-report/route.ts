@@ -49,6 +49,7 @@ export async function GET(request: Request) {
       officialStars: marketOfficialStars,
       officialSummaries: marketOfficialSummaries,
       weightByCode: catalog.weightByCode,
+      domainByCode: catalog.domainByCode,
       predictions,
     });
 

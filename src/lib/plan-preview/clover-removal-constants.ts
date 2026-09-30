@@ -31,6 +31,7 @@ export type CloverMeasurePathRole = "removed" | "kept" | "ineligible";
 export function cloverMeasurePath(input: {
   isQi: boolean;
   isPartDQi: boolean;
+  isHedis?: boolean;
   star: number | null;
   inPool: boolean;
   onShared: boolean;
@@ -42,12 +43,16 @@ export function cloverMeasurePath(input: {
     return { role: "removed", reason: "Removed with Part D" };
   }
   if (input.isQi) return { role: "ineligible", reason: "Quality Improvement" };
-  if (input.onShared) return { role: "removed", reason: "Shared list" };
-  if (input.onOwnMin) return { role: "removed", reason: "Own minimum" };
-  if (!input.inPool) return { role: "ineligible", reason: "Outside the pool" };
+  if (input.isHedis && (input.onShared || input.onOwnMin)) {
+    return { role: "removed", reason: "HEDIS, last resort" };
+  }
+  if (input.onShared) return { role: "removed", reason: "On the shared list" };
+  if (input.onOwnMin) return { role: "removed", reason: "This contract only" };
+  if (!input.inPool) return { role: "ineligible", reason: "Not eligible" };
   if (input.alreadyAtFour) return { role: "kept", reason: "Already at 4.0" };
-  if ((input.star ?? 0) >= 4) return { role: "kept", reason: "High star" };
-  return { role: "kept", reason: "Not needed" };
+  if (input.isHedis) return { role: "kept", reason: "Kept: HEDIS" };
+  if ((input.star ?? 0) >= 4) return { role: "kept", reason: "Kept: 4★ or 5★" };
+  return { role: "kept", reason: "Kept: not required" };
 }
 
 export function qiStarSupported(
