@@ -573,9 +573,11 @@ export function findContractMinRemovalsSparingHedis(
 
   const hedisPresent = candidates.filter((code) => hedis(code));
   const others = candidates.filter((code) => !hedis(code));
-  let best: CloverContractSearchResult | null = null;
+  // A closure assignment is invisible to control-flow narrowing, so a `let`
+  // updated inside forEachCombination stays `null` and then collapses to `never`.
+  const bestBox: { row: CloverContractSearchResult | null } = { row: null };
   const maxH = Math.min(hedisPresent.length, maxK);
-  for (let h = 1; h <= maxH && !best; h += 1) {
+  for (let h = 1; h <= maxH && !bestBox.row; h += 1) {
     forEachCombination(hedisPresent.length, h, (hIdx) => {
       const hedisPick = hIdx.map((i) => hedisPresent[i]);
       const found = findContractMinRemovals(
@@ -587,10 +589,11 @@ export function findContractMinRemovalsSparingHedis(
       );
       if (!found.reachableWithinMax) return;
       const foundK = found.minK ?? maxK;
-      const bestK = best?.minK ?? maxK + 1;
-      if (!best || foundK < bestK) best = found;
+      const bestK = bestBox.row?.minK ?? maxK + 1;
+      if (!bestBox.row || foundK < bestK) bestBox.row = found;
     });
   }
+  const best = bestBox.row;
   if (!best) {
     return { ...spared, candidates, fullPool };
   }
@@ -624,9 +627,9 @@ export function findSharedRemovalLadderSparingHedis(
 
   const hedisOnBook = pool.filter((code) => hedis(code));
   const others = preferred;
-  let winner: CloverSharedLadderRow | null = null;
+  const winnerBox: { row: CloverSharedLadderRow | null } = { row: null };
   const maxH = Math.min(hedisOnBook.length, maxK);
-  for (let h = 1; h <= maxH && !winner; h += 1) {
+  for (let h = 1; h <= maxH && !winnerBox.row; h += 1) {
     forEachCombination(hedisOnBook.length, h, (hIdx) => {
       const hedisPick = hIdx.map((i) => hedisOnBook[i]);
       const ladder = findSharedRemovalLadder(
@@ -639,11 +642,13 @@ export function findSharedRemovalLadderSparingHedis(
       );
       const cover = ladder.find((row) => row.coversReachable);
       if (!cover) return;
+      const winner = winnerBox.row;
       if (!winner || cover.k < winner.k || (cover.k === winner.k && betterLadder(cover, winner))) {
-        winner = cover;
+        winnerBox.row = cover;
       }
     });
   }
+  const winner = winnerBox.row;
   if (!winner) return spared;
   return [...spared, winner].sort(
     (left, right) => left.k - right.k || left.codes.join(",").localeCompare(right.codes.join(",")),
