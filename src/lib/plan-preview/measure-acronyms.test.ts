@@ -5,6 +5,8 @@ import { formatMeasureAcronyms, measureAcronym } from "./measure-acronyms";
 
 test("maps scenario removal codes to measure acronyms", () => {
   assert.equal(measureAcronym("C19"), "SPC");
+  assert.equal(measureAcronym("C04"), "Physical Health");
+  assert.equal(measureAcronym("C15"), "Falls");
   assert.equal(measureAcronym("C33"), "Call Center (C)");
   assert.equal(measureAcronym("D01"), "Call Center (D)");
   assert.equal(measureAcronym("C24"), "CS");

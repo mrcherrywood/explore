@@ -67,7 +67,8 @@ export type PlanPreviewScenarioId =
   | "baseline"
   | CloverComputedScenarioId
   | "removal2028"
-  | "removal2029";
+  | "removal2029"
+  | "customRemoval";
 
 export type PlanPreviewQiSensitivityPoint = {
   qiStar: number;
@@ -134,7 +135,7 @@ function withoutCodes(measures: ContractMeasure[], codes: Set<string>): Contract
  * contract's measure set replaced by its predicted stars plus carried-forward
  * QI stars from the baseline year.
  */
-function buildAnchoredPopulation(
+export function buildAnchoredPopulation(
   predictions: PlanPreviewPredictionsResult,
   baselineYear: number
 ): Map<string, ContractMeasure[]> {
@@ -342,6 +343,8 @@ export type PlanPreviewScenarioOptions = {
   preferWithQi?: boolean;
   /** Use published Tech Notes RF thresholds instead of recomputing. PP1 leaves this off. */
   useOfficialRewardFactorThresholds?: boolean;
+  /** Take the higher of the with-QI and without-QI legs (CMS hold-harmless). */
+  useHoldHarmless?: boolean;
 };
 
 function computeScenario(
@@ -427,12 +430,17 @@ function computeScenario(
 
     // PP1 cannot estimate QI, so the without-QI leg drives those ratings.
     // Official PP2 stars include published QI — prefer that leg when asked.
+    // Hold-harmless (Clover / 4-star path) takes the higher of the two legs.
     const selectedLeg =
-      options?.preferWithQi && withQi
-        ? ("with_qi" as const)
-        : withoutQi
-          ? ("without_qi" as const)
-          : ("with_qi" as const);
+      options?.useHoldHarmless && withQi && withoutQi
+        ? withQi.finalScoreRaw >= withoutQi.finalScoreRaw
+          ? ("with_qi" as const)
+          : ("without_qi" as const)
+        : options?.preferWithQi && withQi
+          ? ("with_qi" as const)
+          : withoutQi
+            ? ("without_qi" as const)
+            : ("with_qi" as const);
     const selected = selectedLeg === "with_qi" ? withQi! : withoutQi!;
 
     contracts.push({
@@ -467,7 +475,10 @@ function computeScenario(
       options?.preferWithQi
         ? "CAI comes from the uploaded Plan Preview 2 summary files. Disaster/EUC 'higher-of' uplift is not modeled."
         : "CAI comes from the uploaded plan preview CAI file. Disaster/EUC 'higher-of' uplift is not modeled.",
-    ],
+      options?.useHoldHarmless
+        ? "The QI hold-harmless rule selects the higher of the with-QI and without-QI legs."
+        : null,
+    ].filter((note): note is string => Boolean(note)),
   };
 }
 
@@ -493,6 +504,50 @@ export function buildPlanPreviewBaselineScenario(
   cai: PlanPreviewCaiRecords
 ): PlanPreviewFinalScoresResult {
   return buildScenarioSet(predictions, cai, [scenarioDefs()[0]])[0];
+}
+
+/** Part D codes that remain after Overall MA-PD de-duplication (D02/D03 dropped). */
+const OVERALL_PART_D_CODES = [
+  "D01", "D04", "D05", "D06", "D07", "D08", "D09", "D10", "D11", "D12", "D13",
+];
+
+/**
+ * Score the anchored population after an arbitrary removal set. Used by the
+ * Clover minimum-removal search for official-threshold scoring and for the
+ * recomputed-threshold sensitivity check.
+ */
+export function buildCustomRemovalScenario(
+  predictions: PlanPreviewPredictionsResult,
+  cai: PlanPreviewCaiRecords,
+  removedCodes: Iterable<string>,
+  options?: PlanPreviewScenarioOptions,
+): PlanPreviewFinalScoresResult {
+  const removed = new Set(
+    [...removedCodes].map((code) => code.toUpperCase()).filter(Boolean),
+  );
+  const usesPartCCai = OVERALL_PART_D_CODES.every((code) => removed.has(code));
+  return buildScenarioSet(
+    predictions,
+    cai,
+    [
+      {
+        id: "customRemoval",
+        label: "Custom Clover removals",
+        description:
+          removed.size === 0
+            ? "No Clover measures removed."
+            : `Removes ${[...removed].sort().join(", ")}.`,
+        removedCodes: removed,
+        caiSource: usesPartCCai ? "part_c" : "overall",
+        notes: usesPartCCai
+          ? [
+              "The result is a Part C summary rating, so the uploaded Part C CAI is applied instead of the Overall MA-PD CAI.",
+            ]
+          : [],
+      },
+    ],
+    options,
+  )[0];
 }
 
 function buildScenarioSet(

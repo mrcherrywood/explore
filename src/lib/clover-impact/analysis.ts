@@ -310,7 +310,7 @@ function parseEnrollment(value: string | number | null | undefined): number | nu
   return Number.isFinite(parsed) ? Math.max(0, parsed) : null;
 }
 
-function loadLatestEnrollment(): {
+export function loadLatestEnrollment(): {
   enrollmentByContract: Map<string, number>;
   source: CloverImpactResult["enrollmentSource"];
 } {

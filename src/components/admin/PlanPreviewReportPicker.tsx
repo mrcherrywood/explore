@@ -13,6 +13,7 @@ export function PlanPreviewReportPicker({
   title = "Contract report",
   description = "Open a presentation report for any accrued contract. Filter by parent organization when more than one book is loaded.",
   buttonLabel = "Open contract report →",
+  mode = "contract",
 }: {
   starsYear: number;
   contracts: PlanPreviewContractOption[];
@@ -20,6 +21,7 @@ export function PlanPreviewReportPicker({
   title?: string;
   description?: string;
   buttonLabel?: string;
+  mode?: "contract" | "parent";
 }) {
   const [selectedParentOrg, setSelectedParentOrg] = useState("");
   const [selectedContractId, setSelectedContractId] = useState("");
@@ -45,6 +47,13 @@ export function PlanPreviewReportPicker({
       setSelectedParentOrg("");
     }
   }, [parentOptions, selectedParentOrg]);
+
+  useEffect(() => {
+    if (mode !== "parent") return;
+    if (!selectedParentOrg && parentOptions.length > 0) {
+      setSelectedParentOrg(parentOptions[0]);
+    }
+  }, [mode, parentOptions, selectedParentOrg]);
 
   useEffect(() => {
     if (filteredContracts.length === 0) {
@@ -73,28 +82,42 @@ export function PlanPreviewReportPicker({
           onChange={(event) => setSelectedParentOrg(event.target.value)}
           aria-label="Parent organization"
         >
-          <option value="">All parent organizations</option>
+          {mode === "contract" ? (
+            <option value="">All parent organizations</option>
+          ) : null}
           {parentOptions.map((parentOrg) => (
             <option key={parentOrg} value={parentOrg}>
               {parentOrg}
             </option>
           ))}
         </select>
-        <select
-          className="fep-select"
-          value={selectedContractId}
-          onChange={(event) => setSelectedContractId(event.target.value)}
-          disabled={filteredContracts.length === 0}
-          aria-label="Contract"
-        >
-          {filteredContracts.map((contract) => (
-            <option key={contract.contractId} value={contract.contractId}>
-              {contract.contractId}
-              {contract.contractName ? ` — ${contract.contractName}` : ""}
-            </option>
-          ))}
-        </select>
-        {selectedContractId ? (
+        {mode === "contract" ? (
+          <select
+            className="fep-select"
+            value={selectedContractId}
+            onChange={(event) => setSelectedContractId(event.target.value)}
+            disabled={filteredContracts.length === 0}
+            aria-label="Contract"
+          >
+            {filteredContracts.map((contract) => (
+              <option key={contract.contractId} value={contract.contractId}>
+                {contract.contractId}
+                {contract.contractName ? ` — ${contract.contractName}` : ""}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        {mode === "parent" && selectedParentOrg ? (
+          <a
+            className="fep-btn"
+            href={`${hrefBase}?starsYear=${starsYear}&parentOrganization=${encodeURIComponent(selectedParentOrg)}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {buttonLabel}
+          </a>
+        ) : null}
+        {mode === "contract" && selectedContractId ? (
           <a
             className="fep-btn"
             href={`${hrefBase}?starsYear=${starsYear}&contractId=${encodeURIComponent(selectedContractId)}`}

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireApprovedAdmin } from "@/lib/admin/require-approved-admin";
-import { overlayOfficialMeasureWeights } from "@/lib/plan-preview/official-cut-points";
+import { loadOfficialMeasureCatalog } from "@/lib/plan-preview/official-measure-catalog";
 import {
   buildPlanPreviewResultsReport,
   publishedScoreFromForecast,
@@ -47,24 +47,10 @@ export async function GET(request: Request) {
       );
     }
 
-    const domainByCode = new Map<string, string>();
-    const weightByCode = new Map<string, number>();
-    const { data: measureRows } = await admin.serviceClient
-      .from("ma_measures")
-      .select("code, domain, weight")
-      .eq("year", starsYear - 1);
-    for (const row of (measureRows ?? []) as {
-      code: string;
-      domain: string | null;
-      weight: number | null;
-    }[]) {
-      const code = row.code.toUpperCase();
-      if (row.domain) domainByCode.set(code, row.domain);
-      if (row.weight !== null && Number.isFinite(Number(row.weight))) {
-        weightByCode.set(code, Number(row.weight));
-      }
-    }
-    overlayOfficialMeasureWeights(starsYear, weightByCode);
+    const { domainByCode, weightByCode } = await loadOfficialMeasureCatalog(
+      admin.serviceClient,
+      starsYear,
+    );
 
     let predictions = null;
     let overallPredicted: number | null = null;

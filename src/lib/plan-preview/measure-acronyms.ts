@@ -4,8 +4,16 @@
  * toBaselineMeasureCode translation.
  */
 const MEASURE_ACRONYMS_BY_CODE: Record<string, string> = {
+  C03: "Flu",
+  C04: "Physical Health",
+  C05: "Mental Health",
   C07: "SNP",
   C09: "COA",
+  C15: "Falls",
+  C16: "Bladder Control",
+  C22: "Getting Needed Care",
+  C23: "Getting Care Quickly",
+  C27: "Care Coordination",
   C17: "MRP",
   C19: "SPC",
   C24: "CS",
