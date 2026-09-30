@@ -13,6 +13,7 @@ import { buildOfficialRemovalScenarios } from "./official-scenarios";
 import {
   toReportScenarios,
   type ReportHistoryPoint,
+  type ReportScenario,
   type ReportYoySummary,
 } from "./report-data";
 import { buildResultsBookCompare } from "./results-book-compare";
@@ -26,6 +27,7 @@ import type {
   ResultsOfficialSummary,
   ResultsPp1PublishedScore,
   ResultsRewardFactorThresholds,
+  ResultsScenarioId,
 } from "./results-report-types";
 
 export type {
@@ -88,6 +90,12 @@ function findSummaryRow(rows: RawSummaryRow[], contractId: string): RawSummaryRo
   return (
     rows.find((row) => String(row.CONTRACT_ID ?? "").trim().toUpperCase() === contractId) ?? null
   );
+}
+
+function isResultsScenario(
+  scenario: ReportScenario,
+): scenario is ReportScenario & { id: ResultsScenarioId } {
+  return scenario.id !== "customRemoval";
 }
 
 function buildHistory(contractId: string, starsYear: number): ReportHistoryPoint[] {
@@ -327,7 +335,7 @@ export function buildPlanPreviewResultsReport(options: {
     ),
     contractId,
     contractCodes,
-  );
+  ).filter(isResultsScenario);
 
   return {
     starsYear,
