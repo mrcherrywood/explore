@@ -21,6 +21,14 @@ import {
 const CELL = { paddingTop: 2, paddingBottom: 2 } as const;
 const PRODUCT_LABEL = "Stars 2026 Recalc 4-star path";
 
+function ceilingBelowPublished(contract: ContractRow): boolean {
+  const ceiling = contract.fullPool?.finalScoreRaw;
+  if (ceiling == null) return false;
+  if (contract.publishedFinal != null) return ceiling < contract.publishedFinal;
+  if (contract.publishedRating != null) return ceiling < contract.publishedRating;
+  return false;
+}
+
 function pathLabel(contract: ContractRow, anyMeasure: boolean): string {
   if (contract.alreadyAtFour) return "Already at 4.0";
   if (contract.minK === null) {
@@ -48,6 +56,7 @@ export function CloverRemovalContractPage({
   const sharedAtFour = (contract.sharedScore?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF;
   const anyMeasure = report.lensId === "any";
   const removedAll = "Highest score that still leaves a rating";
+  const ceilingBelow = ceilingBelowPublished(contract);
 
   return (
     <ReportPageFrame
@@ -70,8 +79,8 @@ export function CloverRemovalContractPage({
         <ReportStat label="Own minimum" value={contract.minK ?? "—"} detail={pathLabel(contract, anyMeasure)} />
         <ReportStat
           label="Ceiling"
-          value={formatScore(contract.fullPool?.finalScoreRaw, 3)}
-          detail={contract.fullPool ? `${removedAll} · ${formatStars(contract.fullPool.finalRating, 1)}★` : removedAll}
+          value={ceilingBelow ? "Below published" : formatScore(contract.fullPool?.finalScoreRaw, 3)}
+          detail={ceilingBelow ? "Lower than the published Overall" : contract.fullPool ? `${removedAll} · ${formatStars(contract.fullPool.finalRating, 1)}★` : removedAll}
         />
       </div>
 
@@ -119,8 +128,9 @@ export function CloverRemovalContractPage({
       >
         {contract.minSets.length === 0 ? (
           <p style={{ margin: 0, fontSize: 12, color: "var(--fep-muted)" }}>
-            Removing every {anyMeasure ? "available measure" : "eligible measure"} leaves a final of{" "}
-            {formatScore(contract.fullPool?.finalScoreRaw, 3)}.
+            {ceilingBelow
+              ? `Removing every ${anyMeasure ? "available measure" : "eligible measure"} leaves a score lower than the published Overall.`
+              : `Removing every ${anyMeasure ? "available measure" : "eligible measure"} leaves a final of ${formatScore(contract.fullPool?.finalScoreRaw, 3)}.`}
           </p>
         ) : (
           <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>

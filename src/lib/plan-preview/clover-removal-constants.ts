@@ -40,19 +40,19 @@ export function cloverMeasurePath(input: {
   alreadyAtFour: boolean;
 }): { role: CloverMeasurePathRole; reason: string } {
   if (input.isPartDQi && input.partDQiRemoved) {
-    return { role: "removed", reason: "Removed with Part D" };
+    return { role: "removed", reason: "Removed: Part D QI leaves with the other Part D measures" };
   }
-  if (input.isQi) return { role: "ineligible", reason: "Quality Improvement" };
+  if (input.isQi) return { role: "ineligible", reason: "Not removed: Quality Improvement stays" };
   if (input.isHedis && (input.onShared || input.onOwnMin)) {
-    return { role: "removed", reason: "HEDIS, last resort" };
+    return { role: "removed", reason: "Removed: nothing else reached 4.0" };
   }
-  if (input.onShared) return { role: "removed", reason: "On the shared list" };
-  if (input.onOwnMin) return { role: "removed", reason: "This contract only" };
-  if (!input.inPool) return { role: "ineligible", reason: "Not eligible" };
-  if (input.alreadyAtFour) return { role: "kept", reason: "Already at 4.0" };
-  if (input.isHedis) return { role: "kept", reason: "Kept: HEDIS" };
-  if ((input.star ?? 0) >= 4) return { role: "kept", reason: "Kept: 4★ or 5★" };
-  return { role: "kept", reason: "Kept: not required" };
+  if (input.onShared) return { role: "removed", reason: "Removed: on the shared list" };
+  if (input.onOwnMin) return { role: "removed", reason: "Removed: needed for this contract" };
+  if (!input.inPool) return { role: "ineligible", reason: "Not removed: outside this removal set" };
+  if (input.alreadyAtFour) return { role: "kept", reason: "Kept: Overall is already 4.0" };
+  if (input.isHedis) return { role: "kept", reason: "Kept: HEDIS is only removed when nothing else works" };
+  if ((input.star ?? 0) >= 4) return { role: "kept", reason: "Kept: removing it would lower the score" };
+  return { role: "kept", reason: "Kept: not needed to reach 4.0" };
 }
 
 export function qiStarSupported(

@@ -12,6 +12,8 @@ import {
 } from "../plan-preview-results-report/results-shared";
 
 import {
+  formatScore,
+  formatSigned,
   MeasureLabel,
   REPORT_COLORS,
   ReportPageFrame,
@@ -21,6 +23,22 @@ import {
 const CELL = { paddingTop: 1, paddingBottom: 1 } as const;
 const HEAD = { paddingBottom: 3, fontSize: 7.5 } as const;
 const PRODUCT_LABEL = "Stars 2026 Recalc 4-star path";
+
+function IfRemovedCell({
+  value,
+}: {
+  value: CloverRemovalPathMeasure["ifRemoved"];
+}) {
+  if (!value) return <>—</>;
+  if (value.status === "unrated") return <>No rating</>;
+  const color =
+    value.delta > 0.0005 ? REPORT_COLORS.positive : value.delta < -0.0005 ? REPORT_COLORS.negative : undefined;
+  return (
+    <span style={{ color, fontWeight: 700 }}>
+      {formatScore(value.finalScoreRaw, 3)} ({formatSigned(value.delta, 3)})
+    </span>
+  );
+}
 
 export function cloverMeasurePages(measures: CloverRemovalPathMeasure[]): {
   part: ResultsMeasurePart;
@@ -65,18 +83,15 @@ export function CloverRemovalMeasuresPage({
     >
       <ReportSection
         title={`${part} measure scores`}
-        note={
-          report.lensId === "any"
-            ? "Highlighted rows are removed. HEDIS, last resort was removed only because the earlier measures were not enough to reach 4.0. Kept: HEDIS was left in place. On the shared list applies to every contract. This contract only is on the own minimum but not the shared list. Kept: 4★ or 5★ would lower the score if removed. Kept: not required is a lower star the removal set did not need. Not eligible is Quality Improvement or a Part D twin left out of Overall."
-            : "Highlighted rows are removed. On the shared list applies to every contract. This contract only is on the own minimum but not the shared list. Kept: 4★ or 5★ would lower the score if removed. Kept: not required is a lower star the removal set did not need. Not eligible is outside the Stars 2026 Recalc and Model 2 set."
-        }
+        note="Highlighted rows are removed. The path column says why that measure was removed or kept. If removed is the Overall, and its delta, after also taking that kept measure out. No rating means fewer than 15 Part C and Part D measures would remain."
       >
         <table className="fep-report-table compact" style={{ fontSize: 9, width: "100%", tableLayout: "fixed" }}>
           <colgroup>
             <col />
             <col style={{ width: "8%" }} />
             <col style={{ width: "10%" }} />
-            <col style={{ width: "28%" }} />
+            <col style={{ width: "34%" }} />
+            <col style={{ width: "16%" }} />
           </colgroup>
           <thead>
             <tr>
@@ -84,6 +99,7 @@ export function CloverRemovalMeasuresPage({
               <th style={HEAD}>Wt</th>
               <th style={HEAD}>Star</th>
               <th className="l" style={HEAD}>Path</th>
+              <th className="l" style={HEAD}>If removed</th>
             </tr>
           </thead>
           <tbody>
@@ -108,6 +124,9 @@ export function CloverRemovalMeasuresPage({
                   }}
                 >
                   {measure.reason}
+                </td>
+                <td className="l" style={{ ...CELL, fontSize: 8, whiteSpace: "nowrap" }}>
+                  <IfRemovedCell value={measure.ifRemoved} />
                 </td>
               </tr>
             ))}

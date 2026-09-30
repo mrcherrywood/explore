@@ -19,6 +19,7 @@ import {
   assumeQiStars,
   cloverCandidatePool,
   evaluateCloverRemoval,
+  evaluateKeptRemoval,
   findContractMinRemovals,
   findSharedRemovalLadder,
   FOUR_STAR_CUTOFF,
@@ -57,9 +58,15 @@ export type CloverRemovalMeasureRef = {
   weight: number | null;
 };
 
+export type CloverRemovalIfRemoved =
+  | { status: "scored"; finalScoreRaw: number; delta: number }
+  | { status: "unrated" };
+
 export type CloverRemovalPathMeasure = CloverRemovalMeasureRef & {
   role: "removed" | "kept" | "ineligible";
   reason: string;
+  /** Overall if this kept measure were also removed. Null when the row is already out or cannot be removed. */
+  ifRemoved: CloverRemovalIfRemoved | null;
 };
 
 export type CloverRemovalQiOption = {
@@ -402,6 +409,8 @@ export function buildCloverRemovalReport(input: {
     const poolSet = new Set(pool);
     const sharedSet = new Set(sharedCodes);
     const ownSet = new Set(row.minSets[0]?.codes ?? []);
+    const pathCodes = qiCodes;
+    const pathScore = (qiBasis === "full" ? row.fullPool : sharedScore)?.finalScoreRaw ?? null;
     const pathMeasures: CloverRemovalPathMeasure[] = measures
       .filter((measure) => measure.weight > 0 && measure.starValue > 0)
       .map((measure) => {
@@ -414,15 +423,28 @@ export function buildCloverRemovalReport(input: {
           inPool: poolSet.has(code),
           onShared: sharedSet.has(code),
           onOwnMin: ownSet.has(code),
-          partDQiRemoved: sharedScore?.partDQiRemoved ?? false,
+          partDQiRemoved: partDRemoved,
           alreadyAtFour: row.alreadyAtFour,
         });
+        let ifRemoved: CloverRemovalIfRemoved | null = null;
+        if (path.role === "kept" && poolSet.has(code) && searchInput && pathScore != null) {
+          const keptRemoval = evaluateKeptRemoval(searchInput, pathCodes, code, withQi, withoutQi, pool);
+          ifRemoved =
+            keptRemoval === "unrated"
+              ? { status: "unrated" }
+              : {
+                  status: "scored",
+                  finalScoreRaw: keptRemoval.finalScoreRaw,
+                  delta: keptRemoval.finalScoreRaw - pathScore,
+                };
+        }
         return {
           ...labelForCode(code, displayByCode),
           star: measure.starValue,
           weight: measure.weight,
           role: path.role,
           reason: path.reason,
+          ifRemoved,
         };
       })
       .sort((left, right) => left.code.localeCompare(right.code, undefined, { numeric: true }));

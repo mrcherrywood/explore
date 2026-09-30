@@ -8,6 +8,7 @@ import {
   assumeQiStar,
   cloverCandidatePool,
   evaluateCloverRemoval,
+  evaluateKeptRemoval,
   findContractMinRemovals,
   findContractMinRemovalsSparingHedis,
   findSharedRemovalLadder,
@@ -447,7 +448,7 @@ test("measure path labels explain why a measure is kept or removed", () => {
       partDQiRemoved: false,
       alreadyAtFour: false,
     }),
-    { role: "removed", reason: "On the shared list" },
+    { role: "removed", reason: "Removed: on the shared list" },
   );
   assert.equal(
     cloverMeasurePath({
@@ -460,7 +461,7 @@ test("measure path labels explain why a measure is kept or removed", () => {
       partDQiRemoved: false,
       alreadyAtFour: false,
     }).reason,
-    "Kept: 4★ or 5★",
+    "Kept: removing it would lower the score",
   );
   assert.equal(
     cloverMeasurePath({
@@ -473,7 +474,20 @@ test("measure path labels explain why a measure is kept or removed", () => {
       partDQiRemoved: false,
       alreadyAtFour: false,
     }).reason,
-    "Kept: not required",
+    "Kept: not needed to reach 4.0",
+  );
+  assert.equal(
+    cloverMeasurePath({
+      isQi: false,
+      isPartDQi: false,
+      star: 2,
+      inPool: true,
+      onShared: false,
+      onOwnMin: false,
+      partDQiRemoved: false,
+      alreadyAtFour: true,
+    }).reason,
+    "Kept: Overall is already 4.0",
   );
   assert.equal(
     cloverMeasurePath({
@@ -486,7 +500,7 @@ test("measure path labels explain why a measure is kept or removed", () => {
       partDQiRemoved: false,
       alreadyAtFour: false,
     }).reason,
-    "Not eligible",
+    "Not removed: outside this removal set",
   );
   assert.equal(
     cloverMeasurePath({
@@ -499,7 +513,7 @@ test("measure path labels explain why a measure is kept or removed", () => {
       partDQiRemoved: true,
       alreadyAtFour: false,
     }).reason,
-    "Removed with Part D",
+    "Removed: Part D QI leaves with the other Part D measures",
   );
   assert.equal(
     cloverMeasurePath({
@@ -513,7 +527,7 @@ test("measure path labels explain why a measure is kept or removed", () => {
       partDQiRemoved: false,
       alreadyAtFour: false,
     }).reason,
-    "Kept: HEDIS",
+    "Kept: HEDIS is only removed when nothing else works",
   );
   assert.equal(
     cloverMeasurePath({
@@ -527,8 +541,35 @@ test("measure path labels explain why a measure is kept or removed", () => {
       partDQiRemoved: false,
       alreadyAtFour: false,
     }).reason,
-    "HEDIS, last resort",
+    "Removed: nothing else reached 4.0",
   );
+});
+
+test("removing one kept measure rescores the overall, or drops the rating at the floor", () => {
+  const rated = [
+    ...Array.from({ length: 14 }, (_, index) => measure(`C${10 + index}`, 4)),
+    measure("D08", 4),
+    measure("C28", 1, 3),
+    measure("C33", 5, 3),
+  ];
+  const row = input("H1", rated);
+  const pool = ["C28", "C33"];
+  const base = evaluateCloverRemoval(row, [], ZERO_RF, ZERO_RF, pool);
+  const low = evaluateKeptRemoval(row, [], "C28", ZERO_RF, ZERO_RF, pool);
+  const high = evaluateKeptRemoval(row, [], "C33", ZERO_RF, ZERO_RF, pool);
+  assert.ok(base);
+  assert.notEqual(low, "unrated");
+  assert.notEqual(high, "unrated");
+  if (low === "unrated" || high === "unrated" || !base) return;
+  assert.ok(low.finalScoreRaw > base.finalScoreRaw);
+  assert.ok(high.finalScoreRaw < base.finalScoreRaw);
+
+  const tight = [
+    ...Array.from({ length: 13 }, (_, index) => measure(`C${10 + index}`, 4)),
+    measure("D08", 4),
+    measure("C28", 1, 3),
+  ];
+  assert.equal(evaluateKeptRemoval(input("H2", tight), [], "C28", ZERO_RF, ZERO_RF, ["C28"]), "unrated");
 });
 
 test("QI options stay at or above the CMS star when more measures improved", () => {

@@ -250,6 +250,25 @@ function scoreLeg(
   };
 }
 
+/** Overall after one more kept measure is removed. "unrated" when Part C, Part D, or 15 measures would not remain. */
+export function evaluateKeptRemoval(
+  input: CloverContractSearchInput,
+  removedCodes: readonly string[],
+  code: string,
+  withQiThresholds: PercentileThresholds,
+  withoutQiThresholds: PercentileThresholds,
+  pool: readonly string[] = cloverCandidatePool(),
+): { finalScoreRaw: number } | "unrated" {
+  const prep = prepareContract(input, [...pool]);
+  const upper = code.toUpperCase();
+  if (!prep.byCode.has(upper)) return "unrated";
+  const next = [...removedCodes, upper];
+  if (!removalKeepsRating(prep, next)) return "unrated";
+  const score = evaluatePrepared(prep, next, withQiThresholds, withoutQiThresholds);
+  if (!score || score.measureCount < MIN_RATED_MEASURES) return "unrated";
+  return { finalScoreRaw: score.finalScoreRaw };
+}
+
 export function evaluateCloverRemoval(
   input: CloverContractSearchInput,
   removedCodes: Iterable<string>,
