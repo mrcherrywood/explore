@@ -338,7 +338,9 @@ export function findSharedRemovalLadder(
   const ladder: CloverSharedLadderRow[] = [];
   const maxSearch = Math.min(maxK, sharedPool.length);
   for (let k = 0; k <= maxSearch; k += 1) {
-    let best: Omit<CloverSharedLadderRow, "coversReachable"> | null = null;
+    // A closure assignment is invisible to control-flow narrowing, so a `let`
+    // updated inside forEachCombination stays `null` and then collapses to `never`.
+    const bestBox: { row: Omit<CloverSharedLadderRow, "coversReachable"> | null } = { row: null };
     forEachCombination(sharedPool.length, k, (idx) => {
       const codes = idx.map((i) => sharedPool[i]);
       let contractsAtFour = 0;
@@ -355,8 +357,9 @@ export function findSharedRemovalLadder(
         return { contractId: prep.contractId, atFour, score };
       });
       const row = { k, codes, contractsAtFour, enrollmentAtFour, totalScore, perContract };
-      if (betterLadder(row, best)) best = row;
+      if (betterLadder(row, bestBox.row)) bestBox.row = row;
     });
+    const best = bestBox.row;
     if (!best) continue;
     const atFour = new Set(best.perContract.filter((row) => row.atFour).map((row) => row.contractId));
     ladder.push({
