@@ -14,6 +14,7 @@ import {
   FOUR_STAR_CUTOFF,
   MAX_CLOVER_REMOVALS,
   MAX_LISTED_MIN_SETS,
+  removalDropsPartDQi,
 } from "./clover-removal-constants";
 
 export { FOUR_STAR_CUTOFF, MAX_CLOVER_REMOVALS, MAX_LISTED_MIN_SETS };
@@ -31,6 +32,7 @@ export type CloverRemovalLegScore = {
   varianceCategory: string;
   caiValue: number | null;
   caiSource: "overall" | "part_c";
+  partDQiRemoved: boolean;
   selectedLeg: "with_qi" | "without_qi";
   finalScoreRaw: number;
   finalRating: number;
@@ -205,6 +207,7 @@ function scoreLeg(
   thresholds: PercentileThresholds,
   caiValue: number | null,
   caiSource: "overall" | "part_c",
+  partDQiRemoved: boolean,
   selectedLeg: "with_qi" | "without_qi",
 ): CloverRemovalLegScore {
   const baseMean = stats.ws / stats.w;
@@ -224,6 +227,7 @@ function scoreLeg(
     varianceCategory: result.varianceCategory,
     caiValue,
     caiSource,
+    partDQiRemoved,
     selectedLeg,
     finalScoreRaw,
     finalRating: roundToHalf(Math.min(5, Math.max(1, finalScoreRaw))),
@@ -249,16 +253,22 @@ function evaluatePrepared(
 ): CloverRemovalLegScore | null {
   const removed = [...new Set([...removedCodes].map((code) => code.toUpperCase()))];
   const removedSet = new Set(removed);
+  const partDQiRemoved = removalDropsPartDQi(
+    prep.measures.map((row) => row.code),
+    removedSet,
+  );
+  if (partDQiRemoved) removedSet.add("D04");
+  const effective = [...removedSet];
   const caiSource = removalUsesPartCCai(removedSet) ? "part_c" : "overall";
   const caiValue = caiSource === "part_c" ? prep.partCCai : prep.overallCai;
-  const withStats = subtractCodes(prep, removed);
+  const withStats = subtractCodes(prep, effective);
   const qiExtra = prep.qiCodes.filter((code) => !removedSet.has(code));
-  const withoutStats = subtractCodes(prep, [...removed, ...qiExtra]);
+  const withoutStats = subtractCodes(prep, [...effective, ...qiExtra]);
   const withQi = withStats
-    ? scoreLeg(withStats, prep.contractId, withQiThresholds, caiValue, caiSource, "with_qi")
+    ? scoreLeg(withStats, prep.contractId, withQiThresholds, caiValue, caiSource, partDQiRemoved, "with_qi")
     : null;
   const withoutQi = withoutStats
-    ? scoreLeg(withoutStats, prep.contractId, withoutQiThresholds, caiValue, caiSource, "without_qi")
+    ? scoreLeg(withoutStats, prep.contractId, withoutQiThresholds, caiValue, caiSource, partDQiRemoved, "without_qi")
     : null;
   // Same selection as official PP2 scenarios: published QI is included when
   // CMS scored it. Hold-harmless is already in the published rating.

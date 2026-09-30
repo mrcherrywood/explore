@@ -14,7 +14,7 @@ import {
   removalUsesPartCCai,
   type CloverContractSearchInput,
 } from "./clover-min-removal";
-import { qiScoreDirection, qiStarSupported } from "./clover-removal-constants";
+import { qiScoreDirection, qiStarSupported, cloverMeasurePath } from "./clover-removal-constants";
 import { matchesParentOrganization } from "./clover-removal-report-data";
 import {
   buildAnchoredPopulation,
@@ -148,7 +148,7 @@ test("no-removal and random subsets match the full scenario engine", () => {
     preferWithQi: true,
     useOfficialRewardFactorThresholds: true,
   } as const;
-  const subsets = [[], ["C28"], ["C28", "C33"], ["D08", "D04"], ["C32"]];
+  const subsets = [[], ["C28"], ["C28", "C33"], ["D08"], ["D08", "D04"], ["C32"]];
   for (const removed of subsets) {
     const engine = buildCustomRemovalScenario(predictions, cai, removed, options);
     const row = engine.contracts.find((entry) => entry.contractId === contractId);
@@ -219,6 +219,32 @@ test("Part C CAI is used when the set removes every Part D measure", () => {
   assert.ok(score);
   assert.equal(score.caiSource, "part_c");
   assert.equal(score.caiValue, -0.05);
+  assert.equal(score.partDQiRemoved, true);
+});
+
+test("removing the last Part D measure also drops Part D QI", () => {
+  const measures = [
+    ...KEEP_C.map((code) => measure(code, 4)),
+    measure("C30", 4, 5),
+    measure("D08", 1, 3),
+    measure("D07", 4, 1),
+    measure("D04", 1, 5),
+  ];
+  const cai = { overallCai: 0.2, partCCai: -0.05 };
+  const kept = evaluateCloverRemoval(input("H1", measures, cai), ["D08"], ZERO_RF, ZERO_RF);
+  const cleared = evaluateCloverRemoval(input("H1", measures, cai), ["D08", "D07"], ZERO_RF, ZERO_RF);
+  const explicit = evaluateCloverRemoval(
+    input("H1", measures, cai),
+    ["D08", "D07", "D04"],
+    ZERO_RF,
+    ZERO_RF,
+  );
+  assert.ok(kept && cleared && explicit);
+  assert.equal(kept.partDQiRemoved, false);
+  assert.equal(kept.caiSource, "overall");
+  assert.equal(cleared.partDQiRemoved, true);
+  assert.equal(cleared.baseMean, explicit.baseMean);
+  assert.equal(cleared.finalScoreRaw, explicit.finalScoreRaw);
 });
 
 test("minimal-set search finds the true pair and no smaller set", () => {
@@ -283,6 +309,74 @@ test("shared ladder is monotonic and ignores unreachable contracts", () => {
   assert.ok(atFour.has("HA"));
   assert.ok(atFour.has("HB"));
   assert.equal(atFour.has("HC"), false);
+});
+
+test("measure path labels explain why a measure is kept or removed", () => {
+  assert.deepEqual(
+    cloverMeasurePath({
+      isQi: false,
+      isPartDQi: false,
+      star: 2,
+      inPool: true,
+      onShared: true,
+      onOwnMin: true,
+      partDQiRemoved: false,
+      alreadyAtFour: false,
+    }),
+    { role: "removed", reason: "Shared list" },
+  );
+  assert.equal(
+    cloverMeasurePath({
+      isQi: false,
+      isPartDQi: false,
+      star: 5,
+      inPool: true,
+      onShared: false,
+      onOwnMin: false,
+      partDQiRemoved: false,
+      alreadyAtFour: false,
+    }).reason,
+    "High star",
+  );
+  assert.equal(
+    cloverMeasurePath({
+      isQi: false,
+      isPartDQi: false,
+      star: 2,
+      inPool: true,
+      onShared: false,
+      onOwnMin: false,
+      partDQiRemoved: false,
+      alreadyAtFour: false,
+    }).reason,
+    "Not needed",
+  );
+  assert.equal(
+    cloverMeasurePath({
+      isQi: false,
+      isPartDQi: false,
+      star: 3,
+      inPool: false,
+      onShared: false,
+      onOwnMin: false,
+      partDQiRemoved: false,
+      alreadyAtFour: false,
+    }).reason,
+    "Outside the pool",
+  );
+  assert.equal(
+    cloverMeasurePath({
+      isQi: true,
+      isPartDQi: true,
+      star: 3,
+      inPool: false,
+      onShared: false,
+      onOwnMin: false,
+      partDQiRemoved: true,
+      alreadyAtFour: false,
+    }).reason,
+    "Removed with Part D",
+  );
 });
 
 test("QI options stay at or above the CMS star when more measures improved", () => {

@@ -63,11 +63,6 @@ export function CloverRemovalContractPage({
           value={`${formatStars(contract.publishedRating, 1)}★`}
           detail={formatScore(contract.publishedFinal, 3)}
         />
-        <ReportStat
-          label="Modeled now"
-          value={formatScore(contract.baseline?.finalScoreRaw, 3)}
-          detail={contract.baseline ? `${formatStars(contract.baseline.finalRating, 1)}★` : undefined}
-        />
         <ReportStat label="Own minimum" value={contract.minK ?? "—"} detail={pathLabel(contract)} />
         <ReportStat
           label="Full-pool ceiling"
@@ -78,13 +73,6 @@ export function CloverRemovalContractPage({
 
       <ReportSection title="Score buildup" note="Base mean + reward factor + CAI, using published Quality Improvement stars.">
         <div style={{ display: "flex", gap: 12 }}>
-          <div className="fep-report-panel" style={{ flex: 1, padding: "8px 12px" }}>
-            <p className="fep-label">Modeled now</p>
-            <BuildupRow label="Base mean" value={formatScore(contract.baseline?.baseMean, 3)} />
-            <BuildupRow label="Reward factor" value={formatScore(contract.baseline?.rewardFactor, 1)} />
-            <BuildupRow label="CAI" value={formatScore(contract.baseline?.caiValue, 3)} />
-            <BuildupRow label="Final" value={formatScore(contract.baseline?.finalScoreRaw, 3)} emphasis />
-          </div>
           <div className="fep-report-panel" style={{ flex: 1, padding: "8px 12px" }}>
             <p className="fep-label">{best ? "Best own set" : "Own set"}</p>
             <BuildupRow label="Base mean" value={formatScore(best?.score.baseMean, 3)} />
@@ -108,6 +96,11 @@ export function CloverRemovalContractPage({
             <p style={{ margin: "6px 0 0", fontSize: 10, color: sharedAtFour ? REPORT_COLORS.positive : REPORT_COLORS.negative }}>
               {sharedAtFour ? "Reaches 4.0 on the shared list." : "Does not reach 4.0 on the shared list."}
             </p>
+            {contract.sharedScore?.partDQiRemoved ? (
+              <p style={{ margin: "4px 0 0", fontSize: 10, color: "var(--fep-muted)" }}>
+                Part D QI is removed with the other Part D measures.
+              </p>
+            ) : null}
           </div>
         </div>
       </ReportSection>

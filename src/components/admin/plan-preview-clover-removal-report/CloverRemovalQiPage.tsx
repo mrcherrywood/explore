@@ -32,7 +32,7 @@ function guessParts(contract: CloverRemovalContractPage): string[] {
   if (!guess) return [];
   return [
     guess.partCStar != null ? `QI (C) ${guess.partCStar}★` : null,
-    guess.partDStar != null ? `QI (D) ${guess.partDStar}★` : null,
+    guess.partDRemoved ? "QI (D) removed" : guess.partDStar != null ? `QI (D) ${guess.partDStar}★` : null,
   ].filter((part): part is string => part != null);
 }
 

@@ -19,6 +19,7 @@ import { getMeasureRemovalForYear } from "@/lib/reward-factor/measure-removal-pr
 import { getOfficialForScenario } from "@/lib/reward-factor/official-threshold-data";
 import { formatMeasureAcronyms } from "./measure-acronyms";
 import { toBaselineMeasureCode } from "./measure-resolve";
+import { removalDropsPartDQi } from "./clover-removal-constants";
 import type { PlanPreviewPredictionsResult } from "./predictions";
 
 const QI_WEIGHT = 5;
@@ -204,7 +205,11 @@ function computeLeg(
   const statsByContract = new Map<string, ReturnType<typeof calculateContractStats>>();
   const stats = [];
   for (const [contractId, measures] of population) {
-    let legMeasures = withoutCodes(measures, removedCodes);
+    const removed = new Set(removedCodes);
+    if (removalDropsPartDQi(measures.map((measure) => measure.code), removed)) {
+      removed.add("D04");
+    }
+    let legMeasures = withoutCodes(measures, removed);
     if (dropQi) legMeasures = withoutCodes(legMeasures, QI_MEASURE_CODES);
     const contractStats = calculateContractStats(contractId, legMeasures, null);
     if (contractStats.measureCount <= 1) continue;
@@ -525,6 +530,8 @@ export function buildCustomRemovalScenario(
   const removed = new Set(
     [...removedCodes].map((code) => code.toUpperCase()).filter(Boolean),
   );
+  const nonQiPartD = OVERALL_PART_D_CODES.filter((code) => code !== "D04");
+  if (nonQiPartD.every((code) => removed.has(code))) removed.add("D04");
   const usesPartCCai = OVERALL_PART_D_CODES.every((code) => removed.has(code));
   return buildScenarioSet(
     predictions,

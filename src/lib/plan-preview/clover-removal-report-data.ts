@@ -5,7 +5,7 @@ import { QI_MEASURE_CODES } from "@/lib/clover-impact/scenarios";
 import { getOfficialForScenario } from "@/lib/reward-factor/official-threshold-data";
 import type { ContractMeasure } from "@/lib/reward-factor";
 
-import { qiScoreDirection, type CloverRemovalQiDirection } from "./clover-removal-constants";
+import { qiScoreDirection, cloverMeasurePath, type CloverRemovalQiDirection } from "./clover-removal-constants";
 import { guessRemainingQi } from "./clover-qi-guess";
 
 import {
@@ -50,6 +50,11 @@ export type CloverRemovalMeasureRef = {
   weight: number | null;
 };
 
+export type CloverRemovalPathMeasure = CloverRemovalMeasureRef & {
+  role: "removed" | "kept" | "ineligible";
+  reason: string;
+};
+
 export type CloverRemovalQiOption = {
   qiStar: number;
   finalScoreRaw: number | null;
@@ -61,6 +66,7 @@ export type CloverRemovalQiOption = {
 export type CloverRemovalQiGuess = {
   partCStar: number | null;
   partDStar: number | null;
+  partDRemoved: boolean;
   finalScoreRaw: number | null;
   rewardFactor: number | null;
   atFour: boolean;
@@ -87,6 +93,7 @@ export type CloverRemovalContractPage = {
   qiDirection: CloverRemovalQiDirection;
   qiGuess: CloverRemovalQiGuess | null;
   qiOptions: CloverRemovalQiOption[];
+  pathMeasures: CloverRemovalPathMeasure[];
 };
 
 export type CloverRemovalExcludedContract = {
@@ -313,12 +320,14 @@ export function buildCloverRemovalReport(input: {
       });
     }
     const qiDirection = qiScoreDirection(qiImproved, qiDeclined);
+    const sharedScore = sharedById.get(row.contractId) ?? null;
+    const partDRemoved = sharedScore?.partDQiRemoved ?? false;
     const guessed = guessRemainingQi(qiLabels, sharedCodes, qiCuts);
     const qiScore = searchInput
       ? evaluateCloverRemoval(
           assumeQiStars(searchInput, {
             ...(guessed.partC.star != null ? { C30: guessed.partC.star } : {}),
-            ...(guessed.partD.star != null ? { D04: guessed.partD.star } : {}),
+            ...(partDRemoved || guessed.partD.star == null ? {} : { D04: guessed.partD.star }),
           }),
           sharedCodes,
           withQi,
@@ -327,11 +336,12 @@ export function buildCloverRemovalReport(input: {
         )
       : null;
     const qiGuess: CloverRemovalQiGuess | null =
-      guessed.partC.star == null && guessed.partD.star == null
+      guessed.partC.star == null && guessed.partD.star == null && !partDRemoved
         ? null
         : {
             partCStar: guessed.partC.star,
-            partDStar: guessed.partD.star,
+            partDStar: partDRemoved ? null : guessed.partD.star,
+            partDRemoved,
             finalScoreRaw: qiScore?.finalScoreRaw ?? null,
             rewardFactor: qiScore?.rewardFactor ?? null,
             atFour: (qiScore?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF,
@@ -348,6 +358,32 @@ export function buildCloverRemovalReport(input: {
         atFour: (score?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF,
       };
     });
+    const poolSet = new Set(pool);
+    const sharedSet = new Set(sharedCodes);
+    const ownSet = new Set(row.minSets[0]?.codes ?? []);
+    const pathMeasures: CloverRemovalPathMeasure[] = measures
+      .filter((measure) => measure.weight > 0 && measure.starValue > 0)
+      .map((measure) => {
+        const code = measure.code.toUpperCase();
+        const path = cloverMeasurePath({
+          isQi: QI_MEASURE_CODES.has(code),
+          isPartDQi: code === "D04",
+          star: measure.starValue,
+          inPool: poolSet.has(code),
+          onShared: sharedSet.has(code),
+          onOwnMin: ownSet.has(code),
+          partDQiRemoved: sharedScore?.partDQiRemoved ?? false,
+          alreadyAtFour: row.alreadyAtFour,
+        });
+        return {
+          ...labelForCode(code, displayByCode),
+          star: measure.starValue,
+          weight: measure.weight,
+          role: path.role,
+          reason: path.reason,
+        };
+      })
+      .sort((left, right) => left.code.localeCompare(right.code, undefined, { numeric: true }));
     return {
       contractId: row.contractId,
       contractName: names.get(row.contractId) ?? summary?.contractName ?? null,
@@ -365,7 +401,7 @@ export function buildCloverRemovalReport(input: {
       })),
       reachableWithinMax: row.reachableWithinMax,
       alreadyAtFour: row.alreadyAtFour,
-      sharedScore: sharedById.get(row.contractId) ?? null,
+      sharedScore,
       publishedQi: measures
         .filter((measure) => QI_MEASURE_CODES.has(measure.code.toUpperCase()) && measure.starValue > 0)
         .map((measure) => ({ code: measure.code.toUpperCase(), star: measure.starValue }))
@@ -375,6 +411,7 @@ export function buildCloverRemovalReport(input: {
       qiDirection,
       qiGuess,
       qiOptions,
+      pathMeasures,
     };
   });
 
@@ -420,7 +457,7 @@ export function buildCloverRemovalReport(input: {
     notes: [
       "Reward-factor thresholds are the official CMS Technical Notes Overall MA-PD values and are not recomputed after measure removals.",
       "The sensitivity row shows the recommended list with thresholds recomputed from the full H+R market.",
-      "Removal lists use the Quality Improvement stars CMS assigned. The best guess drops the shared-list measures out of the year-over-year labels, weights significant improvement as +1 and significant decline as -1, counts no change and hold harmless as 0, and bands that score with the official QI cut points.",
+      "Removal lists use the Quality Improvement stars CMS assigned. When a removal set leaves no other Part D measures, Part D QI is removed with them. The measure pages list every rated measure and why it is or is not on the path. The best guess drops the shared-list measures out of the year-over-year labels, weights significant improvement as +1 and significant decline as -1, counts no change and hold harmless as 0, and bands that score with the official QI cut points.",
       "Disaster/EUC higher-of uplift is not modeled.",
       "The candidate pool is the official Stars 2026 recalculation set plus the Model 2 Clover measures, excluding shared-measure twins D02/D03 and Quality Improvement. Part C and Part D Quality Improvement are never removed.",
     ],

@@ -7,6 +7,7 @@ import { exportPagesToPdf } from "@/lib/export/pdf";
 import type { CloverRemovalReport } from "@/lib/plan-preview/clover-removal-report-data";
 
 import { CloverRemovalContractPage } from "./CloverRemovalContractPage";
+import { CloverRemovalMeasuresPage, cloverMeasurePages } from "./CloverRemovalMeasuresPage";
 import { CloverRemovalParentPage } from "./CloverRemovalParentPage";
 import { CloverRemovalQiPage } from "./CloverRemovalQiPage";
 
@@ -14,7 +15,10 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pagesRef = useRef<HTMLDivElement | null>(null);
-  const totalPages = 2 + report.contracts.length;
+  const measurePages = report.contracts.flatMap((contract) =>
+    cloverMeasurePages(contract.pathMeasures).map((page) => ({ contract, ...page })),
+  );
+  const totalPages = 2 + report.contracts.length + measurePages.length;
   const slug = report.parentOrganization.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const fileName = `recalc-4-star-path_${slug}_stars-${report.starsYear}`;
 
@@ -82,15 +86,34 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
       <div ref={pagesRef} className="flex flex-col items-center gap-7 px-[30px] pb-12">
         <CloverRemovalParentPage report={report} pageNumber={1} totalPages={totalPages} />
         <CloverRemovalQiPage report={report} pageNumber={2} totalPages={totalPages} />
-        {report.contracts.map((contract, index) => (
-          <CloverRemovalContractPage
-            key={contract.contractId}
-            report={report}
-            contract={contract}
-            pageNumber={index + 3}
-            totalPages={totalPages}
-          />
-        ))}
+        {report.contracts.map((contract, index) => {
+          const precedingMeasures = report.contracts
+            .slice(0, index)
+            .reduce((count, row) => count + cloverMeasurePages(row.pathMeasures).length, 0);
+          const contractPage = 3 + index + precedingMeasures;
+          const pages = cloverMeasurePages(contract.pathMeasures);
+          return (
+            <div key={contract.contractId} className="flex flex-col items-center gap-7">
+              <CloverRemovalContractPage
+                report={report}
+                contract={contract}
+                pageNumber={contractPage}
+                totalPages={totalPages}
+              />
+              {pages.map((page, pageIndex) => (
+                <CloverRemovalMeasuresPage
+                  key={`${contract.contractId}-${page.part}`}
+                  report={report}
+                  contract={contract}
+                  part={page.part}
+                  rows={page.rows}
+                  pageNumber={contractPage + 1 + pageIndex}
+                  totalPages={totalPages}
+                />
+              ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
