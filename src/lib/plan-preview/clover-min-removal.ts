@@ -12,11 +12,12 @@ import {
 
 import {
   FOUR_STAR_CUTOFF,
+  LOW_STAR_MAX,
   MIN_RATED_MEASURES,
   removalDropsPartDQi,
 } from "./clover-removal-constants";
 
-export { FOUR_STAR_CUTOFF, MIN_RATED_MEASURES };
+export { FOUR_STAR_CUTOFF, LOW_STAR_MAX, MIN_RATED_MEASURES };
 
 const OVERALL_PART_D_CODES = [
   "D01", "D04", "D05", "D06", "D07", "D08", "D09", "D10", "D11", "D12", "D13",
@@ -393,6 +394,59 @@ function walkRemovals(
     steps.push({ codes: [...chosen], score });
   }
   return steps;
+}
+
+export type LowStarRemoval = {
+  codes: string[];
+  availableCount: number;
+  removedAll: boolean;
+  score: CloverRemovalLegScore | null;
+};
+
+/** Remove every 3★ or lower measure. If that would drop the rating, keep the highest score that still leaves one. */
+export function evaluateAllLowStarRemoval(
+  input: CloverContractSearchInput,
+  withQiThresholds: PercentileThresholds,
+  withoutQiThresholds: PercentileThresholds,
+  pool: readonly string[] = cloverCandidatePool(),
+  priority?: RemovalPriority,
+): LowStarRemoval {
+  const prep = prepareContract(input, [...pool]);
+  const rank = priority ?? (() => 0);
+  const ordered = prep.candidates
+    .map((code) => prep.byCode.get(code))
+    .filter((row): row is MeasureSums => row != null && !row.isQi && row.star <= LOW_STAR_MAX)
+    .sort((left, right) => {
+      const tier = rank(left.code) - rank(right.code);
+      if (tier !== 0) return tier;
+      const gain = right.weight * (LOW_STAR_MAX - right.star) - left.weight * (LOW_STAR_MAX - left.star);
+      if (gain !== 0) return gain;
+      return left.code.localeCompare(right.code, undefined, { numeric: true });
+    });
+  const baseline = evaluatePrepared(prep, [], withQiThresholds, withoutQiThresholds);
+  if (ordered.length === 0) {
+    return { codes: [], availableCount: 0, removedAll: true, score: baseline };
+  }
+  const allCodes = ordered.map((row) => row.code);
+  if (removalKeepsRating(prep, allCodes)) {
+    return {
+      codes: allCodes,
+      availableCount: ordered.length,
+      removedAll: true,
+      score: evaluatePrepared(prep, allCodes, withQiThresholds, withoutQiThresholds),
+    };
+  }
+  const chosen: string[] = [];
+  let score = baseline;
+  for (const row of ordered) {
+    const trial = [...chosen, row.code];
+    if (!removalKeepsRating(prep, trial)) continue;
+    const next = evaluatePrepared(prep, trial, withQiThresholds, withoutQiThresholds);
+    if (!next || next.measureCount < MIN_RATED_MEASURES) continue;
+    chosen.push(row.code);
+    score = next;
+  }
+  return { codes: chosen, availableCount: ordered.length, removedAll: false, score };
 }
 
 function scoreShared(

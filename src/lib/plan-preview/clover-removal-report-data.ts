@@ -8,6 +8,7 @@ import type { ContractMeasure } from "@/lib/reward-factor";
 import {
   qiScoreDirection,
   cloverMeasurePath,
+  keptReasonWhenShort,
   MIN_RATED_MEASURES,
   type CloverRemovalQiDirection,
 } from "./clover-removal-constants";
@@ -18,6 +19,7 @@ import {
   assumeQiStar,
   assumeQiStars,
   cloverCandidatePool,
+  evaluateAllLowStarRemoval,
   evaluateCloverRemoval,
   evaluateKeptRemoval,
   findContractMinRemovals,
@@ -110,6 +112,13 @@ export type CloverRemovalContractPage = {
   qiGuess: CloverRemovalQiGuess | null;
   qiOptions: CloverRemovalQiOption[];
   pathMeasures: CloverRemovalPathMeasure[];
+  /** Overall after every 3★ or lower measure in this lens is removed. */
+  lowStars: {
+    removedCount: number;
+    availableCount: number;
+    removedAll: boolean;
+    score: CloverRemovalLegScore | null;
+  };
 };
 
 export type CloverRemovalExcludedContract = {
@@ -366,6 +375,9 @@ export function buildCloverRemovalReport(input: {
       });
     }
     const qiDirection = qiScoreDirection(qiImproved, qiDeclined);
+    const lowStarRemoval = searchInput
+      ? evaluateAllLowStarRemoval(searchInput, withQi, withoutQi, pool, priority)
+      : null;
     const sharedScore = sharedById.get(row.contractId) ?? null;
     const qiBasis = row.reachableWithinMax || row.alreadyAtFour ? "shared" : "full";
     const qiCodes = qiBasis === "full" ? row.ceilingCodes : sharedCodes;
@@ -409,6 +421,8 @@ export function buildCloverRemovalReport(input: {
     const poolSet = new Set(pool);
     const sharedSet = new Set(sharedCodes);
     const ownSet = new Set(row.minSets[0]?.codes ?? []);
+    const ceilingSet = new Set(row.ceilingCodes);
+    const canReachFour = row.reachableWithinMax || row.alreadyAtFour;
     const pathCodes = qiCodes;
     const pathScore = (qiBasis === "full" ? row.fullPool : sharedScore)?.finalScoreRaw ?? null;
     const pathMeasures: CloverRemovalPathMeasure[] = measures
@@ -425,6 +439,8 @@ export function buildCloverRemovalReport(input: {
           onOwnMin: ownSet.has(code),
           partDQiRemoved: partDRemoved,
           alreadyAtFour: row.alreadyAtFour,
+          canReachFour,
+          onCeiling: ceilingSet.has(code),
         });
         let ifRemoved: CloverRemovalIfRemoved | null = null;
         if (path.role === "kept" && poolSet.has(code) && searchInput && pathScore != null) {
@@ -438,12 +454,20 @@ export function buildCloverRemovalReport(input: {
                   delta: keptRemoval.finalScoreRaw - pathScore,
                 };
         }
+        const reason =
+          !canReachFour && path.role === "kept" && ifRemoved
+            ? keptReasonWhenShort({
+                star: measure.starValue,
+                ifRemoved:
+                  ifRemoved.status === "unrated" ? "unrated" : ifRemoved.delta < -0.0005 ? "lower" : "other",
+              })
+            : path.reason;
         return {
           ...labelForCode(code, displayByCode),
           star: measure.starValue,
           weight: measure.weight,
           role: path.role,
-          reason: path.reason,
+          reason,
           ifRemoved,
         };
       })
@@ -477,6 +501,12 @@ export function buildCloverRemovalReport(input: {
       qiGuess,
       qiOptions,
       pathMeasures,
+      lowStars: {
+        removedCount: lowStarRemoval?.codes.length ?? 0,
+        availableCount: lowStarRemoval?.availableCount ?? 0,
+        removedAll: lowStarRemoval?.removedAll ?? true,
+        score: lowStarRemoval?.score ?? null,
+      },
     };
   });
 

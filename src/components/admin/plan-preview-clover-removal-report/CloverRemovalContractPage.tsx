@@ -29,6 +29,14 @@ function ceilingBelowPublished(contract: ContractRow): boolean {
   return false;
 }
 
+function lowStarDetail(contract: ContractRow): string {
+  const { removedCount, availableCount, removedAll, score } = contract.lowStars;
+  const star = score ? `${formatStars(score.finalRating, 1)}★` : null;
+  if (availableCount === 0) return "No 3★ or lower measures in this set";
+  if (removedAll) return star ? `Removed all ${removedCount} · ${star}` : `Removed all ${removedCount}`;
+  return `Removed ${removedCount} of ${availableCount}; a rating must remain`;
+}
+
 function pathLabel(contract: ContractRow, anyMeasure: boolean): string {
   if (contract.alreadyAtFour) return "Already at 4.0";
   if (contract.minK === null) {
@@ -78,13 +86,18 @@ export function CloverRemovalContractPage({
         />
         <ReportStat label="Own minimum" value={contract.minK ?? "—"} detail={pathLabel(contract, anyMeasure)} />
         <ReportStat
+          label="All 3★ and under"
+          value={formatScore(contract.lowStars.score?.finalScoreRaw, 3)}
+          detail={lowStarDetail(contract)}
+        />
+        <ReportStat
           label="Ceiling"
           value={ceilingBelow ? "Below published" : formatScore(contract.fullPool?.finalScoreRaw, 3)}
           detail={ceilingBelow ? "Lower than the published Overall" : contract.fullPool ? `${removedAll} · ${formatStars(contract.fullPool.finalRating, 1)}★` : removedAll}
         />
       </div>
 
-        <ReportSection title="Score buildup" note="Own minimum is the removal set for this contract alone. Shared list is the one list for the whole organization. Both use the Quality Improvement stars CMS assigned.">
+        <ReportSection title="Score buildup" note="Own minimum is the shortest set for this contract. Shared list is the one list for the organization. All 3★ and under removes every measure in this set scored 3★ or lower. Quality Improvement stays.">
         <div style={{ display: "flex", gap: 12 }}>
           <div className="fep-report-panel" style={{ flex: 1, padding: "8px 12px" }}>
             <p className="fep-label">Own minimum</p>
@@ -114,6 +127,16 @@ export function CloverRemovalContractPage({
                 Part D QI is removed with the other Part D measures.
               </p>
             ) : null}
+          </div>
+          <div className="fep-report-panel" style={{ flex: 1, padding: "8px 12px" }}>
+            <p className="fep-label">All 3★ and under</p>
+            <BuildupRow label="Base mean" value={formatScore(contract.lowStars.score?.baseMean, 3)} />
+            <BuildupRow label="Reward factor" value={formatScore(contract.lowStars.score?.rewardFactor, 1)} />
+            <BuildupRow label="CAI" value={formatScore(contract.lowStars.score?.caiValue, 3)} />
+            <BuildupRow label="Final" value={formatScore(contract.lowStars.score?.finalScoreRaw, 3)} emphasis />
+            <p style={{ margin: "6px 0 0", fontSize: 10, color: "var(--fep-muted)" }}>
+              {lowStarDetail(contract)}
+            </p>
           </div>
         </div>
       </ReportSection>

@@ -83,7 +83,8 @@ export function CloverRemovalParentPage({
           )}
           <strong>Reachable</strong> means 4.0 is possible while at least {report.minRatedMeasures} Part C and Part D measures remain.{" "}
           <strong>Own minimum</strong> follows the same rule for one contract alone, so it can be smaller than the shared list.{" "}
-          <strong>Ceiling</strong> is the highest score that still leaves a rating. 4.0 requires an unrounded final of {FOUR_STAR_CUTOFF} or higher.
+          <strong>Ceiling</strong> is the highest score that still leaves a rating.{" "}
+          <strong>All 3★ and under</strong> removes every measure in this set scored 3★ or lower. Quality Improvement stays. If removing all of them would leave no rating, the score is the highest that still leaves one. 4.0 requires an unrounded final of {FOUR_STAR_CUTOFF} or higher.
         </p>
       </div>
 
@@ -166,7 +167,7 @@ export function CloverRemovalParentPage({
 
       <ReportSection
         title="Contract results"
-        note="Before is the modeled Overall with nothing removed. Own minimum is how many measures this contract alone would need removed. Shared is the Overall after the shared list."
+        note="Before is the modeled Overall with nothing removed. Own minimum is how many measures this contract alone would need removed. Shared is the Overall after the shared list. All 3★ and under is the Overall after every measure in this set scored 3★ or lower is removed."
         style={{ marginTop: 12 }}
       >
         <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>
@@ -177,12 +178,14 @@ export function CloverRemovalParentPage({
               <th>Before</th>
               <th>Own minimum</th>
               <th>Shared</th>
+              <th>All 3★ and under</th>
               <th>Enrollment</th>
             </tr>
           </thead>
           <tbody>
             {report.contracts.map((row) => {
               const sharedAtFour = (row.sharedScore?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF;
+              const lowAtFour = (row.lowStars.score?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF;
               return (
                 <tr key={row.contractId}>
                   <td className="l" style={CELL}>
@@ -203,6 +206,16 @@ export function CloverRemovalParentPage({
                   >
                     {formatScore(row.sharedScore?.finalScoreRaw, 3)}
                     {row.sharedScore ? ` · ${formatStars(row.sharedScore.finalRating, 1)}` : ""}
+                  </td>
+                  <td
+                    style={{
+                      ...CELL,
+                      fontWeight: 700,
+                      color: lowAtFour ? REPORT_COLORS.positive : REPORT_COLORS.negative,
+                    }}
+                  >
+                    {formatScore(row.lowStars.score?.finalScoreRaw, 3)}
+                    {row.lowStars.score ? ` · ${formatStars(row.lowStars.score.finalRating, 1)}` : ""}
                   </td>
                   <td style={CELL}>{formatEnrollment(row.enrollment)}</td>
                 </tr>

@@ -7,6 +7,7 @@ import { getOfficialForScenario } from "@/lib/reward-factor/official-threshold-d
 import {
   assumeQiStar,
   cloverCandidatePool,
+  evaluateAllLowStarRemoval,
   evaluateCloverRemoval,
   evaluateKeptRemoval,
   findContractMinRemovals,
@@ -17,7 +18,7 @@ import {
   removalUsesPartCCai,
   type CloverContractSearchInput,
 } from "./clover-min-removal";
-import { qiScoreDirection, qiStarSupported, cloverMeasurePath } from "./clover-removal-constants";
+import { qiScoreDirection, qiStarSupported, cloverMeasurePath, keptReasonWhenShort } from "./clover-removal-constants";
 import { matchesParentOrganization } from "./clover-removal-report-data";
 import {
   buildAnchoredPopulation,
@@ -543,6 +544,37 @@ test("measure path labels explain why a measure is kept or removed", () => {
     }).reason,
     "Removed: nothing else reached 4.0",
   );
+  assert.equal(
+    cloverMeasurePath({
+      isQi: false,
+      isPartDQi: false,
+      star: 2,
+      inPool: true,
+      onShared: false,
+      onOwnMin: false,
+      partDQiRemoved: false,
+      alreadyAtFour: false,
+      canReachFour: false,
+    }).reason,
+    "Kept: removing it would leave too few measures",
+  );
+  assert.deepEqual(
+    cloverMeasurePath({
+      isQi: false,
+      isPartDQi: false,
+      star: 2,
+      inPool: true,
+      onShared: false,
+      onOwnMin: false,
+      onCeiling: true,
+      partDQiRemoved: false,
+      alreadyAtFour: false,
+      canReachFour: false,
+    }),
+    { role: "removed", reason: "Removed: still short of 4.0" },
+  );
+  assert.equal(keptReasonWhenShort({ star: 2, ifRemoved: "lower" }), "Kept: removing it would lower the score");
+  assert.equal(keptReasonWhenShort({ star: 3, ifRemoved: "other" }), "Kept: still short of 4.0");
 });
 
 test("removing one kept measure rescores the overall, or drops the rating at the floor", () => {
@@ -570,6 +602,34 @@ test("removing one kept measure rescores the overall, or drops the rating at the
     measure("C28", 1, 3),
   ];
   assert.equal(evaluateKeptRemoval(input("H2", tight), [], "C28", ZERO_RF, ZERO_RF, ["C28"]), "unrated");
+});
+
+test("removing every 3-star and under measure raises the score, and stops when a rating would be lost", () => {
+  const rated = [
+    ...Array.from({ length: 14 }, (_, index) => measure(`C${10 + index}`, 4)),
+    measure("D08", 5),
+    measure("C28", 1, 3),
+    measure("C33", 3, 2),
+    measure("C30", 1, 5),
+  ];
+  const result = evaluateAllLowStarRemoval(input("H1", rated), ZERO_RF, ZERO_RF, ["C28", "C33", "C30"]);
+  const base = evaluateCloverRemoval(input("H1", rated), [], ZERO_RF, ZERO_RF, ["C28", "C33", "C30"]);
+  assert.equal(result.removedAll, true);
+  assert.deepEqual([...result.codes].sort(), ["C28", "C33"]);
+  assert.ok(base && result.score && result.score.finalScoreRaw > base.finalScoreRaw);
+
+  const tight = [
+    ...Array.from({ length: 12 }, (_, index) => measure(`C${10 + index}`, 4)),
+    measure("D08", 4),
+    measure("C28", 1, 3),
+    measure("C33", 2, 3),
+    measure("C32", 3, 1),
+  ];
+  const limited = evaluateAllLowStarRemoval(input("H2", tight), ZERO_RF, ZERO_RF, ["C28", "C33", "C32"]);
+  assert.equal(limited.availableCount, 3);
+  assert.equal(limited.removedAll, false);
+  assert.equal(limited.codes.length, 1);
+  assert.ok((limited.score?.measureCount ?? 0) >= 15);
 });
 
 test("QI options stay at or above the CMS star when more measures improved", () => {
