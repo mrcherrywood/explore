@@ -291,7 +291,25 @@ function evaluatePrepared(
   return withoutQi;
 }
 
-function forEachCombination(n: number, k: number, visit: (idx: number[]) => void): void {
+/** Stop enumerating when this many combinations would be scored at one size. */
+const FULL_SCAN_LIMIT = 25_000;
+
+function combinationCount(n: number, k: number): number {
+  if (k < 0 || k > n) return 0;
+  if (k === 0 || k === n) return 1;
+  const take = Math.min(k, n - k);
+  let result = 1;
+  for (let i = 1; i <= take; i += 1) {
+    result = (result * (n - take + i)) / i;
+  }
+  return result;
+}
+
+function forEachCombination(
+  n: number,
+  k: number,
+  visit: (idx: number[]) => boolean | void,
+): void {
   if (k === 0) {
     visit([]);
     return;
@@ -299,13 +317,62 @@ function forEachCombination(n: number, k: number, visit: (idx: number[]) => void
   if (k > n) return;
   const idx = Array.from({ length: k }, (_, i) => i);
   while (true) {
-    visit(idx);
+    if (visit(idx) === false) return;
     let i = k - 1;
     while (i >= 0 && idx[i] === n - k + i) i -= 1;
     if (i < 0) break;
     idx[i] += 1;
     for (let j = i + 1; j < k; j += 1) idx[j] = idx[j - 1] + 1;
   }
+}
+
+function caiBounds(prep: ContractPrep): { low: number; high: number } {
+  const values = [prep.overallCai, prep.partCCai].filter((value): value is number => value != null);
+  if (values.length === 0) return { low: 0, high: 0 };
+  return { low: Math.min(...values), high: Math.max(...values) };
+}
+
+/** Mean a removal must clear so final can still reach 4.0 after the less favorable CAI. */
+function removalTargetMean(prep: ContractPrep): number {
+  return FOUR_STAR_CUTOFF - caiBounds(prep).low;
+}
+
+/**
+ * True when some set of at most k removals can push the weighted mean to the target.
+ * Measures at or above the target cannot help, so only lower stars are counted.
+ */
+function meanCanReach(
+  prep: ContractPrep,
+  rows: MeasureSums[],
+  k: number,
+  targetMean: number,
+): boolean {
+  if (prep.w <= 0) return false;
+  const deficit = targetMean * prep.w - prep.ws;
+  if (deficit <= 1e-8) return true;
+  const benefits = rows
+    .map((row) => row.weight * (targetMean - row.star))
+    .filter((benefit) => benefit > 0)
+    .sort((left, right) => right - left);
+  const partDQi = prep.byCode.get("D04");
+  let sum = 0;
+  if (partDQi && !rows.some((row) => row.code === "D04")) {
+    const benefit = partDQi.weight * (targetMean - partDQi.star);
+    if (benefit > 0) sum += benefit;
+  }
+  const take = Math.min(k, benefits.length);
+  for (let i = 0; i < take; i += 1) sum += benefits[i];
+  return sum + 1e-8 >= deficit;
+}
+
+function helpfulRows(prep: ContractPrep, candidateCodes: readonly string[]): MeasureSums[] {
+  const targetMean = removalTargetMean(prep);
+  const rows: MeasureSums[] = [];
+  for (const code of candidateCodes) {
+    const row = prep.byCode.get(code);
+    if (row && row.star < targetMean) rows.push(row);
+  }
+  return rows;
 }
 
 export function findContractMinRemovals(
@@ -333,16 +400,21 @@ export function findContractMinRemovals(
   }
   const listed: CloverContractSearchResult["minSets"] = [];
   let minK: number | null = null;
-  const maxSearch = Math.min(maxK, prep.candidates.length);
+  const searchRows = helpfulRows(prep, prep.candidates);
+  const targetMean = removalTargetMean(prep);
+  const maxSearch = Math.min(maxK, searchRows.length);
   for (let k = 1; k <= maxSearch; k += 1) {
-    forEachCombination(prep.candidates.length, k, (idx) => {
-      const codes = idx.map((i) => prep.candidates[i]);
+    if (!meanCanReach(prep, searchRows, k, targetMean)) continue;
+    const wide = combinationCount(searchRows.length, k) > FULL_SCAN_LIMIT;
+    forEachCombination(searchRows.length, k, (idx) => {
+      const codes = idx.map((i) => searchRows[i].code);
       const score = evaluatePrepared(prep, codes, withQiThresholds, withoutQiThresholds);
       if (!isFourStar(score)) return;
       if (minK === null) minK = k;
       if (k === minK && listed.length < MAX_LISTED_MIN_SETS) {
         listed.push({ codes, score: score! });
       }
+      if (wide && listed.length >= 1) return false;
     });
     if (minK !== null) break;
   }
@@ -385,14 +457,44 @@ export function findSharedRemovalLadder(
   maxK = MAX_CLOVER_REMOVALS,
 ): CloverSharedLadderRow[] {
   const preps = inputs.map((input) => prepareContract(input, pool));
-  const sharedPool = pool.filter((code) => preps.some((prep) => prep.byCode.has(code)));
+  const helpful = new Set<string>();
+  const stillShort: ContractPrep[] = [];
+  for (const prep of preps) {
+    if (!reachableIds.has(prep.contractId)) continue;
+    const baseline = evaluatePrepared(prep, [], withQiThresholds, withoutQiThresholds);
+    if (isFourStar(baseline)) continue;
+    stillShort.push(prep);
+    for (const row of helpfulRows(prep, prep.candidates)) helpful.add(row.code);
+  }
+  const sharedPool = pool.filter((code) => helpful.has(code) && preps.some((prep) => prep.byCode.has(code)));
+  const benefit = (code: string) => {
+    let total = 0;
+    for (const prep of stillShort) {
+      const row = prep.byCode.get(code);
+      if (!row) continue;
+      const gain = row.weight * (removalTargetMean(prep) - row.star);
+      if (gain > 0) total += gain;
+    }
+    return total;
+  };
+  sharedPool.sort((left, right) => benefit(right) - benefit(left) || left.localeCompare(right));
   const ladder: CloverSharedLadderRow[] = [];
   const maxSearch = Math.min(maxK, sharedPool.length);
   for (let k = 0; k <= maxSearch; k += 1) {
+    if (
+      k > 0 &&
+      stillShort.some((prep) => !meanCanReach(prep, helpfulRows(prep, sharedPool), k, removalTargetMean(prep)))
+    ) {
+      continue;
+    }
+    const wide = combinationCount(sharedPool.length, k) > FULL_SCAN_LIMIT;
     // A closure assignment is invisible to control-flow narrowing, so a `let`
     // updated inside forEachCombination stays `null` and then collapses to `never`.
     const bestBox: { row: Omit<CloverSharedLadderRow, "coversReachable"> | null } = { row: null };
+    let seen = 0;
     forEachCombination(sharedPool.length, k, (idx) => {
+      seen += 1;
+      if (seen > FULL_SCAN_LIMIT) return false;
       const codes = idx.map((i) => sharedPool[i]);
       let contractsAtFour = 0;
       let enrollmentAtFour = 0;
@@ -409,6 +511,7 @@ export function findSharedRemovalLadder(
       });
       const row = { k, codes, contractsAtFour, enrollmentAtFour, totalScore, perContract };
       if (betterLadder(row, bestBox.row)) bestBox.row = row;
+      if (wide && sharedSetCovers(row, reachableIds)) return false;
     });
     const best = bestBox.row;
     if (!best) continue;
@@ -420,32 +523,6 @@ export function findSharedRemovalLadder(
     if (ladder[ladder.length - 1].coversReachable) break;
   }
   return ladder;
-}
-
-function sortCodes(codes: string[]): string[] {
-  return [...codes].sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
-}
-
-function scoreSharedCodes(
-  preps: ContractPrep[],
-  codes: string[],
-  withQiThresholds: PercentileThresholds,
-  withoutQiThresholds: PercentileThresholds,
-): Omit<CloverSharedLadderRow, "coversReachable"> {
-  let contractsAtFour = 0;
-  let enrollmentAtFour = 0;
-  let totalScore = 0;
-  const perContract = preps.map((prep) => {
-    const score = evaluatePrepared(prep, codes, withQiThresholds, withoutQiThresholds);
-    const atFour = isFourStar(score);
-    if (atFour) {
-      contractsAtFour += 1;
-      enrollmentAtFour += prep.enrollment;
-    }
-    totalScore += score?.finalScoreRaw ?? 0;
-    return { contractId: prep.contractId, atFour, score };
-  });
-  return { k: codes.length, codes, contractsAtFour, enrollmentAtFour, totalScore, perContract };
 }
 
 function sharedSetCovers(
@@ -494,37 +571,30 @@ export function findContractMinRemovalsSparingHedis(
     return { ...spared, candidates, fullPool };
   }
 
-  const prep = prepareContract(input, pool);
   const hedisPresent = candidates.filter((code) => hedis(code));
   const others = candidates.filter((code) => !hedis(code));
-  const listed: CloverContractSearchResult["minSets"] = [];
-  let minK: number | null = null;
+  let best: CloverContractSearchResult | null = null;
   const maxH = Math.min(hedisPresent.length, maxK);
-  for (let h = 1; h <= maxH && minK === null; h += 1) {
-    for (let extra = 0; extra <= maxK - h && minK === null; extra += 1) {
-      forEachCombination(hedisPresent.length, h, (hIdx) => {
-        const hedisPick = hIdx.map((i) => hedisPresent[i]);
-        forEachCombination(others.length, extra, (pIdx) => {
-          const codes = sortCodes([...pIdx.map((i) => others[i]), ...hedisPick]);
-          const score = evaluatePrepared(prep, codes, withQiThresholds, withoutQiThresholds);
-          if (!isFourStar(score)) return;
-          if (minK === null) minK = h + extra;
-          if (listed.length < MAX_LISTED_MIN_SETS) listed.push({ codes, score: score! });
-        });
-      });
-    }
+  for (let h = 1; h <= maxH && !best; h += 1) {
+    forEachCombination(hedisPresent.length, h, (hIdx) => {
+      const hedisPick = hIdx.map((i) => hedisPresent[i]);
+      const found = findContractMinRemovals(
+        input,
+        withQiThresholds,
+        withoutQiThresholds,
+        [...others, ...hedisPick],
+        maxK,
+      );
+      if (!found.reachableWithinMax) return;
+      const foundK = found.minK ?? maxK;
+      const bestK = best?.minK ?? maxK + 1;
+      if (!best || foundK < bestK) best = found;
+    });
   }
-  listed.sort((left, right) => right.score.finalScoreRaw - left.score.finalScoreRaw);
-  return {
-    contractId: input.contractId,
-    baseline: spared.baseline,
-    fullPool,
-    candidates,
-    minK,
-    minSets: listed,
-    reachableWithinMax: minK !== null,
-    alreadyAtFour: false,
-  };
+  if (!best) {
+    return { ...spared, candidates, fullPool };
+  }
+  return { ...best, candidates, fullPool, baseline: spared.baseline };
 }
 
 /**
@@ -552,26 +622,27 @@ export function findSharedRemovalLadderSparingHedis(
   );
   if (spared.some((row) => row.coversReachable)) return spared;
 
-  const preps = inputs.map((input) => prepareContract(input, pool));
-  const onBook = (code: string) => preps.some((prep) => prep.byCode.has(code.toUpperCase()));
-  const hedisOnBook = pool.filter((code) => hedis(code) && onBook(code));
-  const others = preferred.filter((code) => onBook(code));
+  const hedisOnBook = pool.filter((code) => hedis(code));
+  const others = preferred;
   let winner: CloverSharedLadderRow | null = null;
   const maxH = Math.min(hedisOnBook.length, maxK);
   for (let h = 1; h <= maxH && !winner; h += 1) {
-    for (let extra = 0; extra <= maxK - h && !winner; extra += 1) {
-      const bestBox: { row: Omit<CloverSharedLadderRow, "coversReachable"> | null } = { row: null };
-      forEachCombination(hedisOnBook.length, h, (hIdx) => {
-        const hedisPick = hIdx.map((i) => hedisOnBook[i]);
-        forEachCombination(others.length, extra, (pIdx) => {
-          const codes = sortCodes([...pIdx.map((i) => others[i]), ...hedisPick]);
-          const row = scoreSharedCodes(preps, codes, withQiThresholds, withoutQiThresholds);
-          if (!sharedSetCovers(row, reachableIds)) return;
-          if (betterLadder(row, bestBox.row)) bestBox.row = row;
-        });
-      });
-      if (bestBox.row) winner = { ...bestBox.row, coversReachable: true };
-    }
+    forEachCombination(hedisOnBook.length, h, (hIdx) => {
+      const hedisPick = hIdx.map((i) => hedisOnBook[i]);
+      const ladder = findSharedRemovalLadder(
+        inputs,
+        withQiThresholds,
+        withoutQiThresholds,
+        reachableIds,
+        [...others, ...hedisPick],
+        maxK,
+      );
+      const cover = ladder.find((row) => row.coversReachable);
+      if (!cover) return;
+      if (!winner || cover.k < winner.k || (cover.k === winner.k && betterLadder(cover, winner))) {
+        winner = cover;
+      }
+    });
   }
   if (!winner) return spared;
   return [...spared, winner].sort(

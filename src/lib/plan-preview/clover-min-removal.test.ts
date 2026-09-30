@@ -367,6 +367,20 @@ test("any-measure search removes HEDIS only when nothing else reaches 4.0", () =
   assert.deepEqual(recommended?.codes, ["C01"]);
 });
 
+test("a large any-measure pool still resolves within a couple of seconds", () => {
+  const keep = Array.from({ length: 24 }, (_, index) => measure(`C${index + 6}`, 4));
+  const lows = Array.from({ length: 10 }, (_, index) => measure(`D${index + 5}`, 1));
+  const row = input("HX", [...keep, ...lows, measure("C30", 4), measure("D04", 4)]);
+  const pool = [...keep.map((item) => item.code), ...lows.map((item) => item.code)];
+  const started = Date.now();
+  const found = findContractMinRemovals(row, ZERO_RF, ZERO_RF, pool);
+  const shared = findSharedRemovalLadder([row], ZERO_RF, ZERO_RF, new Set(["HX"]), pool);
+  const elapsed = Date.now() - started;
+  assert.equal(found.minK, 8);
+  assert.ok(shared.some((entry) => entry.coversReachable && entry.k === 8));
+  assert.ok(elapsed < 2000, `search took ${elapsed}ms`);
+});
+
 test("measure path labels explain why a measure is kept or removed", () => {
   assert.deepEqual(
     cloverMeasurePath({
