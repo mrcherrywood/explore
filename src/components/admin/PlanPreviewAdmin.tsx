@@ -527,6 +527,18 @@ export function PlanPreviewAdmin() {
         />
       ) : null}
 
+      {starsYear !== null && (overview?.officialContracts?.length ?? 0) > 0 ? (
+        <PlanPreviewReportPicker
+          starsYear={starsYear}
+          contracts={overview?.officialContracts ?? []}
+          hrefBase="/admin/plan-preview/exclusion-models"
+          mode="parent"
+          title="Exclusion models"
+          description="Overall scores after the CMS 2026 recalculation exclusions and the Clover statutory and notice-and-comment exclusions, using official Stars measure stars."
+          buttonLabel="Open exclusion models →"
+        />
+      ) : null}
+
       {starsYear !== null && (accrual?.contractCount ?? 0) > 0 ? (
         <PlanPreviewPredictions key={starsYear} starsYear={starsYear} />
       ) : null}
