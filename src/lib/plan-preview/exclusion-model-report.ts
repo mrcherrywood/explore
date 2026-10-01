@@ -83,18 +83,17 @@ export function buildExclusionModelReport(input: {
   const population = buildAnchoredPopulation(overlaid, overlaid.baselineYear);
   const enrollment = loadLatestEnrollment();
   const cai = caiFromOfficialSummaries(input.officialSummaries);
-  const scenarioOptions = {
-    preferWithQi: true,
-    useOfficialRewardFactorThresholds: false,
-  } as const;
-  const scoreByContract = (removedCodes: readonly string[]) => {
-    const scenario = buildCustomRemovalScenario(overlaid, cai, removedCodes, scenarioOptions);
+  const scoreByContract = (removedCodes: readonly string[], useOfficialRewardFactorThresholds: boolean) => {
+    const scenario = buildCustomRemovalScenario(overlaid, cai, removedCodes, {
+      preferWithQi: true,
+      useOfficialRewardFactorThresholds,
+    });
     return new Map(scenario.contracts.map((row) => [row.contractId, legScore(row)]));
   };
-  const baselineByContract = scoreByContract([]);
+  const baselineByContract = scoreByContract([], true);
   const modelScores = EXCLUSION_MODELS.map((model) => ({
     id: model.id,
-    byContract: scoreByContract(model.codes),
+    byContract: scoreByContract(model.codes, false),
   }));
   const parentIds = new Set<string>();
   const names = new Map<string, string | null>();

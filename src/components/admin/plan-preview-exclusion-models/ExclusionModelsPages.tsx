@@ -186,7 +186,7 @@ export function ExclusionModelsScoresPage({
     >
       <ReportSection
         title="Overall after exclusions"
-        note="No exclusions keeps every measure and still recalculates the reward factor for this year’s market. CMS recalc, Statutory, and Notice drop that group. All Clover drops both Clover lists. CMS + Clover drops every measure on either list."
+        note="No exclusions keeps every measure and uses the published reward factor. CMS recalc, Statutory, and Notice drop that group and recalculate the reward factor. All Clover drops both Clover lists. CMS + Clover drops every measure on either list."
         style={{ marginTop: 8 }}
       >
         <table className="fep-report-table compact" style={{ fontSize: 8.5 }}>
