@@ -12,6 +12,7 @@ import type {
 import { buildLowStarMatrixPages } from "@/lib/plan-preview/clover-low-star-matrix";
 
 import {
+  CloverRemovalBetterOfListPage,
   CloverRemovalBetterOfMeasuresPage,
   CloverRemovalBetterOfScoresPage,
   type BetterOfMeasureRow,
@@ -45,11 +46,16 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
     report.lenses.find((lens) => lens.lensId === "eligible")?.candidateMeasures.map((measure) => measure.code) ?? [];
   const matrixPages = buildLowStarMatrixPages({ ...view, recalcCodes });
   const betterOfScorePages = chunk(view.contracts, 12);
+  const betterOfShort = view.contracts.filter((contract) => !contract.alreadyAtFour && !contract.reachableWithinMax);
+  const betterOfPushed = betterOfShort.filter(
+    (contract) => contract.betterOfPath.alreadyAtFour || contract.betterOfPath.reachable,
+  ).length;
+  const betterOfListPages = betterOfShort.length === 0 ? [[]] : chunk(betterOfShort, 10);
   const betterOfMeasureRows: BetterOfMeasureRow[] = view.contracts.flatMap((contract) =>
     contract.betterOf.usedPrior.map((row) => ({ contractId: contract.contractId, ...row })),
   );
   const betterOfMeasurePages = chunk(betterOfMeasureRows, 26);
-  const betterOfPageCount = betterOfScorePages.length + betterOfMeasurePages.length;
+  const betterOfPageCount = betterOfScorePages.length + betterOfListPages.length + betterOfMeasurePages.length;
   const totalPages = 2 + betterOfPageCount + matrixPages.length + view.contracts.length + measurePages.length;
   const slug = view.parentOrganization.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const fileName = `recalc-4-star-path_${slug}_stars-${view.starsYear}_${view.lensId}`;
@@ -140,12 +146,24 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
             continued={index > 0}
           />
         ))}
+        {betterOfListPages.map((contracts, index) => (
+          <CloverRemovalBetterOfListPage
+            key={`better-of-list-${contracts[0]?.contractId ?? index}`}
+            report={view}
+            contracts={contracts}
+            shortCount={betterOfShort.length}
+            pushedCount={betterOfPushed}
+            pageNumber={2 + betterOfScorePages.length + index}
+            totalPages={totalPages}
+            continued={index > 0}
+          />
+        ))}
         {betterOfMeasurePages.map((rows, index) => (
           <CloverRemovalBetterOfMeasuresPage
             key={`better-of-measures-${rows[0]?.contractId ?? index}-${rows[0]?.code ?? index}`}
             report={view}
             rows={rows}
-            pageNumber={2 + betterOfScorePages.length + index}
+            pageNumber={2 + betterOfScorePages.length + betterOfListPages.length + index}
             totalPages={totalPages}
             continued={index > 0}
           />

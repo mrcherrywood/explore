@@ -8,6 +8,7 @@ import {
   assumeQiStar,
   cloverCandidatePool,
   applyBetterOfStars,
+  bestCaseRemoval,
   evaluateAllLowStarRemoval,
   evaluateCloverRemoval,
   evaluateKeptRemoval,
@@ -645,6 +646,35 @@ test("QI options stay at or above the CMS star when more measures improved", () 
   assert.equal(qiStarSupported("down", [3], 1), true);
   assert.equal(qiStarSupported("flat", [3, 4], 3), true);
   assert.equal(qiStarSupported("flat", [3, 4], 5), false);
+});
+
+test("best case drops a low Recalc measure after Better-Of stars and without QI", () => {
+  const keep = [...Array.from({ length: 14 }, (_, index) => measure(`C${10 + index}`, 5)), measure("D08", 5)];
+  const current = [...keep, measure("C28", 1, 3), measure("C30", 1, 5), measure("D04", 1, 5)];
+  const prior = new Map<string, number>([["C28", 2]]);
+  const better = applyBetterOfStars(current, prior);
+  const withQi = getOfficialForScenario(2027, "overall_mapd", true);
+  const withoutQi = getOfficialForScenario(2027, "overall_mapd", false);
+  assert.ok(withQi && withoutQi);
+  const row = input("H1", better.measures);
+  const noQi = evaluateWithoutQi(row, [], withQi, withoutQi, ["C28"]);
+  const best = bestCaseRemoval(row, withQi, withoutQi, ["C28"], "without_qi");
+  assert.deepEqual(best.codes, ["C28"]);
+  assert.equal(best.score?.selectedLeg, "without_qi");
+  assert.ok(best.score && noQi && best.score.finalScoreRaw > noQi.finalScoreRaw);
+  assert.ok(!best.score || !current.some((measure) => measure.code === "C30" && best.codes.includes("C30")));
+});
+
+test("Better-Of stars can carry a contract to 4.0 when this year's stars cannot", () => {
+  const codes = [...Array.from({ length: 14 }, (_, index) => `C${10 + index}`), "D08", "D05"];
+  const current = codes.map((code) => measure(code, 3));
+  const prior = new Map(codes.slice(0, 10).map((code) => [code, 5]));
+  const thisYear = findContractMinRemovals(input("H1", current), ZERO_RF, ZERO_RF, codes);
+  assert.equal(thisYear.reachableWithinMax, false);
+  const better = applyBetterOfStars(current, prior);
+  const next = findContractMinRemovals(input("H1", better.measures), ZERO_RF, ZERO_RF, codes);
+  assert.equal(next.alreadyAtFour, true);
+  assert.ok((next.baseline?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF);
 });
 
 test("Better-Of keeps this year unless last year's star is higher", () => {

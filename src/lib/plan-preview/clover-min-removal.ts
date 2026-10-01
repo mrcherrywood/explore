@@ -418,18 +418,37 @@ function walkRemovals(
   withQiThresholds: PercentileThresholds,
   withoutQiThresholds: PercentileThresholds,
   priority?: RemovalPriority,
+  leg: "published" | "without_qi" = "published",
 ): Array<{ codes: string[]; score: CloverRemovalLegScore }> {
   const chosen: string[] = [];
   const steps: Array<{ codes: string[]; score: CloverRemovalLegScore }> = [];
   for (const row of removalOrder(prep, priority)) {
     const trial = [...chosen, row.code];
     if (!removalKeepsRating(prep, trial)) continue;
-    const score = evaluatePrepared(prep, trial, withQiThresholds, withoutQiThresholds);
+    const score = evaluatePrepared(prep, trial, withQiThresholds, withoutQiThresholds, leg);
     if (!score || score.measureCount < MIN_RATED_MEASURES) continue;
     chosen.push(row.code);
     steps.push({ codes: [...chosen], score });
   }
   return steps;
+}
+
+/** Highest score from removing every below-4.0 measure in the pool that a rating can still spare. */
+export function bestCaseRemoval(
+  input: CloverContractSearchInput,
+  withQiThresholds: PercentileThresholds,
+  withoutQiThresholds: PercentileThresholds,
+  pool: readonly string[] = cloverCandidatePool(),
+  leg: "published" | "without_qi" = "without_qi",
+): { codes: string[]; score: CloverRemovalLegScore | null } {
+  const prep = prepareContract(input, [...pool]);
+  const steps = walkRemovals(prep, withQiThresholds, withoutQiThresholds, undefined, leg);
+  const last = steps[steps.length - 1];
+  if (last) return { codes: last.codes, score: last.score };
+  return {
+    codes: [],
+    score: evaluatePrepared(prep, [], withQiThresholds, withoutQiThresholds, leg),
+  };
 }
 
 export type LowStarRemoval = {

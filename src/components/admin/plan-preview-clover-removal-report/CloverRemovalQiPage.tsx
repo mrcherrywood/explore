@@ -62,7 +62,7 @@ export function CloverRemovalQiPage({
           <strong>Shared list</strong> is the one removal list for contracts that can reach 4.0.{" "}
           <strong>All allowed</strong> is every measure a contract can still lose and keep a rating. Those contracts cannot reach 4.0 with the QI stars CMS assigned, so the what-if uses that larger set.{" "}
           <strong>Best guess</strong> rebuilds QI from the measures that remain: significant improvement counts as +1, significant decline as −1, and no change counts as 0.{" "}
-          The 1★–5★ columns are the average of the Part C and Part D Quality Improvement stars, with both measures at that star. A highlighted cell is a star CMS already assigned. <strong>Not expected</strong> means this contract’s measure changes do not support that star. Green is an unrounded Overall of {FOUR_STAR_CUTOFF} or higher.
+          The 1★–5★ columns are the average of the Part C and Part D Quality Improvement stars, with both measures at that star. <strong>No QI</strong> drops both Quality Improvement measures for this year and keeps the removal in that row. A highlighted cell is a star CMS already assigned. <strong>Not expected</strong> means this contract’s measure changes do not support that star. Green is an unrounded Overall of {FOUR_STAR_CUTOFF} or higher.
         </p>
       </div>
 
@@ -122,6 +122,7 @@ export function CloverRemovalQiPage({
             <tr>
               <th className="l">Contract</th>
               <th className="l">Removal</th>
+              <th>No QI</th>
               {QI_STARS.map((star) => (
                 <th key={star}>{star}★</th>
               ))}
@@ -132,6 +133,9 @@ export function CloverRemovalQiPage({
               <tr key={contract.contractId}>
                 <td className="l" style={{ ...CELL, fontWeight: 700 }}>{contract.contractId}</td>
                 <td className="l" style={CELL}>{removalLabel(contract)}</td>
+                <td style={{ ...CELL, fontWeight: 800, color: scoreColor(contract.qiNoQi.atFour) }}>
+                  {formatScore(contract.qiNoQi.finalScoreRaw, 3)}
+                </td>
                 {contract.qiOptions.map((option) => {
                   const cms = contract.publishedQi.some((row) => row.star === option.qiStar);
                   const supported = qiStarSupported(

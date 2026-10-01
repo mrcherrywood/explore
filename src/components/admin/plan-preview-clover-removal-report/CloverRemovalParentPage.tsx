@@ -166,7 +166,7 @@ export function CloverRemovalParentPage({
 
       <ReportSection
         title="Contract results"
-        note="Before is the modeled Overall with nothing removed. Own minimum is how many measures this contract alone would need removed. Shared is the Overall after the shared list. All 3★ and under is the Overall after every measure in this set scored 3★ or lower is removed."
+        note="Before is the modeled Overall with nothing removed. Own minimum is how many measures this contract alone would need removed. Shared is the Overall after the shared list. All 3★ and under is the Overall after every measure in this set scored 3★ or lower is removed. Best case uses Better-Of stars, drops Quality Improvement, and removes Recalc and Clover-20 measures that are still below 4.0."
         style={{ marginTop: 12 }}
       >
         <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>
@@ -178,6 +178,7 @@ export function CloverRemovalParentPage({
               <th>Own minimum</th>
               <th>Shared</th>
               <th>All 3★ and under</th>
+              <th>Best case</th>
               <th>Enrollment</th>
             </tr>
           </thead>
@@ -185,6 +186,7 @@ export function CloverRemovalParentPage({
             {report.contracts.map((row) => {
               const sharedAtFour = (row.sharedScore?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF;
               const lowAtFour = (row.lowStars.score?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF;
+              const bestAtFour = (row.bestCase.score?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF;
               return (
                 <tr key={row.contractId}>
                   <td className="l" style={CELL}>
@@ -215,6 +217,16 @@ export function CloverRemovalParentPage({
                   >
                     {formatScore(row.lowStars.score?.finalScoreRaw, 3)}
                     {row.lowStars.score ? ` · ${formatStars(row.lowStars.score.finalRating, 1)}` : ""}
+                  </td>
+                  <td
+                    style={{
+                      ...CELL,
+                      fontWeight: 700,
+                      color: bestAtFour ? REPORT_COLORS.positive : REPORT_COLORS.negative,
+                    }}
+                  >
+                    {formatScore(row.bestCase.score?.finalScoreRaw, 3)}
+                    {row.bestCase.score ? ` · ${formatStars(row.bestCase.score.finalRating, 1)}` : ""}
                   </td>
                   <td style={CELL}>{formatEnrollment(row.enrollment)}</td>
                 </tr>

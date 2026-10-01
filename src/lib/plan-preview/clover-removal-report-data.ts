@@ -24,6 +24,7 @@ import {
   cloverCandidatePool,
   evaluateAllLowStarRemoval,
   evaluateCloverRemoval,
+  bestCaseRemoval,
   evaluateKeptRemoval,
   evaluateWithoutQi,
   findContractMinRemovals,
@@ -115,11 +116,25 @@ export type CloverRemovalContractPage = {
   qiBasis: "shared" | "full";
   qiGuess: CloverRemovalQiGuess | null;
   qiOptions: CloverRemovalQiOption[];
+  /** This year's stars with Quality Improvement dropped, after the same removal as the QI table. */
+  qiNoQi: { finalScoreRaw: number | null; finalRating: number | null; atFour: boolean };
   pathMeasures: CloverRemovalPathMeasure[];
+  /** Removal list rebuilt from the higher star of this year and last year. */
+  betterOfPath: {
+    alreadyAtFour: boolean;
+    reachable: boolean;
+    minK: number | null;
+    score: CloverRemovalLegScore | null;
+    measures: CloverRemovalMeasureRef[];
+    sharedAtFour: boolean;
+    sharedScore: CloverRemovalLegScore | null;
+  };
   /** Overall using the higher star of this year and last year on each measure. */
   betterOf: {
     priorYear: number;
     score: CloverRemovalLegScore | null;
+    /** Better-Of after this view's shared list, or every measure the contract can still lose. */
+    removedScore: CloverRemovalLegScore | null;
     usedPrior: Array<{
       code: string;
       displayName: string;
@@ -129,6 +144,14 @@ export type CloverRemovalContractPage = {
   };
   /** Overall with Quality Improvement removed, using the without-QI reward-factor thresholds. */
   noQi: CloverRemovalLegScore | null;
+  /**
+   * Better-Of stars, Quality Improvement removed, and every Recalc and Clover-20
+   * measure still below 4.0 taken out when a rating can remain.
+   */
+  bestCase: {
+    score: CloverRemovalLegScore | null;
+    removedCount: number;
+  };
   /** Overall after every 3★ or lower measure in this lens is removed. */
   lowStars: {
     removedCount: number;
@@ -162,6 +185,9 @@ export type CloverRemovalLens = {
   recommended: CloverSharedLadderRow | null;
   recommendedMeasures: CloverRemovalMeasureRef[];
   ladder: CloverSharedLadderRow[];
+  /** Shared removal list rebuilt with Better-Of stars. */
+  betterOfList: CloverRemovalMeasureRef[];
+  betterOfListCoversReachable: boolean;
   contracts: CloverRemovalContractPage[];
   sensitivity: CloverRemovalSensitivityRow[] | null;
   notes: string[];
@@ -223,20 +249,73 @@ function loadPriorStarsByContract(year: number): Map<string, Map<string, number>
   return byContract;
 }
 
+function bestCaseForContract(
+  searchInput: CloverContractSearchInput | undefined,
+  priorByContract: Map<string, Map<string, number>>,
+  withQi: NonNullable<ReturnType<typeof getOfficialForScenario>>,
+  withoutQi: NonNullable<ReturnType<typeof getOfficialForScenario>>,
+): CloverRemovalContractPage["bestCase"] {
+  if (!searchInput) return { score: null, removedCount: 0 };
+  const prior = priorByContract.get(searchInput.contractId) ?? new Map<string, number>();
+  const better = applyBetterOfStars(searchInput.measures, prior);
+  const best = bestCaseRemoval(
+    { ...searchInput, measures: better.measures },
+    withQi,
+    withoutQi,
+    cloverCandidatePool(),
+    "without_qi",
+  );
+  return { score: best.score, removedCount: best.codes.length };
+}
+
+function betterOfPathForContract(
+  search: ReturnType<typeof findContractMinRemovals> | undefined,
+  betterMeasures: ContractMeasure[],
+  shared: { atFour: boolean; score: CloverRemovalLegScore | null } | undefined,
+  displayByCode: Map<string, string>,
+): CloverRemovalContractPage["betterOfPath"] {
+  if (!search) {
+    return {
+      alreadyAtFour: false,
+      reachable: false,
+      minK: null,
+      score: null,
+      measures: [],
+      sharedAtFour: false,
+      sharedScore: null,
+    };
+  }
+  const reached = search.alreadyAtFour || search.reachableWithinMax;
+  const codes = reached ? (search.minSets[0]?.codes ?? []) : search.ceilingCodes;
+  const score = reached ? (search.minSets[0]?.score ?? search.baseline) : search.fullPool;
+  return {
+    alreadyAtFour: search.alreadyAtFour,
+    reachable: search.reachableWithinMax,
+    minK: search.minK,
+    score,
+    measures: measureRefs(codes, displayByCode, betterMeasures),
+    sharedAtFour: shared?.atFour ?? false,
+    sharedScore: shared?.score ?? null,
+  };
+}
+
 function betterOfForContract(
   searchInput: CloverContractSearchInput | undefined,
   priorByContract: Map<string, Map<string, number>>,
   priorYear: number,
   displayByCode: Map<string, string>,
+  removedCodes: readonly string[],
   withQi: NonNullable<ReturnType<typeof getOfficialForScenario>>,
   withoutQi: NonNullable<ReturnType<typeof getOfficialForScenario>>,
 ): CloverRemovalContractPage["betterOf"] {
-  if (!searchInput) return { priorYear, score: null, usedPrior: [] };
+  if (!searchInput) return { priorYear, score: null, removedScore: null, usedPrior: [] };
   const prior = priorByContract.get(searchInput.contractId) ?? new Map<string, number>();
   const better = applyBetterOfStars(searchInput.measures, prior);
+  const betterInput = { ...searchInput, measures: better.measures };
   return {
     priorYear,
-    score: evaluateCloverRemoval({ ...searchInput, measures: better.measures }, [], withQi, withoutQi),
+    score: evaluateCloverRemoval(betterInput, [], withQi, withoutQi),
+    removedScore: evaluateCloverRemoval(betterInput, removedCodes, withQi, withoutQi),
     usedPrior: better.usedPrior.map((row) => ({
       code: row.code,
       displayName: displayByCode.get(row.code) ?? row.code,
@@ -411,6 +490,30 @@ export function buildCloverRemovalReport(input: {
   const sharedById = new Map(
     (recommended ?? ladder[ladder.length - 1])?.perContract.map((row) => [row.contractId, row.score]) ?? [],
   );
+  const betterInputs = searchInputs.map((row) => {
+    const prior = priorByContract.get(row.contractId) ?? new Map<string, number>();
+    return { ...row, measures: applyBetterOfStars(row.measures, prior).measures };
+  });
+  const betterPerContract = betterInputs.map((row) =>
+    findContractMinRemovals(row, withQi, withoutQi, pool, priority),
+  );
+  const betterReachableIds = new Set(
+    betterPerContract.filter((row) => row.reachableWithinMax || row.alreadyAtFour).map((row) => row.contractId),
+  );
+  const betterLadder = findSharedRemovalLadder(
+    betterInputs,
+    withQi,
+    withoutQi,
+    betterReachableIds,
+    pool,
+    priority,
+  );
+  const betterRecommended = betterLadder.find((row) => row.coversReachable) ?? betterLadder[betterLadder.length - 1] ?? null;
+  const betterSearchById = new Map(betterPerContract.map((row) => [row.contractId, row]));
+  const betterInputById = new Map(betterInputs.map((row) => [row.contractId, row]));
+  const betterSharedById = new Map(
+    betterRecommended?.perContract.map((row) => [row.contractId, row]) ?? [],
+  );
   const inputById = new Map(searchInputs.map((row) => [row.contractId, row]));
 
   const contracts: CloverRemovalContractPage[] = perContract.map((row) => {
@@ -468,6 +571,14 @@ export function buildCloverRemovalReport(input: {
             rewardFactor: qiScore?.rewardFactor ?? null,
             atFour: (qiScore?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF,
           };
+    const qiNoQiScore = searchInput
+      ? evaluateWithoutQi(searchInput, qiCodes, withQi, withoutQi, pool)
+      : null;
+    const qiNoQi = {
+      finalScoreRaw: qiNoQiScore?.finalScoreRaw ?? null,
+      finalRating: qiNoQiScore?.finalRating ?? null,
+      atFour: (qiNoQiScore?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF,
+    };
     const qiOptions: CloverRemovalQiOption[] = [1, 2, 3, 4, 5].map((qiStar) => {
       const score = searchInput
         ? evaluateCloverRemoval(assumeQiStar(searchInput, qiStar), qiCodes, withQi, withoutQi, pool)
@@ -562,9 +673,25 @@ export function buildCloverRemovalReport(input: {
       qiBasis,
       qiGuess,
       qiOptions,
+      qiNoQi,
       pathMeasures,
-      betterOf: betterOfForContract(searchInput, priorByContract, priorStarsYear, displayByCode, withQi, withoutQi),
+      betterOfPath: betterOfPathForContract(
+        betterSearchById.get(row.contractId),
+        betterInputById.get(row.contractId)?.measures ?? [],
+        betterSharedById.get(row.contractId),
+        displayByCode,
+      ),
+      betterOf: betterOfForContract(
+        searchInput,
+        priorByContract,
+        priorStarsYear,
+        displayByCode,
+        qiCodes,
+        withQi,
+        withoutQi,
+      ),
       noQi: searchInput ? evaluateWithoutQi(searchInput, [], withQi, withoutQi) : null,
+      bestCase: bestCaseForContract(searchInput, priorByContract, withQi, withoutQi),
       lowStars: {
         removedCount: lowStarRemoval?.codes.length ?? 0,
         availableCount: lowStarRemoval?.availableCount ?? 0,
@@ -609,13 +736,21 @@ export function buildCloverRemovalReport(input: {
         ).map((row) => ({ ...row, star: null, weight: null }))
       : [],
     ladder,
+    betterOfList: betterRecommended
+      ? measureRefs(betterRecommended.codes, displayByCode, betterInputs[0]?.measures ?? []).map((row) => ({
+          ...row,
+          star: null,
+          weight: null,
+        }))
+      : [],
+    betterOfListCoversReachable: betterRecommended?.coversReachable ?? false,
     contracts,
     sensitivity,
     notes: [
       "Reward-factor thresholds are the official CMS Technical Notes Overall MA-PD values and are not recomputed after measure removals.",
       "The sensitivity row shows the recommended list with thresholds recomputed from the full H+R market.",
       "Removal lists use the Quality Improvement stars CMS assigned. When a removal set leaves no other Part D measures, Part D QI is removed with them. The measure pages list every rated measure and why it is or is not on the path. The best guess drops those removed measures out of the year-over-year labels, weights significant improvement as +1 and significant decline as -1, counts no change and hold harmless as 0, and bands that score with the official QI cut points.",
-      `Better-Of uses the higher of this year's star and the Stars ${priorStarsYear} star on each measure scored this year. No QI drops Part C and Part D Quality Improvement and scores the rest with the official without-QI reward-factor thresholds.`,
+      `Best case uses the higher of this year's star and the Stars ${priorStarsYear} star, drops Quality Improvement, and removes every Recalc and Clover-20 measure still below 4.0 when a rating can remain. A separate removal list is also built from Better-Of stars with Quality Improvement kept.`,
       "Disaster/EUC higher-of uplift is not modeled.",
       lensId === "any"
         ? `Any rated measure can be removed except Quality Improvement. Removals start with the Stars 2026 Recalc and Clover-20 measures, then the other domains, and HEDIS only if the contract is still short of 4.0. At least ${MIN_RATED_MEASURES} Part C and Part D measures have to remain.`
