@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ALL_THIRTY_EXCLUSIONS,
   CLOVER_NOTICE_EXCLUSIONS,
   CLOVER_STATUTORY_EXCLUSIONS,
   CMS_RECALC_EXCLUSIONS,
   EXCLUSION_MODELS,
   exclusionCrosswalk,
+  exclusionRemovalCodes,
 } from "./exclusion-models";
 
 test("exclusion lists match the CMS and Clover counts", () => {
@@ -32,6 +34,28 @@ test("exclusion crosswalk splits the overlap", () => {
   assert.equal(byCategory.get("Total CMS exclusions")?.length, 18);
   assert.equal(byCategory.get("Total Clover exclusions")?.length, 20);
   assert.equal(byCategory.get("CMS recalc and all Clover")?.length, 28);
+});
+
+test("All 30 drops the challenged measures, including both quality improvement measures", () => {
+  const all30 = EXCLUSION_MODELS.find((model) => model.id === "all30");
+  assert.ok(all30);
+  assert.equal(ALL_THIRTY_EXCLUSIONS.length, 30);
+  assert.equal(all30.measures.length, 30);
+  assert.ok(all30.measures.every((measure) => measure.theory && measure.basis && measure.normalized));
+  const codes = exclusionRemovalCodes(all30, 2026);
+  assert.equal(codes.length, 30);
+  assert.equal(new Set(codes).size, 30);
+  const supd = ALL_THIRTY_EXCLUSIONS.find((measure) => measure.name.includes("SUPD"));
+  const cob = ALL_THIRTY_EXCLUSIONS.find((measure) => measure.name.includes("COB"));
+  assert.ok(supd && cob);
+  assert.notEqual(supd.normalized, cob.normalized);
+  const supdCode = codes.find((code) => code === "D12");
+  assert.equal(supdCode, "D12");
+  assert.ok(codes.some((code) => code.startsWith("D:") && code.includes("opioids")));
+  assert.ok(!codes.includes("D11"));
+  for (const code of ["C03", "C07", "C30", "D04", "D13"]) {
+    assert.ok(codes.includes(code), code);
+  }
 });
 
 test("CMS and Clover together drops each list once", () => {

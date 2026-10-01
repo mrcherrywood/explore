@@ -4,6 +4,7 @@ import { matchesParentOrganization, UNKNOWN_PARENT_ORG } from "./clover-removal-
 import {
   EXCLUSION_MODELS,
   exclusionCrosswalk,
+  exclusionRemovalCodes,
   type ExclusionCrosswalkRow,
   type ExclusionModel,
   type ExclusionModelId,
@@ -93,7 +94,7 @@ export function buildExclusionModelReport(input: {
   const baselineByContract = scoreByContract([], true);
   const modelScores = EXCLUSION_MODELS.map((model) => ({
     id: model.id,
-    byContract: scoreByContract(model.codes, false),
+    byContract: scoreByContract(exclusionRemovalCodes(model, overlaid.baselineYear), false),
   }));
   const parentIds = new Set<string>();
   const names = new Map<string, string | null>();

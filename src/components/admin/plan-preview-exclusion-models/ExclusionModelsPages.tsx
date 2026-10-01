@@ -60,7 +60,7 @@ export function ExclusionModelsDefinitionsPage({
     >
       <ReportSection
         title="How these scores are built"
-        note="Each model drops its measures from every contract, then recalculates the reward factor from the measures that remain. Overall is the weighted mean of those stars, plus that reward factor and CAI. Part C Quality Improvement stays in every model. Polypharmacy stays in every model. Part D Complaints and Members Choosing to Leave are already left out of Overall, because they repeat the Part C measures."
+        note="Each model drops its measures from every contract, then recalculates the reward factor from the measures that remain. Overall is the weighted mean of those stars, plus that reward factor and CAI. CMS recalc, Statutory, Notice, All Clover, and CMS + Clover keep Part C Quality Improvement and Polypharmacy. All 30 drops both Quality Improvement measures and Polypharmacy. Part D Complaints and Members Choosing to Leave are already left out of Overall, because they repeat the Part C measures."
         style={{ marginTop: 8 }}
       >
         <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>
@@ -100,7 +100,9 @@ export function ExclusionModelsListsPage({
   pageNumber: number;
   totalPages: number;
 }) {
-  const groups = report.models.filter((model) => model.id !== "clover" && model.id !== "combined");
+  const groups = report.models.filter(
+    (model) => model.id !== "clover" && model.id !== "combined" && model.id !== "all30",
+  );
   const cms = groups.find((group) => group.id === "cms");
   const cloverGroups = groups.filter((group) => group.id !== "cms");
   return (
@@ -159,6 +161,61 @@ function MeasureList({
   );
 }
 
+export function ExclusionModelsWhyPage({
+  report,
+  measures,
+  pageNumber,
+  totalPages,
+  continued,
+}: {
+  report: ExclusionModelReport;
+  measures: ExclusionModelReport["models"][number]["measures"];
+  pageNumber: number;
+  totalPages: number;
+  continued: boolean;
+}) {
+  return (
+    <ReportPageFrame
+      eyebrow={`${report.parentOrganization} · Stars ${report.starsYear}`}
+      title={continued ? "Why these 30 measures, continued" : "Why these 30 measures"}
+      subtitle="All 30 drops each measure below by name, then recalculates the reward factor from the measures that remain."
+      pageNumber={pageNumber}
+      totalPages={totalPages}
+      contractId={report.parentOrganization}
+      starsYear={report.starsYear}
+      generatedAt={report.generatedAt}
+      productLabel={PRODUCT_LABEL}
+    >
+      <ReportSection title="Reason each measure is included" style={{ marginTop: 8 }}>
+        <table className="fep-report-table compact" style={{ fontSize: 8 }}>
+          <thead>
+            <tr>
+              <th className="l">Measure</th>
+              <th className="l">Challenge</th>
+              <th className="l">Basis</th>
+            </tr>
+          </thead>
+          <tbody>
+            {measures.map((measure) => (
+              <tr key={measure.name}>
+                <td className="l" style={CELL}>
+                  {measure.name}
+                </td>
+                <td className="l" style={CELL}>
+                  {measure.theory}
+                </td>
+                <td className="l" style={CELL}>
+                  {measure.basis}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ReportSection>
+    </ReportPageFrame>
+  );
+}
+
 export function ExclusionModelsScoresPage({
   report,
   contracts,
@@ -186,10 +243,10 @@ export function ExclusionModelsScoresPage({
     >
       <ReportSection
         title="Overall after exclusions"
-        note="No exclusions keeps every measure and uses the published reward factor. CMS recalc, Statutory, and Notice drop that group and recalculate the reward factor. All Clover drops both Clover lists. CMS + Clover drops every measure on either list."
+        note="No exclusions keeps every measure and uses the published reward factor. CMS recalc, Statutory, and Notice drop that group and recalculate the reward factor. All Clover drops both Clover lists. CMS + Clover drops every measure on either list. All 30 drops the 30 challenged measures and recalculates the reward factor."
         style={{ marginTop: 8 }}
       >
-        <table className="fep-report-table compact" style={{ fontSize: 8.5 }}>
+        <table className="fep-report-table compact scores" style={{ fontSize: 8 }}>
           <thead>
             <tr>
               <th className="l">Contract</th>

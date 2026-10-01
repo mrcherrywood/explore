@@ -165,6 +165,7 @@ export function buildAnchoredPopulation(
         );
         return {
           code,
+          normalizedName: measure.measureNormalized,
           starValue: measure.predictedStar as number,
           weight: measure.weight,
           category: code.startsWith("D") ? "Part D" : "Part C",

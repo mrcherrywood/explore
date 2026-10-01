@@ -14,6 +14,8 @@ export type ContractMeasure = {
   starValue: number;
   weight: number;
   category: 'Part C' | 'Part D' | string;
+  /** Normalized measure name. Codes are renumbered by year, so this is the identity. */
+  normalizedName?: string;
 };
 
 export type ContractRatingData = {

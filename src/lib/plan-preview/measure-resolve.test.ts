@@ -45,6 +45,20 @@ test("toBaselineMeasureCode falls back to the file code for new measures", () =>
   );
 });
 
+test("toBaselineMeasureCode does not reuse a code that already names a different measure", () => {
+  assert.equal(
+    toBaselineMeasureCode("statin use in persons with diabetes supd partd", "D11", 2026),
+    "D12",
+  );
+  const cob = toBaselineMeasureCode(
+    "concurrent use of opioids and benzodiazepines cob",
+    "D12",
+    2026,
+  );
+  assert.notEqual(cob, "D12");
+  assert.equal(cob.startsWith("D:"), true);
+});
+
 test("alignNormalizedPartToCode corrects Part C/D twins mistitled in the PP1 file", () => {
   assert.equal(
     alignNormalizedPartToCode(

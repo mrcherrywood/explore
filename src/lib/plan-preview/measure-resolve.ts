@@ -32,7 +32,35 @@ export function toBaselineMeasureCode(
     const code = getMeasureByNormalizedName(candidate)?.codesByYear[baselineYear]?.toUpperCase();
     if (code && code[0] === upper[0]) return code;
   }
+  // A new measure can reuse a prior year's code (2027 D12 is COB; 2026 D12 is
+  // SUPD). The name decides which measure it is, so the reused number is not
+  // a match.
+  if (codeIdentifiesDifferentMeasure(upper, measureNormalized, baselineYear)) {
+    return nameKeyedCode(upper, measureNormalized);
+  }
   return upper;
+}
+
+/** Scoring code for a measure whose file code already belongs to a different measure. */
+export function nameKeyedCode(fileCode: string, measureNormalized: string): string {
+  const part = fileCode.toUpperCase().startsWith("D")
+    ? "D"
+    : fileCode.toUpperCase().startsWith("C")
+      ? "C"
+      : "X";
+  return `${part}:${measureNormalized}`;
+}
+
+function codeIdentifiesDifferentMeasure(
+  code: string,
+  measureNormalized: string,
+  baselineYear: number,
+): boolean {
+  const owner = getAvailableOptions().measures.find(
+    (measure) => measure.codesByYear[baselineYear]?.toUpperCase() === code,
+  );
+  if (!owner) return false;
+  return !isCompatibleUniverseMatch(measureNormalized, owner.normalizedName);
 }
 
 /**
