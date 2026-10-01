@@ -3,7 +3,7 @@ import test from "node:test";
 
 import type { ContractMeasure, PercentileThresholds } from "@/lib/reward-factor";
 
-import { domainRemovalScenarios, scoreDomainRemovals } from "./clover-domain-removal";
+import { domainCodes, domainRemovalScenarios, scoreDomainRemovals } from "./clover-domain-removal";
 import type { CloverContractSearchInput } from "./clover-min-removal";
 
 const ZERO_RF: PercentileThresholds = {
@@ -21,6 +21,19 @@ function measure(code: string, starValue: number, weight = 1): ContractMeasure {
     category: code.startsWith("D") ? "Part D" : "Part C",
   };
 }
+
+test("domain codes leave Quality Improvement in place", () => {
+  const codes = domainCodes(
+    new Map([
+      ["C30", "HEDIS"],
+      ["D04", "Pharmacy"],
+      ["D08", "Pharmacy"],
+      ["C01", "HEDIS"],
+    ]),
+    ["HEDIS", "Pharmacy"],
+  );
+  assert.deepEqual(codes.sort(), ["C01", "D08"]);
+});
 
 test("domain removal covers every combination of the five domains", () => {
   const scenarios = domainRemovalScenarios();
@@ -58,7 +71,8 @@ test("removing a low-star domain raises the score, and Quality Improvement stays
     ["D09", "Pharmacy"],
     ["D10", "Pharmacy"],
   ]);
-  const result = scoreDomainRemovals([contract], domains, ZERO_RF, ZERO_RF);
+  const thresholds = domainRemovalScenarios().map(() => ({ withQi: ZERO_RF, withoutQi: ZERO_RF }));
+  const result = scoreDomainRemovals([contract], domains, thresholds);
   const pharmacy = result.scenarios.findIndex((scenario) => scenario.id === "Pharmacy");
   const all = result.scenarios.findIndex((scenario) => scenario.domains.length === 5);
   const pharmacyScore = result.contracts[0]?.scores[pharmacy];

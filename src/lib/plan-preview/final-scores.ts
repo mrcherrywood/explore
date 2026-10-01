@@ -521,40 +521,52 @@ const OVERALL_PART_D_CODES = [
  * Clover minimum-removal search for official-threshold scoring and for the
  * recomputed-threshold sensitivity check.
  */
-export function buildCustomRemovalScenario(
-  predictions: PlanPreviewPredictionsResult,
-  cai: PlanPreviewCaiRecords,
-  removedCodes: Iterable<string>,
-  options?: PlanPreviewScenarioOptions,
-): PlanPreviewFinalScoresResult {
+function customRemovalScenario(removedCodes: Iterable<string>): ScenarioDef {
   const removed = new Set(
     [...removedCodes].map((code) => code.toUpperCase()).filter(Boolean),
   );
   const nonQiPartD = OVERALL_PART_D_CODES.filter((code) => code !== "D04");
   if (nonQiPartD.every((code) => removed.has(code))) removed.add("D04");
   const usesPartCCai = OVERALL_PART_D_CODES.every((code) => removed.has(code));
+  return {
+    id: "customRemoval",
+    label: "Custom Clover removals",
+    description:
+      removed.size === 0
+        ? "No Clover measures removed."
+        : `Removes ${[...removed].sort().join(", ")}.`,
+    removedCodes: removed,
+    caiSource: usesPartCCai ? "part_c" : "overall",
+    notes: usesPartCCai
+      ? [
+          "The result is a Part C summary rating, so the uploaded Part C CAI is applied instead of the Overall MA-PD CAI.",
+        ]
+      : [],
+  };
+}
+
+/** Score several removal sets against one anchored population. */
+export function buildCustomRemovalScenarios(
+  predictions: PlanPreviewPredictionsResult,
+  cai: PlanPreviewCaiRecords,
+  removalSets: readonly Iterable<string>[],
+  options?: PlanPreviewScenarioOptions,
+): PlanPreviewFinalScoresResult[] {
   return buildScenarioSet(
     predictions,
     cai,
-    [
-      {
-        id: "customRemoval",
-        label: "Custom Clover removals",
-        description:
-          removed.size === 0
-            ? "No Clover measures removed."
-            : `Removes ${[...removed].sort().join(", ")}.`,
-        removedCodes: removed,
-        caiSource: usesPartCCai ? "part_c" : "overall",
-        notes: usesPartCCai
-          ? [
-              "The result is a Part C summary rating, so the uploaded Part C CAI is applied instead of the Overall MA-PD CAI.",
-            ]
-          : [],
-      },
-    ],
+    removalSets.map((removedCodes) => customRemovalScenario(removedCodes)),
     options,
-  )[0];
+  );
+}
+
+export function buildCustomRemovalScenario(
+  predictions: PlanPreviewPredictionsResult,
+  cai: PlanPreviewCaiRecords,
+  removedCodes: Iterable<string>,
+  options?: PlanPreviewScenarioOptions,
+): PlanPreviewFinalScoresResult {
+  return buildCustomRemovalScenarios(predictions, cai, [removedCodes], options)[0];
 }
 
 function buildScenarioSet(

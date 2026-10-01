@@ -70,7 +70,7 @@ export function CloverRemovalDomainPage({
     >
       <ReportSection
         title="Overall after domain removals"
-        note="Green is an unrounded Overall of 3.75 or higher. Reward-factor cutoffs stay the published ones. The contract score is recalculated from the measures that remain."
+        note="Green is an unrounded Overall of 3.75 or higher. Each contract's reward factor is recalculated from the measures that remain, using cutoffs rebuilt for the whole market."
         style={{ marginTop: 8 }}
       >
         <table className="fep-report-table compact" style={{ fontSize: 8.5 }}>

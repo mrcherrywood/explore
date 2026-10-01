@@ -14,7 +14,11 @@ import {
   MIN_RATED_MEASURES,
   type CloverRemovalQiDirection,
 } from "./clover-removal-constants";
-import { scoreDomainRemovals, type CloverDomainRemoval } from "./clover-domain-removal";
+import {
+  domainRemovalThresholds,
+  scoreDomainRemovals,
+  type CloverDomainRemoval,
+} from "./clover-domain-removal";
 import { guessRemainingQi } from "./clover-qi-guess";
 
 import {
@@ -754,7 +758,7 @@ export function buildCloverRemovalReport(input: {
       "Removal lists use the Quality Improvement stars CMS assigned. When a removal set leaves no other Part D measures, Part D QI is removed with them. The measure pages list every rated measure and why it is or is not on the path. The best guess drops those removed measures out of the year-over-year labels, weights significant improvement as +1 and significant decline as -1, counts no change and hold harmless as 0, and bands that score with the official QI cut points.",
       `Best case uses the higher of this year's star and the Stars ${priorStarsYear} star, drops Quality Improvement, and removes every Recalc and Clover-20 measure still below 4.0 when a rating can remain. A separate removal list is also built from Better-Of stars with Quality Improvement kept.`,
       "Disaster/EUC higher-of uplift is not modeled.",
-      "Domain removal drops every measure in one domain or a combination of domains and rescores Overall. Quality Improvement stays. Reward-factor cutoffs stay the published ones.",
+      "Domain removal drops every measure in one domain or a combination of domains. Quality Improvement stays. Each contract's reward factor is recalculated from the measures that remain, using cutoffs rebuilt for the whole market.",
       lensId === "any"
         ? `Any rated measure can be removed except Quality Improvement. Removals start with the Stars 2026 Recalc and Clover-20 measures, then the other domains, and HEDIS only if the contract is still short of 4.0. At least ${MIN_RATED_MEASURES} Part C and Part D measures have to remain.`
         : `Eligible measures are the Stars 2026 Recalc set plus Clover-20, excluding the Part D twins of Complaints and Members Choosing to Leave. Quality Improvement is not chosen for removal. As many eligible measures as needed can be removed, as long as at least ${MIN_RATED_MEASURES} Part C and Part D measures remain.`,
@@ -772,7 +776,11 @@ export function buildCloverRemovalReport(input: {
     enrollmentSource: enrollment.source,
     minRatedMeasures: MIN_RATED_MEASURES,
     excluded,
-    domainRemoval: scoreDomainRemovals(searchInputs, input.domainByCode ?? new Map(), withQi, withoutQi),
+    domainRemoval: scoreDomainRemovals(
+      searchInputs,
+      input.domainByCode ?? new Map(),
+      domainRemovalThresholds(overlaid, cai, input.domainByCode ?? new Map(), { withQi, withoutQi }),
+    ),
     lenses,
     ...lenses[0],
   };

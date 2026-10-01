@@ -7,6 +7,11 @@ import {
   type CloverContractSearchInput,
 } from "./clover-min-removal";
 import { MIN_RATED_MEASURES, removalDropsPartDQi } from "./clover-removal-constants";
+import {
+  buildCustomRemovalScenarios,
+  type PlanPreviewCaiRecords,
+} from "./final-scores";
+import type { PlanPreviewPredictionsResult } from "./predictions";
 
 /** Domains that can be dropped. Quality Improvement stays in every scenario. */
 export const DOMAIN_REMOVAL_DOMAINS = ["HEDIS", "HOS", "CAHPS", "Operations", "Pharmacy"] as const;
@@ -21,8 +26,14 @@ export type DomainRemovalScore = {
   removedCount: number;
   finalScoreRaw: number | null;
   finalRating: number | null;
+  rewardFactor: number | null;
   atFour: boolean;
   unrated: boolean;
+};
+
+export type DomainRemovalThresholds = {
+  withQi: PercentileThresholds;
+  withoutQi: PercentileThresholds;
 };
 
 export type CloverDomainRemoval = {
@@ -48,6 +59,44 @@ export function domainRemovalScenarios(): DomainRemovalScenario[] {
     if (left.domains.length !== right.domains.length) return left.domains.length - right.domains.length;
     return left.label.localeCompare(right.label);
   });
+}
+
+/** Every non-QI measure code in the selected domains. */
+export function domainCodes(
+  domainByCode: ReadonlyMap<string, string>,
+  domains: readonly string[],
+): string[] {
+  const wanted = new Set(domains.map((domain) => domain.toLowerCase()));
+  const codes: string[] = [];
+  for (const [code, domain] of domainByCode) {
+    const upper = code.toUpperCase();
+    if (QI_MEASURE_CODES.has(upper)) continue;
+    if (wanted.has((domain ?? "").trim().toLowerCase())) codes.push(upper);
+  }
+  return codes;
+}
+
+/**
+ * Reward-factor cutoffs for each domain combination, rebuilt from the full
+ * market after those domains are removed.
+ */
+export function domainRemovalThresholds(
+  predictions: PlanPreviewPredictionsResult,
+  cai: PlanPreviewCaiRecords,
+  domainByCode: ReadonlyMap<string, string>,
+  fallback: DomainRemovalThresholds,
+): DomainRemovalThresholds[] {
+  const scenarios = domainRemovalScenarios();
+  const results = buildCustomRemovalScenarios(
+    predictions,
+    cai,
+    scenarios.map((scenario) => domainCodes(domainByCode, scenario.domains)),
+    { preferWithQi: true, useOfficialRewardFactorThresholds: false },
+  );
+  return results.map((result) => ({
+    withQi: result.thresholds.withQi ?? fallback.withQi,
+    withoutQi: result.thresholds.withoutQi ?? fallback.withoutQi,
+  }));
 }
 
 function codesInDomains(
@@ -87,30 +136,32 @@ function keepsRating(input: CloverContractSearchInput, removed: readonly string[
 export function scoreDomainRemovals(
   contracts: readonly CloverContractSearchInput[],
   domainByCode: ReadonlyMap<string, string>,
-  withQi: PercentileThresholds,
-  withoutQi: PercentileThresholds,
+  thresholds: readonly DomainRemovalThresholds[],
 ): CloverDomainRemoval {
   const scenarios = domainRemovalScenarios();
   return {
     scenarios,
     contracts: contracts.map((contract) => ({
       contractId: contract.contractId,
-      scores: scenarios.map((scenario) => {
+      scores: scenarios.map((scenario, index) => {
         const removed = codesInDomains(contract, scenario.domains, domainByCode);
-        if (!keepsRating(contract, removed)) {
+        const cutoffs = thresholds[index];
+        if (!cutoffs || !keepsRating(contract, removed)) {
           return {
             removedCount: removed.length,
             finalScoreRaw: null,
             finalRating: null,
+            rewardFactor: null,
             atFour: false,
             unrated: true,
           };
         }
-        const score = evaluateCloverRemoval(contract, removed, withQi, withoutQi);
+        const score = evaluateCloverRemoval(contract, removed, cutoffs.withQi, cutoffs.withoutQi);
         return {
           removedCount: removed.length,
           finalScoreRaw: score?.finalScoreRaw ?? null,
           finalRating: score?.finalRating ?? null,
+          rewardFactor: score?.rewardFactor ?? null,
           atFour: (score?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF,
           unrated: score == null,
         };
