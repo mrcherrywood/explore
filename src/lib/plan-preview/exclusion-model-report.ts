@@ -80,8 +80,9 @@ export function buildExclusionModelReport(input: {
   if (overlaid.baselineYear === null) {
     throw new Error("No published baseline year is available to score exclusion models.");
   }
+  const baselineYear = overlaid.baselineYear;
 
-  const population = buildAnchoredPopulation(overlaid, overlaid.baselineYear);
+  const population = buildAnchoredPopulation(overlaid, baselineYear);
   const enrollment = loadLatestEnrollment();
   const cai = caiFromOfficialSummaries(input.officialSummaries);
   const scoreByContract = (removedCodes: readonly string[], useOfficialRewardFactorThresholds: boolean) => {
@@ -94,7 +95,7 @@ export function buildExclusionModelReport(input: {
   const baselineByContract = scoreByContract([], true);
   const modelScores = EXCLUSION_MODELS.map((model) => ({
     id: model.id,
-    byContract: scoreByContract(exclusionRemovalCodes(model, overlaid.baselineYear), false),
+    byContract: scoreByContract(exclusionRemovalCodes(model, baselineYear), false),
   }));
   const parentIds = new Set<string>();
   const names = new Map<string, string | null>();
