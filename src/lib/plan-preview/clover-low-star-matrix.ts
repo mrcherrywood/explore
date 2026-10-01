@@ -14,6 +14,8 @@ export const LOW_STAR_CONTRACTS_PER_PAGE = 8;
 export const LOW_STAR_ROWS_PER_PAGE = 32;
 
 export type LowStarMatrixSource = {
+  /** Stars 2026 Recalc and Model 2 measure codes. */
+  recalcCodes?: readonly string[];
   contracts: Array<{
     contractId: string;
     pathMeasures: Array<{
@@ -29,6 +31,8 @@ export type LowStarMatrixRow = {
   code: string;
   displayName: string;
   weight: number | null;
+  /** In the Stars 2026 Recalc and Model 2 set. */
+  inRecalcSet: boolean;
   stars: Array<number | null>;
   /** Contracts in the organization, not just this page, scored 3★ or lower. */
   lowCount: number;
@@ -57,6 +61,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 /** Measures scored 3★ or lower on at least one contract, Part C then Part D, busiest themes first. */
 export function buildLowStarMatrixPages(report: LowStarMatrixSource): LowStarMatrixPage[] {
   const contractIds = report.contracts.map((contract) => contract.contractId);
+  const recalcCodes = new Set((report.recalcCodes ?? []).map((code) => code.toUpperCase()));
   const byCode = new Map<
     string,
     { code: string; displayName: string; weight: number | null; stars: Map<string, number | null> }
@@ -88,6 +93,7 @@ export function buildLowStarMatrixPages(report: LowStarMatrixSource): LowStarMat
           code: row.code,
           displayName: row.displayName,
           weight: row.weight,
+          inRecalcSet: recalcCodes.has(row.code.toUpperCase()),
           stars,
           lowCount: stars.filter(isLowStar).length,
         };

@@ -27,7 +27,9 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
   const measurePages = view.contracts.flatMap((contract) =>
     cloverMeasurePages(contract.pathMeasures).map((page) => ({ contract, ...page })),
   );
-  const matrixPages = buildLowStarMatrixPages(view);
+  const recalcCodes =
+    report.lenses.find((lens) => lens.lensId === "eligible")?.candidateMeasures.map((measure) => measure.code) ?? [];
+  const matrixPages = buildLowStarMatrixPages({ ...view, recalcCodes });
   const totalPages = 2 + matrixPages.length + view.contracts.length + measurePages.length;
   const slug = view.parentOrganization.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const fileName = `recalc-4-star-path_${slug}_stars-${view.starsYear}_${view.lensId}`;

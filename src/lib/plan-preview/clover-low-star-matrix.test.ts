@@ -9,6 +9,7 @@ function measure(code: string, name: string, star: number | null, weight = 1) {
 
 test("low-star matrix lists 3-star and under measures and ranks shared themes first", () => {
   const pages = buildLowStarMatrixPages({
+    recalcCodes: ["C28"],
     contracts: [
       {
         contractId: "H1",
@@ -33,6 +34,8 @@ test("low-star matrix lists 3-star and under measures and ranks shared themes fi
   assert.equal(partC.length, 1);
   assert.deepEqual(partC[0].rows.map((row) => row.code), ["C28"]);
   assert.equal(partC[0].rows[0].lowCount, 2);
+  assert.equal(partC[0].rows[0].inRecalcSet, true);
+  assert.equal(partD[0].rows[0].inRecalcSet, false);
   assert.deepEqual(partC[0].rows[0].stars, [2, 1]);
   assert.deepEqual(partC[0].contractLowCounts, [1, 1]);
   assert.equal(partD.length, 1);
