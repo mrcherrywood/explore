@@ -7,9 +7,11 @@ import { getOfficialForScenario } from "@/lib/reward-factor/official-threshold-d
 import {
   assumeQiStar,
   cloverCandidatePool,
+  applyBetterOfStars,
   evaluateAllLowStarRemoval,
   evaluateCloverRemoval,
   evaluateKeptRemoval,
+  evaluateWithoutQi,
   findContractMinRemovals,
   findContractMinRemovalsSparingHedis,
   findSharedRemovalLadder,
@@ -643,6 +645,37 @@ test("QI options stay at or above the CMS star when more measures improved", () 
   assert.equal(qiStarSupported("down", [3], 1), true);
   assert.equal(qiStarSupported("flat", [3, 4], 3), true);
   assert.equal(qiStarSupported("flat", [3, 4], 5), false);
+});
+
+test("Better-Of keeps this year unless last year's star is higher", () => {
+  const measures = [measure("C28", 2), measure("C33", 5), measure("D08", 3)];
+  const prior = new Map<string, number>([
+    ["C28", 4],
+    ["C33", 3],
+    ["D01", 5],
+  ]);
+  const better = applyBetterOfStars(measures, prior);
+  assert.deepEqual(
+    better.measures.map((row) => [row.code, row.starValue]),
+    [["C28", 4], ["C33", 5], ["D08", 3]],
+  );
+  assert.deepEqual(better.usedPrior, [{ code: "C28", currentStar: 2, priorStar: 4 }]);
+});
+
+test("No QI drops Quality Improvement and scores above a low QI star", () => {
+  const measures = PAIR_MEASURES.map((row) =>
+    row.code === "C30" || row.code === "D04" ? { ...row, starValue: 1 } : row,
+  );
+  const withQi = getOfficialForScenario(2027, "overall_mapd", true);
+  const withoutQi = getOfficialForScenario(2027, "overall_mapd", false);
+  assert.ok(withQi && withoutQi);
+  const row = input("H1", measures);
+  const published = evaluateCloverRemoval(row, [], withQi, withoutQi);
+  const noQi = evaluateWithoutQi(row, [], withQi, withoutQi);
+  assert.equal(noQi?.selectedLeg, "without_qi");
+  assert.ok(published && noQi);
+  assert.equal(noQi.measureCount, published.measureCount - 2);
+  assert.ok(noQi.finalScoreRaw > published.finalScoreRaw);
 });
 
 test("parent organization matching treats blank as unknown", () => {

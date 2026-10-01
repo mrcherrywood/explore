@@ -278,7 +278,41 @@ export function evaluateCloverRemoval(
   pool = cloverCandidatePool(),
 ): CloverRemovalLegScore | null {
   const prep = prepareContract(input, pool);
-  return evaluatePrepared(prep, removedCodes, withQiThresholds, withoutQiThresholds);
+  return evaluatePrepared(prep, removedCodes, withQiThresholds, withoutQiThresholds, "published");
+}
+
+/** Drop Part C and Part D Quality Improvement and score with the without-QI thresholds. */
+export function evaluateWithoutQi(
+  input: CloverContractSearchInput,
+  removedCodes: Iterable<string>,
+  withQiThresholds: PercentileThresholds,
+  withoutQiThresholds: PercentileThresholds,
+  pool = cloverCandidatePool(),
+): CloverRemovalLegScore | null {
+  const prep = prepareContract(input, pool);
+  return evaluatePrepared(prep, removedCodes, withQiThresholds, withoutQiThresholds, "without_qi");
+}
+
+export type BetterOfUse = {
+  code: string;
+  currentStar: number;
+  priorStar: number;
+};
+
+/** Use last year's star when it is higher. Measures with no last-year star stay as they are. */
+export function applyBetterOfStars(
+  measures: readonly ContractMeasure[],
+  priorStarByCode: ReadonlyMap<string, number>,
+): { measures: ContractMeasure[]; usedPrior: BetterOfUse[] } {
+  const usedPrior: BetterOfUse[] = [];
+  const next = measures.map((measure) => {
+    const code = measure.code.toUpperCase();
+    const prior = priorStarByCode.get(code);
+    if (prior == null || !(prior > measure.starValue)) return measure;
+    usedPrior.push({ code, currentStar: measure.starValue, priorStar: prior });
+    return { ...measure, code, starValue: prior };
+  });
+  return { measures: next, usedPrior };
 }
 
 function evaluatePrepared(
@@ -286,6 +320,7 @@ function evaluatePrepared(
   removedCodes: Iterable<string>,
   withQiThresholds: PercentileThresholds,
   withoutQiThresholds: PercentileThresholds,
+  leg: "published" | "without_qi" = "published",
 ): CloverRemovalLegScore | null {
   const removed = [...new Set([...removedCodes].map((code) => code.toUpperCase()))];
   const removedSet = new Set(removed);
@@ -306,6 +341,7 @@ function evaluatePrepared(
   const withoutQi = withoutStats
     ? scoreLeg(withoutStats, prep.contractId, withoutQiThresholds, caiValue, caiSource, partDQiRemoved, "without_qi")
     : null;
+  if (leg === "without_qi") return withoutQi;
   // Same selection as official PP2 scenarios: published QI is included when
   // CMS scored it. Hold-harmless is already in the published rating.
   if (withQi) return withQi;

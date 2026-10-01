@@ -11,11 +11,25 @@ import type {
 
 import { buildLowStarMatrixPages } from "@/lib/plan-preview/clover-low-star-matrix";
 
+import {
+  CloverRemovalBetterOfMeasuresPage,
+  CloverRemovalBetterOfScoresPage,
+  type BetterOfMeasureRow,
+} from "./CloverRemovalBetterOfPage";
 import { CloverRemovalContractPage } from "./CloverRemovalContractPage";
 import { CloverRemovalLowStarPage } from "./CloverRemovalLowStarPage";
 import { CloverRemovalMeasuresPage, cloverMeasurePages } from "./CloverRemovalMeasuresPage";
 import { CloverRemovalParentPage } from "./CloverRemovalParentPage";
 import { CloverRemovalQiPage } from "./CloverRemovalQiPage";
+
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (items.length === 0) return [];
+  const pages: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    pages.push(items.slice(index, index + size));
+  }
+  return pages;
+}
 
 export function CloverRemovalReportView({ report }: { report: CloverRemovalReport }) {
   const [lensId, setLensId] = useState<CloverRemovalLensId>("eligible");
@@ -30,7 +44,13 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
   const recalcCodes =
     report.lenses.find((lens) => lens.lensId === "eligible")?.candidateMeasures.map((measure) => measure.code) ?? [];
   const matrixPages = buildLowStarMatrixPages({ ...view, recalcCodes });
-  const totalPages = 2 + matrixPages.length + view.contracts.length + measurePages.length;
+  const betterOfScorePages = chunk(view.contracts, 12);
+  const betterOfMeasureRows: BetterOfMeasureRow[] = view.contracts.flatMap((contract) =>
+    contract.betterOf.usedPrior.map((row) => ({ contractId: contract.contractId, ...row })),
+  );
+  const betterOfMeasurePages = chunk(betterOfMeasureRows, 26);
+  const betterOfPageCount = betterOfScorePages.length + betterOfMeasurePages.length;
+  const totalPages = 2 + betterOfPageCount + matrixPages.length + view.contracts.length + measurePages.length;
   const slug = view.parentOrganization.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const fileName = `recalc-4-star-path_${slug}_stars-${view.starsYear}_${view.lensId}`;
 
@@ -110,21 +130,45 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
 
       <div ref={pagesRef} className="flex flex-col items-center gap-7 px-[30px] pb-12">
         <CloverRemovalParentPage report={view} pageNumber={1} totalPages={totalPages} />
+        {betterOfScorePages.map((contracts, index) => (
+          <CloverRemovalBetterOfScoresPage
+            key={`better-of-scores-${contracts[0]?.contractId ?? index}`}
+            report={view}
+            contracts={contracts}
+            pageNumber={2 + index}
+            totalPages={totalPages}
+            continued={index > 0}
+          />
+        ))}
+        {betterOfMeasurePages.map((rows, index) => (
+          <CloverRemovalBetterOfMeasuresPage
+            key={`better-of-measures-${rows[0]?.contractId ?? index}-${rows[0]?.code ?? index}`}
+            report={view}
+            rows={rows}
+            pageNumber={2 + betterOfScorePages.length + index}
+            totalPages={totalPages}
+            continued={index > 0}
+          />
+        ))}
         {matrixPages.map((page, index) => (
           <CloverRemovalLowStarPage
             key={`${page.part}-${page.contractIds[0]}-${index}`}
             report={view}
             page={page}
-            pageNumber={2 + index}
+            pageNumber={2 + betterOfPageCount + index}
             totalPages={totalPages}
           />
         ))}
-        <CloverRemovalQiPage report={view} pageNumber={2 + matrixPages.length} totalPages={totalPages} />
+        <CloverRemovalQiPage
+          report={view}
+          pageNumber={2 + betterOfPageCount + matrixPages.length}
+          totalPages={totalPages}
+        />
         {view.contracts.map((contract, index) => {
           const precedingMeasures = view.contracts
             .slice(0, index)
             .reduce((count, row) => count + cloverMeasurePages(row.pathMeasures).length, 0);
-          const contractPage = 3 + matrixPages.length + index + precedingMeasures;
+          const contractPage = 3 + betterOfPageCount + matrixPages.length + index + precedingMeasures;
           const pages = cloverMeasurePages(contract.pathMeasures);
           return (
             <div key={contract.contractId} className="flex flex-col items-center gap-7">

@@ -1,6 +1,8 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 
 import { loadLatestEnrollment } from "@/lib/clover-impact/analysis";
+import { loadMeasureStarsFromFile } from "@/lib/reward-factor/backtest";
 import { QI_MEASURE_CODES } from "@/lib/clover-impact/scenarios";
 import { getOfficialForScenario } from "@/lib/reward-factor/official-threshold-data";
 import type { ContractMeasure } from "@/lib/reward-factor";
@@ -16,12 +18,14 @@ import { guessRemainingQi } from "./clover-qi-guess";
 
 import {
   anyMeasurePool,
+  applyBetterOfStars,
   assumeQiStar,
   assumeQiStars,
   cloverCandidatePool,
   evaluateAllLowStarRemoval,
   evaluateCloverRemoval,
   evaluateKeptRemoval,
+  evaluateWithoutQi,
   findContractMinRemovals,
   findSharedRemovalLadder,
   FOUR_STAR_CUTOFF,
@@ -112,6 +116,19 @@ export type CloverRemovalContractPage = {
   qiGuess: CloverRemovalQiGuess | null;
   qiOptions: CloverRemovalQiOption[];
   pathMeasures: CloverRemovalPathMeasure[];
+  /** Overall using the higher star of this year and last year on each measure. */
+  betterOf: {
+    priorYear: number;
+    score: CloverRemovalLegScore | null;
+    usedPrior: Array<{
+      code: string;
+      displayName: string;
+      currentStar: number;
+      priorStar: number;
+    }>;
+  };
+  /** Overall with Quality Improvement removed, using the without-QI reward-factor thresholds. */
+  noQi: CloverRemovalLegScore | null;
   /** Overall after every 3★ or lower measure in this lens is removed. */
   lowStars: {
     removedCount: number;
@@ -152,6 +169,8 @@ export type CloverRemovalLens = {
 
 export type CloverRemovalReport = {
   starsYear: number;
+  priorStarsYear: number;
+  priorStarsAvailable: boolean;
   parentOrganization: string;
   generatedAt: string;
   enrollmentSource: { year: number; month: number; fileName: string };
@@ -185,6 +204,46 @@ export function matchesParentOrganization(
 ): boolean {
   const left = (value?.trim() || UNKNOWN_PARENT_ORG).toLowerCase();
   return left === selected.trim().toLowerCase();
+}
+
+function priorStarsFileExists(year: number): boolean {
+  return existsSync(path.join(process.cwd(), "data", String(year), `measure_stars_${year}.json`));
+}
+
+function loadPriorStarsByContract(year: number): Map<string, Map<string, number>> {
+  if (!priorStarsFileExists(year)) return new Map();
+  const byContract = new Map<string, Map<string, number>>();
+  for (const [contractId, measures] of loadMeasureStarsFromFile(year)) {
+    const byCode = new Map<string, number>();
+    for (const measure of measures) {
+      if (measure.starValue > 0) byCode.set(measure.code.toUpperCase(), measure.starValue);
+    }
+    byContract.set(contractId, byCode);
+  }
+  return byContract;
+}
+
+function betterOfForContract(
+  searchInput: CloverContractSearchInput | undefined,
+  priorByContract: Map<string, Map<string, number>>,
+  priorYear: number,
+  displayByCode: Map<string, string>,
+  withQi: NonNullable<ReturnType<typeof getOfficialForScenario>>,
+  withoutQi: NonNullable<ReturnType<typeof getOfficialForScenario>>,
+): CloverRemovalContractPage["betterOf"] {
+  if (!searchInput) return { priorYear, score: null, usedPrior: [] };
+  const prior = priorByContract.get(searchInput.contractId) ?? new Map<string, number>();
+  const better = applyBetterOfStars(searchInput.measures, prior);
+  return {
+    priorYear,
+    score: evaluateCloverRemoval({ ...searchInput, measures: better.measures }, [], withQi, withoutQi),
+    usedPrior: better.usedPrior.map((row) => ({
+      code: row.code,
+      displayName: displayByCode.get(row.code) ?? row.code,
+      currentStar: row.currentStar,
+      priorStar: row.priorStar,
+    })),
+  };
 }
 
 function labelForCode(
@@ -245,6 +304,9 @@ export function buildCloverRemovalReport(input: {
 
   const population = buildAnchoredPopulation(overlaid, overlaid.baselineYear);
   const enrollment = loadLatestEnrollment();
+  const priorStarsYear = baselineYear;
+  const priorStarsAvailable = priorStarsFileExists(priorStarsYear);
+  const priorByContract = loadPriorStarsByContract(priorStarsYear);
   const pool = cloverCandidatePool();
   const parent = parentOrganization.trim();
   const parentIds = new Set<string>();
@@ -501,6 +563,8 @@ export function buildCloverRemovalReport(input: {
       qiGuess,
       qiOptions,
       pathMeasures,
+      betterOf: betterOfForContract(searchInput, priorByContract, priorStarsYear, displayByCode, withQi, withoutQi),
+      noQi: searchInput ? evaluateWithoutQi(searchInput, [], withQi, withoutQi) : null,
       lowStars: {
         removedCount: lowStarRemoval?.codes.length ?? 0,
         availableCount: lowStarRemoval?.availableCount ?? 0,
@@ -551,6 +615,7 @@ export function buildCloverRemovalReport(input: {
       "Reward-factor thresholds are the official CMS Technical Notes Overall MA-PD values and are not recomputed after measure removals.",
       "The sensitivity row shows the recommended list with thresholds recomputed from the full H+R market.",
       "Removal lists use the Quality Improvement stars CMS assigned. When a removal set leaves no other Part D measures, Part D QI is removed with them. The measure pages list every rated measure and why it is or is not on the path. The best guess drops those removed measures out of the year-over-year labels, weights significant improvement as +1 and significant decline as -1, counts no change and hold harmless as 0, and bands that score with the official QI cut points.",
+      `Better-Of uses the higher of this year's star and the Stars ${priorStarsYear} star on each measure scored this year. No QI drops Part C and Part D Quality Improvement and scores the rest with the official without-QI reward-factor thresholds.`,
       "Disaster/EUC higher-of uplift is not modeled.",
       lensId === "any"
         ? `Any rated measure can be removed except Quality Improvement. Removals start with the Stars 2026 Recalc and Clover-20 measures, then the other domains, and HEDIS only if the contract is still short of 4.0. At least ${MIN_RATED_MEASURES} Part C and Part D measures have to remain.`
@@ -562,6 +627,8 @@ export function buildCloverRemovalReport(input: {
   const lenses = [buildLens("eligible", pool), buildLens("any", openPool)];
   return {
     starsYear,
+    priorStarsYear,
+    priorStarsAvailable,
     parentOrganization: parent,
     generatedAt: new Date().toISOString(),
     enrollmentSource: enrollment.source,
