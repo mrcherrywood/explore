@@ -109,7 +109,7 @@ export function CloverRemovalMeasuresPage({
                   className="l"
                   style={{ ...CELL, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 8.5 }}
                 >
-                  <MeasureLabel code={measure.code} name={measure.displayName} />
+                  <MeasureLabel code={measure.displayCode} name={measure.displayName} />
                 </td>
                 <td style={CELL}>{measure.weight ?? "—"}</td>
                 <td style={{ ...CELL, fontWeight: 800 }}>

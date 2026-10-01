@@ -20,6 +20,7 @@ export type LowStarMatrixSource = {
     contractId: string;
     pathMeasures: Array<{
       code: string;
+      displayCode?: string;
       displayName: string;
       weight: number | null;
       star: number | null;
@@ -29,6 +30,7 @@ export type LowStarMatrixSource = {
 
 export type LowStarMatrixRow = {
   code: string;
+  displayCode: string;
   displayName: string;
   weight: number | null;
   /** In the Stars 2026 Recalc and Clover-20 set. */
@@ -64,7 +66,7 @@ export function buildLowStarMatrixPages(report: LowStarMatrixSource): LowStarMat
   const recalcCodes = new Set((report.recalcCodes ?? []).map((code) => code.toUpperCase()));
   const byCode = new Map<
     string,
-    { code: string; displayName: string; weight: number | null; stars: Map<string, number | null> }
+    { code: string; displayCode: string; displayName: string; weight: number | null; stars: Map<string, number | null> }
   >();
   for (const contract of report.contracts) {
     for (const measure of contract.pathMeasures) {
@@ -72,6 +74,7 @@ export function buildLowStarMatrixPages(report: LowStarMatrixSource): LowStarMat
       if (!existing) {
         byCode.set(measure.code, {
           code: measure.code,
+          displayCode: measure.displayCode ?? measure.code,
           displayName: measure.displayName,
           weight: measure.weight,
           stars: new Map([[contract.contractId, measure.star]]),
@@ -91,6 +94,7 @@ export function buildLowStarMatrixPages(report: LowStarMatrixSource): LowStarMat
         const stars = contractIds.map((id) => row.stars.get(id) ?? null);
         return {
           code: row.code,
+          displayCode: row.displayCode,
           displayName: row.displayName,
           weight: row.weight,
           inRecalcSet: recalcCodes.has(row.code.toUpperCase()),

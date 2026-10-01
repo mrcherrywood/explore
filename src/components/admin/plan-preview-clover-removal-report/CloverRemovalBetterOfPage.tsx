@@ -21,6 +21,7 @@ const PRODUCT_LABEL = "Stars 2026 Recalc 4-star path";
 export type BetterOfMeasureRow = {
   contractId: string;
   code: string;
+  displayCode: string;
   displayName: string;
   currentStar: number;
   priorStar: number;
@@ -154,7 +155,7 @@ export function CloverRemovalBetterOfMeasuresPage({
               <tr key={`${row.contractId}-${row.code}`}>
                 <td className="l" style={{ ...CELL, fontWeight: 700 }}>{row.contractId}</td>
                 <td className="l" style={CELL}>
-                  <MeasureLabel code={row.code} name={row.displayName} />
+                  <MeasureLabel code={row.displayCode} name={row.displayName} />
                 </td>
                 <td style={CELL}>{row.currentStar}★</td>
                 <td style={{ ...CELL, fontWeight: 800, background: REPORT_COLORS.band }}>{row.priorStar}★</td>

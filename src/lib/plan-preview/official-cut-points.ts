@@ -27,6 +27,17 @@ export function hasOfficialTechNotesCutPoints(starsYear: number): boolean {
   return existsSync(officialCutPointsPath(starsYear));
 }
 
+/** Official Tech Notes measure codes keyed by normalized measure name. */
+export function loadOfficialMeasureCodesByName(starsYear: number): Map<string, string> {
+  const filePath = officialCutPointsPath(starsYear);
+  const codes = new Map<string, string>();
+  if (!existsSync(filePath)) return codes;
+  for (const row of parseOfficialCutPointsCsv(readFileSync(filePath, "utf-8"))) {
+    if (row.measureCode) codes.set(normalizeMeasureName(row.measureName), row.measureCode);
+  }
+  return codes;
+}
+
 /** Official Tech Notes measure weights keyed by that star year's measure code. */
 export function loadOfficialMeasureWeights(starsYear: number): Map<string, number> {
   const filePath = officialCutPointsPath(starsYear);

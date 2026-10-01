@@ -48,6 +48,7 @@ import {
 import { measureAcronym, nameKeyedMeasureLabel } from "./measure-acronyms";
 import { toBaselineMeasureCode } from "./measure-resolve";
 import {
+  loadOfficialMeasureCodesByName,
   loadOfficialMeasureWeights,
   officialCutPointsPath,
   parseOfficialCutPointsCsv,
@@ -63,7 +64,10 @@ import type { PlanPreviewPredictionsResult } from "./predictions";
 export const UNKNOWN_PARENT_ORG = "Unknown parent organization";
 
 export type CloverRemovalMeasureRef = {
+  /** Scoring identity. May differ from the stars-year measure code when CMS reuses a number. */
   code: string;
+  /** Measure code from this stars year's Tech Notes. */
+  displayCode: string;
   acronym: string;
   displayName: string;
   star: number | null;
@@ -142,6 +146,7 @@ export type CloverRemovalContractPage = {
     removedScore: CloverRemovalLegScore | null;
     usedPrior: Array<{
       code: string;
+      displayCode: string;
       displayName: string;
       currentStar: number;
       priorStar: number;
@@ -279,6 +284,8 @@ function betterOfPathForContract(
   betterMeasures: ContractMeasure[],
   shared: { atFour: boolean; score: CloverRemovalLegScore | null } | undefined,
   displayByCode: Map<string, string>,
+  fileCodeByScoringCode: ReadonlyMap<string, string>,
+  techNotesByName: ReadonlyMap<string, string>,
 ): CloverRemovalContractPage["betterOfPath"] {
   if (!search) {
     return {
@@ -299,7 +306,7 @@ function betterOfPathForContract(
     reachable: search.reachableWithinMax,
     minK: search.minK,
     score,
-    measures: measureRefs(codes, displayByCode, betterMeasures),
+    measures: measureRefs(codes, displayByCode, betterMeasures, fileCodeByScoringCode, techNotesByName),
     sharedAtFour: shared?.atFour ?? false,
     sharedScore: shared?.score ?? null,
   };
@@ -310,6 +317,8 @@ function betterOfForContract(
   priorByContract: Map<string, Map<string, number>>,
   priorYear: number,
   displayByCode: Map<string, string>,
+  fileCodeByScoringCode: ReadonlyMap<string, string>,
+  techNotesByName: ReadonlyMap<string, string>,
   removedCodes: readonly string[],
   withQi: NonNullable<ReturnType<typeof getOfficialForScenario>>,
   withoutQi: NonNullable<ReturnType<typeof getOfficialForScenario>>,
@@ -324,6 +333,7 @@ function betterOfForContract(
     removedScore: evaluateCloverRemoval(betterInput, removedCodes, withQi, withoutQi),
     usedPrior: better.usedPrior.map((row) => ({
       code: row.code,
+      displayCode: starsYearDisplayCode(row.code, fileCodeByScoringCode, techNotesByName),
       displayName: displayByCode.get(row.code.toUpperCase()) ?? nameKeyedMeasureLabel(row.code)?.name ?? row.code,
       currentStar: row.currentStar,
       priorStar: row.priorStar,
@@ -331,14 +341,34 @@ function betterOfForContract(
   };
 }
 
+/** Stars-year Tech Notes code for a scoring code. Name-keyed measures resolve by name. */
+export function starsYearDisplayCode(
+  scoringCode: string,
+  fileCodeByScoringCode: ReadonlyMap<string, string>,
+  techNotesByName: ReadonlyMap<string, string>,
+): string {
+  const upper = scoringCode.toUpperCase();
+  const fromFile = fileCodeByScoringCode.get(upper);
+  if (fromFile) return fromFile;
+  if (/^[CD]:/i.test(scoringCode)) {
+    const fromNotes = techNotesByName.get(scoringCode.slice(2).trim().toLowerCase());
+    if (fromNotes) return fromNotes;
+  }
+  return upper;
+}
+
 function labelForCode(
   code: string,
   displayByCode: Map<string, string>,
+  fileCodeByScoringCode: ReadonlyMap<string, string>,
+  techNotesByName: ReadonlyMap<string, string>,
 ): CloverRemovalMeasureRef {
   const keyed = nameKeyedMeasureLabel(code);
+  const displayCode = starsYearDisplayCode(code, fileCodeByScoringCode, techNotesByName);
   return {
     code,
-    acronym: measureAcronym(code),
+    displayCode,
+    acronym: /^[CD]:/i.test(code) ? displayCode : measureAcronym(code),
     displayName: displayByCode.get(code.toUpperCase()) ?? keyed?.name ?? code,
     star: null,
     weight: null,
@@ -349,12 +379,14 @@ function measureRefs(
   codes: string[],
   displayByCode: Map<string, string>,
   measures: ContractMeasure[],
+  fileCodeByScoringCode: ReadonlyMap<string, string>,
+  techNotesByName: ReadonlyMap<string, string>,
 ): CloverRemovalMeasureRef[] {
   const byCode = new Map(measures.map((row) => [row.code.toUpperCase(), row]));
   return codes.map((code) => {
     const measure = byCode.get(code);
     return {
-      ...labelForCode(code, displayByCode),
+      ...labelForCode(code, displayByCode, fileCodeByScoringCode, techNotesByName),
       star: measure?.starValue ?? null,
       weight: measure?.weight ?? null,
     };
@@ -399,6 +431,8 @@ export function buildCloverRemovalReport(input: {
   const names = new Map<string, string | null>();
   const parents = new Map<string, string | null>();
   const displayByCode = new Map<string, string>();
+  const fileCodeByScoringCode = new Map<string, string>();
+  const techNotesByName = loadOfficialMeasureCodesByName(starsYear);
 
   for (const row of input.officialStars) {
     if (!matchesParentOrganization(row.parentOrganization, parent)) continue;
@@ -407,6 +441,7 @@ export function buildCloverRemovalReport(input: {
     parents.set(row.contractId, row.parentOrganization);
     const code = toBaselineMeasureCode(row.measureNormalized, row.measureCode, baselineYear).toUpperCase();
     if (!displayByCode.has(code)) displayByCode.set(code, row.measureDisplayName);
+    if (!fileCodeByScoringCode.has(code)) fileCodeByScoringCode.set(code, row.measureCode.toUpperCase());
   }
   for (const row of input.officialSummaries) {
     if (!matchesParentOrganization(row.parentOrganization, parent)) continue;
@@ -643,7 +678,7 @@ export function buildCloverRemovalReport(input: {
               })
             : path.reason;
         return {
-          ...labelForCode(code, displayByCode),
+          ...labelForCode(code, displayByCode, fileCodeByScoringCode, techNotesByName),
           star: measure.starValue,
           weight: measure.weight,
           role: path.role,
@@ -661,10 +696,10 @@ export function buildCloverRemovalReport(input: {
       publishedFinal: summary?.finalSummary ?? null,
       baseline: row.baseline,
       fullPool: row.fullPool,
-      candidates: measureRefs(row.candidates, displayByCode, measures),
+      candidates: measureRefs(row.candidates, displayByCode, measures, fileCodeByScoringCode, techNotesByName),
       minK: row.minK,
       minSets: row.minSets.map((set) => ({
-        measures: measureRefs(set.codes, displayByCode, measures),
+        measures: measureRefs(set.codes, displayByCode, measures, fileCodeByScoringCode, techNotesByName),
         score: set.score,
       })),
       reachableWithinMax: row.reachableWithinMax,
@@ -687,12 +722,16 @@ export function buildCloverRemovalReport(input: {
         betterInputById.get(row.contractId)?.measures ?? [],
         betterSharedById.get(row.contractId),
         displayByCode,
+        fileCodeByScoringCode,
+        techNotesByName,
       ),
       betterOf: betterOfForContract(
         searchInput,
         priorByContract,
         priorStarsYear,
         displayByCode,
+        fileCodeByScoringCode,
+        techNotesByName,
         qiCodes,
         withQi,
         withoutQi,
@@ -733,18 +772,28 @@ export function buildCloverRemovalReport(input: {
     lensLabel: lensId === "any" ? "Any measure, HEDIS last" : "Recalc and Clover-20",
     recommendedUsesHedis:
       lensId === "any" && (recommended?.codes ?? []).some((code) => hedisCodes.has(code)),
-    candidateMeasures: pool.map((code) => labelForCode(code, displayByCode)),
+    candidateMeasures: pool.map((code) =>
+      labelForCode(code, displayByCode, fileCodeByScoringCode, techNotesByName),
+    ),
     recommended,
     recommendedMeasures: recommended
       ? measureRefs(
           recommended.codes,
           displayByCode,
           measuresById.get(contracts[0]?.contractId ?? "") ?? [],
+          fileCodeByScoringCode,
+          techNotesByName,
         ).map((row) => ({ ...row, star: null, weight: null }))
       : [],
     ladder,
     betterOfList: betterRecommended
-      ? measureRefs(betterRecommended.codes, displayByCode, betterInputs[0]?.measures ?? []).map((row) => ({
+      ? measureRefs(
+          betterRecommended.codes,
+          displayByCode,
+          betterInputs[0]?.measures ?? [],
+          fileCodeByScoringCode,
+          techNotesByName,
+        ).map((row) => ({
           ...row,
           star: null,
           weight: null,

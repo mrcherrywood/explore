@@ -212,7 +212,7 @@ export function CloverRemovalContractPage({
               {best.measures.map((row) => (
                 <tr key={row.code}>
                   <td className="l" style={CELL}>
-                    <MeasureLabel code={row.code} name={row.displayName} />
+                    <MeasureLabel code={row.displayCode} name={row.displayName} />
                   </td>
                   <td style={CELL}>{row.weight ?? "—"}</td>
                   <td style={{ ...CELL, fontWeight: 800 }}>

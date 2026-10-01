@@ -77,7 +77,7 @@ export function CloverRemovalLowStarPage({
                     background: row.inRecalcSet ? REPORT_COLORS.band : undefined,
                   }}
                 >
-                  <MeasureLabel code={row.code} name={row.displayName} />
+                  <MeasureLabel code={row.displayCode} name={row.displayName} />
                 </td>
                 <td
                   style={{

@@ -19,8 +19,19 @@ import {
 const CELL = { paddingTop: 3, paddingBottom: 3 } as const;
 const PRODUCT_LABEL = "Stars 2026 Recalc 4-star path";
 
-function formatList(codes: string[]): string {
-  return codes.length === 0 ? "None" : formatMeasureAcronyms(codes);
+function formatList(
+  codes: string[],
+  measures: ReadonlyArray<{ code: string; displayCode: string; acronym: string }>,
+): string {
+  if (codes.length === 0) return "None";
+  const byCode = new Map(measures.map((measure) => [measure.code.toUpperCase(), measure]));
+  return codes
+    .map((code) => {
+      const measure = byCode.get(code.toUpperCase());
+      if (measure && /^[CD]:/i.test(measure.code)) return measure.displayCode;
+      return measure?.acronym ?? formatMeasureAcronyms([code]);
+    })
+    .join(", ");
 }
 
 export function CloverRemovalParentPage({
@@ -110,7 +121,7 @@ export function CloverRemovalParentPage({
                 {report.recommendedMeasures.map((measure) => (
                   <tr key={measure.code}>
                     <td className="l" style={{ ...CELL, whiteSpace: "normal" }}>
-                      <MeasureLabel code={measure.code} name={measure.displayName} />
+                      <MeasureLabel code={measure.displayCode} name={measure.displayName} />
                     </td>
                   </tr>
                 ))}
@@ -152,7 +163,7 @@ export function CloverRemovalParentPage({
               <tr key={`${row.k}:${row.codes.join(",")}`}>
                 <td style={{ ...CELL, fontWeight: 800 }}>{row.k}</td>
                 <td className="l" style={{ ...CELL, fontSize: 9 }}>
-                  {formatList(row.codes)}
+                  {formatList(row.codes, report.candidateMeasures)}
                 </td>
                 <td style={CELL}>
                   {row.contractsAtFour} / {report.contracts.length}

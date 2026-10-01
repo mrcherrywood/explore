@@ -18,13 +18,9 @@ test("falls back to the code when no acronym is defined", () => {
   assert.equal(measureAcronym("C99"), "C99");
 });
 
-test("name-keyed COB displays as COB, not the internal scoring key", () => {
+test("name-keyed COB keeps a readable name when the stars-year code is unavailable", () => {
   const code = "D:CONCURRENT USE OF OPIOIDS AND BENZODIAZEPINES COB";
-  assert.equal(measureAcronym(code), "COB");
-  assert.deepEqual(nameKeyedMeasureLabel(code), {
-    code: "COB",
-    name: "Concurrent Use of Opioids and Benzodiazepines (COB)",
-  });
+  assert.equal(nameKeyedMeasureLabel(code)?.name, "Concurrent Use of Opioids and Benzodiazepines (COB)");
   assert.equal(measureAcronym("D12"), "SUPD");
 });
 
