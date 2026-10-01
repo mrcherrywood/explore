@@ -166,7 +166,7 @@ export function CloverRemovalParentPage({
 
       <ReportSection
         title="Contract results"
-        note="Before is the modeled Overall with nothing removed. Own minimum is how many measures this contract alone would need removed. Shared is the Overall after the shared list. All 3★ and under is the Overall after every measure in this set scored 3★ or lower is removed. Best case uses Better-Of stars, drops Quality Improvement, and removes Recalc and Clover-20 measures that are still below 4.0."
+        note="Before is nothing removed. Own minimum is this contract alone. Shared is the organization list. All 3★ and under removes those measures. Best case is Better-Of, no Quality Improvement, and Recalc and Clover-20 measures below 4.0."
         style={{ marginTop: 12 }}
       >
         <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>
@@ -241,17 +241,16 @@ export function CloverRemovalParentPage({
           </p>
         ) : null}
         {report.sensitivity ? (
-          <p style={{ margin: "8px 0 0", fontSize: 10, color: "var(--fep-muted)" }}>
-            Recomputed reward-factor check:{" "}
+          <p style={{ margin: "4px 0 0", fontSize: 10, lineHeight: 1.3, color: "var(--fep-muted)" }}>
             {report.sensitivity.every((row) => row.officialAtFour === row.recomputedAtFour)
-              ? "the same contracts stay at 4.0 if the reward-factor cutoffs are recalculated for the whole market."
-              : report.sensitivity
+              ? "Reward-factor check: the same contracts stay at 4.0 if market cutoffs are recalculated."
+              : `Reward-factor check: ${report.sensitivity
                   .filter((row) => row.officialAtFour !== row.recomputedAtFour)
                   .map(
                     (row) =>
                       `${row.contractId} becomes ${formatStars(row.recomputedRating, 1)} (${formatScore(row.recomputedScore, 3)})`,
                   )
-                  .join("; ")}
+                  .join("; ")}.`}
           </p>
         ) : null}
       </ReportSection>
