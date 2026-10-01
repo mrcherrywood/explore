@@ -2,6 +2,8 @@
 
 import type { ReactNode, Ref } from "react";
 
+import { nameKeyedMeasureLabel } from "@/lib/plan-preview/measure-acronyms";
+
 export const REPORT_COLORS = {
   accent: "#1a3673",
   accentDeep: "#12264f",
@@ -265,10 +267,16 @@ export function BuildupRow({
 
 /** Bold measure code followed by the muted display name. */
 export function MeasureLabel({ code, name }: { code: string; name: string }) {
+  const keyed = /^[CD]:/i.test(code);
+  const shownCode = keyed ? nameKeyedMeasureLabel(code)?.code ?? code : code;
+  const shownName =
+    keyed && name.toUpperCase() === code.toUpperCase()
+      ? nameKeyedMeasureLabel(code)?.name ?? name
+      : name;
   return (
     <>
-      <span style={{ fontWeight: 700, color: "var(--fep-ink)" }}>{code}</span>{" "}
-      <span style={{ color: "var(--fep-muted)" }}>{name}</span>
+      <span style={{ fontWeight: 700, color: "var(--fep-ink)" }}>{shownCode}</span>{" "}
+      <span style={{ color: "var(--fep-muted)" }}>{shownName}</span>
     </>
   );
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { formatMeasureAcronyms, measureAcronym } from "./measure-acronyms";
+import { formatMeasureAcronyms, measureAcronym, nameKeyedMeasureLabel } from "./measure-acronyms";
 
 test("maps scenario removal codes to measure acronyms", () => {
   assert.equal(measureAcronym("C19"), "SPC");
@@ -16,6 +16,16 @@ test("maps scenario removal codes to measure acronyms", () => {
 
 test("falls back to the code when no acronym is defined", () => {
   assert.equal(measureAcronym("C99"), "C99");
+});
+
+test("name-keyed COB displays as COB, not the internal scoring key", () => {
+  const code = "D:CONCURRENT USE OF OPIOIDS AND BENZODIAZEPINES COB";
+  assert.equal(measureAcronym(code), "COB");
+  assert.deepEqual(nameKeyedMeasureLabel(code), {
+    code: "COB",
+    name: "Concurrent Use of Opioids and Benzodiazepines (COB)",
+  });
+  assert.equal(measureAcronym("D12"), "SUPD");
 });
 
 test("formats a removal list as acronyms", () => {

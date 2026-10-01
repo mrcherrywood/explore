@@ -45,7 +45,7 @@ import {
   buildAnchoredPopulation,
   buildCustomRemovalScenario,
 } from "./final-scores";
-import { measureAcronym } from "./measure-acronyms";
+import { measureAcronym, nameKeyedMeasureLabel } from "./measure-acronyms";
 import { toBaselineMeasureCode } from "./measure-resolve";
 import {
   loadOfficialMeasureWeights,
@@ -324,7 +324,7 @@ function betterOfForContract(
     removedScore: evaluateCloverRemoval(betterInput, removedCodes, withQi, withoutQi),
     usedPrior: better.usedPrior.map((row) => ({
       code: row.code,
-      displayName: displayByCode.get(row.code) ?? row.code,
+      displayName: displayByCode.get(row.code.toUpperCase()) ?? nameKeyedMeasureLabel(row.code)?.name ?? row.code,
       currentStar: row.currentStar,
       priorStar: row.priorStar,
     })),
@@ -335,10 +335,11 @@ function labelForCode(
   code: string,
   displayByCode: Map<string, string>,
 ): CloverRemovalMeasureRef {
+  const keyed = nameKeyedMeasureLabel(code);
   return {
     code,
     acronym: measureAcronym(code),
-    displayName: displayByCode.get(code) ?? code,
+    displayName: displayByCode.get(code.toUpperCase()) ?? keyed?.name ?? code,
     star: null,
     weight: null,
   };
@@ -404,7 +405,7 @@ export function buildCloverRemovalReport(input: {
     parentIds.add(row.contractId);
     names.set(row.contractId, row.contractName);
     parents.set(row.contractId, row.parentOrganization);
-    const code = toBaselineMeasureCode(row.measureNormalized, row.measureCode, baselineYear);
+    const code = toBaselineMeasureCode(row.measureNormalized, row.measureCode, baselineYear).toUpperCase();
     if (!displayByCode.has(code)) displayByCode.set(code, row.measureDisplayName);
   }
   for (const row of input.officialSummaries) {

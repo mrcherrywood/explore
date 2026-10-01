@@ -38,8 +38,25 @@ const MEASURE_ACRONYMS_BY_CODE: Record<string, string> = {
   D12: "SUPD",
 };
 
+/**
+ * A new measure whose file code already belongs to a different measure is
+ * stored as `D:` plus its name. The Path to 4 report should show the measure,
+ * not that internal key.
+ */
+export function nameKeyedMeasureLabel(code: string): { code: string; name: string } | null {
+  if (!/^[CD]:/i.test(code)) return null;
+  const name = code.slice(2).trim().toLowerCase();
+  if (name.includes("opioid") || name.includes("benzo") || /\bcob\b/.test(name)) {
+    return { code: "COB", name: "Concurrent Use of Opioids and Benzodiazepines (COB)" };
+  }
+  const readable = name.replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+  return { code: readable, name: readable };
+}
+
 /** Acronym for a baseline measure code; falls back to the code itself. */
 export function measureAcronym(code: string): string {
+  const labeled = nameKeyedMeasureLabel(code);
+  if (labeled) return labeled.code;
   const upper = code.toUpperCase();
   return MEASURE_ACRONYMS_BY_CODE[upper] ?? upper;
 }
