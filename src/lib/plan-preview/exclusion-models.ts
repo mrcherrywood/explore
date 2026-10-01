@@ -3,7 +3,7 @@ export type ExclusionMeasure = {
   name: string;
 };
 
-export type ExclusionModelId = "cms" | "statutory" | "notice" | "clover";
+export type ExclusionModelId = "cms" | "statutory" | "notice" | "clover" | "combined";
 
 /** CMS June 2026 industry-wide recalculation. Stars 2027 Poly-ACH (D13) is not on this list. */
 export const CMS_RECALC_EXCLUSIONS: ExclusionMeasure[] = [
@@ -69,6 +69,18 @@ function codesOf(measures: readonly ExclusionMeasure[]): string[] {
 
 const cloverMeasures = [...CLOVER_STATUTORY_EXCLUSIONS, ...CLOVER_NOTICE_EXCLUSIONS];
 
+function unionMeasures(...groups: ExclusionMeasure[][]): ExclusionMeasure[] {
+  const byCode = new Map<string, ExclusionMeasure>();
+  for (const group of groups) {
+    for (const measure of group) {
+      if (!byCode.has(measure.code)) byCode.set(measure.code, measure);
+    }
+  }
+  return [...byCode.values()];
+}
+
+const combinedMeasures = unionMeasures(CMS_RECALC_EXCLUSIONS, cloverMeasures);
+
 export const EXCLUSION_MODELS: ExclusionModel[] = [
   {
     id: "cms",
@@ -98,6 +110,13 @@ export const EXCLUSION_MODELS: ExclusionModel[] = [
     measures: cloverMeasures,
     codes: codesOf(cloverMeasures),
   },
+  {
+    id: "combined",
+    label: "CMS recalc and all Clover",
+    shortLabel: "CMS + Clover",
+    measures: combinedMeasures,
+    codes: codesOf(combinedMeasures),
+  },
 ];
 
 export type ExclusionCrosswalkRow = {
@@ -117,6 +136,7 @@ export function exclusionCrosswalk(): ExclusionCrosswalkRow[] {
     { category: "Excluded by Clover, but not the CMS recalculation", codes: cloverOnly },
     { category: "Total CMS exclusions", codes: [...cms].sort(byCode) },
     { category: "Total Clover exclusions", codes: [...clover].sort(byCode) },
+    { category: "CMS recalc and all Clover", codes: [...new Set([...cms, ...clover])].sort(byCode) },
   ];
 }
 

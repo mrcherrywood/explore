@@ -21,7 +21,7 @@ import {
 const PRODUCT_LABEL = "Exclusion models";
 const CELL = { paddingTop: 3, paddingBottom: 3 } as const;
 
-function scoreCell(score: ExclusionModelScoreValue | null) {
+function ScoreCell({ score }: { score: ExclusionModelScoreValue | null }) {
   const atFour = (score?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF;
   return (
     <td
@@ -78,7 +78,7 @@ export function ExclusionModelsDefinitionsPage({
                   {row.category}
                 </td>
                 <td className="l" style={{ ...CELL, fontSize: 8.5 }}>
-                  {row.category.startsWith("Total") ? "—" : row.codes.join(", ")}
+                  {row.category.startsWith("Total") || row.codes.length > 20 ? "—" : row.codes.join(", ")}
                 </td>
                 <td style={{ ...CELL, fontWeight: 700 }}>{row.codes.length}</td>
               </tr>
@@ -100,14 +100,14 @@ export function ExclusionModelsListsPage({
   pageNumber: number;
   totalPages: number;
 }) {
-  const groups = report.models.filter((model) => model.id !== "clover");
+  const groups = report.models.filter((model) => model.id !== "clover" && model.id !== "combined");
   const cms = groups.find((group) => group.id === "cms");
   const cloverGroups = groups.filter((group) => group.id !== "cms");
   return (
     <ReportPageFrame
       eyebrow={`${report.parentOrganization} · Stars ${report.starsYear}`}
       title="Measures in each model"
-      subtitle="All Clover is the statutory list and the notice-and-comment list together."
+      subtitle="All Clover is the statutory list and the notice-and-comment list together. CMS + Clover drops both the CMS list and the Clover list."
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={report.parentOrganization}
@@ -172,7 +172,6 @@ export function ExclusionModelsScoresPage({
   totalPages: number;
   continued: boolean;
 }) {
-  const modelIds = ["cms", "statutory", "notice", "clover"] as const;
   return (
     <ReportPageFrame
       eyebrow={`${report.parentOrganization} · Stars ${report.starsYear}`}
@@ -187,10 +186,10 @@ export function ExclusionModelsScoresPage({
     >
       <ReportSection
         title="Overall after exclusions"
-        note="No exclusions keeps every measure and still recalculates the reward factor for this year’s market. CMS recalc, Statutory, and Notice drop that group. All Clover drops the statutory and notice lists together."
+        note="No exclusions keeps every measure and still recalculates the reward factor for this year’s market. CMS recalc, Statutory, and Notice drop that group. All Clover drops both Clover lists. CMS + Clover drops every measure on either list."
         style={{ marginTop: 8 }}
       >
-        <table className="fep-report-table compact" style={{ fontSize: 9 }}>
+        <table className="fep-report-table compact" style={{ fontSize: 8.5 }}>
           <thead>
             <tr>
               <th className="l">Contract</th>
@@ -209,8 +208,10 @@ export function ExclusionModelsScoresPage({
                   <span style={{ fontWeight: 700 }}>{row.contractId}</span>
                 </td>
                 <td style={CELL}>{formatStars(row.publishedRating, 1)}</td>
-                {scoreCell(row.baseline)}
-                {modelIds.map((id) => scoreCell(row.models.find((model) => model.id === id)?.score ?? null))}
+                <ScoreCell score={row.baseline} />
+                {row.models.map((model) => (
+                  <ScoreCell key={model.id} score={model.score} />
+                ))}
                 <td style={CELL}>{row.enrollment == null ? "—" : formatEnrollment(row.enrollment)}</td>
               </tr>
             ))}

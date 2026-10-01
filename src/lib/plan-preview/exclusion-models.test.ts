@@ -5,6 +5,7 @@ import {
   CLOVER_NOTICE_EXCLUSIONS,
   CLOVER_STATUTORY_EXCLUSIONS,
   CMS_RECALC_EXCLUSIONS,
+  EXCLUSION_MODELS,
   exclusionCrosswalk,
 } from "./exclusion-models";
 
@@ -30,4 +31,15 @@ test("exclusion crosswalk splits the overlap", () => {
   ]);
   assert.equal(byCategory.get("Total CMS exclusions")?.length, 18);
   assert.equal(byCategory.get("Total Clover exclusions")?.length, 20);
+  assert.equal(byCategory.get("CMS recalc and all Clover")?.length, 28);
+});
+
+test("CMS and Clover together drops each list once", () => {
+  const combined = EXCLUSION_MODELS.find((model) => model.id === "combined");
+  assert.ok(combined);
+  assert.equal(combined.codes.length, 28);
+  assert.equal(new Set(combined.codes).size, 28);
+  assert.ok(combined.codes.includes("C07"));
+  assert.ok(combined.codes.includes("C03"));
+  assert.ok(!combined.codes.includes("D13"));
 });
