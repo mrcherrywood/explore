@@ -18,6 +18,7 @@ import {
   type BetterOfMeasureRow,
 } from "./CloverRemovalBetterOfPage";
 import { CloverRemovalContractPage } from "./CloverRemovalContractPage";
+import { CloverRemovalDomainPage } from "./CloverRemovalDomainPage";
 import { CloverRemovalLowStarPage } from "./CloverRemovalLowStarPage";
 import { CloverRemovalMeasuresPage, cloverMeasurePages } from "./CloverRemovalMeasuresPage";
 import { CloverRemovalParentPage } from "./CloverRemovalParentPage";
@@ -56,7 +57,13 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
   );
   const betterOfMeasurePages = chunk(betterOfMeasureRows, 26);
   const betterOfPageCount = betterOfScorePages.length + betterOfListPages.length + betterOfMeasurePages.length;
-  const totalPages = 2 + betterOfPageCount + matrixPages.length + view.contracts.length + measurePages.length;
+  const domainScenarios = report.domainRemoval.scenarios;
+  const domainContractIds = report.domainRemoval.contracts.map((contract) => contract.contractId);
+  const domainScenarioPages = chunk(domainScenarios.map((_, index) => index), 12);
+  const domainContractPages = chunk(domainContractIds, 5);
+  const domainPageCount = domainScenarioPages.length * Math.max(domainContractPages.length, domainScenarios.length === 0 ? 0 : 1);
+  const totalPages =
+    2 + betterOfPageCount + matrixPages.length + domainPageCount + view.contracts.length + measurePages.length;
   const slug = view.parentOrganization.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const fileName = `recalc-4-star-path_${slug}_stars-${view.starsYear}_${view.lensId}`;
 
@@ -177,16 +184,35 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
             totalPages={totalPages}
           />
         ))}
+        {domainScenarioPages.flatMap((scenarioIndexes, scenarioIndex) =>
+          (domainContractPages.length === 0 ? [[]] : domainContractPages).map((contractIds, contractIndex) => {
+            const pageIndex = scenarioIndex * Math.max(domainContractPages.length, 1) + contractIndex;
+            return (
+              <CloverRemovalDomainPage
+                key={`domains-${scenarioIndexes[0]}-${contractIds[0] ?? "none"}`}
+                report={view}
+                domainRemoval={report.domainRemoval}
+                scenarioStart={scenarioIndexes[0] ?? 0}
+                scenarioEnd={(scenarioIndexes[scenarioIndexes.length - 1] ?? 0) + 1}
+                contractIds={contractIds}
+                pageNumber={2 + betterOfPageCount + matrixPages.length + pageIndex}
+                totalPages={totalPages}
+                continued={pageIndex > 0}
+              />
+            );
+          }),
+        )}
         <CloverRemovalQiPage
           report={view}
-          pageNumber={2 + betterOfPageCount + matrixPages.length}
+          pageNumber={2 + betterOfPageCount + matrixPages.length + domainPageCount}
           totalPages={totalPages}
         />
         {view.contracts.map((contract, index) => {
           const precedingMeasures = view.contracts
             .slice(0, index)
             .reduce((count, row) => count + cloverMeasurePages(row.pathMeasures).length, 0);
-          const contractPage = 3 + betterOfPageCount + matrixPages.length + index + precedingMeasures;
+          const contractPage =
+            3 + betterOfPageCount + matrixPages.length + domainPageCount + index + precedingMeasures;
           const pages = cloverMeasurePages(contract.pathMeasures);
           return (
             <div key={contract.contractId} className="flex flex-col items-center gap-7">
