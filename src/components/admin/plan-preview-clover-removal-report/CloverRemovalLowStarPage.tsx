@@ -33,7 +33,7 @@ export function CloverRemovalLowStarPage({
     <ReportPageFrame
       eyebrow={`Plan Preview 2 · Stars ${report.starsYear} Recalc 4-star path`}
       title={`${page.part} measures at 3★ and under`}
-      subtitle={`${report.parentOrganization} · ${report.lensLabel}. Salmon cells are 3★ or lower. Shaded measure names are in the Recalc and Model 2 set.`}
+      subtitle={`${report.parentOrganization} · ${report.lensLabel}. Salmon cells are 3★ or lower. Shaded measure names are in the Recalc and Clover-20 set.`}
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={report.parentOrganization}
@@ -43,7 +43,7 @@ export function CloverRemovalLowStarPage({
     >
       <ReportSection
         title="Across contracts"
-        note="Measures are listed when at least one contract scores them 3★ or lower, with the most widely shared measures first. Recalc is Yes when the measure is in the Stars 2026 Recalc and Model 2 set. The count is how many contracts score that measure 3★ or lower."
+        note="Measures are listed when at least one contract scores them 3★ or lower, with the most widely shared measures first. Recalc is Yes when the measure is in the Stars 2026 Recalc and Clover-20 set. The count is how many contracts score that measure 3★ or lower."
       >
         <table className="fep-report-table compact" style={{ fontSize: 8, width: "100%", tableLayout: "fixed" }}>
           <colgroup>

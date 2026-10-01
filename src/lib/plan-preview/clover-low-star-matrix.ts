@@ -14,7 +14,7 @@ export const LOW_STAR_CONTRACTS_PER_PAGE = 8;
 export const LOW_STAR_ROWS_PER_PAGE = 32;
 
 export type LowStarMatrixSource = {
-  /** Stars 2026 Recalc and Model 2 measure codes. */
+  /** Stars 2026 Recalc and Clover-20 measure codes. */
   recalcCodes?: readonly string[];
   contracts: Array<{
     contractId: string;
@@ -31,7 +31,7 @@ export type LowStarMatrixRow = {
   code: string;
   displayName: string;
   weight: number | null;
-  /** In the Stars 2026 Recalc and Model 2 set. */
+  /** In the Stars 2026 Recalc and Clover-20 set. */
   inRecalcSet: boolean;
   stars: Array<number | null>;
   /** Contracts in the organization, not just this page, scored 3★ or lower. */

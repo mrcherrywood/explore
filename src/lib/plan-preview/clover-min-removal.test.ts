@@ -116,7 +116,7 @@ function emptyPredictions(contractId: string, measures: ContractMeasure[]): Plan
   };
 }
 
-test("clover candidate pool is Stars 2026 Recalc plus Model 2, without D02/D03 or QI", () => {
+test("clover candidate pool is Stars 2026 Recalc plus Clover-20, without D02/D03 or QI", () => {
   const pool = cloverCandidatePool();
   assert.equal(pool.length, 26);
   assert.ok(pool.includes("C04"));

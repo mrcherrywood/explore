@@ -23,13 +23,12 @@ function removalLabel(contract: CloverRemovalContractPage): string {
   return contract.qiBasis === "full" ? "All allowed" : "Shared list";
 }
 
-function guessLabel(contract: CloverRemovalContractPage): string[] {
+function guessStar(contract: CloverRemovalContractPage, part: "C" | "D"): string {
   const guess = contract.qiGuess;
-  if (!guess) return [];
-  return [
-    guess.partCStar != null ? `Part C ${guess.partCStar}★` : null,
-    guess.partDRemoved ? "Part D removed" : guess.partDStar != null ? `Part D ${guess.partDStar}★` : null,
-  ].filter((part): part is string => part != null);
+  if (!guess) return "—";
+  if (part === "D" && guess.partDRemoved) return "Removed";
+  const star = part === "C" ? guess.partCStar : guess.partDStar;
+  return star == null ? "—" : `${star}★`;
 }
 
 function scoreColor(atFour: boolean): string {
@@ -75,12 +74,17 @@ export function CloverRemovalQiPage({
         <table className="fep-report-table compact" style={{ fontSize: 10 }}>
           <thead>
             <tr>
-              <th className="l">Contract</th>
-              <th className="l">Removal</th>
+              <th className="l" rowSpan={2}>Contract</th>
+              <th className="l" rowSpan={2}>Removal</th>
+              <th colSpan={3}>CMS</th>
+              <th colSpan={3}>Best guess</th>
+            </tr>
+            <tr>
               <th>Part C</th>
               <th>Part D</th>
               <th>Overall</th>
-              <th className="l">Best guess</th>
+              <th>Part C</th>
+              <th>Part D</th>
               <th>Overall</th>
             </tr>
           </thead>
@@ -96,11 +100,8 @@ export function CloverRemovalQiPage({
                   <td style={{ ...CELL, fontWeight: 800, color: scoreColor((published?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF) }}>
                     {formatScore(published?.finalScoreRaw, 3)}
                   </td>
-                  <td className="l" style={CELL}>
-                    {guessLabel(contract).length === 0
-                      ? "—"
-                      : guessLabel(contract).map((part) => <div key={part}>{part}</div>)}
-                  </td>
+                  <td style={{ ...CELL, fontWeight: 800 }}>{guessStar(contract, "C")}</td>
+                  <td style={{ ...CELL, fontWeight: 800 }}>{guessStar(contract, "D")}</td>
                   <td style={{ ...CELL, fontWeight: 800, color: scoreColor(contract.qiGuess?.atFour ?? false) }}>
                     {formatScore(contract.qiGuess?.finalScoreRaw, 3)}
                   </td>
@@ -113,7 +114,7 @@ export function CloverRemovalQiPage({
 
       <ReportSection
         title="Average Quality Improvement star"
-        note="A contract with only one QI measure changes that measure. The other column stays blank in the table above."
+        note="A contract with only one QI measure changes that measure. The other Part C or Part D cell stays blank in the table above."
         style={{ marginTop: 12 }}
       >
         <table className="fep-report-table compact" style={{ fontSize: 10 }}>

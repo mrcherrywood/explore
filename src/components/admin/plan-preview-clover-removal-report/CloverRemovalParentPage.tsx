@@ -72,12 +72,12 @@ export function CloverRemovalParentPage({
           {report.lensId === "any" ? (
             <>
               <strong>Any measure</strong> means every rated measure can be removed, except Quality Improvement. The Part D copies of Complaints and Members Choosing to Leave stay out of Overall.{" "}
-              <strong>Order</strong> starts with the Stars 2026 Recalc and Model 2 measures, then the other domains, and HEDIS only if the contract is still short of 4.0.{" "}
+              <strong>Order</strong> starts with the Stars 2026 Recalc and Clover-20 measures, then the other domains, and HEDIS only if the contract is still short of 4.0.{" "}
               <strong>Shared list</strong> follows that order and, removed for every contract, gets each reachable contract to 4.0.{" "}
             </>
           ) : (
             <>
-              <strong>Eligible measures</strong> are the Stars 2026 Recalc set plus Model 2. Quality Improvement is not chosen for removal, and the Part D copies of Complaints and Members Choosing to Leave are left out of Overall.{" "}
+              <strong>Eligible measures</strong> are the Stars 2026 Recalc set plus Clover-20. Quality Improvement is not chosen for removal, and the Part D copies of Complaints and Members Choosing to Leave are left out of Overall.{" "}
               <strong>Shared list</strong> is the set of eligible measures that, removed for every contract, gets each reachable contract to 4.0.{" "}
             </>
           )}
@@ -133,7 +133,7 @@ export function CloverRemovalParentPage({
         title="List by size"
         note={
           report.lensId === "any"
-            ? "Each row adds the next measure. Recalc and Model 2 measures come first, then the other domains, and HEDIS last."
+            ? "Each row adds the next measure. Recalc and Clover-20 measures come first, then the other domains, and HEDIS last."
             : "Each row adds the next eligible measure."
         }
         style={{ marginTop: 12 }}

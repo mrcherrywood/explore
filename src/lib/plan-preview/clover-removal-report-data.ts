@@ -532,7 +532,7 @@ export function buildCloverRemovalReport(input: {
 
   return {
     lensId,
-    lensLabel: lensId === "any" ? "Any measure, HEDIS last" : "Recalc and Model 2",
+    lensLabel: lensId === "any" ? "Any measure, HEDIS last" : "Recalc and Clover-20",
     recommendedUsesHedis:
       lensId === "any" && (recommended?.codes ?? []).some((code) => hedisCodes.has(code)),
     candidateMeasures: pool.map((code) => labelForCode(code, displayByCode)),
@@ -553,8 +553,8 @@ export function buildCloverRemovalReport(input: {
       "Removal lists use the Quality Improvement stars CMS assigned. When a removal set leaves no other Part D measures, Part D QI is removed with them. The measure pages list every rated measure and why it is or is not on the path. The best guess drops those removed measures out of the year-over-year labels, weights significant improvement as +1 and significant decline as -1, counts no change and hold harmless as 0, and bands that score with the official QI cut points.",
       "Disaster/EUC higher-of uplift is not modeled.",
       lensId === "any"
-        ? `Any rated measure can be removed except Quality Improvement. Removals start with the Stars 2026 Recalc and Model 2 measures, then the other domains, and HEDIS only if the contract is still short of 4.0. At least ${MIN_RATED_MEASURES} Part C and Part D measures have to remain.`
-        : `Eligible measures are the Stars 2026 Recalc set plus Model 2, excluding the Part D twins of Complaints and Members Choosing to Leave. Quality Improvement is not chosen for removal. As many eligible measures as needed can be removed, as long as at least ${MIN_RATED_MEASURES} Part C and Part D measures remain.`,
+        ? `Any rated measure can be removed except Quality Improvement. Removals start with the Stars 2026 Recalc and Clover-20 measures, then the other domains, and HEDIS only if the contract is still short of 4.0. At least ${MIN_RATED_MEASURES} Part C and Part D measures have to remain.`
+        : `Eligible measures are the Stars 2026 Recalc set plus Clover-20, excluding the Part D twins of Complaints and Members Choosing to Leave. Quality Improvement is not chosen for removal. As many eligible measures as needed can be removed, as long as at least ${MIN_RATED_MEASURES} Part C and Part D measures remain.`,
     ],
   };
   };

@@ -88,7 +88,7 @@ export function anyMeasurePool(codes: Iterable<string>): string[] {
   return [...pool].sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
 }
 
-/** Stars 2026 recalc removals plus the Model 2 Clover set, minus D02/D03 twins and QI. */
+/** Stars 2026 recalc removals plus the Clover-20 set, minus D02/D03 twins and QI. */
 export function cloverCandidatePool(): string[] {
   const pool = new Set(
     [...OFFICIAL_RECALC_REMOVED_CODES].map((code) => code.toUpperCase()),

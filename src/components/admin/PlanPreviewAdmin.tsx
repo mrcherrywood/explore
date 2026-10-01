@@ -522,7 +522,7 @@ export function PlanPreviewAdmin() {
           hrefBase="/admin/plan-preview/clover-removal-report"
           mode="parent"
           title="Stars 2026 Recalc 4-star path"
-          description="The shortest shared removal list, drawn from the Stars 2026 Recalc and Model 2 measures, that gets every contract that can reach 4.0 up to a 4.0 Overall."
+          description="The shortest shared removal list, drawn from the Stars 2026 Recalc and Clover-20 measures, that gets every contract that can reach 4.0 up to a 4.0 Overall."
           buttonLabel="Open 4-star path report →"
         />
       ) : null}
