@@ -63,7 +63,6 @@ export function CloverRemovalContractPage({
   const best = contract.minSets[0] ?? null;
   const sharedAtFour = (contract.sharedScore?.finalScoreRaw ?? 0) >= FOUR_STAR_CUTOFF;
   const anyMeasure = report.lensId === "any";
-  const removedAll = "Highest score that still leaves a rating";
   const ceilingBelow = ceilingBelowPublished(contract);
 
   return (
@@ -86,14 +85,18 @@ export function CloverRemovalContractPage({
         />
         <ReportStat label="Own minimum" value={contract.minK ?? "—"} detail={pathLabel(contract, anyMeasure)} />
         <ReportStat
+          label="Shared list"
+          value={formatScore(contract.sharedScore?.finalScoreRaw, 3)}
+          detail={
+            contract.sharedScore
+              ? `${sharedAtFour ? "Reaches 4.0" : "Short of 4.0"} · ${formatStars(contract.sharedScore.finalRating, 1)}★`
+              : "No shared list"
+          }
+        />
+        <ReportStat
           label="All 3★ and under"
           value={formatScore(contract.lowStars.score?.finalScoreRaw, 3)}
           detail={lowStarDetail(contract)}
-        />
-        <ReportStat
-          label="Ceiling"
-          value={ceilingBelow ? "Below published" : formatScore(contract.fullPool?.finalScoreRaw, 3)}
-          detail={ceilingBelow ? "Lower than the published Overall" : contract.fullPool ? `${removedAll} · ${formatStars(contract.fullPool.finalRating, 1)}★` : removedAll}
         />
       </div>
 
@@ -152,8 +155,8 @@ export function CloverRemovalContractPage({
         {contract.minSets.length === 0 ? (
           <p style={{ margin: 0, fontSize: 12, color: "var(--fep-muted)" }}>
             {ceilingBelow
-              ? `Removing every ${anyMeasure ? "available measure" : "eligible measure"} leaves a score lower than the published Overall.`
-              : `Removing every ${anyMeasure ? "available measure" : "eligible measure"} leaves a final of ${formatScore(contract.fullPool?.finalScoreRaw, 3)}.`}
+              ? "Removing the 3★ and under measures still leaves a score lower than the published Overall."
+              : lowStarDetail(contract)}
           </p>
         ) : (
           <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>

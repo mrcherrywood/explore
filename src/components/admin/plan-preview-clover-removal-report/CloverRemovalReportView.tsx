@@ -9,7 +9,10 @@ import type {
   CloverRemovalReport,
 } from "@/lib/plan-preview/clover-removal-report-data";
 
+import { buildLowStarMatrixPages } from "@/lib/plan-preview/clover-low-star-matrix";
+
 import { CloverRemovalContractPage } from "./CloverRemovalContractPage";
+import { CloverRemovalLowStarPage } from "./CloverRemovalLowStarPage";
 import { CloverRemovalMeasuresPage, cloverMeasurePages } from "./CloverRemovalMeasuresPage";
 import { CloverRemovalParentPage } from "./CloverRemovalParentPage";
 import { CloverRemovalQiPage } from "./CloverRemovalQiPage";
@@ -24,7 +27,8 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
   const measurePages = view.contracts.flatMap((contract) =>
     cloverMeasurePages(contract.pathMeasures).map((page) => ({ contract, ...page })),
   );
-  const totalPages = 2 + view.contracts.length + measurePages.length;
+  const matrixPages = buildLowStarMatrixPages(view);
+  const totalPages = 2 + matrixPages.length + view.contracts.length + measurePages.length;
   const slug = view.parentOrganization.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const fileName = `recalc-4-star-path_${slug}_stars-${view.starsYear}_${view.lensId}`;
 
@@ -104,12 +108,21 @@ export function CloverRemovalReportView({ report }: { report: CloverRemovalRepor
 
       <div ref={pagesRef} className="flex flex-col items-center gap-7 px-[30px] pb-12">
         <CloverRemovalParentPage report={view} pageNumber={1} totalPages={totalPages} />
-        <CloverRemovalQiPage report={view} pageNumber={2} totalPages={totalPages} />
+        {matrixPages.map((page, index) => (
+          <CloverRemovalLowStarPage
+            key={`${page.part}-${page.contractIds[0]}-${index}`}
+            report={view}
+            page={page}
+            pageNumber={2 + index}
+            totalPages={totalPages}
+          />
+        ))}
+        <CloverRemovalQiPage report={view} pageNumber={2 + matrixPages.length} totalPages={totalPages} />
         {view.contracts.map((contract, index) => {
           const precedingMeasures = view.contracts
             .slice(0, index)
             .reduce((count, row) => count + cloverMeasurePages(row.pathMeasures).length, 0);
-          const contractPage = 3 + index + precedingMeasures;
+          const contractPage = 3 + matrixPages.length + index + precedingMeasures;
           const pages = cloverMeasurePages(contract.pathMeasures);
           return (
             <div key={contract.contractId} className="flex flex-col items-center gap-7">

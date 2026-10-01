@@ -83,8 +83,7 @@ export function CloverRemovalParentPage({
           )}
           <strong>Reachable</strong> means 4.0 is possible while at least {report.minRatedMeasures} Part C and Part D measures remain.{" "}
           <strong>Own minimum</strong> follows the same rule for one contract alone, so it can be smaller than the shared list.{" "}
-          <strong>Ceiling</strong> is the highest score that still leaves a rating.{" "}
-          <strong>All 3★ and under</strong> removes every measure in this set scored 3★ or lower. Quality Improvement stays. If removing all of them would leave no rating, the score is the highest that still leaves one. 4.0 requires an unrounded final of {FOUR_STAR_CUTOFF} or higher.
+          <strong>All 3★ and under</strong> removes every measure in this set scored 3★ or lower and shows that Overall. Quality Improvement stays. If removing all of them would leave no rating, the score is the highest that still leaves one. The following pages list those measures across every contract. 4.0 requires an unrounded final of {FOUR_STAR_CUTOFF} or higher.
         </p>
       </div>
 

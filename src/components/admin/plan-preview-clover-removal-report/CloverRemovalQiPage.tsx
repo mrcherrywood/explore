@@ -63,7 +63,7 @@ export function CloverRemovalQiPage({
           <strong>Shared list</strong> is the one removal list for contracts that can reach 4.0.{" "}
           <strong>All allowed</strong> is every measure a contract can still lose and keep a rating. Those contracts cannot reach 4.0 with the QI stars CMS assigned, so the what-if uses that larger set.{" "}
           <strong>Best guess</strong> rebuilds QI from the measures that remain: significant improvement counts as +1, significant decline as −1, and no change counts as 0.{" "}
-          The 1★–5★ columns set Part C and Part D QI to that same star. A highlighted cell is a star CMS already assigned. <strong>Not expected</strong> means this contract’s measure changes do not support that star. Green is an unrounded Overall of {FOUR_STAR_CUTOFF} or higher.
+          The 1★–5★ columns are the average of the Part C and Part D Quality Improvement stars, with both measures at that star. A highlighted cell is a star CMS already assigned. <strong>Not expected</strong> means this contract’s measure changes do not support that star. Green is an unrounded Overall of {FOUR_STAR_CUTOFF} or higher.
         </p>
       </div>
 
@@ -112,7 +112,7 @@ export function CloverRemovalQiPage({
       </ReportSection>
 
       <ReportSection
-        title="If Part C and Part D QI were the same star"
+        title="Average Quality Improvement star"
         note="A contract with only one QI measure changes that measure. The other column stays blank in the table above."
         style={{ marginTop: 12 }}
       >
