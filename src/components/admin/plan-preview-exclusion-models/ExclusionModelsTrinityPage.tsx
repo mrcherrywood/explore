@@ -38,7 +38,7 @@ export function ExclusionModelsTrinityPage({
   return (
     <ReportPageFrame
       eyebrow={`${report.parentOrganization} · Stars ${report.starsYear}`}
-      title={`${contract.contractId} reward factor`}
+      title={contract.contractId}
       subtitle={contract.contractName ?? "Trinity Health Corporation"}
       pageNumber={pageNumber}
       totalPages={totalPages}
@@ -48,7 +48,7 @@ export function ExclusionModelsTrinityPage({
       productLabel="Exclusion models"
     >
       <ReportSection
-        title="How the reward factor is rebuilt"
+        title="Measures removed"
         note="No exclusions keeps every measure and uses the published reward-factor cutoffs. Five C drops C15, C32, C16, C04, and C05. Five C + D drops those five plus D01, D06, D08, and D11. Those measures are removed from every contract. The mean and variance below are recalculated on the measures that remain, and the cutoffs are rebuilt from that same market. Overall is the mean, plus the reward factor, plus CAI."
         style={{ marginTop: 8 }}
       >
@@ -100,7 +100,7 @@ export function ExclusionModelsTrinityPage({
               value={(column) => pair(column.variance30th, column.variance70th)}
             />
             <MathRow label="Variance band" columns={columns} value={(column) => varianceBand(column.varianceCategory)} />
-            <MathRow label="Reward factor" columns={columns} value={(column) => column.rewardFactor.toFixed(1)} strong />
+            <MathRow label="Reward factor" columns={columns} value={(column) => column.rewardFactor.toFixed(1)} />
             <MathRow label="CAI" columns={columns} value={(column) => formatSigned(column.cai)} />
             <MathRow label="Overall" columns={columns} value={(column) => formatScore(column.finalScoreRaw)} strong />
             <MathRow label="Rounded rating" columns={columns} value={(column) => formatStars(column.finalRating, 1)} />
