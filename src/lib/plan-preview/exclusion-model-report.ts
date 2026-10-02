@@ -54,7 +54,7 @@ export type ExclusionModelReport = {
   crosswalk: ExclusionCrosswalkRow[];
   contracts: ExclusionModelContract[];
   excluded: Array<{ contractId: string; contractName: string | null; reason: string }>;
-  /** Present only for Trinity. Explains Five C and Five C + D for the two rewarded contracts. */
+  /** Present only for Trinity. Explains Five C and Five C + D for H3668 and H9179. */
   trinityDetail: TrinityRewardDetail | null;
 };
 

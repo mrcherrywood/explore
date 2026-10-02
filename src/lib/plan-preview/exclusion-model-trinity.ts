@@ -4,8 +4,8 @@ import type { PlanPreviewFinalScoresResult } from "./final-scores";
 import { toBaselineMeasureCode } from "./measure-resolve";
 import type { OfficialStarRow } from "./store-official";
 
-/** The two Trinity contracts that receive a reward factor under Five C and Five C + D. */
-export const TRINITY_REWARD_CONTRACTS = ["H3668", "H6910"] as const;
+/** Trinity contracts explained on the exclusion-model detail pages. */
+export const TRINITY_REWARD_CONTRACTS = ["H3668", "H9179"] as const;
 
 export const TRINITY_PARENT_ORGANIZATION = "Trinity Health Corporation";
 

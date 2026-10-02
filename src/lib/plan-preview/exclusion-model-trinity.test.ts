@@ -52,7 +52,7 @@ function scenario(contractId: string, rewardFactor: number, meanCategory: string
 }
 
 test("Trinity detail keeps the dropped star and the rebuilt reward factor", () => {
-  assert.deepEqual([...TRINITY_REWARD_CONTRACTS], ["H3668", "H6910"]);
+  assert.deepEqual([...TRINITY_REWARD_CONTRACTS], ["H3668", "H9179"]);
   const detail = assembleTrinityRewardDetail({
     contractIds: ["H3668"],
     population: new Map([
