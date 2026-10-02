@@ -58,6 +58,18 @@ test("All 30 drops the challenged measures, including both quality improvement m
   }
 });
 
+test("the two extra scenarios drop the requested codes", () => {
+  const five = EXCLUSION_MODELS.find((model) => model.id === "five-c");
+  const plus = EXCLUSION_MODELS.find((model) => model.id === "five-c-plus-d");
+  assert.ok(five && plus);
+  assert.deepEqual(five.codes, ["C15", "C32", "C16", "C04", "C05"]);
+  assert.deepEqual(plus.codes, ["C15", "C32", "C16", "C04", "C05", "D01", "D06", "D08", "D11"]);
+  assert.deepEqual(
+    plus.measures.map((measure) => measure.code),
+    ["C15", "C32", "C16", "C04", "C05", "D01", "D06", "D08", "D11"],
+  );
+});
+
 test("CMS and Clover together drops each list once", () => {
   const combined = EXCLUSION_MODELS.find((model) => model.id === "combined");
   assert.ok(combined);

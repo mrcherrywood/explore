@@ -8,6 +8,7 @@ import type { ExclusionModelReport } from "@/lib/plan-preview/exclusion-model-re
 
 import {
   ExclusionModelsDefinitionsPage,
+  ExclusionModelsExtraPage,
   ExclusionModelsListsPage,
   ExclusionModelsScoresPage,
   ExclusionModelsWhyPage,
@@ -29,7 +30,7 @@ export function ExclusionModelsView({ report }: { report: ExclusionModelReport }
   const scorePages = chunk(report.contracts, 10);
   const whyMeasures = report.models.find((model) => model.id === "all30")?.measures ?? [];
   const whyPages = chunk(whyMeasures, 15);
-  const totalPages = 2 + whyPages.length + scorePages.length;
+  const totalPages = 3 + whyPages.length + scorePages.length;
   const slug = report.parentOrganization.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const fileName = `exclusion-models_${slug}_stars-${report.starsYear}`;
 
@@ -78,12 +79,13 @@ export function ExclusionModelsView({ report }: { report: ExclusionModelReport }
       <div ref={pagesRef} className="flex flex-col items-center gap-6 px-[30px] pb-10">
         <ExclusionModelsDefinitionsPage report={report} pageNumber={1} totalPages={totalPages} />
         <ExclusionModelsListsPage report={report} pageNumber={2} totalPages={totalPages} />
+        <ExclusionModelsExtraPage report={report} pageNumber={3} totalPages={totalPages} />
         {whyPages.map((measures, index) => (
           <ExclusionModelsWhyPage
             key={measures[0]?.name ?? index}
             report={report}
             measures={measures}
-            pageNumber={3 + index}
+            pageNumber={4 + index}
             totalPages={totalPages}
             continued={index > 0}
           />
@@ -93,7 +95,7 @@ export function ExclusionModelsView({ report }: { report: ExclusionModelReport }
             key={contracts[0]?.contractId ?? index}
             report={report}
             contracts={contracts}
-            pageNumber={3 + whyPages.length + index}
+            pageNumber={4 + whyPages.length + index}
             totalPages={totalPages}
             continued={index > 0}
           />

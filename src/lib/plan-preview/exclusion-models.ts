@@ -15,7 +15,15 @@ export type ExclusionMeasure = {
   basis?: string;
 };
 
-export type ExclusionModelId = "cms" | "statutory" | "notice" | "clover" | "combined" | "all30";
+export type ExclusionModelId =
+  | "cms"
+  | "statutory"
+  | "notice"
+  | "clover"
+  | "combined"
+  | "all30"
+  | "five-c"
+  | "five-c-plus-d";
 
 /** CMS June 2026 industry-wide recalculation. Stars 2027 Poly-ACH (D13) is not on this list. */
 export const CMS_RECALC_EXCLUSIONS: ExclusionMeasure[] = [
@@ -152,6 +160,25 @@ function unionMeasures(...groups: ExclusionMeasure[][]): ExclusionMeasure[] {
 
 const combinedMeasures = unionMeasures(CMS_RECALC_EXCLUSIONS, cloverMeasures);
 
+const measureByCode = new Map<string, ExclusionMeasure>();
+for (const measure of [...CMS_RECALC_EXCLUSIONS, ...CLOVER_STATUTORY_EXCLUSIONS, ...CLOVER_NOTICE_EXCLUSIONS]) {
+  if (!measureByCode.has(measure.code)) measureByCode.set(measure.code, measure);
+}
+
+function measuresForCodes(codes: readonly string[]): ExclusionMeasure[] {
+  return codes.map((code) => {
+    const measure = measureByCode.get(code);
+    if (!measure) throw new Error(`Unknown exclusion measure ${code}`);
+    return measure;
+  });
+}
+
+/** C15, C32, C16, C04, and C05. */
+const FIVE_C_CODES = ["C15", "C32", "C16", "C04", "C05"] as const;
+const fiveCMeasures = measuresForCodes(FIVE_C_CODES);
+/** Those five, plus D01, D06, D08, and D11. */
+const fiveCPlusDMeasures = measuresForCodes([...FIVE_C_CODES, "D01", "D06", "D08", "D11"]);
+
 export const EXCLUSION_MODELS: ExclusionModel[] = [
   {
     id: "cms",
@@ -194,6 +221,20 @@ export const EXCLUSION_MODELS: ExclusionModel[] = [
     shortLabel: "All 30",
     measures: ALL_THIRTY_EXCLUSIONS,
     codes: codesOf(ALL_THIRTY_EXCLUSIONS),
+  },
+  {
+    id: "five-c",
+    label: "C15, C32, C16, C04, C05",
+    shortLabel: "Five C",
+    measures: fiveCMeasures,
+    codes: codesOf(fiveCMeasures),
+  },
+  {
+    id: "five-c-plus-d",
+    label: "Five C, plus D01, D06, D08, D11",
+    shortLabel: "Five C + D",
+    measures: fiveCPlusDMeasures,
+    codes: codesOf(fiveCPlusDMeasures),
   },
 ];
 

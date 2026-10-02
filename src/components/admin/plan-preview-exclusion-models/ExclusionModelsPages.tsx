@@ -60,7 +60,7 @@ export function ExclusionModelsDefinitionsPage({
     >
       <ReportSection
         title="How these scores are built"
-        note="Each model drops its measures from every contract, then recalculates the reward factor from the measures that remain. Overall is the weighted mean of those stars, plus that reward factor and CAI. CMS recalc, Statutory, Notice, All Clover, and CMS + Clover keep Part C Quality Improvement and Polypharmacy. All 30 drops both Quality Improvement measures and Polypharmacy. Part D Complaints and Members Choosing to Leave are already left out of Overall, because they repeat the Part C measures."
+        note="Each model drops its measures from every contract, then recalculates the reward factor from the measures that remain. Overall is the weighted mean of those stars, plus that reward factor and CAI. Five C drops C15, C32, C16, C04, and C05. Five C + D drops those five plus D01, D06, D08, and D11. CMS recalc, Statutory, Notice, All Clover, and CMS + Clover keep Part C Quality Improvement and Polypharmacy. All 30 drops both Quality Improvement measures and Polypharmacy. Part D Complaints and Members Choosing to Leave are already left out of Overall, because they repeat the Part C measures."
         style={{ marginTop: 8 }}
       >
         <table className="fep-report-table compact" style={{ fontSize: 9.5 }}>
@@ -101,7 +101,12 @@ export function ExclusionModelsListsPage({
   totalPages: number;
 }) {
   const groups = report.models.filter(
-    (model) => model.id !== "clover" && model.id !== "combined" && model.id !== "all30",
+    (model) =>
+      model.id !== "clover" &&
+      model.id !== "combined" &&
+      model.id !== "all30" &&
+      model.id !== "five-c" &&
+      model.id !== "five-c-plus-d",
   );
   const cms = groups.find((group) => group.id === "cms");
   const cloverGroups = groups.filter((group) => group.id !== "cms");
@@ -129,6 +134,37 @@ export function ExclusionModelsListsPage({
             />
           ))}
         </div>
+      </div>
+    </ReportPageFrame>
+  );
+}
+
+export function ExclusionModelsExtraPage({
+  report,
+  pageNumber,
+  totalPages,
+}: {
+  report: ExclusionModelReport;
+  pageNumber: number;
+  totalPages: number;
+}) {
+  const scenarios = report.models.filter((model) => model.id === "five-c" || model.id === "five-c-plus-d");
+  return (
+    <ReportPageFrame
+      eyebrow={`${report.parentOrganization} · Stars ${report.starsYear}`}
+      title="Two additional scenarios"
+      subtitle="Five C drops five Part C measures. Five C + D drops those five plus four Part D measures."
+      pageNumber={pageNumber}
+      totalPages={totalPages}
+      contractId={report.parentOrganization}
+      starsYear={report.starsYear}
+      generatedAt={report.generatedAt}
+      productLabel={PRODUCT_LABEL}
+    >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginTop: 8 }}>
+        {scenarios.map((group) => (
+          <MeasureList key={group.id} title={group.label} measures={group.measures} />
+        ))}
       </div>
     </ReportPageFrame>
   );
@@ -243,7 +279,7 @@ export function ExclusionModelsScoresPage({
     >
       <ReportSection
         title="Overall after exclusions"
-        note="No exclusions keeps every measure and uses the published reward factor. CMS recalc, Statutory, and Notice drop that group and recalculate the reward factor. All Clover drops both Clover lists. CMS + Clover drops every measure on either list. All 30 drops the 30 challenged measures and recalculates the reward factor."
+        note="No exclusions keeps every measure and uses the published reward factor. CMS recalc, Statutory, and Notice drop that group and recalculate the reward factor. All Clover drops both Clover lists. CMS + Clover drops every measure on either list. All 30 drops the 30 challenged measures and recalculates the reward factor. Five C drops C15, C32, C16, C04, and C05. Five C + D drops those five plus D01, D06, D08, and D11."
         style={{ marginTop: 8 }}
       >
         <table className="fep-report-table compact scores" style={{ fontSize: 8 }}>
