@@ -49,7 +49,7 @@ export function ExclusionModelsTrinityPage({
     >
       <ReportSection
         title="Measures removed"
-        note="No exclusions keeps every measure and uses the published reward-factor cutoffs. Five C drops C15, C32, C16, C04, and C05. Five C + D drops those five plus D01, D06, D08, and D11. Those measures are removed from every contract. The mean and variance below are recalculated on the measures that remain, and the cutoffs are rebuilt from that same market. Overall is the mean, plus the reward factor, plus CAI."
+        note="Five C drops C15, C32, C16, C04, and C05. Five C + D drops those five plus D01, D06, D08, and D11. The mean and variance are recalculated from the measures that remain on this contract. The cutoffs stay the published ones. Overall is the mean, plus the reward factor, plus CAI."
         style={{ marginTop: 8 }}
       >
         <table className="fep-report-table compact" style={{ fontSize: 8.5 }}>

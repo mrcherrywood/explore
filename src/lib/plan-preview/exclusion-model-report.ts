@@ -101,7 +101,9 @@ export function buildExclusionModelReport(input: {
     model,
     scenario: buildCustomRemovalScenario(overlaid, cai, exclusionRemovalCodes(model, baselineYear), {
       preferWithQi: true,
-      useOfficialRewardFactorThresholds: false,
+      // Five C and Five C + D keep the published cutoffs. Only the contract's
+      // mean and variance are recalculated from the measures that remain.
+      useOfficialRewardFactorThresholds: model.id === "five-c" || model.id === "five-c-plus-d",
     }),
   }));
   const baselineByContract = new Map(baselineScenario.contracts.map((row) => [row.contractId, legScore(row)]));
@@ -192,14 +194,14 @@ export function buildExclusionModelReport(input: {
               id: "five-c",
               label: "Five C",
               removedCodes: fiveC.scenario.removedCodes,
-              thresholdsRecomputed: true,
+              thresholdsRecomputed: false,
               result: fiveC.scenario,
             },
             {
               id: "five-c-plus-d",
               label: "Five C + D",
               removedCodes: plus.scenario.removedCodes,
-              thresholdsRecomputed: true,
+              thresholdsRecomputed: false,
               result: plus.scenario,
             },
           ],
