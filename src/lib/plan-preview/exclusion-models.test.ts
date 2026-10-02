@@ -58,16 +58,27 @@ test("All 30 drops the challenged measures, including both quality improvement m
   }
 });
 
-test("the two extra scenarios drop the requested codes", () => {
+test("the two extra scenarios drop the Stars 2027 measures, not the reused code numbers", () => {
   const five = EXCLUSION_MODELS.find((model) => model.id === "five-c");
   const plus = EXCLUSION_MODELS.find((model) => model.id === "five-c-plus-d");
   assert.ok(five && plus);
-  assert.deepEqual(five.codes, ["C15", "C32", "C16", "C04", "C05"]);
-  assert.deepEqual(plus.codes, ["C15", "C32", "C16", "C04", "C05", "D01", "D06", "D08", "D11"]);
   assert.deepEqual(
-    plus.measures.map((measure) => measure.code),
-    ["C15", "C32", "C16", "C04", "C05", "D01", "D06", "D08", "D11"],
+    five.measures.map((measure) => [measure.code, measure.name]),
+    [
+      ["C15", "Reducing the Risk of Falling"],
+      ["C32", "Call Center – Foreign Language Interpreter and TTY Availability (Part C)"],
+      ["C16", "Improving Bladder Control"],
+      ["C04", "Improving or Maintaining Physical Health"],
+      ["C05", "Improving or Maintaining Mental Health"],
+    ],
   );
+  assert.equal(plus.measures.find((measure) => measure.code === "D11")?.name, "Statin Use in Persons with Diabetes (SUPD)");
+  const removed = exclusionRemovalCodes(plus, 2026);
+  assert.equal(removed.length, 9);
+  assert.ok(removed.includes("C33"), removed.join(","));
+  assert.ok(!removed.includes("C32"), removed.join(","));
+  assert.ok(removed.includes("D12"), removed.join(","));
+  assert.ok(!removed.includes("D11"), removed.join(","));
 });
 
 test("CMS and Clover together drops each list once", () => {

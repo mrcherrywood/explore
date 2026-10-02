@@ -176,8 +176,8 @@ export function buildExclusionModelReport(input: {
           names,
           publishedRating: new Map([...overallById].map(([id, row]) => [id, row.finalRating ?? null])),
           drops: plus.model.measures.map((measure) => {
-            const code = exclusionRemovalCodes({ ...plus.model, measures: [measure] }, baselineYear)[0] ?? measure.code;
-            return { code, name: measure.name, inFiveC: fiveCodes.has(code) };
+            const scoringCode = exclusionRemovalCodes({ ...plus.model, measures: [measure] }, baselineYear)[0] ?? measure.code;
+            return { code: measure.code, name: measure.name, scoringCode, inFiveC: fiveCodes.has(scoringCode) };
           }),
           baselineYear,
           scenarios: [

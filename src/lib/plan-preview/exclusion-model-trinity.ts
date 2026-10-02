@@ -82,7 +82,7 @@ export function assembleTrinityRewardDetail(input: {
   officialStars: OfficialStarRow[];
   names: Map<string, string | null>;
   publishedRating: Map<string, number | null>;
-  drops: ReadonlyArray<{ code: string; name: string; inFiveC: boolean }>;
+  drops: ReadonlyArray<{ code: string; name: string; scoringCode?: string; inFiveC: boolean }>;
   baselineYear: number;
   scenarios: readonly TrinityScenarioInput[];
 }): TrinityRewardDetail {
@@ -116,12 +116,13 @@ export function assembleTrinityRewardDetail(input: {
 }
 
 function droppedMeasure(
-  drop: { code: string; name: string; inFiveC: boolean },
+  drop: { code: string; name: string; scoringCode?: string; inFiveC: boolean },
   measures: readonly ContractMeasure[],
   official: readonly OfficialStarRow[],
   baselineYear: number,
 ): TrinityDroppedMeasure {
-  const measure = measures.find((row) => row.code.toUpperCase() === drop.code.toUpperCase());
+  const scoringCode = drop.scoringCode ?? drop.code;
+  const measure = measures.find((row) => row.code.toUpperCase() === scoringCode.toUpperCase());
   const labeled = measure ? officialName(measure, official, baselineYear) : null;
   return {
     code: drop.code,

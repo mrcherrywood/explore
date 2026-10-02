@@ -160,24 +160,33 @@ function unionMeasures(...groups: ExclusionMeasure[][]): ExclusionMeasure[] {
 
 const combinedMeasures = unionMeasures(CMS_RECALC_EXCLUSIONS, cloverMeasures);
 
-const measureByCode = new Map<string, ExclusionMeasure>();
-for (const measure of [...CMS_RECALC_EXCLUSIONS, ...CLOVER_STATUTORY_EXCLUSIONS, ...CLOVER_NOTICE_EXCLUSIONS]) {
-  if (!measureByCode.has(measure.code)) measureByCode.set(measure.code, measure);
+/** Stars 2027 file code, matched by measure name because CMS reuses codes. */
+function stars2027(
+  fileCode: string,
+  name: string,
+  normalized: string,
+): ExclusionMeasure {
+  return { code: fileCode, fileCode, name, normalized };
 }
 
-function measuresForCodes(codes: readonly string[]): ExclusionMeasure[] {
-  return codes.map((code) => {
-    const measure = measureByCode.get(code);
-    if (!measure) throw new Error(`Unknown exclusion measure ${code}`);
-    return measure;
-  });
-}
-
-/** C15, C32, C16, C04, and C05. */
-const FIVE_C_CODES = ["C15", "C32", "C16", "C04", "C05"] as const;
-const fiveCMeasures = measuresForCodes(FIVE_C_CODES);
-/** Those five, plus D01, D06, D08, and D11. */
-const fiveCPlusDMeasures = measuresForCodes([...FIVE_C_CODES, "D01", "D06", "D08", "D11"]);
+/**
+ * Stars 2027 measures. C32 is the Part C call center, not Reviewing Appeals.
+ * D11 is SUPD, not MTM.
+ */
+const FIVE_C_MEASURES: ExclusionMeasure[] = [
+  stars2027("C15", "Reducing the Risk of Falling", "reducing the risk of falling partc"),
+  stars2027("C32", "Call Center – Foreign Language Interpreter and TTY Availability (Part C)", "call center foreign language interpreter and tty availability partc"),
+  stars2027("C16", "Improving Bladder Control", "improving bladder control partc"),
+  stars2027("C04", "Improving or Maintaining Physical Health", "improving or maintaining physical health partc"),
+  stars2027("C05", "Improving or Maintaining Mental Health", "improving or maintaining mental health partc"),
+];
+const FIVE_C_PLUS_D_MEASURES: ExclusionMeasure[] = [
+  ...FIVE_C_MEASURES,
+  stars2027("D01", "Call Center – Foreign Language Interpreter and TTY Availability (Part D)", "call center foreign language interpreter and tty availability partd"),
+  stars2027("D06", "Getting Needed Prescription Drugs", "getting needed prescription drugs partd"),
+  stars2027("D08", "Medication Adherence for Diabetes Medications", "medication adherence for diabetes medications partd"),
+  stars2027("D11", "Statin Use in Persons with Diabetes (SUPD)", "statin use in persons with diabetes supd partd"),
+];
 
 export const EXCLUSION_MODELS: ExclusionModel[] = [
   {
@@ -226,15 +235,15 @@ export const EXCLUSION_MODELS: ExclusionModel[] = [
     id: "five-c",
     label: "C15, C32, C16, C04, C05",
     shortLabel: "Five C",
-    measures: fiveCMeasures,
-    codes: codesOf(fiveCMeasures),
+    measures: FIVE_C_MEASURES,
+    codes: codesOf(FIVE_C_MEASURES),
   },
   {
     id: "five-c-plus-d",
     label: "Five C, plus D01, D06, D08, D11",
     shortLabel: "Five C + D",
-    measures: fiveCPlusDMeasures,
-    codes: codesOf(fiveCPlusDMeasures),
+    measures: FIVE_C_PLUS_D_MEASURES,
+    codes: codesOf(FIVE_C_PLUS_D_MEASURES),
   },
 ];
 
