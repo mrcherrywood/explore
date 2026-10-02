@@ -9,6 +9,8 @@ import {
   EXCLUSION_MODELS,
   exclusionCrosswalk,
   exclusionRemovalCodes,
+  SCENARIO_3_MODEL,
+  SCENARIO_4_MODEL,
 } from "./exclusion-models";
 
 test("exclusion lists match the CMS and Clover counts", () => {
@@ -79,6 +81,30 @@ test("the two extra scenarios drop the Stars 2027 measures, not the reused code 
   assert.ok(!removed.includes("C32"), removed.join(","));
   assert.ok(removed.includes("D12"), removed.join(","));
   assert.ok(!removed.includes("D11"), removed.join(","));
+});
+
+test("scenario 3 and 4 use Stars 2027 measure names", () => {
+  assert.deepEqual(
+    SCENARIO_3_MODEL.measures.map((measure) => measure.code),
+    ["D01", "D06", "D08", "D11"],
+  );
+  assert.equal(SCENARIO_3_MODEL.measures.find((measure) => measure.code === "D11")?.name.includes("SUPD"), true);
+  const scenario3 = exclusionRemovalCodes(SCENARIO_3_MODEL, 2026);
+  assert.deepEqual(scenario3, ["D01", "D06", "D08", "D12"]);
+  assert.ok(!scenario3.includes("D11"));
+
+  const display = SCENARIO_4_MODEL.measures.map((measure) => measure.code);
+  assert.deepEqual(display.slice(0, 13), ["D01", "D02", "D03", "D04", "D05", "D06", "D07", "D08", "D09", "D10", "D11", "D12", "D13"]);
+  assert.deepEqual(display.slice(13), ["C28", "C29", "C30", "C31", "C32"]);
+  assert.ok(!display.includes("C33"));
+  const scenario4 = exclusionRemovalCodes(SCENARIO_4_MODEL, 2026);
+  assert.equal(scenario4.length, display.length);
+  assert.ok(scenario4.includes("C29"), scenario4.join(","));
+  assert.ok(scenario4.includes("C33"), scenario4.join(","));
+  assert.ok(!scenario4.includes("C28"), scenario4.join(","));
+  assert.ok(scenario4.includes("D12"), scenario4.join(","));
+  assert.ok(!scenario4.includes("D11"), scenario4.join(","));
+  assert.ok(scenario4.some((code) => code.startsWith("D:") && code.includes("opioids")), scenario4.join(","));
 });
 
 test("CMS and Clover together drops each list once", () => {

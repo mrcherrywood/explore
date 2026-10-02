@@ -1,7 +1,7 @@
 "use client";
 
 import type { ExclusionModelReport } from "@/lib/plan-preview/exclusion-model-report";
-import type { TrinityContractDetail, TrinityScenarioMath } from "@/lib/plan-preview/exclusion-model-trinity";
+import type { TrinityContractDetail, TrinityDetailPage, TrinityDroppedMeasure, TrinityScenarioMath } from "@/lib/plan-preview/exclusion-model-trinity";
 
 import { ReportPageFrame, ReportSection, formatScore, formatSigned, formatStars } from "../plan-preview-report/report-shared";
 
@@ -23,23 +23,37 @@ function pair(left: number, right: number): string {
   return `${formatScore(left)} / ${formatScore(right)}`;
 }
 
+function dropCell(dropped: boolean, measure: TrinityDroppedMeasure): string {
+  if (!dropped) return "Kept";
+  if (measure.alreadyOutOfOverall) return "Already out";
+  if (!measure.inPopulation || measure.star == null) return "Not rated";
+  return "Dropped";
+}
+
 export function ExclusionModelsTrinityPage({
   report,
   contract,
+  page,
   pageNumber,
   totalPages,
 }: {
   report: ExclusionModelReport;
   contract: TrinityContractDetail;
+  page: TrinityDetailPage;
   pageNumber: number;
   totalPages: number;
 }) {
-  const columns = contract.scenarios;
+  const columns = page.scenarios;
+  const cell = page.dropped.length > 12 ? { paddingTop: 1, paddingBottom: 1 } : CELL;
   return (
     <ReportPageFrame
       eyebrow={`${report.parentOrganization} · Stars ${report.starsYear}`}
       title={contract.contractId}
-      subtitle={contract.contractName ?? "Trinity Health Corporation"}
+      subtitle={
+        page.subtitle
+          ? [contract.contractName, page.subtitle].filter(Boolean).join(" · ")
+          : (contract.contractName ?? "Trinity Health Corporation")
+      }
       pageNumber={pageNumber}
       totalPages={totalPages}
       contractId={contract.contractId}
@@ -49,36 +63,13 @@ export function ExclusionModelsTrinityPage({
     >
       <ReportSection
         title="Measures removed"
-        note="Five C drops C15, C32, C16, C04, and C05. Five C + D drops those five plus D01, D06, D08, and D11. The mean and variance are recalculated from the measures that remain on this contract. The cutoffs stay the published ones. Overall is the mean, plus the reward factor, plus CAI."
+        note={page.note}
         style={{ marginTop: 8 }}
       >
-        <table className="fep-report-table compact" style={{ fontSize: 8.5 }}>
-          <thead>
-            <tr>
-              <th className="l">Measure removed</th>
-              <th>Star</th>
-              <th>Weight</th>
-              <th>Five C</th>
-              <th>Five C + D</th>
-            </tr>
-          </thead>
-          <tbody>
-            {contract.dropped.map((measure) => (
-              <tr key={measure.code}>
-                <td className="l" style={CELL}>
-                  <span style={{ fontWeight: 700 }}>{measure.code}</span> {measure.name}
-                </td>
-                <td style={CELL}>{measure.star == null ? "Not rated" : formatStars(measure.star, Number.isInteger(measure.star) ? 0 : 1)}</td>
-                <td style={CELL}>{measure.weight == null ? "—" : formatScore(measure.weight, Number.isInteger(measure.weight) ? 0 : 1)}</td>
-                <td style={CELL}>{measure.inFiveC ? (measure.star == null ? "Not rated" : "Dropped") : "Kept"}</td>
-                <td style={CELL}>{measure.star == null ? "Not rated" : "Dropped"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <MeasureColumns measures={page.dropped} headers={page.dropHeaders} cell={cell} />
       </ReportSection>
 
-      <ReportSection title="Score buildup" style={{ marginTop: 14 }}>
+      <ReportSection title="Score buildup" style={{ marginTop: page.dropped.length > 12 ? 8 : 14 }}>
         <table className="fep-report-table compact" style={{ fontSize: 8.5 }}>
           <thead>
             <tr>
@@ -112,6 +103,78 @@ export function ExclusionModelsTrinityPage({
         </p>
       </ReportSection>
     </ReportPageFrame>
+  );
+}
+
+function MeasureColumns({
+  measures,
+  headers,
+  cell,
+}: {
+  measures: TrinityDroppedMeasure[];
+  headers: string[];
+  cell: { paddingTop: number; paddingBottom: number };
+}) {
+  const split = measures.length > 12;
+  const midpoint = Math.ceil(measures.length / 2);
+  const columns = split ? [measures.slice(0, midpoint), measures.slice(midpoint)] : [measures];
+  return (
+    <div style={split ? { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } : undefined}>
+      {columns.map((group, groupIndex) => (
+        <MeasureTable
+          key={group[0]?.code ?? groupIndex}
+          measures={group}
+          headers={headers}
+          cell={cell}
+          showWeight={!split}
+        />
+      ))}
+    </div>
+  );
+}
+
+function MeasureTable({
+  measures,
+  headers,
+  cell,
+  showWeight,
+}: {
+  measures: TrinityDroppedMeasure[];
+  headers: string[];
+  cell: { paddingTop: number; paddingBottom: number };
+  showWeight: boolean;
+}) {
+  return (
+    <table className="fep-report-table compact" style={{ fontSize: 8 }}>
+      <thead>
+        <tr>
+          <th className="l">Measure</th>
+          <th>Star</th>
+          {showWeight ? <th>Weight</th> : null}
+          {headers.map((header) => (
+            <th key={header}>{header}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {measures.map((measure) => (
+          <tr key={measure.code}>
+            <td className="l" style={cell}>
+              <span style={{ fontWeight: 700 }}>{measure.code}</span> {measure.name}
+            </td>
+            <td style={cell}>{measure.star == null ? "—" : formatStars(measure.star, Number.isInteger(measure.star) ? 0 : 1)}</td>
+            {showWeight ? (
+              <td style={cell}>{measure.weight == null ? "—" : formatScore(measure.weight, Number.isInteger(measure.weight) ? 0 : 1)}</td>
+            ) : null}
+            {headers.map((header, index) => (
+              <td key={header} style={cell}>
+                {dropCell(measure.columns[index] ?? false, measure)}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

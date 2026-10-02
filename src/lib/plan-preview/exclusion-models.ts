@@ -23,7 +23,9 @@ export type ExclusionModelId =
   | "combined"
   | "all30"
   | "five-c"
-  | "five-c-plus-d";
+  | "five-c-plus-d"
+  | "scenario-3"
+  | "scenario-4";
 
 /** CMS June 2026 industry-wide recalculation. Stars 2027 Poly-ACH (D13) is not on this list. */
 export const CMS_RECALC_EXCLUSIONS: ExclusionMeasure[] = [
@@ -180,12 +182,38 @@ const FIVE_C_MEASURES: ExclusionMeasure[] = [
   stars2027("C04", "Improving or Maintaining Physical Health", "improving or maintaining physical health partc"),
   stars2027("C05", "Improving or Maintaining Mental Health", "improving or maintaining mental health partc"),
 ];
-const FIVE_C_PLUS_D_MEASURES: ExclusionMeasure[] = [
-  ...FIVE_C_MEASURES,
+const PART_D_FOUR_MEASURES: ExclusionMeasure[] = [
   stars2027("D01", "Call Center – Foreign Language Interpreter and TTY Availability (Part D)", "call center foreign language interpreter and tty availability partd"),
   stars2027("D06", "Getting Needed Prescription Drugs", "getting needed prescription drugs partd"),
   stars2027("D08", "Medication Adherence for Diabetes Medications", "medication adherence for diabetes medications partd"),
   stars2027("D11", "Statin Use in Persons with Diabetes (SUPD)", "statin use in persons with diabetes supd partd"),
+];
+const FIVE_C_PLUS_D_MEASURES: ExclusionMeasure[] = [
+  ...FIVE_C_MEASURES,
+  ...PART_D_FOUR_MEASURES,
+];
+/** Stars 2027 Part C ends at C32. There is no C33. */
+const PART_C_C28_THROUGH_C32: ExclusionMeasure[] = [
+  stars2027("C28", "Members Choosing to Leave the Plan", "members choosing to leave the plan partc"),
+  stars2027("C29", "Health Plan Quality Improvement", "health plan quality improvement partc"),
+  stars2027("C30", "Plan Makes Timely Decisions about Appeals", "plan makes timely decisions about appeals partc"),
+  stars2027("C31", "Reviewing Appeals Decisions", "reviewing appeals decisions partc"),
+  stars2027("C32", "Call Center – Foreign Language Interpreter and TTY Availability (Part C)", "call center foreign language interpreter and tty availability partc"),
+];
+const ALL_PART_D_MEASURES: ExclusionMeasure[] = [
+  PART_D_FOUR_MEASURES[0],
+  stars2027("D02", "Complaints about the Drug Plan", "complaints about the drug plan partd"),
+  stars2027("D03", "Members Choosing to Leave the Plan (Part D)", "members choosing to leave the plan partd"),
+  stars2027("D04", "Drug Plan Quality Improvement", "drug plan quality improvement partd"),
+  stars2027("D05", "Rating of Drug Plan", "rating of drug plan partd"),
+  PART_D_FOUR_MEASURES[1],
+  stars2027("D07", "MPF Price Accuracy", "mpf price accuracy partd"),
+  PART_D_FOUR_MEASURES[2],
+  stars2027("D09", "Medication Adherence for Hypertension (RAS antagonists)", "medication adherence for hypertension ras antagonists partd"),
+  stars2027("D10", "Medication Adherence for Cholesterol (Statins)", "medication adherence for cholesterol statins partd"),
+  PART_D_FOUR_MEASURES[3],
+  stars2027("D12", "Concurrent Use of Opioids and Benzodiazepines (COB)", "concurrent use of opioids and benzodiazepines cob"),
+  stars2027("D13", "Polypharmacy: Use of Multiple Anticholinergic Medications in Older Adults (Poly-ACH)", "polypharmacy use of multiple anticholinergic medications in older adults poly ach"),
 ];
 
 export const EXCLUSION_MODELS: ExclusionModel[] = [
@@ -246,6 +274,27 @@ export const EXCLUSION_MODELS: ExclusionModel[] = [
     codes: codesOf(FIVE_C_PLUS_D_MEASURES),
   },
 ];
+
+/** Trinity Scenario 3. Stars 2027 D11 is SUPD. */
+export const SCENARIO_3_MODEL: ExclusionModel = {
+  id: "scenario-3",
+  label: "D01, D06, D08, D11",
+  shortLabel: "Scenario 3",
+  measures: PART_D_FOUR_MEASURES,
+  codes: codesOf(PART_D_FOUR_MEASURES),
+};
+
+/**
+ * Trinity Scenario 4. All Stars 2027 Part D measures, plus C28 through C32.
+ * Stars 2027 has no C33; the Part C call center is C32.
+ */
+export const SCENARIO_4_MODEL: ExclusionModel = {
+  id: "scenario-4",
+  label: "All Part D, plus C28–C32",
+  shortLabel: "Scenario 4",
+  measures: [...ALL_PART_D_MEASURES, ...PART_C_C28_THROUGH_C32],
+  codes: codesOf([...ALL_PART_D_MEASURES, ...PART_C_C28_THROUGH_C32]),
+};
 
 export type ExclusionCrosswalkRow = {
   category: string;

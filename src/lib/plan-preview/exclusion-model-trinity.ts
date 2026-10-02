@@ -13,7 +13,7 @@ export function isTrinityParent(parentOrganization: string): boolean {
   return parentOrganization.trim().toLowerCase() === TRINITY_PARENT_ORGANIZATION.toLowerCase();
 }
 
-export type TrinityScenarioId = "none" | "five-c" | "five-c-plus-d";
+export type TrinityScenarioId = "none" | "five-c" | "five-c-plus-d" | "scenario-3" | "scenario-4";
 
 export type TrinityDroppedMeasure = {
   code: string;
@@ -21,6 +21,21 @@ export type TrinityDroppedMeasure = {
   star: number | null;
   weight: number | null;
   inFiveC: boolean;
+  /** True when this scenario column removes the measure. */
+  columns: boolean[];
+  /** Present in the Overall scoring set for this contract. */
+  inPopulation: boolean;
+  /** Already omitted from Overall before this scenario, such as Part D complaints. */
+  alreadyOutOfOverall: boolean;
+};
+
+export type TrinityDetailPage = {
+  key: string;
+  note: string;
+  subtitle: string | null;
+  dropHeaders: string[];
+  dropped: TrinityDroppedMeasure[];
+  scenarios: TrinityScenarioMath[];
 };
 
 export type TrinityScenarioMath = {
@@ -48,8 +63,10 @@ export type TrinityContractDetail = {
   contractId: string;
   contractName: string | null;
   publishedRating: number | null;
+  /** First page. Kept so existing callers can read the Five C detail directly. */
   dropped: TrinityDroppedMeasure[];
   scenarios: TrinityScenarioMath[];
+  pages: TrinityDetailPage[];
 };
 
 export type TrinityRewardDetail = {
@@ -82,9 +99,10 @@ export function assembleTrinityRewardDetail(input: {
   officialStars: OfficialStarRow[];
   names: Map<string, string | null>;
   publishedRating: Map<string, number | null>;
-  drops: ReadonlyArray<{ code: string; name: string; scoringCode?: string; inFiveC: boolean }>;
+  drops: ReadonlyArray<TrinityDropInput>;
   baselineYear: number;
   scenarios: readonly TrinityScenarioInput[];
+  sections?: readonly TrinitySectionInput[];
 }): TrinityRewardDetail {
   const starsByContract = new Map<string, OfficialStarRow[]>();
   for (const row of input.officialStars) {
@@ -97,39 +115,83 @@ export function assembleTrinityRewardDetail(input: {
   for (const contractId of input.contractIds) {
     const measures = input.population.get(contractId) ?? [];
     const official = starsByContract.get(contractId) ?? [];
-    const scenarios = input.scenarios
-      .map((scenario) => scenarioMath(contractId, scenario))
-      .filter((scenario): scenario is TrinityScenarioMath => scenario !== null);
-    if (scenarios.length === 0) continue;
-    const named = input.scenarios
+    const sections = input.sections ?? [
+      {
+        key: "five",
+        note: "",
+        subtitle: null,
+        dropHeaders: ["Five C", "Five C + D"],
+        drops: input.drops,
+        scenarios: input.scenarios,
+      },
+    ];
+    const pages = sections
+      .map((section) => ({
+        key: section.key,
+        note: section.note,
+        subtitle: section.subtitle,
+        dropHeaders: [...section.dropHeaders],
+        dropped: section.drops.map((drop) => droppedMeasure(drop, measures, official, input.baselineYear)),
+        scenarios: section.scenarios
+          .map((scenario) => scenarioMath(contractId, scenario))
+          .filter((scenario): scenario is TrinityScenarioMath => scenario !== null),
+      }))
+      .filter((page) => page.scenarios.length > 0);
+    if (pages.length === 0) continue;
+    const named = [...input.scenarios, ...sections.flatMap((section) => section.scenarios)]
       .map((scenario) => scenario.result.contracts.find((row) => row.contractId === contractId)?.contractName)
       .find((name) => name);
     contracts.push({
       contractId,
       contractName: named ?? input.names.get(contractId) ?? null,
       publishedRating: input.publishedRating.get(contractId) ?? null,
-      dropped: input.drops.map((drop) => droppedMeasure(drop, measures, official, input.baselineYear)),
-      scenarios,
+      dropped: pages[0].dropped,
+      scenarios: pages[0].scenarios,
+      pages,
     });
   }
   return { contracts };
 }
 
+type TrinityDropInput = {
+  code: string;
+  name: string;
+  scoringCode?: string;
+  normalized?: string;
+  inFiveC?: boolean;
+  columns?: boolean[];
+  alreadyOutOfOverall?: boolean;
+};
+
+type TrinitySectionInput = {
+  key: string;
+  note: string;
+  subtitle: string | null;
+  dropHeaders: string[];
+  drops: readonly TrinityDropInput[];
+  scenarios: readonly TrinityScenarioInput[];
+};
+
 function droppedMeasure(
-  drop: { code: string; name: string; scoringCode?: string; inFiveC: boolean },
+  drop: TrinityDropInput,
   measures: readonly ContractMeasure[],
   official: readonly OfficialStarRow[],
   baselineYear: number,
 ): TrinityDroppedMeasure {
   const scoringCode = drop.scoringCode ?? drop.code;
   const measure = measures.find((row) => row.code.toUpperCase() === scoringCode.toUpperCase());
-  const labeled = measure ? officialName(measure, official, baselineYear) : null;
+  const officialMatch = official.find((row) => drop.normalized && row.measureNormalized === drop.normalized);
+  const labeled = measure ? officialName(measure, official, baselineYear) : officialMatch?.measureDisplayName ?? null;
+  const star = measure?.starValue ?? (officialMatch?.status === "scored" ? officialMatch.star : null);
   return {
     code: drop.code,
     name: labeled ?? drop.name,
-    star: measure?.starValue ?? null,
+    star,
     weight: measure?.weight ?? null,
-    inFiveC: drop.inFiveC,
+    inFiveC: drop.inFiveC ?? drop.columns?.[0] ?? false,
+    columns: drop.columns ?? [Boolean(drop.inFiveC), true],
+    inPopulation: Boolean(measure),
+    alreadyOutOfOverall: drop.alreadyOutOfOverall ?? false,
   };
 }
 

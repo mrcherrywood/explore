@@ -32,7 +32,10 @@ export function ExclusionModelsView({ report }: { report: ExclusionModelReport }
   const whyMeasures = report.models.find((model) => model.id === "all30")?.measures ?? [];
   const whyPages = chunk(whyMeasures, 15);
   const trinityContracts = report.trinityDetail?.contracts ?? [];
-  const leadPages = 3 + trinityContracts.length;
+  const trinitySheets = trinityContracts.flatMap((contract) =>
+    contract.pages.map((page) => ({ contract, page })),
+  );
+  const leadPages = 3 + trinitySheets.length;
   const totalPages = leadPages + whyPages.length + scorePages.length;
   const slug = report.parentOrganization.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const fileName = `exclusion-models_${slug}_stars-${report.starsYear}`;
@@ -83,11 +86,12 @@ export function ExclusionModelsView({ report }: { report: ExclusionModelReport }
         <ExclusionModelsDefinitionsPage report={report} pageNumber={1} totalPages={totalPages} />
         <ExclusionModelsListsPage report={report} pageNumber={2} totalPages={totalPages} />
         <ExclusionModelsExtraPage report={report} pageNumber={3} totalPages={totalPages} />
-        {trinityContracts.map((contract, index) => (
+        {trinitySheets.map((sheet, index) => (
           <ExclusionModelsTrinityPage
-            key={contract.contractId}
+            key={`${sheet.contract.contractId}-${sheet.page.key}`}
             report={report}
-            contract={contract}
+            contract={sheet.contract}
+            page={sheet.page}
             pageNumber={4 + index}
             totalPages={totalPages}
           />

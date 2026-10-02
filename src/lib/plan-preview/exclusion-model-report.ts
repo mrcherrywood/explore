@@ -8,6 +8,8 @@ import {
   type ExclusionCrosswalkRow,
   type ExclusionModel,
   type ExclusionModelId,
+  SCENARIO_3_MODEL,
+  SCENARIO_4_MODEL,
 } from "./exclusion-models";
 import {
   buildAnchoredPopulation,
@@ -54,9 +56,19 @@ export type ExclusionModelReport = {
   crosswalk: ExclusionCrosswalkRow[];
   contracts: ExclusionModelContract[];
   excluded: Array<{ contractId: string; contractName: string | null; reason: string }>;
-  /** Present only for Trinity. Explains Five C and Five C + D for H3668 and H9179. */
+  /** Present only for Trinity. Explains the four scenarios for H3668 and H9179. */
   trinityDetail: TrinityRewardDetail | null;
 };
+
+function noneScenario(result: ReturnType<typeof buildCustomRemovalScenario>) {
+  return {
+    id: "none" as const,
+    label: "No exclusions",
+    removedCodes: [] as string[],
+    thresholdsRecomputed: false,
+    result,
+  };
+}
 
 function legScore(row: PlanPreviewFinalScore): ExclusionModelScoreValue | null {
   if (row.finalScoreRaw == null || row.finalRating == null) return null;
@@ -169,8 +181,26 @@ export function buildExclusionModelReport(input: {
   const fiveC = modelScenarios.find((row) => row.model.id === "five-c");
   const plus = modelScenarios.find((row) => row.model.id === "five-c-plus-d");
   const fiveCodes = new Set(fiveC?.scenario.removedCodes ?? []);
+  const scenario3Codes = exclusionRemovalCodes(SCENARIO_3_MODEL, baselineYear);
+  const scenario4Codes = exclusionRemovalCodes(SCENARIO_4_MODEL, baselineYear);
+  // Stars 2027 has no MTM. The scorer switches to the Part C CAI only when every
+  // legacy Part D code, including D11, is in the removal set. D11 is not a 2027 measure.
+  const scenario4Removal = scenario4Codes.includes("D11") ? scenario4Codes : [...scenario4Codes, "D11"];
+  const scenario3 = isTrinityParent(parent)
+    ? buildCustomRemovalScenario(overlaid, cai, scenario3Codes, {
+        preferWithQi: true,
+        useOfficialRewardFactorThresholds: true,
+      })
+    : null;
+  const scenario4 = isTrinityParent(parent)
+    ? buildCustomRemovalScenario(overlaid, cai, scenario4Removal, {
+        preferWithQi: true,
+        useOfficialRewardFactorThresholds: true,
+      })
+    : null;
+  const scenario3Set = new Set(scenario3Codes);
   const trinityDetail =
-    isTrinityParent(parent) && fiveC && plus
+    isTrinityParent(parent) && fiveC && plus && scenario3 && scenario4
       ? assembleTrinityRewardDetail({
           contractIds: TRINITY_REWARD_CONTRACTS,
           population,
@@ -203,6 +233,77 @@ export function buildExclusionModelReport(input: {
               removedCodes: plus.scenario.removedCodes,
               thresholdsRecomputed: false,
               result: plus.scenario,
+            },
+          ],
+          sections: [
+            {
+              key: "five",
+              note: "Five C drops C15, C32, C16, C04, and C05. Five C + D drops those five plus D01, D06, D08, and D11. The mean and variance are recalculated from the measures that remain on this contract. The cutoffs stay the published ones. Overall is the mean, plus the reward factor, plus CAI.",
+              subtitle: null,
+              dropHeaders: ["Five C", "Five C + D"],
+              drops: plus.model.measures.map((measure) => {
+                const scoringCode = exclusionRemovalCodes({ ...plus.model, measures: [measure] }, baselineYear)[0] ?? measure.code;
+                return {
+                  code: measure.code,
+                  name: measure.name,
+                  scoringCode,
+                  normalized: measure.normalized,
+                  inFiveC: fiveCodes.has(scoringCode),
+                  columns: [fiveCodes.has(scoringCode), true],
+                };
+              }),
+              scenarios: [
+                noneScenario(baselineScenario),
+                {
+                  id: "five-c" as const,
+                  label: "Five C",
+                  removedCodes: fiveC.scenario.removedCodes,
+                  thresholdsRecomputed: false,
+                  result: fiveC.scenario,
+                },
+                {
+                  id: "five-c-plus-d" as const,
+                  label: "Five C + D",
+                  removedCodes: plus.scenario.removedCodes,
+                  thresholdsRecomputed: false,
+                  result: plus.scenario,
+                },
+              ],
+            },
+            {
+              key: "part-d",
+              note: `Scenario 3 drops D01, D06, D08, and D11. Scenario 4 drops every Part D measure, D01 through D13, plus C28 through C32. Stars 2027 has no C33; C32 is the Part C call center, and D11 is SUPD. D02 and D03 are already left out of Overall. The mean and variance are recalculated from the measures that remain. The cutoffs stay the published ones.${scenario4.caiSource === "part_c" ? " Scenario 4 leaves no Part D measure in Overall, so the Part C CAI is used." : ""}`,
+              subtitle: "Scenario 3 and Scenario 4",
+              dropHeaders: ["Scenario 3", "Scenario 4"],
+              drops: SCENARIO_4_MODEL.measures.map((measure) => {
+                const scoringCode =
+                  exclusionRemovalCodes({ ...SCENARIO_4_MODEL, measures: [measure] }, baselineYear)[0] ?? measure.code;
+                return {
+                  code: measure.code,
+                  name: measure.name,
+                  scoringCode,
+                  normalized: measure.normalized,
+                  columns: [scenario3Set.has(scoringCode), true],
+                  alreadyOutOfOverall: measure.code === "D02" || measure.code === "D03",
+                };
+              }),
+              scenarios: [
+                noneScenario(baselineScenario),
+                {
+                  id: "scenario-3" as const,
+                  label: "Scenario 3",
+                  removedCodes: scenario3.removedCodes,
+                  thresholdsRecomputed: false,
+                  result: scenario3,
+                },
+                {
+                  id: "scenario-4" as const,
+                  label: "Scenario 4",
+                  removedCodes: scenario4.removedCodes,
+                  thresholdsRecomputed: false,
+                  result: scenario4,
+                },
+              ],
             },
           ],
         })
