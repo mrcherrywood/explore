@@ -16,6 +16,12 @@ import {
 } from "./final-scores";
 import { caiFromOfficialSummaries, overlayOfficialStarsOnPredictions } from "./official-scenarios";
 import type { PlanPreviewPredictionsResult } from "./predictions";
+import {
+  assembleTrinityRewardDetail,
+  isTrinityParent,
+  TRINITY_REWARD_CONTRACTS,
+  type TrinityRewardDetail,
+} from "./exclusion-model-trinity";
 import type { OfficialStarRow, OfficialSummaryRow } from "./store-official";
 
 export type ExclusionModelScoreValue = {
@@ -48,6 +54,8 @@ export type ExclusionModelReport = {
   crosswalk: ExclusionCrosswalkRow[];
   contracts: ExclusionModelContract[];
   excluded: Array<{ contractId: string; contractName: string | null; reason: string }>;
+  /** Present only for Trinity. Explains Five C and Five C + D for the two rewarded contracts. */
+  trinityDetail: TrinityRewardDetail | null;
 };
 
 function legScore(row: PlanPreviewFinalScore): ExclusionModelScoreValue | null {
@@ -85,17 +93,21 @@ export function buildExclusionModelReport(input: {
   const population = buildAnchoredPopulation(overlaid, baselineYear);
   const enrollment = loadLatestEnrollment();
   const cai = caiFromOfficialSummaries(input.officialSummaries);
-  const scoreByContract = (removedCodes: readonly string[], useOfficialRewardFactorThresholds: boolean) => {
-    const scenario = buildCustomRemovalScenario(overlaid, cai, removedCodes, {
+  const baselineScenario = buildCustomRemovalScenario(overlaid, cai, [], {
+    preferWithQi: true,
+    useOfficialRewardFactorThresholds: true,
+  });
+  const modelScenarios = EXCLUSION_MODELS.map((model) => ({
+    model,
+    scenario: buildCustomRemovalScenario(overlaid, cai, exclusionRemovalCodes(model, baselineYear), {
       preferWithQi: true,
-      useOfficialRewardFactorThresholds,
-    });
-    return new Map(scenario.contracts.map((row) => [row.contractId, legScore(row)]));
-  };
-  const baselineByContract = scoreByContract([], true);
-  const modelScores = EXCLUSION_MODELS.map((model) => ({
+      useOfficialRewardFactorThresholds: false,
+    }),
+  }));
+  const baselineByContract = new Map(baselineScenario.contracts.map((row) => [row.contractId, legScore(row)]));
+  const modelScores = modelScenarios.map(({ model, scenario }) => ({
     id: model.id,
-    byContract: scoreByContract(exclusionRemovalCodes(model, baselineYear), false),
+    byContract: new Map(scenario.contracts.map((row) => [row.contractId, legScore(row)])),
   }));
   const parentIds = new Set<string>();
   const names = new Map<string, string | null>();
@@ -152,6 +164,48 @@ export function buildExclusionModelReport(input: {
     );
   }
 
+  const fiveC = modelScenarios.find((row) => row.model.id === "five-c");
+  const plus = modelScenarios.find((row) => row.model.id === "five-c-plus-d");
+  const fiveCodes = new Set(fiveC?.scenario.removedCodes ?? []);
+  const trinityDetail =
+    isTrinityParent(parent) && fiveC && plus
+      ? assembleTrinityRewardDetail({
+          contractIds: TRINITY_REWARD_CONTRACTS,
+          population,
+          officialStars: input.officialStars,
+          names,
+          publishedRating: new Map([...overallById].map(([id, row]) => [id, row.finalRating ?? null])),
+          drops: plus.model.measures.map((measure) => {
+            const code = exclusionRemovalCodes({ ...plus.model, measures: [measure] }, baselineYear)[0] ?? measure.code;
+            return { code, name: measure.name, inFiveC: fiveCodes.has(code) };
+          }),
+          baselineYear,
+          scenarios: [
+            {
+              id: "none",
+              label: "No exclusions",
+              removedCodes: [],
+              thresholdsRecomputed: false,
+              result: baselineScenario,
+            },
+            {
+              id: "five-c",
+              label: "Five C",
+              removedCodes: fiveC.scenario.removedCodes,
+              thresholdsRecomputed: true,
+              result: fiveC.scenario,
+            },
+            {
+              id: "five-c-plus-d",
+              label: "Five C + D",
+              removedCodes: plus.scenario.removedCodes,
+              thresholdsRecomputed: true,
+              result: plus.scenario,
+            },
+          ],
+        })
+      : null;
+
   return {
     starsYear,
     parentOrganization: parent,
@@ -161,5 +215,6 @@ export function buildExclusionModelReport(input: {
     crosswalk: exclusionCrosswalk(),
     contracts,
     excluded,
+    trinityDetail,
   };
 }
