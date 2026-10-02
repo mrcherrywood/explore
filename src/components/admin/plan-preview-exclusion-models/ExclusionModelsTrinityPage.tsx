@@ -1,11 +1,7 @@
 "use client";
 
 import type { ExclusionModelReport } from "@/lib/plan-preview/exclusion-model-report";
-import {
-  rewardFactorReason,
-  type TrinityContractDetail,
-  type TrinityScenarioMath,
-} from "@/lib/plan-preview/exclusion-model-trinity";
+import type { TrinityContractDetail, TrinityScenarioMath } from "@/lib/plan-preview/exclusion-model-trinity";
 
 import { ReportPageFrame, ReportSection, formatScore, formatSigned, formatStars } from "../plan-preview-report/report-shared";
 
@@ -112,7 +108,7 @@ export function ExclusionModelsTrinityPage({
         </table>
         <p className="fep-report-section-note" style={{ marginTop: 8 }}>
           Published Overall is {formatStars(contract.publishedRating, 1)}.{" "}
-          {columns.map((column) => `${column.label}: ${rewardFactorReason(column)}`).join(" ")}
+          {columns.map((column) => `${column.label}: ${column.reason}`).join(" ")}
         </p>
       </ReportSection>
     </ReportPageFrame>

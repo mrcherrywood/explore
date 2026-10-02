@@ -99,6 +99,7 @@ test("Trinity detail keeps the dropped star and the rebuilt reward factor", () =
   assert.equal(contract.dropped[0]?.star, 2);
   assert.equal(contract.scenarios[0]?.rewardFactor, 0.1);
   assert.equal(contract.scenarios[0]?.keptCount, 2);
+  assert.match(contract.scenarios[0]?.reason ?? "", /relatively high mean and medium variance produce a 0.1/);
   assert.match(rewardFactorReason(contract.scenarios[0]), /relatively high mean and medium variance produce a 0.1/);
 });
 

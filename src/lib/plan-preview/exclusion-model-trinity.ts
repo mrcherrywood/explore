@@ -40,6 +40,8 @@ export type TrinityScenarioMath = {
   finalScoreRaw: number;
   finalRating: number;
   thresholdsRecomputed: boolean;
+  /** Plain-language reason for this reward factor. Computed on the server so the page stays free of Node imports. */
+  reason: string;
 };
 
 export type TrinityContractDetail = {
@@ -152,7 +154,7 @@ function scenarioMath(contractId: string, scenario: TrinityScenarioInput): Trini
   const leg = row.selectedLeg === "with_qi" ? row.withQi : row.withoutQi;
   const thresholds = row.selectedLeg === "with_qi" ? scenario.result.thresholds.withQi : scenario.result.thresholds.withoutQi;
   if (!leg || !thresholds) return null;
-  return {
+  const math = {
     id: scenario.id,
     label: scenario.label,
     keptCount: leg.measureCount,
@@ -170,5 +172,6 @@ function scenarioMath(contractId: string, scenario: TrinityScenarioInput): Trini
     finalRating: row.finalRating,
     thresholdsRecomputed: scenario.thresholdsRecomputed,
   };
+  return { ...math, reason: rewardFactorReason(math) };
 }
 
