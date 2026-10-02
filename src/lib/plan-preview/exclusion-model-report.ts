@@ -272,7 +272,7 @@ export function buildExclusionModelReport(input: {
             },
             {
               key: "part-d",
-              note: `Scenario 3 drops D01, D06, D08, and D11. Scenario 4 drops every Part D measure, D01 through D13, plus C28 through C32. Stars 2027 has no C33; C32 is the Part C call center, and D11 is SUPD. D02 and D03 are already left out of Overall. The mean and variance are recalculated from the measures that remain. The cutoffs stay the published ones.${scenario4.caiSource === "part_c" ? " Scenario 4 leaves no Part D measure in Overall, so the Part C CAI is used." : ""}`,
+              note: `Scenario 3 drops D01, D06, D08, and D11. Scenario 4 drops every Part D measure, D01 through D13, plus C28 through C32. The mean and variance are recalculated from the measures that remain. The cutoffs stay the published ones.${scenario4.caiSource === "part_c" ? " Scenario 4 leaves no Part D measure in Overall, so the Part C CAI is used." : ""}`,
               subtitle: "Scenario 3 and Scenario 4",
               dropHeaders: ["Scenario 3", "Scenario 4"],
               drops: SCENARIO_4_MODEL.measures.map((measure) => {
